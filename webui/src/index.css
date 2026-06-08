@@ -1,0 +1,38 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+  font-family:
+    "IBM Plex Sans",
+    "Segoe UI",
+    sans-serif;
+  background:
+    radial-gradient(circle at top left, rgba(34, 211, 238, 0.12), transparent 28%),
+    radial-gradient(circle at top right, rgba(14, 165, 233, 0.12), transparent 24%),
+    linear-gradient(180deg, #020617 0%, #0f172a 100%);
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  background: transparent;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+@layer components {
+  .bg-app {
+    background:
+      radial-gradient(circle at top left, rgba(8, 145, 178, 0.18), transparent 30%),
+      radial-gradient(circle at bottom right, rgba(15, 23, 42, 0.4), transparent 32%),
+      linear-gradient(180deg, #020617 0%, #0f172a 52%, #111827 100%);
+  }
+
+  .panel {
+    @apply rounded-[28px] border border-white/10 bg-slate-900/65 shadow-2xl shadow-slate-950/30 backdrop-blur;
+  }
+}
