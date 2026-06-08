@@ -22,6 +22,7 @@ from rich.align import Align
 from rich.rule import Rule
 
 from tradingagents.graph.trading_graph import TradingAgentsGraph
+from tradingagents.astock import build_blueprint_markdown
 from tradingagents.graph.analyst_execution import (
     AnalystWallTimeTracker,
     build_analyst_execution_plan,
@@ -1303,6 +1304,12 @@ def analyze(
         n = clear_all_checkpoints(DEFAULT_CONFIG["data_cache_dir"])
         console.print(f"[yellow]Cleared {n} checkpoint(s).[/yellow]")
     run_analysis(checkpoint=checkpoint)
+
+
+@app.command("astock-blueprint")
+def astock_blueprint():
+    """Print the A-stock capability blueprint extracted from the image set."""
+    console.print(build_blueprint_markdown())
 
 
 if __name__ == "__main__":

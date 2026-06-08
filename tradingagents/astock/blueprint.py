@@ -1,0 +1,328 @@
+"""A-share requirements blueprint derived from the provided image set.
+
+The screenshots describe an A-stock assistant with five layers:
+market, research, news, fundamentals, and announcements. The same material
+also splits the system into three delivery phases:
+backtesting, simulated trading, and QMT-linked live trading.
+
+This module turns that presentation into structured data so the project can
+consume it as a machine-readable capability catalog instead of only a slide
+deck.
+"""
+
+from __future__ import annotations
+
+from dataclasses import asdict, dataclass, field
+
+
+@dataclass(frozen=True)
+class AStockCapability:
+    """One concrete A-share capability exposed by the blueprint."""
+
+    layer: str
+    name: str
+    source_candidates: tuple[str, ...]
+    access_mode: str
+    notes: tuple[str, ...] = field(default_factory=tuple)
+
+
+@dataclass(frozen=True)
+class AStockLayer:
+    """A user-facing layer in the A-share stack."""
+
+    name: str
+    summary: str
+    capabilities: tuple[AStockCapability, ...]
+
+
+@dataclass(frozen=True)
+class AStockPhase:
+    """A rollout phase shown in the slide deck."""
+
+    name: str
+    objective: str
+    highlights: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class AStockBlueprint:
+    """The full A-share capability blueprint."""
+
+    title: str
+    subtitle: str
+    disclaimer: str
+    tech_stack: tuple[str, ...]
+    layers: tuple[AStockLayer, ...]
+    phases: tuple[AStockPhase, ...]
+
+    def capability_count(self) -> int:
+        return sum(len(layer.capabilities) for layer in self.layers)
+
+    def payload(self) -> dict:
+        return {
+            "title": self.title,
+            "subtitle": self.subtitle,
+            "disclaimer": self.disclaimer,
+            "tech_stack": list(self.tech_stack),
+            "capability_count": self.capability_count(),
+            "layers": [
+                {
+                    "name": layer.name,
+                    "summary": layer.summary,
+                    "capabilities": [asdict(cap) for cap in layer.capabilities],
+                }
+                for layer in self.layers
+            ],
+            "phases": [asdict(phase) for phase in self.phases],
+        }
+
+
+ASTOCK_BLUEPRINT = AStockBlueprint(
+    title="TradingAgents-Astock",
+    subtitle="A股辅助看盘系统蓝图",
+    disclaimer="本内容仅用于辅助看盘、研究与工程实现，不构成任何投资建议或交易承诺。",
+    tech_stack=(
+        "VS Code + GitHub Copilot",
+        "Claude Code",
+        "DeepSeek V4 Pro",
+        "Python 3.12",
+        "Jinja2 / 原生 JS",
+        "Backtrader",
+        "Flask",
+        "Matplotlib / Chart.js",
+        "pandas / numpy",
+        "python-pptx",
+        "WSGI Flask 内置服务器",
+    ),
+    layers=(
+        AStockLayer(
+            name="行情层",
+            summary="用于盘面、盘口与估值观察的第一层行情输入。",
+            capabilities=(
+                AStockCapability(
+                    layer="行情层",
+                    name="K线",
+                    source_candidates=("mootdx", "腾讯财经", "akshare"),
+                    access_mode="pip install / HTTP GET / Python 调用",
+                    notes=("覆盖日线、分钟线等常用 K 线观察需求",),
+                ),
+                AStockCapability(
+                    layer="行情层",
+                    name="五档盘口",
+                    source_candidates=("mootdx", "腾讯财经"),
+                    access_mode="TCP 协议 / HTTP GET",
+                    notes=("适合盘中快速观察委托簿",),
+                ),
+                AStockCapability(
+                    layer="行情层",
+                    name="逐笔成交",
+                    source_candidates=("mootdx", "腾讯财经"),
+                    access_mode="TCP 协议 / HTTP GET",
+                    notes=("用于识别大单、扫单与盘口博弈",),
+                ),
+                AStockCapability(
+                    layer="行情层",
+                    name="PE / PB",
+                    source_candidates=("akshare", "mootdx"),
+                    access_mode="Python 调用",
+                    notes=("估值类指标，便于横向比较",),
+                ),
+                AStockCapability(
+                    layer="行情层",
+                    name="市值",
+                    source_candidates=("akshare", "mootdx"),
+                    access_mode="Python 调用",
+                    notes=("用于区分大盘股、中盘股与题材股",),
+                ),
+                AStockCapability(
+                    layer="行情层",
+                    name="换手率",
+                    source_candidates=("akshare", "腾讯财经", "mootdx"),
+                    access_mode="HTTP GET / Python 调用",
+                    notes=("观察流动性与筹码活跃度",),
+                ),
+            ),
+        ),
+        AStockLayer(
+            name="研报层",
+            summary="聚焦机构研报、研报摘要与语义搜索。",
+            capabilities=(
+                AStockCapability(
+                    layer="研报层",
+                    name="研报列表",
+                    source_candidates=("东方财富", "akshare"),
+                    access_mode="HTTP GET / Python 调用",
+                    notes=("用于发现最新机构观点",),
+                ),
+                AStockCapability(
+                    layer="研报层",
+                    name="PDF 下载",
+                    source_candidates=("东方财富", "akshare"),
+                    access_mode="HTTP GET",
+                    notes=("便于离线阅读与归档",),
+                ),
+                AStockCapability(
+                    layer="研报层",
+                    name="机构预期",
+                    source_candidates=("iwencai", "tushare", "akshare"),
+                    access_mode="REST API / Python 调用",
+                    notes=("适合做一致预期与盈利预期跟踪",),
+                ),
+                AStockCapability(
+                    layer="研报层",
+                    name="NL 语义搜索",
+                    source_candidates=("iwencai",),
+                    access_mode="REST API",
+                    notes=("适合自然语言检索研究主题与标的",),
+                ),
+            ),
+        ),
+        AStockLayer(
+            name="新闻层",
+            summary="覆盖个股新闻、快讯和宏观外部资讯。",
+            capabilities=(
+                AStockCapability(
+                    layer="新闻层",
+                    name="个股新闻",
+                    source_candidates=("akshare", "腾讯财经"),
+                    access_mode="HTTP GET",
+                    notes=("适合事件驱动的题材追踪",),
+                ),
+                AStockCapability(
+                    layer="新闻层",
+                    name="财联社快讯",
+                    source_candidates=("akshare", "财联社公开源"),
+                    access_mode="HTTP GET",
+                    notes=("适合盘中快讯与题材异动",),
+                ),
+                AStockCapability(
+                    layer="新闻层",
+                    name="全球资讯",
+                    source_candidates=("akshare", "外部宏观源"),
+                    access_mode="HTTP GET",
+                    notes=("用于宏观与海外市场联动观察",),
+                ),
+            ),
+        ),
+        AStockLayer(
+            name="基础数据",
+            summary="覆盖财务报表、F10 和基本面信息。",
+            capabilities=(
+                AStockCapability(
+                    layer="基础数据",
+                    name="季报 37 字段",
+                    source_candidates=("akshare", "tushare"),
+                    access_mode="Python 调用",
+                    notes=("用于财务趋势、盈利质量和资产负债分析",),
+                ),
+                AStockCapability(
+                    layer="基础数据",
+                    name="F10 九大类",
+                    source_candidates=("mootdx", "akshare"),
+                    access_mode="Python 调用",
+                    notes=("便于快速查看公司概览、股东、财务与行业信息",),
+                ),
+                AStockCapability(
+                    layer="基础数据",
+                    name="基本面",
+                    source_candidates=("tushare", "akshare"),
+                    access_mode="Python 调用",
+                    notes=("用于形成长期和中期的基本面画像",),
+                ),
+            ),
+        ),
+        AStockLayer(
+            name="公告层",
+            summary="覆盖公告全文与摘要，适合盘后复盘与风险提示。",
+            capabilities=(
+                AStockCapability(
+                    layer="公告层",
+                    name="公告全文",
+                    source_candidates=("巨潮资讯", "mootdx"),
+                    access_mode="HTTP GET",
+                    notes=("适合查看原始公告、异动说明与重大事项",),
+                ),
+                AStockCapability(
+                    layer="公告层",
+                    name="最新摘要",
+                    source_candidates=("巨潮资讯", "mootdx"),
+                    access_mode="HTTP GET",
+                    notes=("用于快速提炼公告核心风险点",),
+                ),
+            ),
+        ),
+    ),
+    phases=(
+        AStockPhase(
+            name="回测验证",
+            objective="先验证选股、策略打分与风控是否在历史数据上成立。",
+            highlights=(
+                "2023.01 -> 2026.05",
+                "Backtrader 周期调仓",
+                "避免行情匹配但策略亏钱",
+                "完整费用率与滑点模拟",
+            ),
+        ),
+        AStockPhase(
+            name="模拟盘试跑",
+            objective="在真实盘面下验证调度、虚拟成交和实时告警。",
+            highlights=(
+                "2026 年 5 月起运行",
+                "完整交易引擎",
+                "调度器定时调仓",
+                "SSE 流式实时进度",
+            ),
+        ),
+        AStockPhase(
+            name="实盘出击",
+            objective="通过 QMT 桥接到真实交易，但默认保持人工确认。",
+            highlights=(
+                "安全模式默认开启",
+                "人工确认后下单",
+                "QMT 桥接执行",
+                "ATR 动态止损 + 跟踪止盈",
+            ),
+        ),
+    ),
+)
+
+
+def build_blueprint_payload() -> dict:
+    """Return the blueprint as a JSON-serializable dictionary."""
+    return ASTOCK_BLUEPRINT.payload()
+
+
+def build_blueprint_markdown() -> str:
+    """Render the A-stock blueprint as Markdown for CLI or docs output."""
+    payload = build_blueprint_payload()
+    lines = [
+        f"# {payload['title']}",
+        "",
+        payload["subtitle"],
+        "",
+        f"## 能力覆盖",
+        f"- {payload['capability_count']} 个能力点覆盖",
+        "- 截图里提到的 13 个接口，这里按五层能力展开为可实现的 18 个能力点，便于拆分开发与落地。",
+        "",
+        f"## 免责声明",
+        f"- {payload['disclaimer']}",
+        "",
+        "## 研发栈",
+    ]
+    lines.extend(f"- {item}" for item in payload["tech_stack"])
+    lines.append("")
+    lines.append("## 五层能力")
+    for layer in payload["layers"]:
+        lines.append(f"### {layer['name']}")
+        lines.append(f"- {layer['summary']}")
+        for cap in layer["capabilities"]:
+            sources = " / ".join(cap["source_candidates"])
+            lines.append(f"  - {cap['name']}: {sources} ({cap['access_mode']})")
+    lines.append("")
+    lines.append("## 三阶段落地")
+    for phase in payload["phases"]:
+        lines.append(f"### {phase['name']}")
+        lines.append(f"- {phase['objective']}")
+        for item in phase["highlights"]:
+            lines.append(f"  - {item}")
+    return "\n".join(lines)

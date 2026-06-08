@@ -76,6 +76,11 @@ DEFAULT_CONFIG = _apply_env_overrides({
     # Output language for analyst reports and final decision
     # Internal agent debate stays in English for reasoning quality
     "output_language": "English",
+    # Market profile / session hint used by downstream A-stock extensions.
+    # Existing flows ignore it, but it gives the project a clean place to
+    # distinguish US / A-share / mixed workflows without breaking callers.
+    "market_profile": "global",
+    "session_type": "analysis",
     # Debate and discussion settings
     "max_debate_rounds": 1,
     "max_risk_discuss_rounds": 1,
@@ -120,11 +125,13 @@ DEFAULT_CONFIG = _apply_env_overrides({
         ".BO":  "^BSESN",      # BSE India (Sensex)
         ".T":   "^N225",       # Tokyo (Nikkei 225)
         ".HK":  "^HSI",        # Hong Kong (Hang Seng)
+        ".SH":  "000001.SS",   # Shanghai / A-share generic
+        ".SZ":  "399001.SZ",   # Shenzhen / A-share generic
+        ".BJ":  "000001.SS",   # Beijing market fallback
         ".L":   "^FTSE",       # London (FTSE 100)
         ".TO":  "^GSPTSE",     # Toronto (TSX Composite)
         ".AX":  "^AXJO",       # Australia (ASX 200)
         ".SS":  "000001.SS",   # Shanghai (SSE Composite)
-        ".SZ":  "399001.SZ",   # Shenzhen (SZSE Component)
         "":     "SPY",         # default for US-listed tickers (no suffix)
     },
 })

@@ -1,4 +1,5 @@
 import os
+import re
 from pathlib import Path
 from typing import List, Optional, Tuple, Dict
 
@@ -12,7 +13,7 @@ from tradingagents.llm_clients.model_catalog import get_model_options
 
 console = Console()
 
-TICKER_INPUT_EXAMPLES = "SPY, 0700.HK, BTC-USD"
+TICKER_INPUT_EXAMPLES = "SPY, 0700.HK, 600519.SH, BTC-USD"
 
 ANALYST_ORDER = [
     ("Market Analyst", AnalystType.MARKET),
@@ -22,6 +23,8 @@ ANALYST_ORDER = [
 ]
 
 CRYPTO_SUFFIXES = ("-USD", "-USDT", "-USDC", "-BTC", "-ETH")
+ASTOCK_SUFFIXES = (".SH", ".SZ", ".BJ")
+ASTOCK_EXACT = re.compile(r"^\d{6}(?:\.(?:SH|SZ|BJ))?$")
 
 
 def get_ticker() -> str:
@@ -62,6 +65,8 @@ def detect_asset_type(ticker: str) -> AssetType:
     normalized_ticker = ticker.strip().upper()
     if normalized_ticker.endswith(CRYPTO_SUFFIXES):
         return AssetType.CRYPTO
+    if normalized_ticker.endswith(ASTOCK_SUFFIXES) or ASTOCK_EXACT.fullmatch(normalized_ticker):
+        return AssetType.ASTOCK
     return AssetType.STOCK
 
 
