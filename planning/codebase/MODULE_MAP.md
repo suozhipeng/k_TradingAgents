@@ -3,8 +3,9 @@
 > 生成范围：`README.md`、`cli/`、`tradingagents/`。
 > 约束：只读分析业务代码；未运行真实交易；未调用外部金融数据 API。
 > WebUI 数据源：`webui-data/modules.json` → 同步副本 `webui/src/data/modules.json`。
+> 说明：这是当前源码基线映射；A 股目标态请结合 `planning/codebase/ASTOCK_RESOURCE_PLAN.md` 与 `planning/a-stock-resource/` 一起阅读。
 
-## Agent 执行主流程
+
 
 ```text
   Data Source

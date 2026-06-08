@@ -1,59 +1,28 @@
 # ARCHITECTURE
 
-## 总体架构
-本项目是一个基于 **LangGraph 状态图** 的多 Agent 金融研究与决策流水线。
+## 文档定位
+- 本文档描述 **当前源码架构基线** 与 **A 股目标态架构** 的关系。
+- 当前基线来自现有 `TradingAgents` 仓库。
+- 目标态依据来自 `planning/codebase/ASTOCK_RESOURCE_PLAN.md` 与 `planning/a-stock-resource/`。
+- 原则：**不把目标态写成已完成事实**。
+
+---
+
+## 1. 当前源码架构基线
+
+### 1.1 总体基线
+当前项目本质上是一个基于 **LangGraph 状态图** 的多 Agent 金融研究与决策流水线。
 
 核心对象：`tradingagents.graph.trading_graph.TradingAgentsGraph`
 
-它将系统拆成五个阶段：
+当前主链路为：
 1. 分析师阶段（Analyst Team）
 2. 多空研究辩论阶段（Research Team）
 3. 交易方案阶段（Trader）
 4. 风险辩论阶段（Risk Management Team）
 5. 最终组合决策阶段（Portfolio Manager）
 
-## 多 Agent 角色划分
-
-### Analyst Team
-负责生成基础研究报告：
-- `Market Analyst`
-  - 关注价格、OHLCV、技术指标、验证快照
-- `Sentiment Analyst`
-  - 关注新闻、StockTwits、Reddit 的多源情绪
-- `News Analyst`
-  - 关注新闻、全球宏观新闻、insider transaction
-- `Fundamentals Analyst`
-  - 关注财务与基本面数据
-
-### Research Team
-- `Bull Researcher`
-  - 基于四类分析报告构建看多论证
-- `Bear Researcher`
-  - 基于四类分析报告构建看空论证
-- `Research Manager`
-  - 汇总 bull/bear 辩论，输出结构化 `ResearchPlan`
-
-### Trader
-- `Trader`
-  - 将 `ResearchPlan` 转为交易提案 `TraderProposal`
-  - 包含 action / reasoning / entry / stop_loss / sizing
-
-### Risk Management Team
-- `Aggressive Analyst`
-  - 强调高收益/高风险机会
-- `Conservative Analyst`
-  - 强调回撤、保守配置、风险暴露
-- `Neutral Analyst`
-  - 试图平衡两边观点
-
-### Portfolio Manager
-- `Portfolio Manager`
-  - 综合风险辩论、研究计划、交易提案、历史教训
-  - 输出最终结构化 `PortfolioDecision`
-
-## 调用关系
-
-### 图级顺序（来自 `graph/setup.py`）
+### 1.2 当前图级顺序
 ```text
 START
   -> [Selected Analysts in sequence]
@@ -69,157 +38,499 @@ START
   -> END
 ```
 
-### Analyst 阶段调用关系
-每个 analyst 都遵循相同模式：
+### 1.3 当前架构特点
+- 优点：
+  - Agent 职责划分清晰
+  - 图编排透明，便于插拔新节点
+  - 数据源与模型 provider 已抽象
+  - 结构化输出覆盖关键决策节点
+  - 支持 checkpoint / resume
+- 局限：
+  - 决策仍偏 LLM 文本推理主导
+  - 当前架构尚未形成 A 股专用五层数据体系
+  - 没有完整的回测 / 模拟盘 / 实盘闭环基线
+  - 没有 QMT 桥接和受控下单层的现成架构表达
+
+---
+
+## 2. A 股目标态的架构主张
+
+根据 `planning/a-stock-resource/`，目标态不是简单给当前图换数据源，而是把系统扩展成：
+
+**A 股投研与交易闭环系统**
+
+其关键特征包括：
+- 面向 A 股五层数据能力
+- 统一的 Skill / 数据访问封装
+- Web UI + 分析引擎 + 回测 + 模拟盘 + 实盘 + 风控的完整系统分层
+- akshare + QMT 双数据源
+- QMT 桥接与受控执行链路
+- 回测验证 → 模拟盘试跑 → 实盘出击的三阶段演进
+
+---
+
+## 3. 目标态分层架构
+
+### 3.1 顶层分层
+目标态建议按以下层次理解：
+
 ```text
-Analyst Node
-  -> 若 LLM 发起 tool_calls
-      -> ToolNode
-      -> 回到同一个 Analyst Node
-  -> 若无 tool_calls
-      -> Msg Clear Node
-      -> 下一个 Analyst
+Presentation Layer
+  -> Web UI / CLI / API / Notifications
+
+Orchestration Layer
+  -> LangGraph Multi-Agent Workflow
+
+Analysis Layer
+  -> Five-Layer Analysts + Research Debate + Decision Synthesis
+
+Strategy Layer
+  -> 6 Strategies (2 bull / 2 range / 2 bear)
+
+Execution Layer
+  -> Backtest Engine / Paper Trading Engine / Live Trading Engine
+
+Data Access Layer
+  -> Unified A-Stock Data Skill / Interface
+
+Provider Layer
+  -> mootdx / 腾讯财经 / akshare / iwencai / 巨潮 / QMT
+
+Risk & Control Layer
+  -> Safety Mode / Manual Confirm / ATR Stop / Trailing TP / Portfolio Risk
 ```
 
-对应条件逻辑见：
-- `ConditionalLogic.should_continue_market`
-- `should_continue_social`
-- `should_continue_news`
-- `should_continue_fundamentals`
+### 3.2 设计原则
+- **展示层** 不直接耦合单个数据源。
+- **Agent 编排层** 不直接感知 QMT 细节。
+- **策略层** 位于分析结果与执行动作之间。
+- **执行层** 必须区分回测、模拟盘、实盘三种模式。
+- **风险控制层** 不是附属功能，而是贯穿执行全链路的横切能力。
 
-### 研究辩论调用关系
+---
+
+## 4. 五层数据能力架构
+
+目标态的核心变化，是把系统按五层数据能力重构，而不是按“某个 analyst 调某个公网工具”来理解。
+
+### 4.1 五层定义
+1. **行情层**
+2. **研报层**
+3. **新闻层**
+4. **基础数据层**
+5. **公告层**
+
+### 4.2 五层能力与接口范围
+
+#### 行情层
+覆盖：
+- K 线
+- 五档盘口
+- 逐笔成交
+- PE / PB
+- 市值
+- 换手率
+
+#### 研报层
+覆盖：
+- 研报列表
+- PDF 下载
+- 机构预期
+- NL 语义搜索
+
+#### 新闻层
+覆盖：
+- 个股新闻
+- 财联社快讯
+- 全球资讯
+
+#### 基础数据层
+覆盖：
+- 季报 37 字段
+- F10 九大类
+- 基本面
+
+#### 公告层
+覆盖：
+- 公告全文
+- 最新摘要
+
+### 4.3 架构含义
+这五层不是展示标签，而是后续系统中：
+- 分析师输入的一级来源
+- API 体系的一级分类
+- 页面信息架构的一级分类
+- 测试矩阵的一级分类
+- 缓存/容错/备源策略的一级分类
+
+---
+
+## 5. 数据源与供应商架构
+
+### 5.1 供应商层
+根据图片规划，目标态涉及以下来源：
+- `mootdx`
+- `腾讯财经`
+- `akshare`
+- `iwencai`
+- `巨潮 cninfo`
+- `QMT`
+
+### 5.2 供应商与能力层的关系
+建议从架构上把“供应商”与“能力层”解耦：
+
 ```text
-Bull Researcher
-  -> Bear Researcher 或 Research Manager
-Bear Researcher
-  -> Bull Researcher 或 Research Manager
+Five-Layer Capability
+  -> Unified A-Stock Data Interface
+      -> Provider Router
+          -> mootdx
+          -> 腾讯财经
+          -> akshare
+          -> iwencai
+          -> 巨潮 cninfo
+          -> QMT
 ```
-停止条件：
-- `investment_debate_state.count >= 2 * max_debate_rounds`
-- 到达上限后进入 `Research Manager`
 
-### 风险辩论调用关系
+### 5.3 统一访问层的职责
+统一 A 股数据访问层至少负责：
+- symbol canonicalization
+- 五层能力到供应商的路由
+- 主源 / 备源 / 淘汰源策略
+- 缓存与去重
+- 空结果与错误语义统一
+- 时段语义（盘前 / 盘中 / 盘后）
+
+---
+
+## 6. Skill / 接口封装架构
+
+图片规划明确表达了一个重要设计：
+
 ```text
-Aggressive Analyst
-  -> Conservative Analyst 或 Portfolio Manager
-Conservative Analyst
-  -> Neutral Analyst 或 Portfolio Manager
-Neutral Analyst
-  -> Aggressive Analyst 或 Portfolio Manager
+mootdx
+腾讯财经
+akshare
+iwencai
+巨潮 cninfo
+   -> 合并封装 Skill / Unified Interface
+   -> a-stock-data
 ```
-停止条件：
-- `risk_debate_state.count >= 3 * max_risk_discuss_rounds`
-- 到达上限后进入 `Portfolio Manager`
 
-## 数据流
+### 6.1 这层为什么重要
+它的作用不是“换个名字”，而是：
+- 屏蔽多源接入差异
+- 给 Agent、CLI、Web UI 提供统一调用入口
+- 让接口迁移、故障替换、缓存策略集中发生
+- 降低上层 prompt / graph / view 层对底层数据源的耦合
 
-## 1. 输入数据
-运行输入：
-- ticker
-- trade_date
-- asset_type（stock / crypto）
-- provider / model / language / rounds 等配置
+### 6.2 架构约束
+- 上层 Analyst 不应直接知道具体供应商细节。
+- 页面层不应直接拼供应商返回数据。
+- 执行层不应直接依赖研报/公告原始格式。
 
-初始化状态由 `Propagator.create_initial_state()` 构造，放入：
-- `company_of_interest`
-- `asset_type`
-- `trade_date`
-- `instrument_context`
-- `past_context`
-- 各类 report / debate state 初值
+---
 
-## 2. 外部数据进入方式
-### Analyst 工具链
-- Market Analyst：`get_stock_data` / `get_indicators` / `get_verified_market_snapshot`
-- News Analyst：`get_news` / `get_global_news` / `get_insider_transactions`
-- Fundamentals Analyst：`get_fundamentals` / `get_balance_sheet` / `get_cashflow` / `get_income_statement`
-- Sentiment Analyst：预抓取 `Yahoo Finance news + StockTwits + Reddit`
+## 7. 多 Agent 目标态架构
 
-### 数据适配层
-`dataflows/interface.py` 负责：
-- category/tool → vendor 路由
-- `yfinance` / `alpha_vantage` fallback
-- `NO_DATA_AVAILABLE` 哨兵返回
+### 7.1 保留什么
+目标态不是推翻现有 LangGraph，而是保留这些骨架能力：
+- Analyst Team
+- Research Team
+- Trader / Decision synthesis
+- Risk Management Team
+- Portfolio / Final decision layer
 
-## 3. 中间产物
-分析阶段输出：
-- `market_report`
-- `sentiment_report`
-- `news_report`
-- `fundamentals_report`
+### 7.2 需要改造什么
+需要把当前通用金融角色，改造成围绕五层能力与 A 股语义的角色体系。
 
-研究辩论阶段输出：
-- `investment_debate_state`
-- `investment_plan`
+#### Analyst Team（目标态）
+建议围绕五层定义输入：
+- 行情分析师
+- 研报分析师
+- 新闻分析师
+- 基础数据分析师
+- 公告分析师
 
-交易阶段输出：
-- `trader_investment_plan`
+每类分析师都应：
+- 只消费统一 A 股数据访问层
+- 产出结构化中间报告
+- 不直接越层做执行动作
 
-风险辩论阶段输出：
-- `risk_debate_state`
+#### Research Team（目标态）
+- 保留多空辩论作为项目辨识度能力
+- 辩论素材从“通用金融报告”切换为“五层 A 股事实报告”
+- 输出应服务于后续策略评分和执行模式选择
 
-最终输出：
-- `final_trade_decision`
-- 由 `SignalProcessor.process_signal()` 解析为最终 rating
+#### Trader / Decision Layer（目标态）
+- 不再只是“买卖评级翻译器”
+- 更像“策略执行前的信号综合层”
+- 需要明确区分：
+  - 只读建议
+  - 允许进入回测
+  - 允许进入模拟盘
+  - 允许进入实盘确认
 
-## 决策流
+#### Risk / Portfolio Layer（目标态）
+- 需要显式吸收：
+  - 安全模式
+  - 人工确认
+  - ATR 动态止损
+  - 跟踪止盈
+  - 组合风控
+- 这层不只是文本辩论，而是执行权限与交易约束的最后关口
 
-### 第一层：事实采集与专题分析
-四类 analyst 各自产生专题报告。
+---
 
-### 第二层：看多 / 看空对抗
-Bull / Bear Researcher 基于专题报告辩论，Research Manager 裁决并形成中间投资计划。
+## 8. 策略层架构
 
-### 第三层：交易动作设计
-Trader 将“投资计划”翻译成更接近执行层的交易建议（买/卖/持有、入场价、止损、仓位）。
+图片规划中出现了明确的“6 策略层”：
+- 2 牛市策略
+- 2 震荡策略
+- 2 熊市策略
 
-### 第四层：风险偏好冲突
-三位风险角色围绕 trader proposal 进行再辩论。
+### 8.1 策略层位置
+策略层应位于：
 
-### 第五层：最终组合裁决
-Portfolio Manager 汇总：
-- risk debate history
-- research plan
-- trader proposal
-- memory/past_context
+```text
+Five-Layer Analysis Results
+  -> Research / Debate Synthesis
+  -> Strategy Selection / Scoring
+  -> Execution Mode (backtest/paper/live)
+```
 
-并输出最终 5 档评级：
-- Buy
-- Overweight
-- Hold
-- Underweight
-- Sell
+### 8.2 策略层职责
+- 接收五层分析结果与研究结论
+- 输出策略评分与候选动作
+- 定义调仓条件
+- 定义退出条件
+- 为回测 / 模拟 / 实盘提供统一可执行信号
 
-## 记忆与反思层
-并非主图节点，但会影响后续运行：
-- 启动时：`TradingMemoryLog.get_past_context(company_name)` 注入历史经验
-- 下次同 ticker 运行前：`_resolve_pending_entries()` 计算过去决策收益、生成 reflection
-- Portfolio Manager prompt 中可使用 `past_context`
+### 8.3 架构价值
+这层的加入，使系统不再只是“LLM 报告系统”，而是“分析 → 策略 → 执行”的可验证闭环。
 
-这意味着系统具备“延迟反馈型经验回注”能力，但不是在线学习模型，而是**文本记忆增强**。
+---
 
-## 架构特点总结
+## 9. 执行层架构：回测 / 模拟盘 / 实盘
 
-### 优点
-- Agent 职责划分清晰
-- 图编排透明，便于插拔新节点
-- 数据源与模型 provider 已抽象
-- 结构化输出覆盖关键决策节点
-- 支持 checkpoint / resume
+目标态最关键的变化之一，是执行层必须显式分三级，而不是把所有动作混在同一条链路里。
 
-### 局限
-- 决策仍是 LLM 文本推理主导
-- 没有真实订单执行/风控引擎闭环
-- 数据源多依赖公网与第三方服务
-- analyst 仍基本按顺序执行，不是真并行执行图
+### 9.1 第一阶段：回测验证
+基于图片规划，回测阶段包括：
+- `沪深300` 全量回测
+- 时间跨度 `2023.01 → 2026.05`
+- `6` 策略对比
+- 周期调仓
+- 完整费率模拟
 
-## 面向 A 股改造的架构启示
-如果改造成“A 股辅助看盘系统”，建议保留：
-- LangGraph 编排层
-- Analyst / Research / Risk / PM 多角色结构
+架构上，回测引擎应承担：
+- 历史数据加载
+- 策略信号回放
+- 调仓周期执行
+- 成本/费率建模
+- 指标统计与报表输出
 
-需要替换/新增：
-- A 股数据源适配层
-- 行业/题材/资金流/涨停板特化分析师
-- 中文资讯/公告/研报数据流
-- 面向“看盘辅助”而非“交易执行建议”的输出 schema
+### 9.2 第二阶段：模拟盘试跑
+基于图片规划，模拟盘阶段包括：
+- 完整交易引擎
+- 调度器定时自动调仓
+- 虚拟券商 + 真实费率
+- SSE 流式实时进度
+
+架构上，模拟盘引擎应承担：
+- 定时触发
+- 信号生成
+- 虚拟成交
+- 仓位账本
+- 风控拦截
+- 实时进度推送
+
+### 9.3 第三阶段：实盘出击
+基于图片规划，实盘阶段包括：
+- `QMT` 桥接已开通
+- 安全模式（默认）+ 人工确认
+- 自动模式：调度器下单
+- 信号生成 → 确认 → 执行
+- 完整风控实时止损
+
+架构上，实盘引擎应承担：
+- 受控地把信号提交到桥接层
+- 在确认点停住等待人工批准
+- 记录执行上下文与审计信息
+- 支持异常中断和风险熔断
+
+---
+
+## 10. QMT 桥接架构
+
+图片规划给出了一个明确的双系统桥接结构：
+
+```text
+Python 3.12 Main System
+  -> QmtSource (HTTP client)
+  -> HTTP :58609
+  -> Python 3.6.8 qmt_bridge.py
+      -> xtdata -> Mini QMT (:58610)
+      -> xttrader -> Full QMT
+          -> 上海 / 深圳证券交易所
+```
+
+### 10.1 各层职责
+#### 主系统（Python 3.12）
+- 承担 Web、Agent、策略、调度、风控主逻辑
+- 通过 HTTP 调用桥接层
+
+#### 桥接层（Python 3.6.8）
+- 适配 QMT 运行环境
+- 暴露主系统可调用的桥接接口
+- 分离数据查询与下单执行能力
+
+#### QMT 侧
+- `xtdata`：历史/实时行情访问
+- `xttrader`：下单能力
+- Mini QMT / 全功能 QMT：运行环境与券商对接
+
+### 10.2 架构约束
+- 主系统不能直接耦合 QMT 专属运行时。
+- 桥接层必须能单独失败、单独恢复。
+- 读操作与写操作应在架构层区分权限边界。
+- 默认应优先支持只读 / 查询 / 预览能力。
+
+---
+
+## 11. 风控与控制平面架构
+
+目标态里，风控不是单个 agent，而是一整套控制平面。
+
+### 11.1 风控要素
+根据图片规划，应至少包含：
+- 安全模式
+- 人工确认
+- ATR 动态止损
+- 跟踪止盈
+- 组合风控
+- 实时止损
+
+### 11.2 风控放置位置
+风控层应横切：
+- 策略输出之后
+- 模拟盘执行之前
+- 实盘下单之前
+- 持仓运行期间
+
+### 11.3 控制平面职责
+- 决定是否允许进入下一执行模式
+- 决定是否允许自动下单
+- 决定是否强制进入人工确认
+- 在异常情况下暂停交易
+- 保留审计记录与回退路径
+
+---
+
+## 12. 展示层架构：Web UI / CLI / API / 通知
+
+### 12.1 Web UI
+图片规划中明确出现：
+- `Flask`
+- `9 页面`
+- `30+ API`
+
+因此目标态的 Web UI 不是简单的报告查看器，而是应覆盖：
+- 数据层可视化
+- 分析结果展示
+- 回测结果展示
+- 模拟盘状态
+- 实盘控制入口
+- 风控状态显示
+
+### 12.2 CLI
+CLI 仍可保留，用于：
+- 单次分析
+- 回测触发
+- 模拟盘调试
+- 桥接层诊断
+- 批量任务和自动化脚本
+
+### 12.3 API
+API 层应成为展示层和执行层之间的标准边界，按类别组织：
+- 数据查询 API
+- 分析生成 API
+- 回测 API
+- 模拟盘 API
+- 实盘控制 API
+- 风控状态 API
+
+### 12.4 通知层
+虽然不是图片主体，但从模拟盘 / 实盘架构看，后续可自然扩展到：
+- 实时事件通知
+- 风险预警通知
+- 调仓 / 执行结果通知
+
+---
+
+## 13. 数据流：从五层数据到受控执行
+
+### 13.1 目标态数据流
+```text
+Providers
+  -> Unified A-Stock Data Interface
+  -> Five-Layer Reports
+  -> Research / Debate Synthesis
+  -> Strategy Scoring
+  -> Risk Gate
+  -> {Backtest | Paper Trading | Live Trading}
+  -> UI / API / Notifications / Audit Log
+```
+
+### 13.2 关键中间产物
+建议规划中显式保留以下几类中间结果：
+- 五层专题报告
+- 多空辩论状态
+- 策略评分结果
+- 执行候选动作
+- 风控判定结果
+- 回测 / 模拟 / 实盘执行记录
+
+---
+
+## 14. 当前基线到目标态的迁移路径
+
+### 14.1 可以直接复用的部分
+- LangGraph 编排骨架
+- 多 Agent 拆分思想
+- 结构化输出机制
+- checkpoint / memory / logging 思路
+- CLI 与 Web 的双入口思路
+
+### 14.2 必须重做或新建的部分
+- A 股五层数据体系
+- 统一 A 股 Skill / 接口封装
+- 策略层
+- 回测引擎与回测验收体系
+- 模拟盘引擎
+- QMT 桥接层
+- 实盘控制平面
+- 风控控制平面
+
+### 14.3 不应混淆的部分
+- 当前仓库已有的“研究/交易建议”能力
+- 图片目标态中的“回测/模拟盘/实盘闭环”能力
+
+二者相关，但不是同一层次的完成度。
+
+---
+
+## 15. 架构结论
+
+如果只从当前源码看，项目仍然是：
+- 一个多 Agent 金融研究与决策框架
+
+如果按 `planning/a-stock-resource/` 的目标去演化，项目应当变成：
+- 一个以五层 A 股数据为基础
+- 以统一 Skill / 接口封装为中间层
+- 以 LangGraph 多 Agent 为分析编排层
+- 以策略层连接分析与执行
+- 以回测 → 模拟盘 → 实盘为执行主线
+- 以 QMT 桥接和风控控制平面约束实盘能力
+- 以 Web UI / API / 通知形成产品外壳
+
+这不是简单换数据源，而是一次从“研究框架”走向“交易闭环系统”的架构级演进。
