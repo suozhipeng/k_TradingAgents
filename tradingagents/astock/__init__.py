@@ -1,17 +1,61 @@
-"""A-share capability catalog and implementation blueprint.
-
-This package turns the screenshot requirements into a structured, reusable
-specification that can drive future data-source, UI, and execution work.
-"""
+"""A-share capability catalog, blueprint, and unified data access layer."""
 
 from .blueprint import (
     ASTOCK_BLUEPRINT,
     build_blueprint_markdown,
     build_blueprint_payload,
 )
+from .data_sources import (
+    AStockAdapterBase,
+    AStockCachePolicy,
+    AStockDataError,
+    AStockDataFacade,
+    AStockDataRouter,
+    AStockNoDataError,
+    AStockRequest,
+    AStockResponse,
+    AStockRouteNote,
+    AStockSchemaError,
+    AStockSourceUnavailableError,
+    AkshareAdapter,
+    CninfoAdapter,
+    FileAStockCache,
+    IwencaiAdapter,
+    InMemoryAStockCache,
+    MootdxAdapter,
+    QMTAdapter,
+    TencentFinanceAdapter,
+    astock_code,
+    build_default_adapters,
+    normalize_astock_symbol,
+    split_astock_symbol,
+)
 
 __all__ = [
     "ASTOCK_BLUEPRINT",
     "build_blueprint_markdown",
     "build_blueprint_payload",
+    "AStockAdapterBase",
+    "AStockCachePolicy",
+    "AStockDataError",
+    "AStockDataFacade",
+    "AStockDataRouter",
+    "AStockNoDataError",
+    "AStockRequest",
+    "AStockResponse",
+    "AStockRouteNote",
+    "AStockSchemaError",
+    "AStockSourceUnavailableError",
+    "AkshareAdapter",
+    "CninfoAdapter",
+    "FileAStockCache",
+    "IwencaiAdapter",
+    "InMemoryAStockCache",
+    "MootdxAdapter",
+    "QMTAdapter",
+    "TencentFinanceAdapter",
+    "astock_code",
+    "build_default_adapters",
+    "normalize_astock_symbol",
+    "split_astock_symbol",
 ]

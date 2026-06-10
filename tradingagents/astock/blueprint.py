@@ -65,6 +65,24 @@ class AStockBlueprint:
             "disclaimer": self.disclaimer,
             "tech_stack": list(self.tech_stack),
             "capability_count": self.capability_count(),
+            "data_entrypoint": {
+                "package": "tradingagents.astock.data_sources",
+                "class": "AStockDataFacade",
+                "router": "AStockDataRouter",
+                "scope": "read-only data acquisition layer; no order placement or execution",
+                "implemented": [
+                    "five-layer callable interface mapping",
+                    "symbol normalization",
+                    "source routing and fallback",
+                    "history/snapshot/summary cache buckets",
+                    "normalized ok/empty/error responses",
+                ],
+                "todo": [
+                    "TODO: wire production credentials/configuration for optional providers that need them",
+                    "TODO: replace bridge placeholders with verified mootdx/Tencent/iwencai/cninfo clients where project config allows",
+                    "TODO: keep QMT read-only bridge separate from any future execution adapter",
+                ],
+            },
             "layers": [
                 {
                     "name": layer.name,
@@ -318,6 +336,19 @@ def build_blueprint_markdown() -> str:
         for cap in layer["capabilities"]:
             sources = " / ".join(cap["source_candidates"])
             lines.append(f"  - {cap['name']}: {sources} ({cap['access_mode']})")
+    lines.append("")
+    lines.append("## 已实现 / 待实现边界")
+    lines.append("- 已实现：`tradingagents.astock.data_sources` 提供统一 A 股数据访问层，包含 schema / cache / router / facade / adapters 分层。")
+    lines.append("- 已实现：五层能力入口已统一到可调用方法与稳定返回结构；路由支持主源 / 备源 / 淘汰源语义与无数据语义。")
+    lines.append("- 待实现：QMT 实盘桥接、下单执行、页面联动与更完整的真实供应商 SDK 对接。")
+    lines.append("")
+    entrypoint = payload["data_entrypoint"]
+    lines.append("## 统一数据入口")
+    lines.append(f"- 入口：`{entrypoint['package']}.{entrypoint['class']}` / `{entrypoint['router']}`")
+    lines.append(f"- 边界：{entrypoint['scope']}")
+    lines.append("- TODO：")
+    for item in entrypoint["todo"]:
+        lines.append(f"  - {item}")
     lines.append("")
     lines.append("## 三阶段落地")
     for phase in payload["phases"]:
