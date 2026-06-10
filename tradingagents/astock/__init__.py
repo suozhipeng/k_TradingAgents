@@ -1,5 +1,6 @@
 """A-share capability catalog, blueprint, and unified data access layer."""
 
+from .analyst import AStockAnalyst, create_astock_analyst, create_astock_analyst_node
 from .blueprint import (
     ASTOCK_BLUEPRINT,
     build_blueprint_markdown,
@@ -31,6 +32,8 @@ from .data_sources import (
     normalize_astock_symbol,
     split_astock_symbol,
 )
+from .interface import AStockInterface, AStockSectionBundle
+from .tools import build_astock_tools
 
 __all__ = [
     "ASTOCK_BLUEPRINT",
@@ -38,6 +41,12 @@ __all__ = [
     "build_blueprint_payload",
     "AStockAdapterBase",
     "AStockCachePolicy",
+    "AStockAnalyst",
+    "AStockInterface",
+    "AStockSectionBundle",
+    "build_astock_tools",
+    "create_astock_analyst",
+    "create_astock_analyst_node",
     "AStockDataError",
     "AStockDataFacade",
     "AStockDataRouter",

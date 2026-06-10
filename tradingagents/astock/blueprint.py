@@ -70,6 +70,14 @@ class AStockBlueprint:
                 "class": "AStockDataFacade",
                 "router": "AStockDataRouter",
                 "scope": "read-only data acquisition layer; no order placement or execution",
+                "upper_layer_bridge": {
+                    "package": "tradingagents.astock.interface",
+                    "class": "AStockInterface",
+                    "tools_package": "tradingagents.astock.tools",
+                    "analyst_class": "tradingagents.astock.analyst.AStockAnalyst",
+                    "implemented": ["market", "news", "fundamentals"],
+                    "todo": ["research", "announcements", "graph wiring", "UI integration"],
+                },
                 "provider_status": {
                     "akshare": {
                         "implemented": ["daily_kline", "valuation", "stock_news", "research_list", "quarterly_financials"],
@@ -397,6 +405,11 @@ def build_blueprint_markdown() -> str:
     lines.append("## 统一数据入口")
     lines.append(f"- 入口：`{entrypoint['package']}.{entrypoint['class']}` / `{entrypoint['router']}`")
     lines.append(f"- 边界：{entrypoint['scope']}")
+    upper = entrypoint.get("upper_layer_bridge", {})
+    if upper:
+        lines.append(f"- 上层桥接：`{upper.get('package')}`::{upper.get('class')} / `{upper.get('tools_package')}` / `{upper.get('analyst_class')}`")
+        lines.append(f"- 上层已接入：{', '.join(upper.get('implemented', [])) or '无'}")
+        lines.append(f"- 上层 TODO：{', '.join(upper.get('todo', [])) or '无'}")
     lines.append("- TODO：")
     for item in entrypoint["todo"]:
         lines.append(f"  - {item}")
