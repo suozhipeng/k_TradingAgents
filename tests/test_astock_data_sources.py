@@ -208,6 +208,8 @@ class AStockDataSourceTests(unittest.TestCase):
                     "pb": "1.2",
                     "market_cap": "100000",
                     "turnover_rate": "2.1",
+                    "meta": {"field_sources": {"pe": "akshare.fixture"}},
+                    "notes": ["valuation-supplement:tencent"],
                     "raw_payload": {"vendor": "akshare"},
                 }
             },
@@ -220,6 +222,8 @@ class AStockDataSourceTests(unittest.TestCase):
         self.assertEqual(response.capability, "pe_pb")
         self.assertEqual(response.data["pe"], 10.5)
         self.assertEqual(response.data["pb"], 1.2)
+        self.assertEqual(response.meta["field_sources"]["pe"], "akshare.fixture")
+        self.assertIn("valuation-supplement:tencent", response.notes)
         self.assertNotIn("raw_payload", response.data)
         self.assertEqual(adapter.calls[0][0], "get_valuation")
 

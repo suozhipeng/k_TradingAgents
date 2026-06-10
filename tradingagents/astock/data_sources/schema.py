@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 
-_PRIVATE_KEYS = frozenset(("meta", "raw", "raw_payload", "source_payload", "provider_payload"))
+_PRIVATE_KEYS = frozenset(("meta", "notes", "raw", "raw_payload", "source_payload", "provider_payload"))
 
 
 def _freeze(value: Any) -> Any:
@@ -353,8 +353,14 @@ def normalize_capability_payload(
         ``(data, meta, empty)``
     """
     raw_meta: Dict[str, Any] = {}
-    if isinstance(payload, dict) and include_raw:
+    payload_notes: List[str] = []
+    if isinstance(payload, dict):
         raw_meta = copy.deepcopy(payload.get("meta", {})) if isinstance(payload.get("meta", {}), dict) else {}
+        raw_notes = payload.get("notes", ())
+        if isinstance(raw_notes, str):
+            payload_notes = [raw_notes]
+        elif isinstance(raw_notes, (list, tuple)):
+            payload_notes = [str(item) for item in raw_notes]
 
     meta: Dict[str, Any] = {
         "source": source,
@@ -375,7 +381,10 @@ def normalize_capability_payload(
     if request.page is not None:
         meta["page"] = request.page
     if raw_meta:
-        meta["raw_meta"] = raw_meta
+        meta["provider_meta"] = raw_meta
+        meta.update({key: copy.deepcopy(value) for key, value in raw_meta.items() if key not in meta})
+    if payload_notes:
+        meta["provider_notes"] = payload_notes
 
     if isinstance(payload, AStockResponse):
         return payload.data, meta, payload.empty

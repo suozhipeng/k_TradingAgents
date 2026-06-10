@@ -256,6 +256,7 @@ class AStockDataRouter(object):
             return payload
 
         data, meta, empty = normalize_capability_payload(capability, raw_payload, request, source)
+        provider_notes = tuple(str(item) for item in meta.get("provider_notes", ())) if isinstance(meta, dict) else ()
         if empty or data is None:
             message = "NO_DATA_AVAILABLE: no data returned for {0} via {1}".format(request.symbol, source)
             return AStockResponse.empty_result(
@@ -268,7 +269,7 @@ class AStockDataRouter(object):
                 sources_tried=sources_tried,
                 request=request,
                 meta=meta,
-                notes=("normalized-empty",),
+                notes=("normalized-empty",) + provider_notes,
             )
 
         return AStockResponse.ok(
@@ -280,6 +281,7 @@ class AStockDataRouter(object):
             meta=meta,
             sources_tried=sources_tried,
             request=request,
+            notes=provider_notes,
         )
 
     def query(self, capability: str, symbol: str, **kwargs: Any) -> AStockResponse:

@@ -28,6 +28,16 @@ class AStockBlueprintTests(unittest.TestCase):
         self.assertIn("五层能力", build_blueprint_markdown())
         self.assertIn("回测验证", build_blueprint_markdown())
 
+    def test_provider_status_tracks_verification_boundaries(self):
+        status = build_blueprint_payload()["data_entrypoint"]["provider_status"]
+        self.assertIn("valuation", status["akshare"]["implemented"])
+        self.assertIn("valuation", status["akshare"]["live_verified"])
+        self.assertTrue(status["iwencai"]["requires_credentials"])
+        self.assertEqual(status["iwencai"]["live_verified"], [])
+        self.assertIn("mootdx", status["mootdx"]["optional_dependency"])
+        self.assertIn("f10", status["mootdx"]["fixture_verified"])
+        self.assertIn("f10", status["mootdx"]["live_verified"])
+
     def test_benchmark_map_includes_a_share_suffixes(self):
         benchmark_map = DEFAULT_CONFIG["benchmark_map"]
         self.assertEqual(benchmark_map[".SH"], "000001.SS")

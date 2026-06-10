@@ -70,16 +70,67 @@ class AStockBlueprint:
                 "class": "AStockDataFacade",
                 "router": "AStockDataRouter",
                 "scope": "read-only data acquisition layer; no order placement or execution",
+                "provider_status": {
+                    "akshare": {
+                        "implemented": ["daily_kline", "valuation", "stock_news", "research_list", "quarterly_financials"],
+                        "live_verified": ["daily_kline", "valuation", "stock_news", "research_list", "quarterly_financials"],
+                        "fixture_verified": ["daily_kline", "valuation", "stock_news", "research_list", "quarterly_financials"],
+                        "optional_dependency": "akshare",
+                        "requires_credentials": False,
+                        "notes": ["Tencent valuation supplement is disabled by default; enable with allow_tencent_valuation_supplement=True or ASTOCK_AKSHARE_ALLOW_TENCENT_SUPPLEMENT=1."],
+                    },
+                    "tencent": {
+                        "implemented": ["snapshot", "order_book", "trade_tape", "turnover_rate"],
+                        "live_verified": ["snapshot", "order_book", "trade_tape", "turnover_rate"],
+                        "fixture_verified": ["snapshot", "order_book", "trade_tape", "turnover_rate"],
+                        "optional_dependency": "requests",
+                        "requires_credentials": False,
+                    },
+                    "cninfo": {
+                        "implemented": ["announcement_summary", "announcement_full"],
+                        "live_verified": ["announcement_summary", "announcement_full"],
+                        "fixture_verified": ["announcement_summary", "announcement_full"],
+                        "optional_dependency": "requests",
+                        "requires_credentials": False,
+                    },
+                    "mootdx": {
+                        "implemented": ["daily_kline", "order_book", "trade_tape", "f10"],
+                        "live_verified": ["daily_kline", "order_book", "trade_tape", "f10"],
+                        "fixture_verified": ["daily_kline", "order_book", "trade_tape", "f10"],
+                        "optional_dependency": "mootdx",
+                        "requires_credentials": False,
+                        "notes": ["Live verification requires a reachable TDX quote server; configure ASTOCK_MOOTDX_HOST/PORT/MARKET if auto discovery fails."],
+                    },
+                    "iwencai": {
+                        "implemented": ["nl_search", "institution_expectation"],
+                        "live_verified": [],
+                        "fixture_verified": ["nl_search", "institution_expectation"],
+                        "optional_dependency": "pywencai",
+                        "requires_credentials": True,
+                        "notes": ["Live verification requires ASTOCK_IWENCAI_COOKIE; credentials are never logged or stored in fixtures."],
+                    },
+                    "qmt": {
+                        "implemented": ["read_only_placeholder"],
+                        "live_verified": [],
+                        "fixture_verified": [],
+                        "optional_dependency": "QMT local client",
+                        "requires_credentials": True,
+                        "notes": ["No order placement or execution logic is implemented in this data-source phase."],
+                    },
+                },
                 "implemented": [
                     "five-layer callable interface mapping",
                     "symbol normalization",
                     "source routing and fallback",
                     "history/snapshot/summary cache buckets",
                     "normalized ok/empty/error responses",
+                    "real read-only adapters for akshare, Tencent Finance, and cninfo",
+                    "optional live bridges for mootdx and iwencai with env-driven configuration",
+                    "fixture-based provider parser tests and opt-in live integration tests",
                 ],
                 "todo": [
-                    "TODO: wire production credentials/configuration for optional providers that need them",
-                    "TODO: replace bridge placeholders with verified mootdx/Tencent/iwencai/cninfo clients where project config allows",
+                    "TODO: install/configure mootdx locally to verify TDX connectivity and richer F10 coverage",
+                    "TODO: provide ASTOCK_IWENCAI_COOKIE (and optional UA) to enable live iwencai semantic search / institution expectation checks",
                     "TODO: keep QMT read-only bridge separate from any future execution adapter",
                 ],
             },
@@ -349,6 +400,17 @@ def build_blueprint_markdown() -> str:
     lines.append("- TODO：")
     for item in entrypoint["todo"]:
         lines.append(f"  - {item}")
+    lines.append("")
+    lines.append("## Provider 能力状态")
+    for provider, status in entrypoint.get("provider_status", {}).items():
+        lines.append(f"### {provider}")
+        for key in ("implemented", "live_verified", "fixture_verified"):
+            values = status.get(key, [])
+            lines.append(f"- {key}: {', '.join(values) if values else '无'}")
+        lines.append(f"- optional_dependency: {status.get('optional_dependency')}")
+        lines.append(f"- requires_credentials: {status.get('requires_credentials')}")
+        for note in status.get("notes", []):
+            lines.append(f"  - {note}")
     lines.append("")
     lines.append("## 三阶段落地")
     for phase in payload["phases"]:
