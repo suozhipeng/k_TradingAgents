@@ -5,7 +5,8 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.prebuilt import ToolNode
 
 from tradingagents.agents import *
-from tradingagents.agents.utils.agent_states import AgentState
+from tradingagents.astock.analyst import create_astock_analyst_node
+from tradingagents.default_config import DEFAULT_CONFIG
 
 from .analyst_execution import build_analyst_execution_plan
 from .conditional_logic import ConditionalLogic
@@ -67,6 +68,7 @@ class GraphSetup:
 
         # Create workflow
         workflow = StateGraph(AgentState)
+        astock_analyst_node = create_astock_analyst_node()
 
         # Add analyst nodes to the graph
         for spec in plan.specs:
@@ -78,6 +80,7 @@ class GraphSetup:
         workflow.add_node("Bull Researcher", bull_researcher_node)
         workflow.add_node("Bear Researcher", bear_researcher_node)
         workflow.add_node("Research Manager", research_manager_node)
+        workflow.add_node("AStock Analyst", astock_analyst_node)
         workflow.add_node("Trader", trader_node)
         workflow.add_node("Aggressive Analyst", aggressive_analyst)
         workflow.add_node("Neutral Analyst", neutral_analyst)
@@ -106,7 +109,16 @@ class GraphSetup:
             if i < len(plan.specs) - 1:
                 workflow.add_edge(current_clear, plan.specs[i + 1].agent_node)
             else:
-                workflow.add_edge(current_clear, "Bull Researcher")
+                workflow.add_conditional_edges(
+                    current_clear,
+                    self.conditional_logic.should_route_to_astock_analyst,
+                    {
+                        "AStock Analyst": "AStock Analyst",
+                        "Bull Researcher": "Bull Researcher",
+                    },
+                )
+
+        workflow.add_edge("AStock Analyst", "Bull Researcher")
 
         # Add remaining edges
         workflow.add_conditional_edges(

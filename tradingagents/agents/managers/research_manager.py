@@ -5,6 +5,7 @@ from __future__ import annotations
 from tradingagents.agents.schemas import ResearchPlan, render_research_plan
 from tradingagents.agents.utils.agent_utils import (
     get_instrument_context_from_state,
+    get_astock_research_context_from_state,
     get_language_instruction,
 )
 from tradingagents.agents.utils.structured import (
@@ -18,6 +19,7 @@ def create_research_manager(llm):
 
     def research_manager_node(state) -> dict:
         instrument_context = get_instrument_context_from_state(state)
+        astock_context = get_astock_research_context_from_state(state)
         history = state["investment_debate_state"].get("history", "")
 
         investment_debate_state = state["investment_debate_state"]
@@ -25,6 +27,7 @@ def create_research_manager(llm):
         prompt = f"""As the Research Manager and debate facilitator, your role is to critically evaluate this round of debate and deliver a clear, actionable investment plan for the trader.
 
 {instrument_context}
+{astock_context}
 
 ---
 

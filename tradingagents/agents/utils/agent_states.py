@@ -58,6 +58,13 @@ class AgentState(MessagesState):
         str, "Report from the News Researcher of current world affairs"
     ]
     fundamentals_report: Annotated[str, "Report from the Fundamentals Researcher"]
+    astock_analysis: Annotated[
+        str, "Structured A-share analyst payload feeding the research chain"
+    ]
+    astock_sections: Annotated[
+        str, "Structured A-share section bundles used by the research chain"
+    ]
+    astock_summary: Annotated[str, "Compact A-share summary for downstream debate"]
 
     # researcher team discussion step
     investment_debate_state: Annotated[

@@ -1,4 +1,5 @@
 import functools
+import json
 import logging
 from typing import Any, Mapping, Optional
 
@@ -145,6 +146,57 @@ def build_instrument_context(
     return context
 
 
+def get_astock_research_context_from_state(state: Mapping[str, Any]) -> str:
+    """Return a compact, structured A-share research context block.
+
+    The block is safe to append into bull/bear/research-manager prompts when
+    the upstream AStockAnalyst has already populated `astock_analysis`.
+    Missing data yields an empty string so non-A-share runs remain unchanged.
+    """
+    analysis = state.get("astock_analysis")
+    sections = state.get("astock_sections")
+    if not isinstance(analysis, dict) and not isinstance(sections, dict):
+        return ""
+
+    lines = ["A-share structured snapshot:"]
+    if isinstance(analysis, dict):
+        summary = analysis.get("summary")
+        if summary:
+            lines.append(f"Summary: {summary}")
+        breakdown = analysis.get("status_breakdown")
+        if isinstance(breakdown, dict) and breakdown:
+            lines.append(
+                "Status breakdown: "
+                + json.dumps(breakdown, ensure_ascii=False, sort_keys=True)
+            )
+        missing = analysis.get("missing_sections")
+        if missing:
+            lines.append(
+                "Missing sections: "
+                + ", ".join(str(item) for item in missing if item)
+            )
+
+    if isinstance(sections, dict):
+        for key in ("market", "news", "fundamentals", "announcements", "research"):
+            section = sections.get(key)
+            if not isinstance(section, dict):
+                continue
+            summary = section.get("summary")
+            status = section.get("status")
+            source = section.get("source")
+            fragments = []
+            if status:
+                fragments.append(f"status={status}")
+            if source:
+                fragments.append(f"source={source}")
+            if summary:
+                fragments.append(str(summary))
+            if fragments:
+                lines.append(f"- {key}: {' | '.join(fragments)}")
+
+    return "\n".join(lines)
+
+
 def get_instrument_context_from_state(state: Mapping[str, Any]) -> str:
     """Return the instrument context for the current run.
 
@@ -188,6 +240,3 @@ def create_msg_delete():
         return {"messages": removal_operations + [placeholder]}
 
     return delete_messages
-
-
-        

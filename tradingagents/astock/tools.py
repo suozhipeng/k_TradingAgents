@@ -42,6 +42,7 @@ def build_astock_tools(interface: Optional[AStockInterface] = None):
         interval: Annotated[Optional[str], "K-line interval, default 1d"] = None,
         source: Annotated[Optional[str], "Optional source hint"] = None,
     ) -> str:
+        """Return a JSON encoded market snapshot for one A-share symbol."""
         return _dump_payload(
             astock_interface.to_payload(
                 symbol,
@@ -61,6 +62,7 @@ def build_astock_tools(interface: Optional[AStockInterface] = None):
         curr_date: Annotated[Optional[str], "Current analysis date yyyy-mm-dd"] = None,
         source: Annotated[Optional[str], "Optional source hint"] = None,
     ) -> str:
+        """Return a JSON encoded news snapshot for one A-share symbol."""
         return _dump_payload(
             astock_interface.to_payload(
                 symbol,
@@ -79,6 +81,7 @@ def build_astock_tools(interface: Optional[AStockInterface] = None):
         freq: Annotated[Optional[str], "Report frequency, quarterly or annual"] = None,
         source: Annotated[Optional[str], "Optional source hint"] = None,
     ) -> str:
+        """Return a JSON encoded fundamentals snapshot for one A-share symbol."""
         return _dump_payload(
             astock_interface.to_payload(
                 symbol,
@@ -97,6 +100,7 @@ def build_astock_tools(interface: Optional[AStockInterface] = None):
         limit: Annotated[Optional[int], "Maximum number of announcement rows"] = None,
         source: Annotated[Optional[str], "Optional source hint"] = None,
     ) -> str:
+        """Return a JSON encoded announcements snapshot for one A-share symbol."""
         return _dump_payload(
             astock_interface.to_payload(
                 symbol,
@@ -116,6 +120,7 @@ def build_astock_tools(interface: Optional[AStockInterface] = None):
         limit: Annotated[Optional[int], "Maximum number of research rows"] = None,
         source: Annotated[Optional[str], "Optional source hint"] = None,
     ) -> str:
+        """Return a JSON encoded research snapshot for one A-share symbol."""
         return _dump_payload(
             astock_interface.to_payload(
                 symbol,

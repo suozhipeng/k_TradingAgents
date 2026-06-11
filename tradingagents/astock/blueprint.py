@@ -76,7 +76,7 @@ class AStockBlueprint:
                     "tools_package": "tradingagents.astock.tools",
                     "analyst_class": "tradingagents.astock.analyst.AStockAnalyst",
                     "implemented": ["market", "news", "fundamentals", "announcements", "research"],
-                    "todo": ["graph wiring", "UI integration"],
+                    "todo": ["UI integration", "QMT execution", "expanded graph wiring beyond the minimal research bridge"],
                 },
                 "provider_status": {
                     "akshare": {
@@ -135,6 +135,7 @@ class AStockBlueprint:
                     "real read-only adapters for akshare, Tencent Finance, and cninfo",
                     "optional live bridges for mootdx and iwencai with env-driven configuration",
                     "fixture-based provider parser tests and opt-in live integration tests",
+                    "formal AStockGraphRuntime entry for the minimal A-share research bridge",
                 ],
                 "todo": [
                     "TODO: install/configure mootdx locally to verify TDX connectivity and richer F10 coverage",

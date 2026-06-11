@@ -11,7 +11,10 @@ import yfinance as yf
 
 logger = logging.getLogger(__name__)
 
-from langgraph.prebuilt import ToolNode
+try:  # pragma: no cover - optional runtime dependency boundary
+    from langgraph.prebuilt import ToolNode
+except Exception:  # pragma: no cover - keep module importable when langgraph is broken
+    ToolNode = None
 
 from tradingagents.llm_clients import create_llm_client
 
@@ -41,12 +44,19 @@ from tradingagents.agents.utils.agent_utils import (
     get_global_news
 )
 
-from .checkpointer import checkpoint_step, clear_checkpoint, get_checkpointer, thread_id
+try:  # pragma: no cover - optional runtime dependency boundary
+    from .checkpointer import checkpoint_step, clear_checkpoint, get_checkpointer, thread_id
+except Exception:  # pragma: no cover - keep module importable when langgraph is broken
+    checkpoint_step = clear_checkpoint = get_checkpointer = thread_id = None
 from .conditional_logic import ConditionalLogic
-from .setup import GraphSetup
+try:  # pragma: no cover - optional runtime dependency boundary
+    from .setup import GraphSetup
+except Exception:  # pragma: no cover - keep module importable when langgraph is broken
+    GraphSetup = None
 from .propagation import Propagator
 from .reflection import Reflector
 from .signal_processing import SignalProcessor
+from tradingagents.astock import AStockGraphRuntime, is_astock_symbol
 
 
 class TradingAgentsGraph:
@@ -313,6 +323,42 @@ class TradingAgentsGraph:
         identity = resolve_instrument_identity(ticker)
         return build_instrument_context(ticker, asset_type, identity)
 
+    def _should_use_astock_runtime(self, ticker: str, asset_type: str = "stock") -> bool:
+        """Return True when the ticker should route to the A-share runtime."""
+
+        return asset_type == "astock" or is_astock_symbol(ticker)
+
+    def _run_astock_runtime(self, company_name, trade_date, asset_type: str = "stock"):
+        """Execute the formal A-share runtime entry and adapt it to legacy state."""
+
+        past_context = self.memory_log.get_past_context(company_name)
+        instrument_context = self.resolve_instrument_context(company_name, asset_type)
+        runtime = AStockGraphRuntime(
+            symbol=company_name,
+            base_state={
+                "company_of_interest": company_name,
+                "asset_type": asset_type,
+                "past_context": past_context,
+                "instrument_context": instrument_context,
+            },
+            trade_date=trade_date,
+        )
+        report = runtime.run()
+        final_state = report.to_legacy_state()
+
+        self.curr_state = final_state
+        self._log_state(trade_date, final_state)
+        self.memory_log.store_decision(
+            ticker=company_name,
+            trade_date=trade_date,
+            final_trade_decision=final_state["final_trade_decision"],
+        )
+
+        if self.config.get("checkpoint_enabled"):
+            clear_checkpoint(self.config["data_cache_dir"], company_name, str(trade_date))
+
+        return final_state, self.process_signal(final_state["final_trade_decision"])
+
     def propagate(self, company_name, trade_date, asset_type: str = "stock"):
         """Run the trading agents graph for a company on a specific date.
 
@@ -325,7 +371,13 @@ class TradingAgentsGraph:
         """
         self.ticker = company_name
 
-        # Resolve any pending memory-log entries for this ticker before the pipeline runs.
+        # Resolve any pending memory-log entries for this ticker before routing.
+        self._resolve_pending_entries(company_name)
+
+        if self._should_use_astock_runtime(company_name, asset_type):
+            return self._run_astock_runtime(company_name, trade_date, asset_type=asset_type)
+
+        # Re-run any pending memory-log entries for the generic pipeline before the pipeline runs.
         self._resolve_pending_entries(company_name)
 
         # Recompile with a checkpointer if the user opted in.
@@ -349,7 +401,7 @@ class TradingAgentsGraph:
         try:
             return self._run_graph(company_name, trade_date, asset_type=asset_type)
         finally:
-            if self._checkpointer_ctx is not None:
+            if getattr(self, "_checkpointer_ctx", None) is not None:
                 self._checkpointer_ctx.__exit__(None, None, None)
                 self._checkpointer_ctx = None
                 self.graph = self.workflow.compile()

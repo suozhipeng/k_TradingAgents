@@ -1,5 +1,7 @@
 # TradingAgents/graph/conditional_logic.py
 
+import re
+
 from tradingagents.agents.utils.agent_states import AgentState
 
 
@@ -48,6 +50,15 @@ class ConditionalLogic:
         if last_message.tool_calls:
             return "tools_fundamentals"
         return "Msg Clear Fundamentals"
+
+    def should_route_to_astock_analyst(self, state: AgentState) -> str:
+        """Route A-share runs through the structured AStockAnalyst bridge."""
+        ticker = str(state.get("company_of_interest", "")).strip().upper()
+        if not ticker:
+            return "Bull Researcher"
+        if ticker.endswith((".SH", ".SZ", ".BJ")) or re.fullmatch(r"\d{6}(?:\.(?:SH|SZ|BJ))?", ticker):
+            return "AStock Analyst"
+        return "Bull Researcher"
 
     def should_continue_debate(self, state: AgentState) -> str:
         """Determine if debate should continue."""
