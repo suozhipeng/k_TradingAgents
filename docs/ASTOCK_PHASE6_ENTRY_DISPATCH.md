@@ -15,7 +15,7 @@ formal production dispatch path used by `TradingAgentsGraph.propagate()`.
 
 ### Runtime output contract
 
-The formal runtime now returns a stable report object:
+The formal runtime now returns a stable report object (see `docs/ASTOCK_DISPLAY_REPORT_SCHEMA.md` for the field contract):
 
 - `AStockGraphReport`
 

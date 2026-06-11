@@ -99,9 +99,28 @@ class AStockGraphReport:
     runtime_trace: Sequence[str]
     llm_prompts: Dict[str, list[str]]
     summary: str
+    section_results: Dict[str, Any] = field(default_factory=dict)
+    bull_view: str = ""
+    bear_view: str = ""
+    research_manager_conclusion: str = ""
+    provider_coverage: Dict[str, Any] = field(default_factory=dict)
+    missing_data_notes: list[str] = field(default_factory=list)
+    degradation_notes: list[str] = field(default_factory=list)
     mode: str = "astock_research_bridge"
     status: str = "ok"
     metadata: Dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def ticker(self) -> str:
+        return self.symbol
+
+    @property
+    def runtime_mode(self) -> str:
+        return self.mode
+
+    @property
+    def analyst_summary(self) -> str:
+        return self.summary
 
     @property
     def final_trade_decision(self) -> str:
@@ -117,6 +136,16 @@ class AStockGraphReport:
             "source": self.source,
             "sections_requested": list(self.sections_requested),
             "summary": self.summary,
+            "analyst_summary": self.summary,
+            "ticker": self.symbol,
+            "runtime_mode": self.mode,
+            "section_results": copy.deepcopy(self.section_results),
+            "bull_view": self.bull_view,
+            "bear_view": self.bear_view,
+            "research_manager_conclusion": self.research_manager_conclusion,
+            "provider_coverage": copy.deepcopy(self.provider_coverage),
+            "missing_data_notes": list(self.missing_data_notes),
+            "degradation_notes": list(self.degradation_notes),
             "astock_analysis": copy.deepcopy(self.astock_analysis),
             "astock_sections": copy.deepcopy(self.astock_sections),
             "bull_output": copy.deepcopy(self.bull_output),
@@ -169,6 +198,7 @@ class AStockGraphReport:
             "astock_analysis": copy.deepcopy(self.astock_analysis),
             "astock_sections": copy.deepcopy(self.astock_sections),
             "astock_summary": self.summary,
+            "astock_display_report": self.to_dict() if include_runtime_report else None,
             "astock_runtime_report": self.to_dict() if include_runtime_report else None,
         }
 
@@ -211,6 +241,103 @@ def _extract_debate_text(payload: Mapping[str, Any], key: str) -> str:
             return value
     value = payload.get(key)
     return value if isinstance(value, str) else ""
+
+
+
+def _is_data_present(value: Any) -> bool:
+    if value is None:
+        return False
+    if isinstance(value, str):
+        return bool(value.strip())
+    if isinstance(value, Mapping):
+        return bool(value)
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        return bool(value)
+    return True
+
+
+
+def _describe_data_shape(value: Any) -> Dict[str, Any]:
+    if isinstance(value, Mapping):
+        return {"kind": "mapping", "size": len(value), "keys": list(value)[:8]}
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        return {"kind": "sequence", "size": len(value)}
+    if value is None:
+        return {"kind": "none", "size": 0}
+    if isinstance(value, str):
+        return {"kind": "string", "size": len(value)}
+    return {"kind": type(value).__name__, "size": 1}
+
+
+
+def _build_section_results(sections_payload: Mapping[str, Any], requested_sections: Sequence[str]) -> Dict[str, Dict[str, Any]]:
+    results: Dict[str, Dict[str, Any]] = {}
+    for section_name in requested_sections:
+        section = sections_payload.get(section_name, {}) if isinstance(sections_payload, Mapping) else {}
+        source = section.get("source") if isinstance(section, Mapping) else None
+        status = section.get("status") if isinstance(section, Mapping) else "unknown"
+        summary = _section_text(section, f"{section_name} section unavailable")
+        data = section.get("data") if isinstance(section, Mapping) else None
+        error = section.get("error") if isinstance(section, Mapping) else None
+        results[section_name] = {
+            "status": status,
+            "source": source,
+            "summary": summary,
+            "error": error,
+            "has_data": _is_data_present(data),
+            "data_shape": _describe_data_shape(data),
+        }
+    return results
+
+
+
+def _build_provider_coverage(section_results: Mapping[str, Any]) -> Dict[str, Dict[str, Any]]:
+    coverage: Dict[str, Dict[str, Any]] = {}
+    for section_name, result in section_results.items():
+        coverage[section_name] = {
+            "source": result.get("source"),
+            "status": result.get("status"),
+            "available": result.get("status") == "ok" and result.get("has_data", False),
+        }
+    return coverage
+
+
+
+def _build_missing_data_notes(section_results: Mapping[str, Any]) -> list[str]:
+    notes: list[str] = []
+    for section_name, result in section_results.items():
+        if not result.get("has_data", False):
+            summary = result.get("summary") or f"{section_name} unavailable"
+            notes.append(f"{section_name}: {summary}")
+    return notes
+
+
+
+def _build_degradation_notes(section_results: Mapping[str, Any], missing_sections: Sequence[str]) -> list[str]:
+    notes: list[str] = []
+    for section_name in missing_sections:
+        result = section_results.get(section_name, {})
+        status = result.get("status", "unknown")
+        summary = result.get("summary") or f"{section_name} degraded"
+        notes.append(f"{section_name} [{status}]: {summary}")
+    return notes
+
+
+
+def _build_view_text(payload: Mapping[str, Any], *, preferred_keys: Sequence[str], fallback: str) -> str:
+    if not isinstance(payload, Mapping):
+        return fallback
+    for key in preferred_keys:
+        value = payload.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    if "investment_debate_state" in payload and isinstance(payload["investment_debate_state"], Mapping):
+        debate_state = payload["investment_debate_state"]
+        for key in preferred_keys:
+            value = debate_state.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+    return fallback
 
 
 
@@ -306,6 +433,16 @@ class AStockGraphRuntime:
             ],
             "output_fields": [
                 "AStockGraphReport",
+                "ticker",
+                "runtime_mode",
+                "section_results",
+                "analyst_summary",
+                "bull_view",
+                "bear_view",
+                "research_manager_conclusion",
+                "provider_coverage",
+                "missing_data_notes",
+                "degradation_notes",
                 "astock_analysis",
                 "astock_sections",
                 "bull_output",
@@ -372,11 +509,32 @@ class AStockGraphRuntime:
         normalized_symbol = state.get("company_of_interest") or self.symbol
         analysis = state.get("astock_analysis", {})
         sections_payload = state.get("astock_sections", {})
+        section_results = _build_section_results(sections_payload, self.sections)
         summary = state.get("astock_summary") or analysis.get("summary") or "A-share bridge completed"
         missing_sections = []
         if isinstance(analysis, Mapping):
             missing_sections = list(analysis.get("missing_sections", []) or [])
+        if not missing_sections:
+            missing_sections = [name for name, item in section_results.items() if item.get("status") not in {"ok", "available"}]
         status = "ok" if not missing_sections else ("partial" if len(missing_sections) < len(self.sections) else "degraded")
+        provider_coverage = _build_provider_coverage(section_results)
+        missing_data_notes = _build_missing_data_notes(section_results)
+        degradation_notes = _build_degradation_notes(section_results, missing_sections)
+        bull_view = _build_view_text(
+            bull_output,
+            preferred_keys=("summary", "current_response", "bull_history", "content"),
+            fallback="Bull view unavailable",
+        )
+        bear_view = _build_view_text(
+            bear_output,
+            preferred_keys=("summary", "current_response", "bear_history", "content"),
+            fallback="Bear view unavailable",
+        )
+        research_manager_conclusion = _build_view_text(
+            research_manager_output,
+            preferred_keys=("investment_plan", "current_response", "judge_decision", "content"),
+            fallback="Research manager conclusion unavailable",
+        )
 
         report = AStockGraphReport(
             symbol=self.symbol,
@@ -385,6 +543,13 @@ class AStockGraphRuntime:
             source=self.source,
             sections_requested=tuple(self.sections),
             astock_analysis=copy.deepcopy(analysis),
+            section_results=copy.deepcopy(section_results),
+            bull_view=bull_view,
+            bear_view=bear_view,
+            research_manager_conclusion=research_manager_conclusion,
+            provider_coverage=copy.deepcopy(provider_coverage),
+            missing_data_notes=list(missing_data_notes),
+            degradation_notes=list(degradation_notes),
             astock_sections=copy.deepcopy(sections_payload),
             bull_output=copy.deepcopy(bull_output),
             bear_output=copy.deepcopy(bear_output),
