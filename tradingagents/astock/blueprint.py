@@ -75,8 +75,8 @@ class AStockBlueprint:
                     "class": "AStockInterface",
                     "tools_package": "tradingagents.astock.tools",
                     "analyst_class": "tradingagents.astock.analyst.AStockAnalyst",
-                    "implemented": ["market", "news", "fundamentals"],
-                    "todo": ["research", "announcements", "graph wiring", "UI integration"],
+                    "implemented": ["market", "news", "fundamentals", "announcements", "research"],
+                    "todo": ["graph wiring", "UI integration"],
                 },
                 "provider_status": {
                     "akshare": {

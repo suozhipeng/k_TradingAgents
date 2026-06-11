@@ -29,6 +29,10 @@ class AStockBlueprintTests(unittest.TestCase):
         self.assertIn("回测验证", build_blueprint_markdown())
         self.assertEqual(payload["data_entrypoint"]["upper_layer_bridge"]["class"], "AStockInterface")
         self.assertIn("market", payload["data_entrypoint"]["upper_layer_bridge"]["implemented"])
+        self.assertIn("announcements", payload["data_entrypoint"]["upper_layer_bridge"]["implemented"])
+        self.assertIn("research", payload["data_entrypoint"]["upper_layer_bridge"]["implemented"])
+        self.assertNotIn("research", payload["data_entrypoint"]["upper_layer_bridge"]["todo"])
+        self.assertNotIn("announcements", payload["data_entrypoint"]["upper_layer_bridge"]["todo"])
         self.assertIn("graph wiring", payload["data_entrypoint"]["upper_layer_bridge"]["todo"])
 
     def test_provider_status_tracks_verification_boundaries(self):

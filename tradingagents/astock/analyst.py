@@ -13,7 +13,7 @@ from typing import Any, Dict, Mapping, Optional, Sequence
 from .interface import AStockInterface
 
 
-_DEFAULT_SECTIONS: Sequence[str] = ("market", "news", "fundamentals")
+_DEFAULT_SECTIONS: Sequence[str] = ("market", "news", "fundamentals", "announcements", "research")
 
 
 @dataclass
@@ -35,6 +35,10 @@ class AStockAnalyst:
         limit: Optional[int] = None,
         look_back_days: Optional[int] = None,
         freq: Optional[str] = None,
+        announcement_query: Optional[str] = None,
+        announcement_title: Optional[str] = None,
+        research_query: Optional[str] = None,
+        research_title: Optional[str] = None,
     ) -> Dict[str, Any]:
         payload = self.interface.to_payload(
             symbol,
@@ -47,6 +51,10 @@ class AStockAnalyst:
             look_back_days=look_back_days,
             curr_date=trade_date,
             freq=freq,
+            announcement_query=announcement_query,
+            announcement_title=announcement_title,
+            research_query=research_query,
+            research_title=research_title,
         )
         payload["trade_date"] = trade_date
         payload["status_breakdown"] = {

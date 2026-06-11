@@ -224,11 +224,83 @@ class AStockInterface:
             },
         )
 
+    def announcements_snapshot(
+        self,
+        symbol: str,
+        *,
+        query: Optional[str] = None,
+        title: Optional[str] = None,
+        limit: Optional[int] = None,
+        source: Optional[str] = None,
+    ) -> AStockSectionBundle:
+        raw_symbol = symbol
+        normalized = self.normalize_symbol(symbol)
+        effective_query = (query or title or normalized).strip()
+        responses = {
+            "announcement_summary": self.facade.get_announcement_summary(
+                normalized,
+                source=source,
+                query=effective_query,
+                title=title,
+                limit=limit,
+            ),
+            "announcement_full": self.facade.get_announcement_full(
+                normalized,
+                source=source,
+                query=effective_query,
+                title=title,
+                limit=limit,
+            ),
+        }
+        return self._response_bundle(
+            "announcements",
+            normalized,
+            raw_symbol,
+            responses,
+            extra_meta={
+                "query": effective_query,
+                "title": title,
+                "limit": limit,
+                "source_hint": source,
+            },
+        )
+
+    def research_snapshot(
+        self,
+        symbol: str,
+        *,
+        query: Optional[str] = None,
+        title: Optional[str] = None,
+        limit: Optional[int] = None,
+        source: Optional[str] = None,
+    ) -> AStockSectionBundle:
+        raw_symbol = symbol
+        normalized = self.normalize_symbol(symbol)
+        effective_query = (query or title or normalized).strip()
+        responses = {
+            "research_list": self.facade.get_research_list(normalized, source=source, query=effective_query, title=title, limit=limit),
+            "download_research_pdf": self.facade.download_research_pdf(normalized, source=source, query=effective_query, title=title, limit=limit),
+            "institution_expectation": self.facade.get_institution_expectation(normalized, source=source, query=effective_query, title=title, limit=limit),
+            "search_research": self.facade.search_research(normalized, source=source, query=effective_query, title=title, limit=limit),
+        }
+        return self._response_bundle(
+            "research",
+            normalized,
+            raw_symbol,
+            responses,
+            extra_meta={
+                "query": effective_query,
+                "title": title,
+                "limit": limit,
+                "source_hint": source,
+            },
+        )
+
     def collect(
         self,
         symbol: str,
         *,
-        sections: Sequence[str] = ("market", "news", "fundamentals"),
+        sections: Sequence[str] = ("market", "news", "fundamentals", "announcements", "research"),
         source: Optional[str] = None,
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
@@ -237,6 +309,10 @@ class AStockInterface:
         look_back_days: Optional[int] = None,
         curr_date: Optional[str] = None,
         freq: Optional[str] = None,
+        announcement_query: Optional[str] = None,
+        announcement_title: Optional[str] = None,
+        research_query: Optional[str] = None,
+        research_title: Optional[str] = None,
     ) -> Dict[str, AStockSectionBundle]:
         collected: Dict[str, AStockSectionBundle] = {}
         for section in sections:
@@ -264,6 +340,22 @@ class AStockInterface:
                     freq=freq,
                     source=source,
                 )
+            elif normalized_section == "announcements":
+                collected[normalized_section] = self.announcements_snapshot(
+                    symbol,
+                    query=announcement_query,
+                    title=announcement_title,
+                    limit=limit,
+                    source=source,
+                )
+            elif normalized_section == "research":
+                collected[normalized_section] = self.research_snapshot(
+                    symbol,
+                    query=research_query,
+                    title=research_title,
+                    limit=limit,
+                    source=source,
+                )
             else:
                 raise ValueError(f"Unsupported A-stock section: {section!r}")
         return collected
@@ -272,7 +364,7 @@ class AStockInterface:
         self,
         symbol: str,
         *,
-        sections: Sequence[str] = ("market", "news", "fundamentals"),
+        sections: Sequence[str] = ("market", "news", "fundamentals", "announcements", "research"),
         source: Optional[str] = None,
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
@@ -281,6 +373,10 @@ class AStockInterface:
         look_back_days: Optional[int] = None,
         curr_date: Optional[str] = None,
         freq: Optional[str] = None,
+        announcement_query: Optional[str] = None,
+        announcement_title: Optional[str] = None,
+        research_query: Optional[str] = None,
+        research_title: Optional[str] = None,
     ) -> Dict[str, Any]:
         collected = self.collect(
             symbol,
@@ -293,6 +389,10 @@ class AStockInterface:
             look_back_days=look_back_days,
             curr_date=curr_date,
             freq=freq,
+            announcement_query=announcement_query,
+            announcement_title=announcement_title,
+            research_query=research_query,
+            research_title=research_title,
         )
         normalized = self.normalize_symbol(symbol)
         if not collected:

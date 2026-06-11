@@ -89,7 +89,45 @@ def build_astock_tools(interface: Optional[AStockInterface] = None):
             )
         )
 
-    return [astock_market_snapshot, astock_news_snapshot, astock_fundamentals_snapshot]
+    @tool("astock_announcements_snapshot")
+    def astock_announcements_snapshot(
+        symbol: Annotated[str, "A-share symbol, e.g. 600519.SH or 000001.SZ"],
+        query: Annotated[Optional[str], "Announcement keyword/query"] = None,
+        title: Annotated[Optional[str], "Announcement title hint"] = None,
+        limit: Annotated[Optional[int], "Maximum number of announcement rows"] = None,
+        source: Annotated[Optional[str], "Optional source hint"] = None,
+    ) -> str:
+        return _dump_payload(
+            astock_interface.to_payload(
+                symbol,
+                sections=("announcements",),
+                announcement_query=query,
+                announcement_title=title,
+                limit=limit,
+                source=source,
+            )
+        )
+
+    @tool("astock_research_snapshot")
+    def astock_research_snapshot(
+        symbol: Annotated[str, "A-share symbol, e.g. 600519.SH or 000001.SZ"],
+        query: Annotated[Optional[str], "Research keyword/query"] = None,
+        title: Annotated[Optional[str], "Research title hint"] = None,
+        limit: Annotated[Optional[int], "Maximum number of research rows"] = None,
+        source: Annotated[Optional[str], "Optional source hint"] = None,
+    ) -> str:
+        return _dump_payload(
+            astock_interface.to_payload(
+                symbol,
+                sections=("research",),
+                research_query=query,
+                research_title=title,
+                limit=limit,
+                source=source,
+            )
+        )
+
+    return [astock_market_snapshot, astock_news_snapshot, astock_fundamentals_snapshot, astock_announcements_snapshot, astock_research_snapshot]
 
 
 __all__ = ["build_astock_tools"]
