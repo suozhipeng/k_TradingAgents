@@ -1,5 +1,6 @@
 from typing import Optional
 import os
+import json
 import datetime
 import typer
 import questionary
@@ -22,7 +23,7 @@ from rich.align import Align
 from rich.rule import Rule
 
 from tradingagents.graph.trading_graph import TradingAgentsGraph
-from tradingagents.astock import build_blueprint_markdown
+from tradingagents.astock import AStockGraphReport, AStockGraphRuntime, build_blueprint_markdown, is_astock_symbol
 from tradingagents.graph.analyst_execution import (
     AnalystWallTimeTracker,
     build_analyst_execution_plan,
@@ -698,6 +699,9 @@ def get_analysis_date():
 
 def save_report_to_disk(final_state, ticker: str, save_path: Path):
     """Save complete analysis report to disk with organized subfolders."""
+    if isinstance(final_state, AStockGraphReport):
+        return save_astock_report_to_disk(final_state, save_path)
+
     save_path.mkdir(parents=True, exist_ok=True)
     sections = []
 
@@ -788,6 +792,10 @@ def save_report_to_disk(final_state, ticker: str, save_path: Path):
 
 def display_complete_report(final_state):
     """Display the complete analysis report sequentially (avoids truncation)."""
+    if isinstance(final_state, AStockGraphReport):
+        display_astock_report(final_state)
+        return
+
     console.print()
     console.print(Rule("Complete Analysis Report", style="bold green"))
 
@@ -845,6 +853,157 @@ def display_complete_report(final_state):
         if risk.get("judge_decision"):
             console.print(Panel("[bold]V. Portfolio Manager Decision[/bold]", border_style="green"))
             console.print(Panel(Markdown(risk["judge_decision"]), title="Portfolio Manager", border_style="blue", padding=(1, 2)))
+
+
+def _astock_notes_markdown(notes):
+    if not notes:
+        return "- None"
+    return "\n".join(f"- {note}" for note in notes)
+
+
+
+def _astock_coverage_markdown(provider_coverage):
+    if not provider_coverage:
+        return "| Section | Source | Status | Available |\n| --- | --- | --- | --- |\n| - | - | - | - |"
+    rows = ["| Section | Source | Status | Available |", "| --- | --- | --- | --- |"]
+    for section_name, item in provider_coverage.items():
+        rows.append(
+            f"| {section_name} | {item.get('source', '-') } | {item.get('status', '-') } | {str(item.get('available', False))} |"
+        )
+    return "\n".join(rows)
+
+
+
+def build_astock_report_markdown(report):
+    payload = report.to_dict() if hasattr(report, "to_dict") else dict(report)
+    section_results = payload.get("section_results", {}) or {}
+    ordered_sections = ["market", "news", "fundamentals", "announcements", "research"]
+    lines = [
+        f"# A 股 Analysis Report: {payload.get('ticker', payload.get('symbol', '-'))}",
+        "",
+        f"- Symbol: {payload.get('symbol', '-')}",
+        f"- Normalized Symbol: {payload.get('normalized_symbol', '-')}",
+        f"- Trade Date: {payload.get('trade_date', '-')}",
+        f"- Runtime Mode: {payload.get('runtime_mode', payload.get('mode', '-'))}",
+        f"- Status: {payload.get('status', '-')}",
+        "",
+        "## Analyst Summary",
+        payload.get('analyst_summary') or payload.get('summary') or "A 股报告暂无摘要",
+        "",
+        "## 五层 Section 状态",
+        "| Section | Status | Source | Has Data | Summary |",
+        "| --- | --- | --- | --- | --- |",
+    ]
+    for section_name in ordered_sections:
+        item = section_results.get(section_name, {}) if isinstance(section_results, dict) else {}
+        summary = str(item.get("summary", "")).replace("|", "\\|")
+        lines.append(
+            f"| {section_name} | {item.get('status', '-')} | {item.get('source', '-')} | {str(item.get('has_data', False))} | {summary} |"
+        )
+    lines += [
+        "",
+        "## Bull View",
+        payload.get('bull_view') or "Bull view unavailable",
+        "",
+        "## Bear View",
+        payload.get('bear_view') or "Bear view unavailable",
+        "",
+        "## Research Manager Conclusion",
+        payload.get('research_manager_conclusion') or payload.get('final_trade_decision') or "Research manager conclusion unavailable",
+        "",
+        "## Provider Coverage",
+        _astock_coverage_markdown(payload.get('provider_coverage', {}) or {}),
+        "",
+        "## Missing Data Notes",
+        _astock_notes_markdown(payload.get('missing_data_notes', []) or []),
+        "",
+        "## Degradation Notes",
+        _astock_notes_markdown(payload.get('degradation_notes', []) or []),
+        "",
+        "## Runtime Trace",
+        "\n".join(f"- {step}" for step in (payload.get('runtime_trace', []) or [])) or "- None",
+    ]
+    return "\n".join(lines)
+
+
+
+def save_astock_report_to_disk(report: AStockGraphReport, save_path: Path):
+    """Save A-share report using the display schema as the canonical artifact."""
+    save_path.mkdir(parents=True, exist_ok=True)
+    payload = report.to_dict()
+    (save_path / "complete_report.md").write_text(build_astock_report_markdown(payload), encoding="utf-8")
+    (save_path / "astock_report.json").write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    return save_path / "complete_report.md"
+
+
+
+def display_astock_report(report: AStockGraphReport, render_console: Console = console):
+    """Render the stable A-share display schema for CLI users."""
+    payload = report.to_dict()
+    ordered_sections = ["market", "news", "fundamentals", "announcements", "research"]
+
+    render_console.print()
+    render_console.print(Rule("A 股 Analysis Report", style="bold cyan"))
+
+    overview = Table(box=box.SIMPLE, show_header=False, expand=True, padding=(0, 2))
+    overview.add_column("Field", style="bold cyan", no_wrap=True)
+    overview.add_column("Value", overflow="fold")
+    for label, key in [
+        ("Ticker", "ticker"),
+        ("Symbol", "symbol"),
+        ("Normalized", "normalized_symbol"),
+        ("Trade Date", "trade_date"),
+        ("Runtime Mode", "runtime_mode"),
+        ("Status", "status"),
+    ]:
+        overview.add_row(label, str(payload.get(key, "-")))
+    render_console.print(Panel(overview, title="Report Overview", border_style="cyan"))
+
+    section_table = Table(title="Five-layer Section Status", box=box.SIMPLE_HEAVY, expand=True)
+    section_table.add_column("Section", style="bold")
+    section_table.add_column("Status")
+    section_table.add_column("Source")
+    section_table.add_column("Has Data")
+    section_table.add_column("Summary", overflow="fold")
+    section_results = payload.get("section_results", {}) or {}
+    for section_name in ordered_sections:
+        item = section_results.get(section_name, {}) if isinstance(section_results, dict) else {}
+        section_table.add_row(
+            section_name,
+            str(item.get("status", "-")),
+            str(item.get("source", "-")),
+            "yes" if item.get("has_data") else "no",
+            str(item.get("summary", "-")),
+        )
+    render_console.print(section_table)
+
+    render_console.print(Panel(Markdown(payload.get("analyst_summary") or payload.get("summary") or "A 股报告暂无摘要"), title="Analyst Summary", border_style="blue", padding=(1, 2)))
+    render_console.print(Panel(Markdown(payload.get("bull_view") or "Bull view unavailable"), title="Bull View", border_style="green", padding=(1, 2)))
+    render_console.print(Panel(Markdown(payload.get("bear_view") or "Bear view unavailable"), title="Bear View", border_style="red", padding=(1, 2)))
+    render_console.print(Panel(Markdown(payload.get("research_manager_conclusion") or payload.get("final_trade_decision") or "Research manager conclusion unavailable"), title="Research Manager Conclusion", border_style="magenta", padding=(1, 2)))
+
+    coverage_table = Table(title="Provider Coverage", box=box.SIMPLE, expand=True)
+    coverage_table.add_column("Section", style="bold")
+    coverage_table.add_column("Source")
+    coverage_table.add_column("Status")
+    coverage_table.add_column("Available")
+    provider_coverage = payload.get("provider_coverage", {}) or {}
+    for section_name in ordered_sections:
+        item = provider_coverage.get(section_name, {}) if isinstance(provider_coverage, dict) else {}
+        coverage_table.add_row(
+            section_name,
+            str(item.get("source", "-")),
+            str(item.get("status", "-")),
+            "yes" if item.get("available") else "no",
+        )
+    render_console.print(coverage_table)
+
+    render_console.print(Panel(Markdown(_astock_notes_markdown(payload.get("missing_data_notes", []) or [])), title="Missing Data Notes", border_style="yellow", padding=(1, 2)))
+    render_console.print(Panel(Markdown(_astock_notes_markdown(payload.get("degradation_notes", []) or [])), title="Degradation Notes", border_style="orange1", padding=(1, 2)))
+
 
 
 def update_research_team_status(status):
@@ -1019,6 +1178,39 @@ def run_analysis(checkpoint: bool = False):
         concurrency_limit=config["analyst_concurrency_limit"],
     )
     analyst_wall_time_tracker = AnalystWallTimeTracker(analyst_execution_plan)
+
+    if is_astock_symbol(selections["ticker"]):
+        astock_runtime = AStockGraphRuntime(
+            symbol=selections["ticker"],
+            trade_date=selections["analysis_date"],
+            source="cli",
+        )
+        astock_report = astock_runtime.run()
+        console.print("\n[bold cyan]A 股 analysis complete![/bold cyan]\n")
+        console.print(f"[green]Ticker:[/green] {astock_report.ticker}")
+        console.print(f"[green]Status:[/green] {astock_report.status}")
+        console.print(f"[green]Summary:[/green] {astock_report.analyst_summary}")
+
+        save_choice = typer.prompt("Save report?", default="Y").strip().upper()
+        if save_choice in ("Y", "YES", ""):
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            default_path = Path.cwd() / "reports" / f"{selections['ticker']}_{timestamp}"
+            save_path_str = typer.prompt(
+                "Save path (press Enter for default)",
+                default=str(default_path),
+            ).strip()
+            save_path = Path(save_path_str)
+            try:
+                report_file = save_report_to_disk(astock_report, selections["ticker"], save_path)
+                console.print(f"\n[green]✓ A 股 report saved to:[/green] {save_path.resolve()}")
+                console.print(f"  [dim]Complete report:[/dim] {report_file.name}")
+            except Exception as e:
+                console.print(f"[red]Error saving A 股 report: {e}[/red]")
+
+        display_choice = typer.prompt("\nDisplay full report on screen?", default="Y").strip().upper()
+        if display_choice in ("Y", "YES", ""):
+            display_complete_report(astock_report)
+        return
 
     # Initialize the graph with callbacks bound to LLMs
     graph = TradingAgentsGraph(
