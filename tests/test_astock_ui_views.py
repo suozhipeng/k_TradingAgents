@@ -272,6 +272,8 @@ class TestAStockUiViews(unittest.TestCase):
         self.assertEqual(model.ticker, "600519.SH")
         self.assertEqual(model.runtime_mode, "astock_research_bridge")
         self.assertEqual(model.status, "partial")
+        self.assertEqual(model.decision_scope, "research_only")
+        self.assertFalse(model.actionable)
         self.assertEqual(len(model.section_rows), len(ASTOCK_SECTION_ORDER))
         self.assertEqual(model.section_rows[0].name, "market")
         self.assertTrue(model.section_rows[0].has_data)

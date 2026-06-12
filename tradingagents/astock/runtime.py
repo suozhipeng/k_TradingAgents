@@ -36,6 +36,7 @@ _DEFAULT_SECTIONS: tuple[str, ...] = (
 )
 _ASTOCK_EXACT = re.compile(r"^\d{6}$")
 _ASTOCK_SUFFIXES = (".SH", ".SZ", ".BJ")
+_RESEARCH_ONLY_SIGNAL = "ResearchOnly"
 
 
 def is_astock_symbol(raw: str) -> bool:
@@ -108,6 +109,8 @@ class AStockGraphReport:
     degradation_notes: list[str] = field(default_factory=list)
     mode: str = "astock_research_bridge"
     status: str = "ok"
+    decision_scope: str = "research_only"
+    actionable: bool = False
     metadata: Dict[str, Any] = field(default_factory=dict)
 
     @property
@@ -124,12 +127,23 @@ class AStockGraphReport:
 
     @property
     def final_trade_decision(self) -> str:
+        """Return the research conclusion for legacy display compatibility."""
+
         return self.investment_plan or self.research_manager_output.get("investment_plan") or self.summary
+
+    @property
+    def execution_signal(self) -> str:
+        """Return the non-executable signal for the current research-only runtime."""
+
+        return _RESEARCH_ONLY_SIGNAL
 
     def to_dict(self) -> Dict[str, Any]:
         return {
             "mode": self.mode,
             "status": self.status,
+            "decision_scope": self.decision_scope,
+            "actionable": self.actionable,
+            "execution_signal": self.execution_signal,
             "symbol": self.symbol,
             "normalized_symbol": self.normalized_symbol,
             "trade_date": self.trade_date,
@@ -186,6 +200,9 @@ class AStockGraphReport:
             "asset_type": "stock",
             "mode": self.mode,
             "status": self.status,
+            "decision_scope": self.decision_scope,
+            "actionable": self.actionable,
+            "execution_signal": self.execution_signal,
             "market_report": _section_text(market_section, self.summary),
             "sentiment_report": _section_text(news_section, self.summary),
             "news_report": _section_text(news_section, self.summary),
@@ -402,7 +419,7 @@ def build_astock_research_bridge_state(
 
 @dataclass
 class AStockGraphRuntime:
-    """Formal runtime entry for the minimal A-share research bridge."""
+    """Formal research-only runtime entry for the minimal A-share bridge."""
 
     symbol: str
     interface: Optional[AStockInterface] = None
@@ -420,6 +437,8 @@ class AStockGraphRuntime:
 
         return {
             "mode": self.mode,
+            "decision_scope": "research_only",
+            "actionable": False,
             "entrypoint": "AStockGraphRuntime.run",
             "symbol": self.symbol,
             "trade_date": self.trade_date,
@@ -455,6 +474,7 @@ class AStockGraphRuntime:
                 "missing ASTOCK_IWENCAI_COOKIE degrades to structured empty/partial output",
                 "missing provider degrades to structured empty/partial output",
                 "empty section data does not stop the graph",
+                "research output never becomes an execution signal",
             ],
         }
 

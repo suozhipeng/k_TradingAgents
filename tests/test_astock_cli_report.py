@@ -160,9 +160,13 @@ class TestAStockCliReport(unittest.TestCase):
             json_text = json.loads(json_file.read_text(encoding="utf-8"))
 
         self.assertIn("Runtime Mode: astock_research_bridge", md_text)
+        self.assertIn("Decision Scope: research_only", md_text)
+        self.assertIn("Actionable: False", md_text)
         self.assertIn("五层 Section 状态", md_text)
         self.assertIn("Runtime Trace", md_text)
         self.assertEqual(json_text["ticker"], "600519.SH")
+        self.assertEqual(json_text["decision_scope"], "research_only")
+        self.assertFalse(json_text["actionable"])
         self.assertIn("section_results", json_text)
         self.assertEqual(json_text["status"], "partial")
 

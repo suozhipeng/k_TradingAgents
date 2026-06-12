@@ -33,6 +33,8 @@ class AStockUiModel:
     trade_date: str | None
     runtime_mode: str
     status: str
+    decision_scope: str
+    actionable: bool
     analyst_summary: str
     bull_view: str
     bear_view: str
@@ -126,6 +128,8 @@ def build_astock_ui_model(report: AStockGraphReport | Mapping[str, Any]) -> ASto
         trade_date=payload.get("trade_date"),
         runtime_mode=str(payload.get("runtime_mode") or payload.get("mode") or "-"),
         status=str(payload.get("status") or "-"),
+        decision_scope=str(payload.get("decision_scope") or "research_only"),
+        actionable=bool(payload.get("actionable", False)),
         analyst_summary=str(payload.get("analyst_summary") or payload.get("summary") or "-"),
         bull_view=str(payload.get("bull_view") or "-"),
         bear_view=str(payload.get("bear_view") or "-"),
@@ -197,6 +201,8 @@ def render_astock_report_page(st: Any, report: AStockGraphReport | Mapping[str, 
             ("Trade Date", model.trade_date or "-"),
             ("Runtime Mode", model.runtime_mode),
             ("Status", model.status),
+            ("Decision Scope", model.decision_scope),
+            ("Actionable", "Yes" if model.actionable else "No"),
         ],
         core_summary=model.analyst_summary,
         structured_rows=_table_like_rows(model),

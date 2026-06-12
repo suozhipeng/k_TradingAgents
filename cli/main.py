@@ -886,6 +886,8 @@ def build_astock_report_markdown(report):
         f"- Trade Date: {payload.get('trade_date', '-')}",
         f"- Runtime Mode: {payload.get('runtime_mode', payload.get('mode', '-'))}",
         f"- Status: {payload.get('status', '-')}",
+        f"- Decision Scope: {payload.get('decision_scope', 'research_only')}",
+        f"- Actionable: {payload.get('actionable', False)}",
         "",
         "## Analyst Summary",
         payload.get('analyst_summary') or payload.get('summary') or "A 股报告暂无摘要",
@@ -958,6 +960,8 @@ def display_astock_report(report: AStockGraphReport, render_console: Console = c
         ("Trade Date", "trade_date"),
         ("Runtime Mode", "runtime_mode"),
         ("Status", "status"),
+        ("Decision Scope", "decision_scope"),
+        ("Actionable", "actionable"),
     ]:
         overview.add_row(label, str(payload.get(key, "-")))
     render_console.print(Panel(overview, title="Report Overview", border_style="cyan"))

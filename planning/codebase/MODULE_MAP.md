@@ -45,6 +45,10 @@
 | Reddit Dataflow | `tradingagents/dataflows/reddit.py` | dataflow | Reddit 帖子与讨论抓取适配，用于补充情绪分析与社区观点输入。 | 话题噪声与机器人内容较高；限流与分页导致样本不完整；不应被 WebUI 误认为交易执行接口 |
 | Alpha Vantage Dataflows | `tradingagents/dataflows/alpha_vantage*.py` | dataflow | Alpha Vantage 股票、技术指标、新闻、全球新闻、基本面、财报和内部交易适配/备用路径。 | API key、限流、付费层级和 region 可用性影响结果；与 Yahoo Finance 口径可能不一致；无 key 时 fallback 行为需人工确认 |
 | Symbol 与市场数据校验 | `tradingagents/dataflows/symbol_utils.py / market_data_validator.py / utils.py` | dataflow | 提供 ticker 安全路径组件、市场 symbol 解析/无数据异常、以及市场数据快照校验，防止路径穿越和价格/指标幻觉。 | 校验覆盖范围需人工确认；ticker 标准化可能影响非美市场/加密资产；路径安全规则变更需与日志/checkpoint 同步 |
+| A 股 Provider Router | `tradingagents/astock/data_sources/*` | dataflow | 提供五层 18 个能力点的 symbol 标准化、provider 路由、fallback、缓存和统一错误语义。 | live provider 可用性依赖网络、可选依赖和凭证；`live_verified` 需要保留日期与环境证据 |
+| A 股 Interface / Analyst | `tradingagents/astock/interface.py / tools.py / analyst.py` | analyst | 将五层 provider 能力收敛成结构化 section，并写入 A 股研究状态。 | 缺失 provider 会降级；section 完成不等于完整交易决策链完成 |
+| A 股 Research Runtime | `tradingagents/astock/runtime.py` | researcher | 执行 AStockAnalyst、Bull、Bear、Research Manager，生成 `AStockGraphReport`。 | 默认 BridgeLLM 是确定性验证实现；输出固定为 research-only，不可作为交易执行信号 |
+| A 股 CLI / Read-only Viewer | `cli/main.py / tradingagents/ui/*` | cli | CLI 和 Streamlit 共享 AStockGraphReport 展示 schema，并通过 dispatcher 兼容 legacy payload。 | 当前只有只读展示；静态 WebUI 与 Streamlit viewer 是两个独立前端表面 |
 | LLM Client Factory 与 Model Catalog | `tradingagents/llm_clients/*.py` | config | 统一构建 OpenAI、Anthropic、Google/Gemini、Azure、OpenRouter/Ollama/OpenAI-compatible、DeepSeek、Qwen、GLM、MiniMax、xAI 等 LLM 客户端，并维护模型能力、API key 环境变量和校验逻辑。 | provider/API key/base_url 配置错误会导致运行失败；模型结构化输出和工具调用能力差异影响 Agent；不同 provider 的 reasoning/temperature 语义不一致 |
 | Structured Output Schemas | `tradingagents/agents/schemas.py / agents/utils/structured.py / rating.py` | config | Pydantic schema 与渲染/降级工具，定义并格式化 SentimentReport、ResearchPlan、TraderProposal、PortfolioDecision 等结构化输出和五档 rating。 | schema 变更会影响多个 Agent 和 UI 展示；部分 provider 不稳定支持结构化输出；降级解析准确性需人工确认 |
 | Memory Log 持久化 | `tradingagents/agents/utils/memory.py` | config | 维护历史交易决策日志，支持 pending outcome、同标的历史上下文、跨标的 lessons，并向 Trader/Portfolio Manager 注入 past_context。 | 会写用户 home 下持久化文件，本阶段不得运行；历史记忆可能引入偏差；收益回填依赖 yfinance 价格数据和 benchmark map |
@@ -67,6 +71,7 @@
 - `trader`：交易员 Agent。
 - `risk managers`：激进 / 中性 / 保守风险辩论与组合经理。
 - `dataflows`：Yahoo Finance、Alpha Vantage、StockTwits、Reddit、接口门面与校验。
+- `astock`：五层 provider、统一接口、分析师、research-only runtime 和展示 schema。
 - `graph`：由 `tradingagents/graph/*` 的 config 项覆盖，尤其是 `trading_graph.py`、`setup.py`、`conditional_logic.py`、`analyst_execution.py`。
 - `cli`：交互入口与配置/统计辅助。
 - `config`：默认配置、LLM client factory、schema、checkpoint / reflection / signal 支撑。

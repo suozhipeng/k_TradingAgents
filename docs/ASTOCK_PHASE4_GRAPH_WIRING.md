@@ -32,9 +32,12 @@ This phase wires the existing A-share structured analysis output into the resear
 
 ## Remaining TODO
 
-- UI integration
-- QMT execution
-- Expanded graph wiring beyond the minimal research bridge
+- Trader / Risk / Portfolio Manager A 股适配
+- Backtest and paper-trading integration
+- QMT read-only bridge and later controlled execution
+
+UI integration and the production entry dispatch were completed in later
+delivery phases. See `docs/ASTOCK_CURRENT_STATUS.md`.
 
 ## Verification
 

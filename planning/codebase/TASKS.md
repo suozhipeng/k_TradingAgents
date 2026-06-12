@@ -1,5 +1,9 @@
 # TASKS
 
+> 本文档中的 Phase 0-11 是长期 `Product Roadmap Stage`，用于描述产品
+> 目标顺序，不再作为 Hermes 的代码交付阶段编号。当前 `Delivery Phase`
+> 与实际完成状态以 `docs/ASTOCK_CURRENT_STATUS.md` 为准。
+
 ## 规划依据
 - 以 `planning/codebase/ASTOCK_RESOURCE_PLAN.md` 为总纲。
 - 以 `planning/a-stock-resource/` 里的图片作为事实依据。
@@ -13,12 +17,16 @@
 - 主要链路是 Analyst → Bull/Bear → Trader → Risk Debate → Portfolio Manager
 - 现有数据层更偏通用金融/美股研究框架
 - 输出更接近研究结论与交易建议
+- 已增加 A 股五层数据路由、统一接口和 AStockAnalyst
+- 已增加 research-only A 股 runtime，当前止于 Research Manager
+- 已增加 A 股 CLI 报告、Streamlit 只读 UI 和 legacy 多市场 viewer
+- 当前 A 股结果不可执行，尚未接入 Trader / Risk / Portfolio Manager
 
 ### 目标态（来自 `planning/a-stock-resource/`）
 - 面向 **A 股投研分析 + 交易闭环**
 - 数据源围绕 `mootdx / 腾讯财经 / akshare / iwencai / 巨潮 / QMT`
 - 能力按五层组织：行情 / 研报 / 新闻 / 基础数据 / 公告
-- 对外能力强调 **13 个接口全覆盖**
+- 原始材料强调 **13 个接口**；工程实现统一拆分为 **18 个能力点**
 - 落地路径明确为：**回测验证 → 模拟盘试跑 → 实盘出击**
 - 实盘链路包含 **QMT 桥接、安全模式、人工确认、ATR 止损 / 跟踪止盈**
 
@@ -113,9 +121,9 @@
 
 ---
 
-## Phase 2：13 个接口能力矩阵
+## Phase 2：18 个工程能力点矩阵
 
-**目标：** 把“13 个接口全覆盖”拆成工程上可验证的接口清单。
+**目标：** 把原始材料中的“13 个接口”拆成工程上可验证的 18 个能力点。
 
 ### 任务 2.1：行情层接口清单
 - K 线
@@ -496,7 +504,7 @@
 ### P0
 - Phase 0：边界定义与总纲固化
 - Phase 1：数据源选型与淘汰清单落地
-- Phase 2：13 个接口能力矩阵
+- Phase 2：18 个工程能力点矩阵
 - Phase 3：统一 Skill / 数据访问封装
 
 ### P1

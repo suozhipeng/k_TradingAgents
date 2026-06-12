@@ -17,6 +17,8 @@ The CLI renders the following groups from `AStockGraphReport.to_dict()`:
 - `trade_date`
 - `runtime_mode`
 - `status`
+- `decision_scope`
+- `actionable`
 
 ### Five-layer section status
 - `section_results`
@@ -54,6 +56,8 @@ For A-share runs the CLI now produces:
   degradation notes instead of aborting.
 - Generic non-A-share CLI runs continue to use the legacy multi-team output
   path unchanged.
+- A-share output is explicitly research-only and never represents an
+  executable trading signal.
 
 ## Example headings
 

@@ -47,9 +47,32 @@ START
   - 支持 checkpoint / resume
 - 局限：
   - 决策仍偏 LLM 文本推理主导
-  - 当前架构尚未形成 A 股专用五层数据体系
+  - A 股专用五层数据体系已形成基础实现，但 provider 完整度不一致
+  - A 股 runtime 当前止于 Research Manager，尚未进入 Trader / Risk / Portfolio Manager
+  - A 股默认 BridgeLLM 仅适合确定性验证，输出固定为 research-only
   - 没有完整的回测 / 模拟盘 / 实盘闭环基线
   - 没有 QMT 桥接和受控下单层的现成架构表达
+
+### 1.4 当前 A 股只读链路
+
+```text
+AStockDataRouter
+  -> AStockInterface
+  -> AStockAnalyst
+  -> Bull Researcher
+  -> Bear Researcher
+  -> Research Manager
+  -> AStockGraphReport
+  -> CLI / Streamlit read-only viewer
+```
+
+当前契约：
+
+- `decision_scope=research_only`
+- `actionable=false`
+- `execution_signal=ResearchOnly`
+- 不写入交易决策记忆
+- 不进入通用交易信号解析
 
 ---
 

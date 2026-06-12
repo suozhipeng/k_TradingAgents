@@ -9,7 +9,7 @@ formal production dispatch path used by `TradingAgentsGraph.propagate()`.
 
 - A-share tickers now route to `AStockGraphRuntime`
 - Non-A-share tickers continue using the existing generic graph path
-- The dispatch happens without touching UI integration or QMT execution
+- The dispatch remains research-only and does not touch QMT execution
 - The legacy wrapper `run_astock_research_bridge(...)` is kept as a
   compatibility layer only
 
@@ -39,14 +39,16 @@ shape.
 
 ## Risks / caveats
 
-- A-share runtime is still read-only and does not cover UI or QMT execution
+- A-share runtime is read-only; its current default BridgeLLM is deterministic
+- The runtime stops at Research Manager and does not include Trader, Risk Debate, or Portfolio Manager
+- `final_trade_decision` is a compatibility field, not an executable signal
 - Legacy report save/display paths still expect some generic trading fields,
   so the A-share legacy adapter intentionally fills safe placeholders
 - `ASTOCK_IWENCAI_COOKIE` and provider availability still degrade gracefully
 
-## Next steps
+## Later completion
 
-- Decide whether the CLI interactive flow should also switch to the runtime
-  report object directly
-- Consider adding a dedicated A-share report renderer for later UI work
-- Keep the generic stock/crypto graph path unchanged unless explicitly asked
+- The CLI now consumes `AStockGraphReport` directly.
+- The Streamlit UI now consumes the same display schema.
+- The multi-market dispatcher maps both A-share and legacy payloads.
+- The next delivery phase is Trader / Risk / Portfolio Manager adaptation.

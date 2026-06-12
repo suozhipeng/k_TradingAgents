@@ -45,7 +45,7 @@ It runs the minimal A-share research flow in-process and returns:
 - Missing `ASTOCK_IWENCAI_COOKIE` still degrades cleanly
 - Missing/empty providers still return structured results
 - Existing generic financial paths remain unchanged
-- No UI work
+- This phase itself did not include UI work; UI was completed later
 - No QMT execution work
 
 ## Verification results
@@ -68,10 +68,13 @@ It runs the minimal A-share research flow in-process and returns:
 
 ### Still TODO
 
-- UI integration
-- QMT execution
-- Expanded production graph integration beyond the minimal research bridge
+- Trader / Risk / Portfolio Manager A 股适配
+- Real-LLM runtime profile separated from deterministic verification mode
+- Backtest, paper trading, and QMT work
 
 ## Next recommended step
 
-If the goal is to move from runtime verification to production-grade orchestration, the next step is to align this deterministic runtime helper with the actual graph runner entrypoint, while keeping the existing generic chain unchanged.
+The runtime was later connected to `TradingAgentsGraph.propagate()` as a
+research-only path and to CLI/UI display surfaces. The next implementation
+step is Phase 9 trader/risk adaptation. See
+`docs/ASTOCK_CURRENT_STATUS.md`.

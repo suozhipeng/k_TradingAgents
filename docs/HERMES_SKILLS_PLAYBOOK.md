@@ -73,9 +73,16 @@ Persist outcomes into `docs/`:
 - Phase 7: `astock-rollout-orchestrator` + `ecc-readonly-review`
 - Phase 8: `astock-rollout-orchestrator` + `ecc-readonly-review`
 - Phase 9: `astock-rollout-orchestrator` + `ecc-self-test`
+- Phase 10: `astock-rollout-orchestrator` + `ecc-self-test`
+- Phase 11: `astock-rollout-orchestrator` + `ecc-self-test`
+
+The canonical phase scope and completion status are maintained in
+`docs/ASTOCK_CURRENT_STATUS.md`.
 
 ## Current repo boundary
 
 - Keep `tradingagents/dataflows/interface.py` intact unless a phase explicitly requires broader migration.
-- Keep QMT as read-only or placeholder until Phase 9.
+- Keep all A-share outputs non-actionable until controlled execution is explicitly delivered in Phase 11.
+- Do not treat `final_trade_decision` from the current A-share bridge as an executable signal.
+- Keep QMT as read-only or placeholder until Phase 11.
 - Prefer `docs/` over transient chat for milestone capture.

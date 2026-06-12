@@ -1,5 +1,9 @@
 # ECC Review — TradingAgents WebUI（只读审查）
 
+> 状态：历史 WebUI 静态总览验收。该文档不再代表当前全仓 ECC 结论。
+> A 股 runtime、provider、CLI 和 Streamlit viewer 的当前基线见
+> `docs/ASTOCK_CURRENT_STATUS.md`。
+
 ## 结论
 当前 WebUI 的静态模块清单与 TradingAgents 代码/README/规划文档整体一致，未发现阻断性问题。`modules.json` 已覆盖 TradingAgents 的核心模块与主流程；WebUI 中的 Dashboard / Module Map / Agent Flow / Task Center / Reports / Settings 六个区块均已存在；`webui/src/data/modules.json` 与 `webui-data/modules.json` 完全一致。TypeScript / 构建层面验证通过，`webui/` 下执行 `npm run build` 成功。
 

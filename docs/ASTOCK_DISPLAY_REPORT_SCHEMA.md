@@ -15,6 +15,9 @@ financial graph path.
 - `source`: 本次运行使用的入口来源
 - `mode` / `runtime_mode`: 运行模式，当前固定为 `astock_research_bridge`
 - `status`: `ok` / `partial` / `degraded`
+- `decision_scope`: 当前固定为 `research_only`
+- `actionable`: 当前固定为 `false`
+- `execution_signal`: 当前固定为 `ResearchOnly`
 
 ### Analysis sections
 - `section_results`: 五层 section 的统一展示结果
@@ -30,7 +33,7 @@ financial graph path.
 - `bear_view`: 可展示的 Bear 视图文本
 - `research_manager_conclusion`: Research Manager 的结论文本
 - `investment_plan`: 最终研究计划
-- `final_trade_decision`: 向后兼容的最终决策字段
+- `final_trade_decision`: 向后兼容的研究结论字段，不可作为执行信号
 
 ### Coverage and degradation
 - `provider_coverage`: 每个 section 的来源与可用性
@@ -82,6 +85,8 @@ financial graph path.
 ## Notes
 
 - The schema is intentionally read-only and display-friendly.
+- The current runtime stops at Research Manager.
+- `final_trade_decision` must not be sent to order execution or stored as a completed trade decision.
 - It does not include any QMT execution or order-placement semantics.
 - Generic stock/crypto runtime outputs remain unchanged.
 - The display order is identity, core summary, structured sections, research outputs, coverage, trace, then raw payload.

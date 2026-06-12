@@ -76,7 +76,13 @@ class AStockBlueprint:
                     "tools_package": "tradingagents.astock.tools",
                     "analyst_class": "tradingagents.astock.analyst.AStockAnalyst",
                     "implemented": ["market", "news", "fundamentals", "announcements", "research"],
-                    "todo": ["UI integration", "QMT execution", "expanded graph wiring beyond the minimal research bridge"],
+                    "display_integrations": ["CLI", "Streamlit read-only UI", "legacy multi-market dispatcher"],
+                    "todo": [
+                        "Trader / Risk / Portfolio Manager adaptation",
+                        "real-LLM runtime profile separated from deterministic verification mode",
+                        "backtest and paper trading",
+                        "QMT controlled execution",
+                    ],
                 },
                 "provider_status": {
                     "akshare": {

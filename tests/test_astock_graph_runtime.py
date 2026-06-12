@@ -66,6 +66,8 @@ class AStockGraphRuntimeTests(unittest.TestCase):
 
         description = runtime.describe()
         self.assertEqual(description["mode"], "astock_research_bridge")
+        self.assertEqual(description["decision_scope"], "research_only")
+        self.assertFalse(description["actionable"])
         self.assertEqual(description["entrypoint"], "AStockGraphRuntime.run")
         self.assertEqual(description["state_flow"], [
             "AStockAnalyst",
@@ -91,6 +93,9 @@ class AStockGraphRuntimeTests(unittest.TestCase):
         self.assertIsInstance(report, AStockGraphReport)
         self.assertEqual(report.runtime_trace, ("AStock Analyst", "Bull Researcher", "Bear Researcher", "Research Manager"))
         self.assertEqual(report.runtime_mode, "astock_research_bridge")
+        self.assertEqual(report.decision_scope, "research_only")
+        self.assertFalse(report.actionable)
+        self.assertEqual(report.execution_signal, "ResearchOnly")
         self.assertEqual(report.ticker, "600519.SH")
         self.assertEqual(report.status, "partial")
         self.assertTrue(any("research" in note for note in report.missing_data_notes))
@@ -104,6 +109,9 @@ class AStockGraphRuntimeTests(unittest.TestCase):
         payload = report.to_dict()
         self.assertEqual(payload["mode"], "astock_research_bridge")
         self.assertEqual(payload["runtime_mode"], "astock_research_bridge")
+        self.assertEqual(payload["decision_scope"], "research_only")
+        self.assertFalse(payload["actionable"])
+        self.assertEqual(payload["execution_signal"], "ResearchOnly")
         self.assertEqual(payload["ticker"], "600519.SH")
         self.assertIn("section_results", payload)
         self.assertIn("provider_coverage", payload)
@@ -132,6 +140,40 @@ class AStockGraphRuntimeTests(unittest.TestCase):
         self.assertIn("announcement provider unavailable", result["llm_prompts"]["bear"][0])
         self.assertEqual(result["state"]["investment_debate_state"]["count"], 2)
         self.assertIn("Bear bridge output", result["bear_output"]["investment_debate_state"]["current_response"])
+
+    def test_astock_runtime_does_not_store_or_process_research_as_trade_decision(self):
+        graph = TradingAgentsGraph.__new__(TradingAgentsGraph)
+        graph.config = {"checkpoint_enabled": False, "data_cache_dir": "/tmp"}
+        graph.curr_state = None
+        stored_decisions = []
+        graph.memory_log = type(
+            "MemoryLogStub",
+            (),
+            {
+                "get_past_context": lambda self, ticker: "",
+                "store_decision": lambda self, **kwargs: stored_decisions.append(kwargs),
+            },
+        )()
+        graph.resolve_instrument_context = lambda ticker, asset_type="stock": f"context:{ticker}:{asset_type}"
+        graph._log_state = lambda *args, **kwargs: None
+        processed_signals = []
+        graph.process_signal = lambda signal: processed_signals.append(signal)
+
+        report = AStockGraphRuntime(
+            symbol="600519.SH",
+            interface=self.interface,
+            trade_date="2026-06-10",
+        ).run()
+
+        with patch("tradingagents.graph.trading_graph.AStockGraphRuntime") as runtime_cls:
+            runtime_cls.return_value.run.return_value = report
+            final_state, signal = graph._run_astock_runtime("600519.SH", "2026-06-10")
+
+        self.assertEqual(signal, "ResearchOnly")
+        self.assertEqual(final_state["decision_scope"], "research_only")
+        self.assertFalse(final_state["actionable"])
+        self.assertEqual(stored_decisions, [])
+        self.assertEqual(processed_signals, [])
 
     def test_trading_graph_routes_a_share_ticker_to_astock_runtime(self):
         graph = TradingAgentsGraph.__new__(TradingAgentsGraph)

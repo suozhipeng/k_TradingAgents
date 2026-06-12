@@ -1,5 +1,8 @@
 # TradingAgents WebUI Self Test Report
 
+> 状态：历史 WebUI 自测记录。当前 A 股二次定制回归和剩余风险见
+> `docs/ASTOCK_CURRENT_STATUS.md`。
+
 ## 结论
 **通过。**
 

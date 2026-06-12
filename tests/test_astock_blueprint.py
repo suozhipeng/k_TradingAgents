@@ -33,7 +33,15 @@ class AStockBlueprintTests(unittest.TestCase):
         self.assertIn("research", payload["data_entrypoint"]["upper_layer_bridge"]["implemented"])
         self.assertNotIn("research", payload["data_entrypoint"]["upper_layer_bridge"]["todo"])
         self.assertNotIn("announcements", payload["data_entrypoint"]["upper_layer_bridge"]["todo"])
-        self.assertIn("expanded graph wiring beyond the minimal research bridge", payload["data_entrypoint"]["upper_layer_bridge"]["todo"])
+        self.assertIn(
+            "Trader / Risk / Portfolio Manager adaptation",
+            payload["data_entrypoint"]["upper_layer_bridge"]["todo"],
+        )
+        self.assertIn("CLI", payload["data_entrypoint"]["upper_layer_bridge"]["display_integrations"])
+        self.assertIn(
+            "Streamlit read-only UI",
+            payload["data_entrypoint"]["upper_layer_bridge"]["display_integrations"],
+        )
 
     def test_provider_status_tracks_verification_boundaries(self):
         status = build_blueprint_payload()["data_entrypoint"]["provider_status"]

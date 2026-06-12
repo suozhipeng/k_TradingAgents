@@ -32,6 +32,24 @@ cli.main:app
   -> 保存 report / log / JSON
 ```
 
+### 链路 3：A 股 research-only 入口
+
+```text
+TradingAgentsGraph.propagate("600519.SH", date)
+  -> is_astock_symbol()
+  -> AStockGraphRuntime.run()
+  -> AStockAnalyst
+  -> Bull Researcher
+  -> Bear Researcher
+  -> Research Manager
+  -> AStockGraphReport.to_legacy_state()
+  -> execution_signal = ResearchOnly
+```
+
+CLI 对 A 股标的直接生成 `AStockGraphReport` 并保存
+`complete_report.md` 与 `astock_report.json`。Streamlit viewer 使用同一
+schema。当前链路不进入 Trader、Risk Debate、Portfolio Manager 或 QMT。
+
 ## 核心类 / 函数
 
 ### 1. 图总控

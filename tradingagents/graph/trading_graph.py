@@ -329,7 +329,7 @@ class TradingAgentsGraph:
         return asset_type == "astock" or is_astock_symbol(ticker)
 
     def _run_astock_runtime(self, company_name, trade_date, asset_type: str = "stock"):
-        """Execute the formal A-share runtime entry and adapt it to legacy state."""
+        """Execute the research-only A-share runtime and adapt it to legacy state."""
 
         past_context = self.memory_log.get_past_context(company_name)
         instrument_context = self.resolve_instrument_context(company_name, asset_type)
@@ -348,16 +348,11 @@ class TradingAgentsGraph:
 
         self.curr_state = final_state
         self._log_state(trade_date, final_state)
-        self.memory_log.store_decision(
-            ticker=company_name,
-            trade_date=trade_date,
-            final_trade_decision=final_state["final_trade_decision"],
-        )
 
         if self.config.get("checkpoint_enabled"):
             clear_checkpoint(self.config["data_cache_dir"], company_name, str(trade_date))
 
-        return final_state, self.process_signal(final_state["final_trade_decision"])
+        return final_state, report.execution_signal
 
     def propagate(self, company_name, trade_date, asset_type: str = "stock"):
         """Run the trading agents graph for a company on a specific date.
@@ -374,7 +369,7 @@ class TradingAgentsGraph:
         # Resolve any pending memory-log entries for this ticker before routing.
         self._resolve_pending_entries(company_name)
 
-        if self._should_use_astock_runtime(company_name, asset_type):
+        if TradingAgentsGraph._should_use_astock_runtime(self, company_name, asset_type):
             return self._run_astock_runtime(company_name, trade_date, asset_type=asset_type)
 
         # Re-run any pending memory-log entries for the generic pipeline before the pipeline runs.

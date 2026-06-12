@@ -14,6 +14,8 @@ The UI consumes `AStockGraphReport` directly through the shared display schema:
 - `trade_date`
 - `runtime_mode`
 - `status`
+- `decision_scope`
+- `actionable`
 - `analyst_summary`
 - `section_results`
 - `bull_view`
@@ -73,6 +75,8 @@ readable and shows the notes instead of failing:
 - Generic non-A 股 payloads are routed through the legacy renderer hook.
 - Existing generic financial modules are not rewritten by this change.
 - The integration is display-only and intentionally excludes execution.
+- Current A 股 reports are explicitly marked `research_only` and
+  `actionable=false`.
 
 ## Optional dependency
 
