@@ -25,5 +25,7 @@ Project-local skills are installed in `skills/` and should be treated as the def
 2. For A-share feature delivery, start with the matching A-stock skill.
 3. For cross-phase work, invoke `astock-rollout-orchestrator` first, then route into one ECC skill and one A-stock skill.
 4. Write durable project findings into `docs/HERMES_SKILLS_PLAYBOOK.md` or adjacent `docs/` artifacts, not transient chat only.
+5. Every Delivery Phase must be recorded under `docs/phases/` before handoff and Git commit.
+6. A phase archive must include scope, product decisions, implementation evidence, tests, risks, next entry criteria, and commit SHA.
 
 <!-- agent-ninja-END -->

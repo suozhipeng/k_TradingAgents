@@ -27,15 +27,21 @@ Use this skill when a task spans planning, implementation, validation, and proje
 
 ## Documentation rule
 
-Write durable outcomes to `docs/`, not only to chat:
+Write durable outcomes to `docs/phases/`, not only to chat:
 
 - phase objective
+- product decisions and scope boundary
 - files changed
 - tests run
 - known gaps
 - next phase entry criteria
+- final commit SHA
+
+Use `docs/phases/TEMPLATE.md`. A phase cannot be marked complete or handed off
+until its archive entry and `docs/phases/README.md` index are updated.
 
 ## Repo anchor
 
 - `docs/HERMES_SKILLS_PLAYBOOK.md`
 - `docs/ASTOCK_CURRENT_STATUS.md`
+- `docs/phases/README.md`

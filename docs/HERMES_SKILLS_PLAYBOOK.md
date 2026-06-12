@@ -58,11 +58,16 @@ When a task contains both delivery and acceptance:
 
 ### Step 4: persist durable results
 
-Persist outcomes into `docs/`:
+Persist outcomes into `docs/phases/`:
 
 - update this playbook when the skill inventory changes
-- add phase-specific notes when a phase meaningfully advances
+- create or update one archive file for every phase
+- use `docs/phases/TEMPLATE.md`
+- update `docs/phases/README.md` and `docs/ASTOCK_CURRENT_STATUS.md`
+- include the final commit SHA or mark it `pending` until the next checkpoint
 - keep chat-only conclusions out of the critical path
+
+No phase may be marked complete or handed off without a local archive record.
 
 ## Current phase mapping
 
@@ -85,4 +90,4 @@ The canonical phase scope and completion status are maintained in
 - Keep all A-share outputs non-actionable until controlled execution is explicitly delivered in Phase 11.
 - Do not treat `final_trade_decision` from the current A-share bridge as an executable signal.
 - Keep QMT as read-only or placeholder until Phase 11.
-- Prefer `docs/` over transient chat for milestone capture.
+- Use `docs/phases/` as the canonical milestone archive.
