@@ -88,6 +88,11 @@ class AStockBlueprint:
                     "akshare": {
                         "implemented": ["daily_kline", "valuation", "stock_news", "research_list", "quarterly_financials"],
                         "live_verified": ["daily_kline", "valuation", "stock_news", "research_list", "quarterly_financials"],
+                        "live_verification": {
+                            "verified_on": "2026-06-12",
+                            "environment": "local opt-in integration tests",
+                            "evidence": "docs/ASTOCK_PHASE4_GRAPH_WIRING.md",
+                        },
                         "fixture_verified": ["daily_kline", "valuation", "stock_news", "research_list", "quarterly_financials"],
                         "optional_dependency": "akshare",
                         "requires_credentials": False,
@@ -96,6 +101,11 @@ class AStockBlueprint:
                     "tencent": {
                         "implemented": ["snapshot", "order_book", "trade_tape", "turnover_rate"],
                         "live_verified": ["snapshot", "order_book", "trade_tape", "turnover_rate"],
+                        "live_verification": {
+                            "verified_on": "2026-06-12",
+                            "environment": "local opt-in integration tests",
+                            "evidence": "docs/ASTOCK_PHASE4_GRAPH_WIRING.md",
+                        },
                         "fixture_verified": ["snapshot", "order_book", "trade_tape", "turnover_rate"],
                         "optional_dependency": "requests",
                         "requires_credentials": False,
@@ -103,6 +113,11 @@ class AStockBlueprint:
                     "cninfo": {
                         "implemented": ["announcement_summary", "announcement_full"],
                         "live_verified": ["announcement_summary", "announcement_full"],
+                        "live_verification": {
+                            "verified_on": "2026-06-12",
+                            "environment": "local opt-in integration tests",
+                            "evidence": "docs/ASTOCK_PHASE4_GRAPH_WIRING.md",
+                        },
                         "fixture_verified": ["announcement_summary", "announcement_full"],
                         "optional_dependency": "requests",
                         "requires_credentials": False,
@@ -110,6 +125,11 @@ class AStockBlueprint:
                     "mootdx": {
                         "implemented": ["daily_kline", "order_book", "trade_tape", "f10"],
                         "live_verified": ["daily_kline", "order_book", "trade_tape", "f10"],
+                        "live_verification": {
+                            "verified_on": "2026-06-12",
+                            "environment": "local opt-in integration tests",
+                            "evidence": "docs/ASTOCK_PHASE4_GRAPH_WIRING.md",
+                        },
                         "fixture_verified": ["daily_kline", "order_book", "trade_tape", "f10"],
                         "optional_dependency": "mootdx",
                         "requires_credentials": False,
@@ -118,6 +138,11 @@ class AStockBlueprint:
                     "iwencai": {
                         "implemented": ["nl_search", "institution_expectation"],
                         "live_verified": [],
+                        "live_verification": {
+                            "verified_on": None,
+                            "environment": None,
+                            "evidence": "ASTOCK_IWENCAI_COOKIE not configured",
+                        },
                         "fixture_verified": ["nl_search", "institution_expectation"],
                         "optional_dependency": "pywencai",
                         "requires_credentials": True,
@@ -126,6 +151,11 @@ class AStockBlueprint:
                     "qmt": {
                         "implemented": ["read_only_placeholder"],
                         "live_verified": [],
+                        "live_verification": {
+                            "verified_on": None,
+                            "environment": None,
+                            "evidence": "placeholder only; no live bridge",
+                        },
                         "fixture_verified": [],
                         "optional_dependency": "QMT local client",
                         "requires_credentials": True,

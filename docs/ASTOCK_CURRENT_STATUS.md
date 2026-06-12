@@ -1,6 +1,6 @@
 # A 股二次定制开发基线
 
-更新时间：2026-06-12
+更新时间：2026-06-13
 
 本文档是 A 股二次定制开发的当前事实基线。后续 Hermes 调度、ECC
 验收和阶段推进优先以本文档为准。
@@ -59,7 +59,7 @@ AStockDataRouter
 | 6 | `TradingAgentsGraph.propagate()` research-only 分发 | 完成 |
 | 7 | 展示 schema 与 CLI 渲染 | 完成 |
 | 8 | Streamlit 只读 UI 与 legacy 多市场 viewer | 完成 |
-| 9 | Trader / Risk / Portfolio Manager A 股适配 | 未开始 |
+| 9 | Trader / Risk / Portfolio Manager A 股适配 | 规格完成，实现未开始 |
 | 10 | 回测与模拟盘 | 未开始 |
 | 11 | QMT 只读桥接到受控执行 | 未开始 |
 
@@ -99,7 +99,7 @@ AStockDataRouter
 
 ## 6. 下一阶段入口条件
 
-Delivery Phase 9 开始前必须满足：
+Delivery Phase 9 实现开始前必须满足：
 
 1. 定义 A 股 TraderProposal、RiskDecision、PortfolioDecision 的结构化
    schema。
@@ -107,6 +107,16 @@ Delivery Phase 9 开始前必须满足：
 3. 为研究结论、交易建议和可执行信号定义不同字段，禁止复用
    `final_trade_decision` 表达三种语义。
 4. 增加 A 股完整链路测试，但仍保持 `actionable=false`。
+
+产品与开发规格已归档到
+`docs/phases/phase-09-trader-risk-portfolio.md`。当前仅完成规格，不代表
+Trader / Risk / Portfolio Manager 已接入。
+
+2026-06-13 Phase 9 规格纠偏回归：
+
+- Blueprint contract: `6 passed`
+- A 股扩展回归: `50 passed`
+- 全仓回归: `360 passed, 9 skipped`
 
 ## 7. 验收基线
 

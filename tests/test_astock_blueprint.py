@@ -47,8 +47,14 @@ class AStockBlueprintTests(unittest.TestCase):
         status = build_blueprint_payload()["data_entrypoint"]["provider_status"]
         self.assertIn("valuation", status["akshare"]["implemented"])
         self.assertIn("valuation", status["akshare"]["live_verified"])
+        self.assertEqual(status["akshare"]["live_verification"]["verified_on"], "2026-06-12")
+        self.assertIn(
+            "ASTOCK_PHASE4_GRAPH_WIRING.md",
+            status["akshare"]["live_verification"]["evidence"],
+        )
         self.assertTrue(status["iwencai"]["requires_credentials"])
         self.assertEqual(status["iwencai"]["live_verified"], [])
+        self.assertIsNone(status["iwencai"]["live_verification"]["verified_on"])
         self.assertIn("mootdx", status["mootdx"]["optional_dependency"])
         self.assertIn("f10", status["mootdx"]["fixture_verified"])
         self.assertIn("f10", status["mootdx"]["live_verified"])

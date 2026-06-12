@@ -47,7 +47,7 @@ START
   - 支持 checkpoint / resume
 - 局限：
   - 决策仍偏 LLM 文本推理主导
-  - A 股专用五层数据体系已形成基础实现，但 provider 完整度不一致
+  - A 股专用五层数据体系和统一接口已形成基础实现，但 provider 完整度不一致，且 runtime 仍只读
   - A 股 runtime 当前止于 Research Manager，尚未进入 Trader / Risk / Portfolio Manager
   - A 股默认 BridgeLLM 仅适合确定性验证，输出固定为 research-only
   - 没有完整的回测 / 模拟盘 / 实盘闭环基线
@@ -279,6 +279,8 @@ iwencai
 - 产出结构化中间报告
 - 不直接越层做执行动作
 
+当前代码证据：A 股分析链已经有 `AStockInterface -> tools -> AStockAnalyst -> Bull/Bear/Research Manager` 的只读闭环，但没有进入 Trader / Risk / Portfolio 的 A 股适配实现。
+
 #### Research Team（目标态）
 - 保留多空辩论作为项目辨识度能力
 - 辩论素材从“通用金融报告”切换为“五层 A 股事实报告”
@@ -293,6 +295,10 @@ iwencai
   - 允许进入模拟盘
   - 允许进入实盘确认
 
+当前状态：Phase 9 仅完成产品与开发契约，尚未实现 A 股 Trader 节点。
+规格见 `docs/phases/phase-09-trader-risk-portfolio.md`。Phase 9 固定为
+`actionable=false`，不能进入 signal processing、交易记忆或 QMT。
+
 #### Risk / Portfolio Layer（目标态）
 - 需要显式吸收：
   - 安全模式
@@ -301,6 +307,10 @@ iwencai
   - 跟踪止盈
   - 组合风控
 - 这层不只是文本辩论，而是执行权限与交易约束的最后关口
+
+当前状态：通用 Risk Agent 仍输出自由文本，A 股 `RiskDecision` 与
+`PortfolioDecision` 尚未实现。Phase 9 需要新增结构化 advisory contract，
+而不是直接复用通用 `final_trade_decision`。
 
 ---
 
@@ -321,6 +331,8 @@ Five-Layer Analysis Results
   -> Execution Mode (backtest/paper/live)
 ```
 
+当前代码证据：仓库中没有 A 股策略层实现，`tradingagents/astock/` 仅覆盖数据、分析、运行和展示，不包含策略选择或评分模块.
+
 ### 8.2 策略层职责
 - 接收五层分析结果与研究结论
 - 输出策略评分与候选动作
@@ -336,6 +348,8 @@ Five-Layer Analysis Results
 ## 9. 执行层架构：回测 / 模拟盘 / 实盘
 
 目标态最关键的变化之一，是执行层必须显式分三级，而不是把所有动作混在同一条链路里。
+
+当前代码证据：仓库没有 A 股回测引擎、模拟盘引擎或实盘引擎实现；现有 A 股 runtime 只生成 `decision_scope=research_only`、`actionable=false`、`execution_signal=ResearchOnly`。
 
 ### 9.1 第一阶段：回测验证
 基于图片规划，回测阶段包括：
@@ -402,6 +416,8 @@ Python 3.12 Main System
 - 承担 Web、Agent、策略、调度、风控主逻辑
 - 通过 HTTP 调用桥接层
 
+当前代码证据：QMT 只有蓝图里的 `read_only_placeholder`，没有可执行桥接或下单代码。
+
 #### 桥接层（Python 3.6.8）
 - 适配 QMT 运行环境
 - 暴露主系统可调用的桥接接口
@@ -423,6 +439,8 @@ Python 3.12 Main System
 ## 11. 风控与控制平面架构
 
 目标态里，风控不是单个 agent，而是一整套控制平面。
+
+当前代码证据：仓库未发现 A 股风控控制平面实现；现有风控仅是通用 TradingAgents 的研究决策辩论节点，并未接入 A 股执行链路。
 
 ### 11.1 风控要素
 根据图片规划，应至少包含：
@@ -464,6 +482,8 @@ Python 3.12 Main System
 - 模拟盘状态
 - 实盘控制入口
 - 风控状态显示
+
+当前代码证据：A 股当前只提供 CLI 报告和 Streamlit 只读 viewer；没有面向执行的 A 股 API 或通知层实现。
 
 ### 12.2 CLI
 CLI 仍可保留，用于：
@@ -525,14 +545,14 @@ Providers
 - CLI 与 Web 的双入口思路
 
 ### 14.2 必须重做或新建的部分
-- A 股五层数据体系
-- 统一 A 股 Skill / 接口封装
+- A 股研究结论到交易提案的合同实现（产品契约已在 Phase 9 归档）
 - 策略层
 - 回测引擎与回测验收体系
 - 模拟盘引擎
 - QMT 桥接层
 - 实盘控制平面
 - 风控控制平面
+- API / 通知体系
 
 ### 14.3 不应混淆的部分
 - 当前仓库已有的“研究/交易建议”能力
