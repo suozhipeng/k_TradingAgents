@@ -27,9 +27,11 @@ The UI consumes `AStockGraphReport` directly through the shared display schema:
 ## New entrypoints
 
 ### Shared UI renderer
+- `tradingagents.ui.streamlit_app.main()` provides the read-only landing shell and then hands payloads to the shared dispatcher.
 - `tradingagents.ui.dispatcher.render_report_page(st, payload, legacy_renderer=None)`
 - `tradingagents.ui.dispatcher.render_astock_report_page(st, report)`
 - `tradingagents.ui.dispatcher.render_legacy_report_page(st, payload)`
+- `tradingagents.ui.read_only_shell.render_viewer_landing_shell(...)`
 - `tradingagents.ui.read_only_shell.render_readonly_report_shell(...)`
 
 ### Streamlit app

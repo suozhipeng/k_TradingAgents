@@ -338,6 +338,10 @@ class TestAStockUiViews(unittest.TestCase):
         runtime_cls.assert_called_once_with(symbol="600519.SH", trade_date="2026-06-10", source="ui")
         render_page.assert_called_once()
         self.assertEqual(render_page.call_args.args[1].ticker, "600519.SH")
+        self.assertEqual(live_st.titles[0], "TradingAgents Multi-Market Viewer")
+        self.assertEqual(live_st.subheaders[:3], ["Read-only landing", "Supported entry paths", "Read-only boundary"])
+        self.assertTrue(any("A 股 runtime" in item or "read-only landing shell" in item for item in live_st.markdowns))
+        self.assertTrue(any("No QMT execution." in item for item in live_st.warnings))
 
         json_payload = json.dumps(fake_report.to_dict(), ensure_ascii=False)
         json_sidebar = FakeSidebar(mode="JSON payload (A 股 or legacy)", json_text=json_payload)
@@ -348,6 +352,8 @@ class TestAStockUiViews(unittest.TestCase):
 
         render_page_json.assert_called_once()
         self.assertEqual(render_page_json.call_args.args[1]["ticker"], "600519.SH")
+        self.assertEqual(json_st.titles[0], "TradingAgents Multi-Market Viewer")
+        self.assertTrue(any("JSON payload" in item for item in json_st.markdowns))
 
     def test_streamlit_main_accepts_legacy_json_payload(self):
         legacy_payload = self._make_legacy_payload()
@@ -360,6 +366,8 @@ class TestAStockUiViews(unittest.TestCase):
 
         render_page.assert_called_once()
         self.assertEqual(render_page.call_args.args[1]["ticker"], "AAPL")
+        self.assertEqual(legacy_st.titles[0], "TradingAgents Multi-Market Viewer")
+        self.assertTrue(any("legacy" in item.lower() for item in legacy_st.markdowns))
 
     def test_is_astock_report_payload_detects_mode(self):
         self.assertTrue(is_astock_report_payload(self._make_report()))

@@ -11,6 +11,12 @@ VIEWER_SECTION_ORDER: tuple[str, ...] = (
     "Runtime Trace",
     "Raw Payload",
 )
+VIEWER_LANDING_METRIC_ORDER: tuple[tuple[str, str], ...] = (
+    ("Markets", "A 股 + legacy"),
+    ("Inputs", "Live runtime / JSON"),
+    ("Mode", "Read-only"),
+    ("Boundary", "No QMT / auto-trade"),
+)
 
 
 class _FallbackExpander:
@@ -88,6 +94,48 @@ def _render_notes(st: Any, notes: Sequence[str], empty_message: str) -> None:
         info(message)
 
 
+def render_viewer_landing_shell(
+    st: Any,
+    *,
+    title: str,
+    caption: str | None,
+    source_mode: str,
+    source_summary: str,
+    entry_points: Sequence[str],
+    read_only_notes: Sequence[str],
+) -> None:
+    title_fn = getattr(st, "title", None)
+    if callable(title_fn):
+        title_fn(title)
+
+    caption_fn = getattr(st, "caption", None)
+    if callable(caption_fn) and caption:
+        caption_fn(caption)
+
+    metric_cols = _columns(st, len(VIEWER_LANDING_METRIC_ORDER))
+    for col, (label, value) in zip(metric_cols, VIEWER_LANDING_METRIC_ORDER, strict=False):
+        metric = getattr(col, "metric", None)
+        if callable(metric):
+            metric(label, value)
+
+    _subheader(st, "Read-only landing")
+    _markdown(
+        st,
+        f"{source_summary}\n\n**Selected source mode:** {source_mode}\n\n"
+        "This entry shell is intentionally read-only. It only helps you choose\n"
+        "an input family and then hands the payload to the shared viewer shell.",
+    )
+    _divider(st)
+
+    _subheader(st, "Supported entry paths")
+    _markdown(st, "\n".join(f"- {entry}" for entry in entry_points))
+    _divider(st)
+
+    _subheader(st, "Read-only boundary")
+    _render_notes(st, read_only_notes, "Read-only mode active.")
+    _divider(st)
+
+
 def render_readonly_report_shell(
     st: Any,
     *,
@@ -162,4 +210,10 @@ def render_readonly_report_shell(
                 json_block(raw_payload)
 
 
-__all__ = ["VIEWER_METRIC_ORDER", "VIEWER_SECTION_ORDER", "render_readonly_report_shell"]
+__all__ = [
+    "VIEWER_METRIC_ORDER",
+    "VIEWER_SECTION_ORDER",
+    "VIEWER_LANDING_METRIC_ORDER",
+    "render_viewer_landing_shell",
+    "render_readonly_report_shell",
+]

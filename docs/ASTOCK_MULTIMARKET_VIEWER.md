@@ -33,6 +33,8 @@ execution.
 
 The viewer is implemented with a shared read-only shell (`tradingagents.ui.read_only_shell.render_readonly_report_shell(...)`) so both market families follow the same page order and section hierarchy.
 
+The app entry also renders a landing shell (`tradingagents.ui.read_only_shell.render_viewer_landing_shell(...)`) before the final payload view so the interface feels like a product entry page instead of a direct content dump.
+
 - `tradingagents.ui.dispatcher.render_report_page(st, payload, legacy_renderer=None)`
 
 Dispatch rules:

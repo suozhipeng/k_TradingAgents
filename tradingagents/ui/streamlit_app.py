@@ -8,6 +8,7 @@ from typing import Any
 from tradingagents.astock import AStockGraphRuntime
 
 from .dispatcher import render_report_page
+from .read_only_shell import render_viewer_landing_shell
 
 
 def _load_json_payload(path: str | Path) -> Any:
@@ -31,10 +32,26 @@ def main(st: Any | None = None) -> None:
             ) from exc
 
     st.set_page_config(page_title="TradingAgents Multi-Market Viewer", layout="wide")
-    st.title("TradingAgents Multi-Market Viewer")
-    st.caption("Read-only display layer for AStockGraphReport and legacy TradingAgents outputs")
 
     source_mode = st.sidebar.selectbox("Report source", ["Live A 股 runtime", "JSON payload (A 股 or legacy)"])
+    render_viewer_landing_shell(
+        st,
+        title="TradingAgents Multi-Market Viewer",
+        caption="Read-only display layer for AStockGraphReport and legacy TradingAgents outputs",
+        source_mode=source_mode,
+        source_summary=(
+            "This is a read-only landing shell for the A 股 runtime and the legacy generic-finance output."
+        ),
+        entry_points=(
+            "Live A 股 runtime → generates an AStockGraphReport via AStockGraphRuntime",
+            "JSON payload (A 股 or legacy) → loads a serialized read-only payload",
+        ),
+        read_only_notes=(
+            "No QMT execution.",
+            "No automatic trading.",
+            "No write actions or order submission.",
+        ),
+    )
     payload = None
 
     if source_mode == "Live A 股 runtime":
@@ -44,7 +61,7 @@ def main(st: Any | None = None) -> None:
             runtime = AStockGraphRuntime(symbol=symbol, trade_date=trade_date, source="ui")
             payload = runtime.run()
         else:
-            st.info("Click Generate report to load the read-only A 股 view.")
+            st.info("Choose a symbol in the sidebar, then generate the read-only A 股 report.")
             return
     else:
         upload = st.sidebar.file_uploader("Upload A 股 report JSON", type=["json"])
@@ -55,7 +72,7 @@ def main(st: Any | None = None) -> None:
             if text.strip():
                 payload = json.loads(text)
             else:
-                st.info("Upload or paste an AStockGraphReport JSON payload.")
+                st.info("Upload or paste an AStockGraphReport JSON payload to continue.")
                 return
 
     render_report_page(st, payload)
