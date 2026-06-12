@@ -26,8 +26,9 @@ The UI consumes `AStockGraphReport` directly through the shared display schema:
 ## New entrypoints
 
 ### Shared UI renderer
-- `tradingagents.ui.astock_views.render_astock_report_page(st, report)`
-- `tradingagents.ui.astock_views.render_report_page(st, payload, legacy_renderer=None)`
+- `tradingagents.ui.dispatcher.render_report_page(st, payload, legacy_renderer=None)`
+- `tradingagents.ui.dispatcher.render_astock_report_page(st, report)`
+- `tradingagents.ui.dispatcher.render_legacy_report_page(st, payload)`
 
 ### Streamlit app
 - `tradingagents.ui.streamlit_app.main()`

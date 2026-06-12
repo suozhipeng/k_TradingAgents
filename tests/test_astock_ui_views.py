@@ -7,13 +7,8 @@ from unittest import mock
 import pytest
 
 from tradingagents.astock import AStockGraphReport
-from tradingagents.ui.astock_views import (
-    ASTOCK_SECTION_ORDER,
-    build_astock_ui_model,
-    is_astock_report_payload,
-    render_astock_report_page,
-    render_report_page,
-)
+from tradingagents.ui.astock_views import ASTOCK_SECTION_ORDER, build_astock_ui_model, is_astock_report_payload, render_astock_report_page
+from tradingagents.ui.dispatcher import LegacyUiModel, build_legacy_ui_model, is_legacy_report_payload, render_legacy_report_page, render_report_page
 from tradingagents.ui import streamlit_app
 
 
@@ -172,6 +167,85 @@ class TestAStockUiViews(unittest.TestCase):
             metadata={"bridge_mode": "astock_research_bridge"},
         )
 
+    def _make_legacy_payload(self, missing=True):
+        return {
+            "company_of_interest": "AAPL",
+            "ticker": "AAPL",
+            "market_profile": "global",
+            "mode": "global_finance",
+            "asset_type": "stock",
+            "trade_date": "2026-06-10",
+            "status": "ok",
+            "market_report": "Global market report text.",
+            "sentiment_report": "Sentiment report text.",
+            "news_report": "News report text.",
+            "fundamentals_report": "Fundamentals report text.",
+            "investment_debate_state": {
+                "bull_history": "Bull case text.",
+                "bear_history": "Bear case text.",
+                "judge_decision": "Research manager text.",
+            },
+            "trader_investment_plan": "Trader plan text.",
+            "risk_debate_state": {
+                "aggressive_history": "Aggressive case text.",
+                "conservative_history": "Conservative case text.",
+                "neutral_history": "Neutral case text.",
+                "judge_decision": "Portfolio manager text.",
+            },
+            "runtime_trace": ["Market Analyst", "Research Manager", "Trader", "Portfolio Manager"],
+            "summary": "Legacy summary text.",
+        }
+
+    def test_build_legacy_ui_model_preserves_contract(self):
+        payload = self._make_legacy_payload()
+        model = build_legacy_ui_model(payload)
+
+        self.assertEqual(model.ticker, "AAPL")
+        self.assertEqual(model.market_label, "global")
+        self.assertEqual(model.runtime_mode, "global_finance")
+        self.assertEqual(model.summary, "Legacy summary text.")
+        self.assertEqual(len(model.analyst_rows), 4)
+        self.assertEqual(len(model.team_rows), 4)
+        self.assertTrue(model.analyst_rows[0].has_data)
+        self.assertIn("research manager text", model.team_rows[0].summary.lower())
+        self.assertEqual(model.runtime_trace[0], "Market Analyst")
+
+    def test_render_legacy_report_page_renders_team_outputs(self):
+        payload = self._make_legacy_payload()
+        st = FakeStreamlit()
+
+        model = render_legacy_report_page(st, payload)
+        self.assertEqual(model.ticker, "AAPL")
+        self.assertIn("TradingAgents Legacy Report · AAPL", st.titles)
+        self.assertIn("Legacy Summary", st.subheaders)
+        self.assertIn("Analyst Team Output", st.subheaders)
+        self.assertIn("Team Output", st.subheaders)
+        self.assertGreaterEqual(len(st.tables), 2)
+        self.assertIn("Global market report text.", st.markdowns)
+        self.assertIn("Legacy summary text.", st.markdowns)
+        self.assertFalse(st.warnings)
+        self.assertTrue(st.json_payloads)
+
+    def test_legacy_dispatcher_path_uses_legacy_view_model(self):
+        payload = self._make_legacy_payload()
+        st = FakeStreamlit()
+
+        result = render_report_page(st, payload)
+        self.assertIsInstance(result, LegacyUiModel)
+        self.assertEqual(result.ticker, "AAPL")
+        self.assertTrue(is_legacy_report_payload(payload))
+
+    def test_legacy_missing_fields_still_render_notes(self):
+        payload = self._make_legacy_payload()
+        payload.pop("news_report")
+        payload.pop("trader_investment_plan")
+        st = FakeStreamlit()
+
+        model = render_legacy_report_page(st, payload)
+        self.assertIn("news_report unavailable", " ".join(model.missing_data_notes))
+        self.assertIn("trader_investment_plan", " ".join(model.degradation_notes))
+        self.assertTrue(any("unavailable" in item for item in st.warnings))
+
     def test_build_astock_ui_model_preserves_display_schema(self):
         report = self._make_report()
         model = build_astock_ui_model(report)
@@ -236,7 +310,7 @@ class TestAStockUiViews(unittest.TestCase):
         self.assertEqual(render_page.call_args.args[1].ticker, "600519.SH")
 
         json_payload = json.dumps(fake_report.to_dict(), ensure_ascii=False)
-        json_sidebar = FakeSidebar(mode="JSON payload", json_text=json_payload)
+        json_sidebar = FakeSidebar(mode="JSON payload (A 股 or legacy)", json_text=json_payload)
         json_st = FakeStreamlit(sidebar=json_sidebar)
         with mock.patch.object(streamlit_app, "render_report_page") as render_page_json:
             render_page_json.return_value = None
@@ -244,6 +318,18 @@ class TestAStockUiViews(unittest.TestCase):
 
         render_page_json.assert_called_once()
         self.assertEqual(render_page_json.call_args.args[1]["ticker"], "600519.SH")
+
+    def test_streamlit_main_accepts_legacy_json_payload(self):
+        legacy_payload = self._make_legacy_payload()
+        legacy_sidebar = FakeSidebar(mode="JSON payload (A 股 or legacy)", json_text=json.dumps(legacy_payload, ensure_ascii=False))
+        legacy_st = FakeStreamlit(sidebar=legacy_sidebar)
+
+        with mock.patch.object(streamlit_app, "render_report_page") as render_page:
+            render_page.return_value = None
+            streamlit_app.main(st=legacy_st)
+
+        render_page.assert_called_once()
+        self.assertEqual(render_page.call_args.args[1]["ticker"], "AAPL")
 
     def test_is_astock_report_payload_detects_mode(self):
         self.assertTrue(is_astock_report_payload(self._make_report()))

@@ -15,7 +15,7 @@ formal production dispatch path used by `TradingAgentsGraph.propagate()`.
 
 ### Runtime output contract
 
-The formal runtime now returns a stable report object (see `docs/ASTOCK_DISPLAY_REPORT_SCHEMA.md` for the field contract), the CLI now renders it directly (see `docs/ASTOCK_CLI_RENDERING.md`), and the UI read-only layer consumes the same schema (see `docs/ASTOCK_UI_READONLY.md`):
+The formal runtime now returns a stable report object (see `docs/ASTOCK_DISPLAY_REPORT_SCHEMA.md` for the field contract), the CLI now renders it directly (see `docs/ASTOCK_CLI_RENDERING.md`), and the UI read-only layer consumes the same schema (see `docs/ASTOCK_UI_READONLY.md`); a multi-market dispatcher now also maps legacy generic finance outputs into a shared viewer model (see `docs/ASTOCK_MULTIMARKET_VIEWER.md`):
 
 - `AStockGraphReport`
 

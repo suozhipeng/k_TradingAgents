@@ -7,7 +7,7 @@ from typing import Any
 
 from tradingagents.astock import AStockGraphRuntime
 
-from .astock_views import render_report_page
+from .dispatcher import render_report_page
 
 
 def _load_json_payload(path: str | Path) -> Any:
@@ -30,11 +30,11 @@ def main(st: Any | None = None) -> None:
                 "streamlit is not installed. Install the optional 'ui' extra to run the web viewer."
             ) from exc
 
-    st.set_page_config(page_title="TradingAgents A 股 Viewer", layout="wide")
-    st.title("TradingAgents A 股 Viewer")
-    st.caption("Read-only display layer for AStockGraphReport")
+    st.set_page_config(page_title="TradingAgents Multi-Market Viewer", layout="wide")
+    st.title("TradingAgents Multi-Market Viewer")
+    st.caption("Read-only display layer for AStockGraphReport and legacy TradingAgents outputs")
 
-    source_mode = st.sidebar.selectbox("Report source", ["Live A 股 runtime", "JSON payload"])
+    source_mode = st.sidebar.selectbox("Report source", ["Live A 股 runtime", "JSON payload (A 股 or legacy)"])
     payload = None
 
     if source_mode == "Live A 股 runtime":
