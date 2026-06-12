@@ -76,6 +76,7 @@ class FakeStreamlit:
         self.subheaders = []
         self.markdowns = []
         self.writes = []
+        self.dividers = []
 
     def set_page_config(self, **kwargs):
         self.calls.append(("set_page_config", kwargs))
@@ -97,6 +98,9 @@ class FakeStreamlit:
 
     def write(self, value):
         self.writes.append(value)
+
+    def divider(self):
+        self.dividers.append("divider")
 
     def warning(self, value):
         self.warnings.append(value)
@@ -234,6 +238,7 @@ class TestAStockUiViews(unittest.TestCase):
                 "Raw Payload",
             ],
         )
+        self.assertEqual(len(st.dividers), 5)
         self.assertTrue(any("Global market report text." in item for item in st.markdowns))
         self.assertTrue(any("Legacy summary text." in item for item in st.markdowns))
         self.assertTrue(any("- Market Analyst" in item for item in st.markdowns))
@@ -292,6 +297,7 @@ class TestAStockUiViews(unittest.TestCase):
                 "Raw Payload",
             ],
         )
+        self.assertEqual(len(st.dividers), 5)
         self.assertIn((0, "Ticker", "600519.SH"), st.metrics)
         self.assertIn("A-share payload ready for UI", st.markdowns)
         self.assertIn("Bull: positive cash flow and scale.", st.markdowns)

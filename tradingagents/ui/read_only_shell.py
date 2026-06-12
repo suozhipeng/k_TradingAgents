@@ -2,6 +2,16 @@ from __future__ import annotations
 
 from typing import Any, Mapping, Sequence
 
+VIEWER_METRIC_ORDER: tuple[str, ...] = ("Ticker", "Trade Date", "Runtime Mode", "Status")
+VIEWER_SECTION_ORDER: tuple[str, ...] = (
+    "Core Summary",
+    "Structured Status",
+    "Secondary Outputs",
+    "Coverage / Degradation",
+    "Runtime Trace",
+    "Raw Payload",
+)
+
 
 class _FallbackExpander:
     def __enter__(self):
@@ -57,6 +67,12 @@ def _with_expander(st: Any, label: str, expanded: bool = False):
     return _FallbackExpander()
 
 
+def _divider(st: Any) -> None:
+    divider = getattr(st, "divider", None)
+    if callable(divider):
+        divider()
+
+
 def _render_notes(st: Any, notes: Sequence[str], empty_message: str) -> None:
     if not notes:
         info = getattr(st, "info", None)
@@ -102,7 +118,7 @@ def render_readonly_report_shell(
     if callable(caption_fn) and caption:
         caption_fn(caption)
 
-    metric_cols = _columns(st, max(len(metrics), 4))
+    metric_cols = _columns(st, max(len(metrics), len(VIEWER_METRIC_ORDER)))
     for col, (label, value) in zip(metric_cols, metrics, strict=False):
         metric = getattr(col, "metric", None)
         if callable(metric):
@@ -110,14 +126,17 @@ def render_readonly_report_shell(
 
     _subheader(st, "Core Summary")
     _markdown(st, core_summary)
+    _divider(st)
 
     _subheader(st, structured_section_title)
     _table(st, structured_rows)
+    _divider(st)
 
     _subheader(st, secondary_section_title)
     for heading, body in secondary_blocks:
         with _with_expander(st, heading, expanded=True):
             _markdown(st, body)
+    _divider(st)
 
     _subheader(st, coverage_section_title)
     if coverage_rows:
@@ -128,10 +147,12 @@ def render_readonly_report_shell(
             info(coverage_empty_message)
     _render_notes(st, coverage_notes, "No coverage notes.")
     _render_notes(st, degradation_notes, "No degradation notes.")
+    _divider(st)
 
     if runtime_trace:
         _subheader(st, runtime_trace_title)
         _markdown(st, "\n".join(f"- {step}" for step in runtime_trace))
+        _divider(st)
 
     if raw_payload is not None:
         _subheader(st, raw_payload_title)
@@ -141,4 +162,4 @@ def render_readonly_report_shell(
                 json_block(raw_payload)
 
 
-__all__ = ["render_readonly_report_shell"]
+__all__ = ["VIEWER_METRIC_ORDER", "VIEWER_SECTION_ORDER", "render_readonly_report_shell"]

@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Any, Mapping, MutableMapping, Sequence
 
 from tradingagents.astock import AStockGraphReport
-from .read_only_shell import render_readonly_report_shell
+from .read_only_shell import VIEWER_METRIC_ORDER, VIEWER_SECTION_ORDER, render_readonly_report_shell
 
 ASTOCK_SECTION_ORDER: tuple[str, ...] = (
     "market",

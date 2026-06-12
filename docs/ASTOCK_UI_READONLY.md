@@ -50,6 +50,13 @@ The app supports two read-only sources:
 6. Runtime Trace
 7. Raw Payload (collapsible)
 
+## Visual treatment
+
+- Metrics are shown in a fixed top strip.
+- Major blocks are separated by lightweight dividers.
+- Raw payload is the bottom debug zone, not a primary business section.
+- Empty states and degradation notes remain visible and readable.
+
 ## Degradation semantics
 
 If provider data is missing or a source is unavailable, the UI remains

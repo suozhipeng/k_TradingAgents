@@ -4,7 +4,7 @@ import json
 from dataclasses import dataclass
 from typing import Any, Mapping, MutableMapping, Sequence
 
-from .read_only_shell import render_readonly_report_shell
+from .read_only_shell import VIEWER_METRIC_ORDER, VIEWER_SECTION_ORDER, render_readonly_report_shell
 
 LEGACY_ANALYST_ORDER: tuple[str, ...] = (
     "market_report",

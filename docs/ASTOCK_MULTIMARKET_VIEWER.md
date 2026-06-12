@@ -54,7 +54,14 @@ page feels like one product instead of two unrelated screens:
 6. Runtime Trace
 7. Raw Payload
 
-## A 股 rendered fields
+## Visual design principles
+
+- Use the shared read-only shell for both A 股 and legacy payloads.
+- Keep the metric strip, section headers, and raw payload debug zone in the same
+  positions across markets.
+- Separate major blocks with simple dividers rather than introducing new page
+  routes or editing affordances.
+- Keep empty sections and degradation notes readable, never hidden.
 
 - ticker / symbol / normalized symbol
 - trade date
