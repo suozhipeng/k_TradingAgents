@@ -218,13 +218,24 @@ class TestAStockUiViews(unittest.TestCase):
         self.assertEqual(model.ticker, "AAPL")
         self.assertIn("TradingAgents Legacy Report · AAPL", st.titles)
         self.assertIn("Core Summary", st.subheaders)
-        self.assertIn("Structured Section Status", st.subheaders)
-        self.assertIn("Analyst Team Output", st.subheaders)
-        self.assertIn("Decision Team Output", st.subheaders)
+        self.assertIn("Structured Status", st.subheaders)
+        self.assertIn("Secondary Outputs", st.subheaders)
+        self.assertIn("Coverage / Degradation", st.subheaders)
         self.assertIn("Runtime Trace", st.subheaders)
-        self.assertGreaterEqual(len(st.tables), 2)
-        self.assertIn("Global market report text.", st.markdowns)
-        self.assertIn("Legacy summary text.", st.markdowns)
+        self.assertIn("Raw Payload", st.subheaders)
+        self.assertEqual(
+            st.subheaders,
+            [
+                "Core Summary",
+                "Structured Status",
+                "Secondary Outputs",
+                "Coverage / Degradation",
+                "Runtime Trace",
+                "Raw Payload",
+            ],
+        )
+        self.assertTrue(any("Global market report text." in item for item in st.markdowns))
+        self.assertTrue(any("Legacy summary text." in item for item in st.markdowns))
         self.assertTrue(any("- Market Analyst" in item for item in st.markdowns))
         self.assertFalse(st.warnings)
         self.assertTrue(st.json_payloads)
@@ -270,12 +281,17 @@ class TestAStockUiViews(unittest.TestCase):
         model = render_astock_report_page(st, report)
         self.assertEqual(model.ticker, "600519.SH")
         self.assertIn("A 股 Analysis Report · 600519.SH", st.titles)
-        self.assertIn("Core Summary", st.subheaders)
-        self.assertIn("Structured Section Status", st.subheaders)
-        self.assertIn("Research Outputs", st.subheaders)
-        self.assertIn("Coverage / Degradation", st.subheaders)
-        self.assertIn("Runtime Trace", st.subheaders)
-        self.assertGreaterEqual(len(st.tables), 2)
+        self.assertEqual(
+            st.subheaders,
+            [
+                "Core Summary",
+                "Structured Status",
+                "Secondary Outputs",
+                "Coverage / Degradation",
+                "Runtime Trace",
+                "Raw Payload",
+            ],
+        )
         self.assertIn((0, "Ticker", "600519.SH"), st.metrics)
         self.assertIn("A-share payload ready for UI", st.markdowns)
         self.assertIn("Bull: positive cash flow and scale.", st.markdowns)

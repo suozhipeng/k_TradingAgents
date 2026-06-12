@@ -31,7 +31,7 @@ execution.
 
 ## Shared dispatcher
 
-The viewer entrypoint is:
+The viewer is implemented with a shared read-only shell (`tradingagents.ui.read_only_shell.render_readonly_report_shell(...)`) so both market families follow the same page order and section hierarchy.
 
 - `tradingagents.ui.dispatcher.render_report_page(st, payload, legacy_renderer=None)`
 
@@ -48,11 +48,11 @@ page feels like one product instead of two unrelated screens:
 
 1. Identity / mode / status metrics
 2. Core summary
-3. Structured section status
-4. Model-specific research outputs
-5. Coverage / degradation notes
-6. Runtime trace
-7. Raw payload
+3. Structured status
+4. Secondary outputs
+5. Coverage / Degradation
+6. Runtime Trace
+7. Raw Payload
 
 ## A 股 rendered fields
 

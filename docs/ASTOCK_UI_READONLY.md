@@ -30,6 +30,7 @@ The UI consumes `AStockGraphReport` directly through the shared display schema:
 - `tradingagents.ui.dispatcher.render_report_page(st, payload, legacy_renderer=None)`
 - `tradingagents.ui.dispatcher.render_astock_report_page(st, report)`
 - `tradingagents.ui.dispatcher.render_legacy_report_page(st, payload)`
+- `tradingagents.ui.read_only_shell.render_readonly_report_shell(...)`
 
 ### Streamlit app
 - `tradingagents.ui.streamlit_app.main()`
@@ -43,13 +44,11 @@ The app supports two read-only sources:
 
 1. Identity / mode / status
 2. Core summary
-3. Structured section status
-4. Research outputs
-5. Provider coverage
-6. Missing data notes
-7. Degradation notes
-8. Runtime trace
-9. Raw JSON payload (collapsible)
+3. Structured status
+4. Secondary outputs
+5. Coverage / Degradation
+6. Runtime Trace
+7. Raw Payload (collapsible)
 
 ## Degradation semantics
 

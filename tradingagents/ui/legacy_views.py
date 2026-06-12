@@ -4,6 +4,8 @@ import json
 from dataclasses import dataclass
 from typing import Any, Mapping, MutableMapping, Sequence
 
+from .read_only_shell import render_readonly_report_shell
+
 LEGACY_ANALYST_ORDER: tuple[str, ...] = (
     "market_report",
     "sentiment_report",
@@ -299,59 +301,53 @@ def _render_rows(st: Any, title: str, rows: Sequence[LegacyReportRow]) -> None:
 def render_legacy_report_page(st: Any, payload: Mapping[str, Any] | Any) -> LegacyUiModel:
     model = build_legacy_ui_model(payload)
 
-    title = getattr(st, "title", None)
-    if callable(title):
-        title(f"TradingAgents Legacy Report · {model.ticker}")
-
-    caption = getattr(st, "caption", None)
-    if callable(caption):
-        caption(f"{model.market_label} · {model.runtime_mode} · {model.asset_type}")
-
-    cols = _columns(st, 4)
-    metric_labels = [
-        ("Ticker", model.ticker),
-        ("Market", model.market_label),
-        ("Runtime Mode", model.runtime_mode),
-        ("Status", model.status),
+    structured_rows = [
+        {
+            "group": row.group,
+            "name": row.name,
+            "status": row.status,
+            "has_data": row.has_data,
+            "summary": row.summary,
+        }
+        for row in (*model.analyst_rows, *model.team_rows)
     ]
-    for col, (label, value) in zip(cols, metric_labels, strict=False):
-        metric = getattr(col, "metric", None)
-        if callable(metric):
-            metric(label, value)
+    secondary_blocks = [
+        (
+            "Analyst Team Output",
+            "\n\n".join(
+                f"### {row.name.replace('_', ' ').title()}\n{row.summary}"
+                for row in model.analyst_rows
+            ),
+        ),
+        (
+            "Decision Team Output",
+            "\n\n".join(
+                f"### {row.group}\n{row.summary}"
+                for row in model.team_rows
+            ),
+        ),
+    ]
 
-    subheader = getattr(st, "subheader", None)
-    if callable(subheader):
-        subheader("Core Summary")
-    _render_markdown_block(st, model.summary)
-
-    if callable(subheader):
-        subheader("Structured Section Status")
-    _render_rows(st, "Analyst Team Output", model.analyst_rows)
-    _render_rows(st, "Decision Team Output", model.team_rows)
-
-    warning = getattr(st, "warning", None)
-    info = getattr(st, "info", None)
-    if model.missing_data_notes:
-        msg = "\n".join(f"- {note}" for note in model.missing_data_notes)
-        if callable(warning):
-            warning(msg)
-        elif callable(info):
-            info(msg)
-    if model.degradation_notes:
-        msg = "\n".join(f"- {note}" for note in model.degradation_notes)
-        if callable(warning):
-            warning(msg)
-        elif callable(info):
-            info(msg)
-
-    if model.runtime_trace and callable(subheader):
-        subheader("Runtime Trace")
-        _render_markdown_block(st, "\n".join(f"- {step}" for step in model.runtime_trace))
-
-    json_block = getattr(st, "json", None)
-    if callable(json_block):
-        with _with_expander(st, "Raw legacy payload", expanded=False):
-            json_block(model.raw)
+    render_readonly_report_shell(
+        st,
+        title=f"TradingAgents Legacy Report · {model.ticker}",
+        caption=f"{model.market_label} · {model.runtime_mode} · {model.asset_type}",
+        metrics=[
+            ("Ticker", model.ticker),
+            ("Market", model.market_label),
+            ("Runtime Mode", model.runtime_mode),
+            ("Status", model.status),
+        ],
+        core_summary=model.summary,
+        structured_rows=structured_rows,
+        secondary_blocks=secondary_blocks,
+        coverage_rows=[],
+        coverage_notes=model.missing_data_notes,
+        degradation_notes=model.degradation_notes,
+        runtime_trace=model.runtime_trace,
+        raw_payload=model.raw,
+        coverage_empty_message="No legacy provider coverage details available.",
+    )
 
     return model
 

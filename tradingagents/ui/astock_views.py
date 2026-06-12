@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import json
-from contextlib import nullcontext
 from dataclasses import dataclass
 from typing import Any, Mapping, MutableMapping, Sequence
 
 from tradingagents.astock import AStockGraphReport
+from .read_only_shell import render_readonly_report_shell
 
 ASTOCK_SECTION_ORDER: tuple[str, ...] = (
     "market",
@@ -188,81 +188,30 @@ def _render_markdown_block(st: Any, body: str) -> None:
 
 def render_astock_report_page(st: Any, report: AStockGraphReport | Mapping[str, Any]) -> AStockUiModel:
     model = build_astock_ui_model(report)
-
-    title = getattr(st, "title", None)
-    if callable(title):
-        title(f"A 股 Analysis Report · {model.ticker}")
-
-    caption = getattr(st, "caption", None)
-    if callable(caption):
-        caption(f"{model.symbol} · {model.normalized_symbol}")
-
-    cols = _columns(st, 4)
-    metric_labels = [
-        ("Ticker", model.ticker),
-        ("Trade Date", model.trade_date or "-"),
-        ("Runtime Mode", model.runtime_mode),
-        ("Status", model.status),
-    ]
-    for col, (label, value) in zip(cols, metric_labels, strict=False):
-        metric = getattr(col, "metric", None)
-        if callable(metric):
-            metric(label, value)
-
-    subheader = getattr(st, "subheader", None)
-    if callable(subheader):
-        subheader("Core Summary")
-    _render_markdown_block(st, model.analyst_summary)
-
-    if callable(subheader):
-        subheader("Structured Section Status")
-    table = getattr(st, "table", None)
-    if callable(table):
-        table(_table_like_rows(model))
-
-    if callable(subheader):
-        subheader("Research Outputs")
-    for heading, body in [
-        ("Bull View", model.bull_view),
-        ("Bear View", model.bear_view),
-        ("Research Manager Conclusion", model.research_manager_conclusion),
-    ]:
-        with _with_expander(st, heading, expanded=True):
-            markdown = getattr(st, "markdown", None)
-            write = getattr(st, "write", None)
-            if callable(markdown):
-                markdown(body)
-            elif callable(write):
-                write(body)
-
-    if callable(subheader):
-        subheader("Coverage / Degradation")
-    provider_table = getattr(st, "table", None)
-    if callable(provider_table):
-        provider_table(list(model.provider_rows))
-
-    warning = getattr(st, "warning", None)
-    info = getattr(st, "info", None)
-    if model.missing_data_notes:
-        if callable(warning):
-            warning(_notes_or_placeholder(model.missing_data_notes, "- None"))
-        elif callable(info):
-            info(_notes_or_placeholder(model.missing_data_notes, "- None"))
-    if model.degradation_notes:
-        if callable(warning):
-            warning(_notes_or_placeholder(model.degradation_notes, "- None"))
-        elif callable(info):
-            info(_notes_or_placeholder(model.degradation_notes, "- None"))
-
-    if model.runtime_trace and callable(subheader):
-        subheader("Runtime Trace")
-        _render_markdown_block(st, "\n".join(f"- {step}" for step in model.runtime_trace))
-
-    json_block = getattr(st, "json", None)
-    if callable(json_block):
-        with _with_expander(st, "Raw A 股 report payload", expanded=False):
-            json_block(model.raw)
-
+    render_readonly_report_shell(
+        st,
+        title=f"A 股 Analysis Report · {model.ticker}",
+        caption=f"{model.symbol} · {model.normalized_symbol}",
+        metrics=[
+            ("Ticker", model.ticker),
+            ("Trade Date", model.trade_date or "-"),
+            ("Runtime Mode", model.runtime_mode),
+            ("Status", model.status),
+        ],
+        core_summary=model.analyst_summary,
+        structured_rows=_table_like_rows(model),
+        secondary_blocks=[
+            ("Bull View", model.bull_view),
+            ("Bear View", model.bear_view),
+            ("Research Manager Conclusion", model.research_manager_conclusion),
+        ],
+        coverage_rows=list(model.provider_rows),
+        coverage_notes=model.missing_data_notes,
+        degradation_notes=model.degradation_notes,
+        runtime_trace=model.runtime_trace,
+        raw_payload=model.raw,
+        coverage_empty_message="No A 股 provider coverage details available.",
+    )
     return model
 
 
