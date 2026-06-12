@@ -145,6 +145,7 @@ class TestAStockCliReport(unittest.TestCase):
         self.assertIn("iwencai", text)
         self.assertIn("Missing Data Notes", text)
         self.assertIn("Degradation Notes", text)
+        self.assertIn("Runtime Trace", text)
 
     def test_save_astock_report_to_disk_writes_display_schema_artifacts(self):
         report = self._make_report()
@@ -160,6 +161,7 @@ class TestAStockCliReport(unittest.TestCase):
 
         self.assertIn("Runtime Mode: astock_research_bridge", md_text)
         self.assertIn("五层 Section 状态", md_text)
+        self.assertIn("Runtime Trace", md_text)
         self.assertEqual(json_text["ticker"], "600519.SH")
         self.assertIn("section_results", json_text)
         self.assertEqual(json_text["status"], "partial")

@@ -259,6 +259,15 @@ def _columns(st: Any, count: int):
     return tuple(_FallbackColumn(st) for _ in range(count))
 
 
+def _render_markdown_block(st: Any, body: str) -> None:
+    markdown = getattr(st, "markdown", None)
+    write = getattr(st, "write", None)
+    if callable(markdown):
+        markdown(body)
+    elif callable(write):
+        write(body)
+
+
 def _render_rows(st: Any, title: str, rows: Sequence[LegacyReportRow]) -> None:
     subheader = getattr(st, "subheader", None)
     if callable(subheader):
@@ -312,13 +321,13 @@ def render_legacy_report_page(st: Any, payload: Mapping[str, Any] | Any) -> Lega
 
     subheader = getattr(st, "subheader", None)
     if callable(subheader):
-        subheader("Legacy Summary")
-    markdown = getattr(st, "markdown", None)
-    if callable(markdown):
-        markdown(model.summary)
+        subheader("Core Summary")
+    _render_markdown_block(st, model.summary)
 
+    if callable(subheader):
+        subheader("Structured Section Status")
     _render_rows(st, "Analyst Team Output", model.analyst_rows)
-    _render_rows(st, "Team Output", model.team_rows)
+    _render_rows(st, "Decision Team Output", model.team_rows)
 
     warning = getattr(st, "warning", None)
     info = getattr(st, "info", None)
@@ -334,6 +343,10 @@ def render_legacy_report_page(st: Any, payload: Mapping[str, Any] | Any) -> Lega
             warning(msg)
         elif callable(info):
             info(msg)
+
+    if model.runtime_trace and callable(subheader):
+        subheader("Runtime Trace")
+        _render_markdown_block(st, "\n".join(f"- {step}" for step in model.runtime_trace))
 
     json_block = getattr(st, "json", None)
     if callable(json_block):

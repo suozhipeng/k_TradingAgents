@@ -1003,6 +1003,8 @@ def display_astock_report(report: AStockGraphReport, render_console: Console = c
 
     render_console.print(Panel(Markdown(_astock_notes_markdown(payload.get("missing_data_notes", []) or [])), title="Missing Data Notes", border_style="yellow", padding=(1, 2)))
     render_console.print(Panel(Markdown(_astock_notes_markdown(payload.get("degradation_notes", []) or [])), title="Degradation Notes", border_style="orange1", padding=(1, 2)))
+    runtime_trace = "\n".join(f"- {step}" for step in (payload.get("runtime_trace", []) or [])) or "- None"
+    render_console.print(Panel(Markdown(runtime_trace), title="Runtime Trace", border_style="cyan", padding=(1, 2)))
 
 
 

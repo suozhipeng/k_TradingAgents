@@ -14,14 +14,15 @@ The UI consumes `AStockGraphReport` directly through the shared display schema:
 - `trade_date`
 - `runtime_mode`
 - `status`
-- `section_results`
 - `analyst_summary`
+- `section_results`
 - `bull_view`
 - `bear_view`
 - `research_manager_conclusion`
 - `provider_coverage`
 - `missing_data_notes`
 - `degradation_notes`
+- `runtime_trace`
 
 ## New entrypoints
 
@@ -41,15 +42,14 @@ The app supports two read-only sources:
 ## Rendered page sections
 
 1. Identity / mode / status
-2. Five-layer section status
-3. Analyst summary
-4. Bull view
-5. Bear view
-6. Research manager conclusion
-7. Provider coverage
-8. Missing data notes
-9. Degradation notes
-10. Raw JSON payload (collapsible)
+2. Core summary
+3. Structured section status
+4. Research outputs
+5. Provider coverage
+6. Missing data notes
+7. Degradation notes
+8. Runtime trace
+9. Raw JSON payload (collapsible)
 
 ## Degradation semantics
 

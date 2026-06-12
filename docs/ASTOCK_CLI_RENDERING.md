@@ -36,12 +36,14 @@ The CLI renders the following groups from `AStockGraphReport.to_dict()`:
 - `provider_coverage`
 - `missing_data_notes`
 - `degradation_notes`
+- `runtime_trace`
 
 ## Outputs
 
 For A-share runs the CLI now produces:
 
 - a structured on-screen report with overview + five-layer status + debate views
+- runtime trace as a dedicated read-only debug panel
 - `complete_report.md` containing the same display schema
 - `astock_report.json` containing the serialized `AStockGraphReport` payload
 
@@ -65,3 +67,4 @@ For A-share runs the CLI now produces:
 - Provider Coverage
 - Missing Data Notes
 - Degradation Notes
+- Runtime Trace

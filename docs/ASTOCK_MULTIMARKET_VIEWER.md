@@ -41,37 +41,50 @@ Dispatch rules:
 2. If the payload matches legacy finance keys, render with the legacy view model.
 3. Otherwise, fall back to the legacy read-only renderer.
 
+## Canonical page order
+
+Both viewer families now follow the same top-level layout so the multi-market
+page feels like one product instead of two unrelated screens:
+
+1. Identity / mode / status metrics
+2. Core summary
+3. Structured section status
+4. Model-specific research outputs
+5. Coverage / degradation notes
+6. Runtime trace
+7. Raw payload
+
 ## A 股 rendered fields
 
 - ticker / symbol / normalized symbol
 - trade date
 - runtime mode
 - status
-- five-layer section status
-- analyst summary
+- core summary
+- structured section status (five-layer section table)
 - bull view
 - bear view
 - research manager conclusion
 - provider coverage
 - missing data notes
 - degradation notes
+- runtime trace
 
 ## Legacy rendered fields
 
 - market / mode / asset type identification
-- overall summary
-- analyst team output
-- research team output
-- trading team output
-- risk management output
-- portfolio manager output
+- core summary / overall summary
+- structured analyst outputs
+- structured decision-team outputs
 - missing / degraded notes
+- runtime trace
 
 ## Degradation semantics
 
 - Missing rows still render as empty / unavailable rather than aborting.
 - Empty sections become notes instead of exceptions.
 - The raw payload remains available in a collapsible JSON block.
+- Runtime trace stays visible even when some sections degrade.
 
 ## Covered markets
 

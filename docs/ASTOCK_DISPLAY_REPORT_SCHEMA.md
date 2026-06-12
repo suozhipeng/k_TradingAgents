@@ -36,6 +36,7 @@ financial graph path.
 - `provider_coverage`: 每个 section 的来源与可用性
 - `missing_data_notes`: 缺失/空数据说明
 - `degradation_notes`: 降级/错误说明
+- `runtime_trace`: 运行轨迹，给 UI / CLI 提供只读调试上下文
 - `metadata`: 调试信息、状态键等
 
 ### Compatibility
@@ -83,3 +84,4 @@ financial graph path.
 - The schema is intentionally read-only and display-friendly.
 - It does not include any QMT execution or order-placement semantics.
 - Generic stock/crypto runtime outputs remain unchanged.
+- The display order is identity, core summary, structured sections, research outputs, coverage, trace, then raw payload.

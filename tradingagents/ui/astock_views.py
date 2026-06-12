@@ -177,6 +177,15 @@ def _columns(st: Any, count: int):
     return tuple(_FallbackColumn(st) for _ in range(count))
 
 
+def _render_markdown_block(st: Any, body: str) -> None:
+    markdown = getattr(st, "markdown", None)
+    write = getattr(st, "write", None)
+    if callable(markdown):
+        markdown(body)
+    elif callable(write):
+        write(body)
+
+
 def render_astock_report_page(st: Any, report: AStockGraphReport | Mapping[str, Any]) -> AStockUiModel:
     model = build_astock_ui_model(report)
 
@@ -202,13 +211,18 @@ def render_astock_report_page(st: Any, report: AStockGraphReport | Mapping[str, 
 
     subheader = getattr(st, "subheader", None)
     if callable(subheader):
-        subheader("Five-layer Section Status")
+        subheader("Core Summary")
+    _render_markdown_block(st, model.analyst_summary)
+
+    if callable(subheader):
+        subheader("Structured Section Status")
     table = getattr(st, "table", None)
     if callable(table):
         table(_table_like_rows(model))
 
+    if callable(subheader):
+        subheader("Research Outputs")
     for heading, body in [
-        ("Analyst Summary", model.analyst_summary),
         ("Bull View", model.bull_view),
         ("Bear View", model.bear_view),
         ("Research Manager Conclusion", model.research_manager_conclusion),
@@ -222,7 +236,7 @@ def render_astock_report_page(st: Any, report: AStockGraphReport | Mapping[str, 
                 write(body)
 
     if callable(subheader):
-        subheader("Provider Coverage")
+        subheader("Coverage / Degradation")
     provider_table = getattr(st, "table", None)
     if callable(provider_table):
         provider_table(list(model.provider_rows))
@@ -239,6 +253,10 @@ def render_astock_report_page(st: Any, report: AStockGraphReport | Mapping[str, 
             warning(_notes_or_placeholder(model.degradation_notes, "- None"))
         elif callable(info):
             info(_notes_or_placeholder(model.degradation_notes, "- None"))
+
+    if model.runtime_trace and callable(subheader):
+        subheader("Runtime Trace")
+        _render_markdown_block(st, "\n".join(f"- {step}" for step in model.runtime_trace))
 
     json_block = getattr(st, "json", None)
     if callable(json_block):
