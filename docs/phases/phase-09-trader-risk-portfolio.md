@@ -9,7 +9,7 @@
 - Completed: `pending`
 - Owner: `Codex`
 - Git branch: `xg_dev`
-- Commit SHA: `pending`
+- Specification commit SHA: `b57d4a6`
 
 ## Product objective
 
@@ -247,3 +247,4 @@ python3 -m pytest -q \
 
 - 2026-06-13: Created the product/development specification. Phase 9 remains
   unimplemented.
+- 2026-06-13: Specification committed as `b57d4a6`.
