@@ -56,6 +56,15 @@ When a task contains both delivery and acceptance:
    - open risks
    - next entry condition
 
+Hermes is the project manager for this routing layer. By default in this repo:
+
+- `Hermes` owns phase scheduling, task decomposition, and progress control
+- `DeepSeek` is the default coding engine used by Hermes
+- `Codex` is the independent review gate for decomposition quality, coding
+  conclusion verification, and drift correction
+
+See `docs/HERMES_CODEX_DEEPSEEK_WORKFLOW.md` for the full operating loop.
+
 ### Step 4: persist durable results
 
 Persist outcomes into `docs/phases/`:
@@ -68,6 +77,16 @@ Persist outcomes into `docs/phases/`:
 - keep chat-only conclusions out of the critical path
 
 No phase may be marked complete or handed off without a local archive record.
+
+## Acceptance governance
+
+- Do not accept a phase based only on DeepSeek self-report.
+- Use `ecc-readonly-review` when the main question is correctness, drift, or
+  scope compliance.
+- Use `ecc-self-test` when the main question is regression execution and result
+  triage.
+- Codex should issue `accept`, `partial`, or `fail` before Hermes updates the
+  phase archive to `complete`.
 
 ## Current phase mapping
 
@@ -91,3 +110,5 @@ The canonical phase scope and completion status are maintained in
 - Do not treat `final_trade_decision` from the current A-share bridge as an executable signal.
 - Keep QMT as read-only or placeholder until Phase 11.
 - Use `docs/phases/` as the canonical milestone archive.
+- Use `docs/HERMES_CODEX_DEEPSEEK_WORKFLOW.md` as the canonical repo-level
+  collaboration contract for controller, coder, and reviewer separation.

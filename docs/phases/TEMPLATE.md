@@ -5,7 +5,7 @@
 - Status: `planned | in_progress | partial | complete | blocked`
 - Started: `YYYY-MM-DD`
 - Completed: `YYYY-MM-DD | pending`
-- Owner: `Hermes | Codex | human`
+- Owner: `Hermes | DeepSeek | Codex | Hermes (DeepSeek) | human`
 - Git branch: `branch`
 - Commit SHA: `pending`
 

@@ -49,3 +49,11 @@ phase-11-qmt-controlled-execution.md
 
 Do not overwrite historical results. Append a dated correction section when
 later work changes an earlier conclusion.
+
+## Operational governance
+
+The phase archive is complemented by repo-level execution governance docs:
+
+- [Hermes Skills Playbook](../HERMES_SKILLS_PLAYBOOK.md)
+- [Hermes, Codex, DeepSeek Workflow](../HERMES_CODEX_DEEPSEEK_WORKFLOW.md)
+- [Phase 09 Hermes Execution Brief](phase-09-hermes-execution-brief.md)
