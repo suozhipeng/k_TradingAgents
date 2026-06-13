@@ -10,6 +10,7 @@
 - Owner: `Hermes (DeepSeek)`
 - Git branch: `xg_dev`
 - Specification commit SHA: `b57d4a6`
+- Implementation commit SHA: `5b30d73`
 
 ## Product objective
 
@@ -257,7 +258,7 @@ python3 -m pytest -q \
 - Full repository regression: requires Python 3.10+ (this host: Python 3.9).
 - Expected skips: opt-in live A-share providers and one live DeepSeek API test
   were not enabled in this environment.
-- Implementation commit: `` (pending git commit on `xg_dev`).
+- Implementation commit: `5b30d73`.
 
 ## Risks and gaps
 
@@ -293,4 +294,4 @@ python3 -m pytest -q \
 - 2026-06-13: Implemented Phase 09 contracts, runtime profiles, advisory
   report extensions, and 46+6 test cases across
   `tests/test_astock_phase9_contracts.py` and
-  `tests/test_astock_graph_runtime.py`. Committed as `` (pending).
+  `tests/test_astock_graph_runtime.py`. Committed as `5b30d73`.
