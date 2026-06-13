@@ -58,6 +58,8 @@ without accidentally creating an execution or order-placement path.
   `TradingMemoryLog.store_decision()`, or sent to QMT.
 - Missing or degraded source data must reduce confidence or reject the
   proposal; it must never be interpreted as permission to proceed.
+- Hermes execution handoff is documented in
+  `docs/phases/phase-09-hermes-execution-brief.md`.
 
 ## Contract specification
 
