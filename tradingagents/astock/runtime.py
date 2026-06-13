@@ -22,6 +22,7 @@ from dataclasses import dataclass, field
 from types import SimpleNamespace
 from typing import Any, Dict, Mapping, Optional, Sequence
 
+from tradingagents.llm_clients import create_llm_client
 from tradingagents.agents.managers.research_manager import create_research_manager
 from tradingagents.agents.researchers.bear_researcher import create_bear_researcher
 from tradingagents.agents.researchers.bull_researcher import create_bull_researcher
@@ -66,6 +67,53 @@ def is_astock_symbol(raw: str) -> bool:
 
     normalized = normalize_astock_symbol(raw)
     return bool(_ASTOCK_EXACT.fullmatch(normalized) or normalized.endswith(_ASTOCK_SUFFIXES))
+
+
+def _provider_kwargs_from_config(config: Mapping[str, Any]) -> Dict[str, Any]:
+    kwargs: Dict[str, Any] = {}
+    provider = str(config.get("llm_provider", "")).lower()
+    if provider == "google" and config.get("google_thinking_level"):
+        kwargs["thinking_level"] = config["google_thinking_level"]
+    elif provider == "openai" and config.get("openai_reasoning_effort"):
+        kwargs["reasoning_effort"] = config["openai_reasoning_effort"]
+    elif provider == "anthropic" and config.get("anthropic_effort"):
+        kwargs["effort"] = config["anthropic_effort"]
+
+    temperature = config.get("temperature")
+    if temperature is not None and temperature != "":
+        kwargs["temperature"] = float(temperature)
+    return kwargs
+
+
+def build_astock_runtime_llms(config: Mapping[str, Any], callbacks: Optional[Sequence[Any]] = None) -> Dict[str, Any]:
+    """Build real LLM clients for the A-share live_research runtime."""
+
+    llm_kwargs = _provider_kwargs_from_config(config)
+    if callbacks:
+        llm_kwargs["callbacks"] = list(callbacks)
+
+    provider = str(config["llm_provider"]).lower()
+    base_url = config.get("backend_url")
+    quick_client = create_llm_client(
+        provider=provider,
+        model=str(config["quick_think_llm"]),
+        base_url=base_url,
+        **llm_kwargs,
+    )
+    deep_client = create_llm_client(
+        provider=provider,
+        model=str(config["deep_think_llm"]),
+        base_url=base_url,
+        **llm_kwargs,
+    )
+    quick_llm = quick_client.get_llm()
+    deep_llm = deep_client.get_llm()
+    return {
+        "runtime_profile": RuntimeProfile.LIVE_RESEARCH.value,
+        "bull_llm": quick_llm,
+        "bear_llm": quick_llm,
+        "research_manager_llm": deep_llm,
+    }
 
 
 @dataclass

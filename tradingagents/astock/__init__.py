@@ -48,7 +48,15 @@ from .phase9_schemas import (
     degraded_research_conclusion,
     degraded_trader_proposal,
 )
-from .runtime import AStockGraphReport, AStockGraphRuntime, BridgeLLM, build_astock_research_bridge_state, is_astock_symbol, run_astock_research_bridge
+from .runtime import (
+    AStockGraphReport,
+    AStockGraphRuntime,
+    BridgeLLM,
+    build_astock_research_bridge_state,
+    build_astock_runtime_llms,
+    is_astock_symbol,
+    run_astock_research_bridge,
+)
 from .runtime_profile import (
     LiveResearchMisconfiguredError,
     RuntimeProfile,
@@ -71,6 +79,7 @@ __all__ = [
     "AStockGraphRuntime",
     "BridgeLLM",
     "build_astock_research_bridge_state",
+    "build_astock_runtime_llms",
     "is_astock_symbol",
     "run_astock_research_bridge",
     "build_astock_tools",

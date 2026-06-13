@@ -243,6 +243,54 @@ class TestAStockCliReport(unittest.TestCase):
         self.assertIn("Ticker:", text)
         self.assertIn("A-share bridge payload assembled", text)
 
+    def test_run_analysis_routes_astock_live_research_runtime_when_enabled(self):
+        fake_report = self._make_report()
+        fake_runtime = mock.Mock()
+        fake_runtime.run.return_value = fake_report
+        fake_config = dict(m.DEFAULT_CONFIG)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            fake_config.update(
+                {
+                    "results_dir": tmpdir,
+                    "data_cache_dir": tmpdir,
+                    "astock_runtime_profile": "live_research",
+                }
+            )
+            selections = {
+                "ticker": "600519.SH",
+                "analysis_date": "2026-06-10",
+                "asset_type": "stock",
+                "research_depth": 1,
+                "shallow_thinker": "deepseek-v4-flash",
+                "deep_thinker": "deepseek-v4-pro",
+                "backend_url": "https://api.deepseek.com",
+                "llm_provider": "deepseek",
+                "output_language": "English",
+                "analysts": [AnalystType.MARKET],
+            }
+
+            capture = Console(record=True, width=120)
+            with mock.patch.object(m, "DEFAULT_CONFIG", fake_config), \
+                 mock.patch.object(m, "get_user_selections", return_value=selections), \
+                 mock.patch.object(m, "build_astock_runtime_llms", return_value={"runtime_profile": "live_research", "bull_llm": "q", "bear_llm": "q", "research_manager_llm": "d"}) as build_llms, \
+                 mock.patch.object(m, "AStockGraphRuntime", return_value=fake_runtime) as runtime_cls, \
+                 mock.patch.object(m.typer, "prompt", side_effect=["N", "N"]), \
+                 mock.patch.object(m, "TradingAgentsGraph") as graph_cls, \
+                 mock.patch.object(m, "console", capture):
+                m.run_analysis(checkpoint=False)
+
+        build_llms.assert_called_once()
+        runtime_cls.assert_called_once_with(
+            symbol="600519.SH",
+            trade_date="2026-06-10",
+            source="cli",
+            runtime_profile="live_research",
+            bull_llm="q",
+            bear_llm="q",
+            research_manager_llm="d",
+        )
+        graph_cls.assert_not_called()
+
     def test_generic_cli_helpers_still_handle_legacy_state(self):
         legacy_state = {
             "market_report": "Market report",

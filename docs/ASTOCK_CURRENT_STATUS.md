@@ -1,6 +1,6 @@
 # A 股二次定制开发基线
 
-更新时间：2026-06-14 (Phase 09 advisory chain + rendering complete)
+更新时间：2026-06-14 (Phase 09 advisory chain + rendering + live runtime entry complete)
 
 本文档是 A 股二次定制开发的当前事实基线。后续 Hermes 调度、ECC
 验收和阶段推进优先以本文档为准。
@@ -90,6 +90,8 @@ AStockGraphReport
 - A 股 Phase 09 advisory-only 合约 schema（ResearchConclusion, TraderProposal, RiskDecision, PortfolioDecision）。
 - Runtime profile 隔离（deterministic_verification / live_research），
   包括 `require_live_research_clients` 防 BridgeLLM fallback。
+- A 股 `live_research` 启动链已接入 `DEFAULT_CONFIG`、CLI、Streamlit 和
+  repo-local 环境校验脚本。
 - `AStockGraphReport` 扩展：runtime_profile、research_conclusion 等 advisory 字段。
 - Phase 09 advisory chain：`ResearchConclusion -> TraderProposal -> RiskDecision -> PortfolioDecision`。
 - CLI Markdown/JSON 与 Streamlit read-only viewer 已渲染 Phase 09 advisory 字段。
@@ -100,7 +102,8 @@ AStockGraphReport
 ### P0
 
 - 真实 LLM 与确定性验证 LLM 已通过 `RuntimeProfile` 形成强制隔离，
-  但 `live_research` 配置的可运行环境尚未部署。
+  且 `live_research` 启动链已部署；当前主机仍缺实际 provider 环境变量 /
+  API key 注入，因此还未完成真实 live 调用验证。
 
 ### P1
 
@@ -124,6 +127,7 @@ Delivery Phase 10 实现开始前必须满足：
    自然流向后继 advisory 合约。已完成。
 2. 在 Python 3.10+ 环境中完成 A 股全回归（astock 回归 + 全仓回归）。
 3. 部署 `live_research` runtime profile 的可运行验证环境。
+   代码入口已完成；当前仍需在 Python 进程环境中注入真实 provider key。
 4. Phase 09 所有 advisory 输出保持 `actionable=false`、`execution_signal=ResearchOnly`。
 
 产品与开发规格已归档到
@@ -151,6 +155,12 @@ Delivery Phase 10 实现开始前必须满足：
   `tests/test_astock_blueprint.py`, `tests/test_astock_data_sources.py`,
   `tests/test_astock_provider_fixtures.py`, `tests/test_astock_cli_report.py`,
   `tests/test_astock_ui_views.py`, `tests/test_hermes_codex_git_gate.py`
+
+2026-06-14 live_research 部署回归：
+
+- 目标切片: `48 passed`
+- 覆盖范围: `tests/test_env_overrides.py`, `tests/test_astock_graph_runtime.py`,
+  `tests/test_astock_cli_report.py`, `tests/test_astock_ui_views.py`
 
 ## 7. 验收基线
 

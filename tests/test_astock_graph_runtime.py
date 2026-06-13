@@ -1,7 +1,13 @@
 import unittest
 from unittest.mock import patch
 
-from tradingagents.astock import AStockGraphReport, AStockGraphRuntime, build_astock_research_bridge_state, run_astock_research_bridge
+from tradingagents.astock import (
+    AStockGraphReport,
+    AStockGraphRuntime,
+    build_astock_research_bridge_state,
+    build_astock_runtime_llms,
+    run_astock_research_bridge,
+)
 from tradingagents.graph import ConditionalLogic
 from tradingagents.graph.trading_graph import TradingAgentsGraph
 
@@ -307,6 +313,34 @@ class Phase09RuntimeProfileTests(unittest.TestCase):
         )
         description = runtime.describe()
         self.assertEqual(description["runtime_profile"], "live_research")
+
+    def test_build_astock_runtime_llms_uses_config_models(self):
+        config = {
+            "llm_provider": "deepseek",
+            "quick_think_llm": "deepseek-v4-flash",
+            "deep_think_llm": "deepseek-v4-pro",
+            "backend_url": "https://api.deepseek.com",
+            "temperature": None,
+            "google_thinking_level": None,
+            "openai_reasoning_effort": None,
+            "anthropic_effort": None,
+        }
+
+        class FakeClient:
+            def __init__(self, llm):
+                self._llm = llm
+
+            def get_llm(self):
+                return self._llm
+
+        with patch("tradingagents.astock.runtime.create_llm_client") as create_client:
+            create_client.side_effect = [FakeClient("quick-llm"), FakeClient("deep-llm")]
+            payload = build_astock_runtime_llms(config)
+
+        self.assertEqual(payload["runtime_profile"], "live_research")
+        self.assertEqual(payload["bull_llm"], "quick-llm")
+        self.assertEqual(payload["bear_llm"], "quick-llm")
+        self.assertEqual(payload["research_manager_llm"], "deep-llm")
 
     def test_run_produces_research_conclusion_on_report(self):
         runtime = AStockGraphRuntime(

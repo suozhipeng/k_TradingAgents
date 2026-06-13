@@ -408,6 +408,32 @@ class TestAStockUiViews(unittest.TestCase):
         self.assertEqual(json_st.titles[0], "TradingAgents Multi-Market Viewer")
         self.assertTrue(any("JSON payload" in item for item in json_st.markdowns))
 
+    def test_streamlit_main_live_runtime_uses_live_research_profile_when_enabled(self):
+        fake_report = self._make_report()
+        live_sidebar = FakeSidebar(mode="Live A 股 runtime", live_button=True)
+        live_st = FakeStreamlit(sidebar=live_sidebar)
+
+        with mock.patch.object(streamlit_app, "DEFAULT_CONFIG", {"astock_runtime_profile": "live_research"}), \
+             mock.patch.object(streamlit_app, "build_astock_runtime_llms", return_value={"runtime_profile": "live_research", "bull_llm": "q", "bear_llm": "q", "research_manager_llm": "d"}) as build_llms, \
+             mock.patch.object(streamlit_app, "AStockGraphRuntime") as runtime_cls, \
+             mock.patch.object(streamlit_app, "render_report_page") as render_page:
+            runtime = mock.Mock()
+            runtime.run.return_value = fake_report
+            runtime_cls.return_value = runtime
+            render_page.return_value = None
+            streamlit_app.main(st=live_st)
+
+        build_llms.assert_called_once_with({"astock_runtime_profile": "live_research"})
+        runtime_cls.assert_called_once_with(
+            symbol="600519.SH",
+            trade_date="2026-06-10",
+            source="ui",
+            runtime_profile="live_research",
+            bull_llm="q",
+            bear_llm="q",
+            research_manager_llm="d",
+        )
+
     def test_streamlit_main_accepts_legacy_json_payload(self):
         legacy_payload = self._make_legacy_payload()
         legacy_sidebar = FakeSidebar(mode="JSON payload (A 股 or legacy)", json_text=json.dumps(legacy_payload, ensure_ascii=False))

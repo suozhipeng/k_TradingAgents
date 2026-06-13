@@ -220,6 +220,8 @@ AStockGraphReport
   the generic risk-debater agents with executable trading semantics.
 - CLI and Streamlit read-only consumers now render Phase 09 advisory fields
   directly from the stable display schema.
+- The A-share `live_research` entry is now wired through repo config, CLI,
+  Streamlit, and an environment validation script.
 
 ## ECC acceptance
 
@@ -267,6 +269,8 @@ python3 -m pytest -q \
 - Implementation commit: `5b30d73`.
 - Follow-up A-share regression: `62 passed` across runtime, bridge, interface,
   provider fixtures, UI, CLI, and Git-gate checks.
+- live_research deployment regression: `48 passed` across env overlay,
+  runtime builder, CLI live path, and Streamlit live path.
 
 ## Risks and gaps
 
@@ -278,7 +282,8 @@ python3 -m pytest -q \
 - `final_trade_decision` remains a compatibility field with ambiguous naming.
 - The static React WebUI and Streamlit viewer remain separate surfaces.
 - Live Phase 09 `live_research` operation still depends on deploying real LLM
-  clients for the A-share chain.
+  clients for the A-share chain and exposing the provider key in the process
+  environment.
 - This host runs Python 3.9; full pytest regression requires Python 3.10+.
   The `46 passed` contract test was run with `importlib`-based bypass of the
   package `__init__.py` dependency chain.
@@ -303,3 +308,6 @@ python3 -m pytest -q \
 - 2026-06-14: Wired the A-share advisory chain through Trader, Risk, and
   Portfolio state transitions, rendered Phase 09 fields in CLI / Streamlit,
   and added the executable Codex-accept -> Git-commit gate script plus tests.
+- 2026-06-14: Wired the A-share `live_research` entry through config, CLI, and
+  Streamlit; added `.env.example` support plus
+  `scripts/check_astock_live_research_env.py`.

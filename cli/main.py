@@ -23,7 +23,13 @@ from rich.align import Align
 from rich.rule import Rule
 
 from tradingagents.graph.trading_graph import TradingAgentsGraph
-from tradingagents.astock import AStockGraphReport, AStockGraphRuntime, build_blueprint_markdown, is_astock_symbol
+from tradingagents.astock import (
+    AStockGraphReport,
+    AStockGraphRuntime,
+    build_astock_runtime_llms,
+    build_blueprint_markdown,
+    is_astock_symbol,
+)
 from tradingagents.graph.analyst_execution import (
     AnalystWallTimeTracker,
     build_analyst_execution_plan,
@@ -1233,10 +1239,14 @@ def run_analysis(checkpoint: bool = False):
     analyst_wall_time_tracker = AnalystWallTimeTracker(analyst_execution_plan)
 
     if is_astock_symbol(selections["ticker"]):
+        astock_runtime_kwargs = {}
+        if config.get("astock_runtime_profile") == "live_research":
+            astock_runtime_kwargs = build_astock_runtime_llms(config, callbacks=[stats_handler])
         astock_runtime = AStockGraphRuntime(
             symbol=selections["ticker"],
             trade_date=selections["analysis_date"],
             source="cli",
+            **astock_runtime_kwargs,
         )
         astock_report = astock_runtime.run()
         console.print("\n[bold cyan]A 股 analysis complete![/bold cyan]\n")

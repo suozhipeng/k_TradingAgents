@@ -5,7 +5,8 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
-from tradingagents.astock import AStockGraphRuntime
+from tradingagents.astock import AStockGraphRuntime, build_astock_runtime_llms
+from tradingagents.default_config import DEFAULT_CONFIG
 
 from .dispatcher import render_report_page
 from .read_only_shell import render_viewer_landing_shell
@@ -58,7 +59,10 @@ def main(st: Any | None = None) -> None:
         symbol = st.sidebar.text_input("Symbol", value="600519.SH")
         trade_date = st.sidebar.text_input("Trade date", value=date.today().isoformat())
         if st.sidebar.button("Generate report"):
-            runtime = AStockGraphRuntime(symbol=symbol, trade_date=trade_date, source="ui")
+            runtime_kwargs = {}
+            if DEFAULT_CONFIG.get("astock_runtime_profile") == "live_research":
+                runtime_kwargs = build_astock_runtime_llms(DEFAULT_CONFIG)
+            runtime = AStockGraphRuntime(symbol=symbol, trade_date=trade_date, source="ui", **runtime_kwargs)
             payload = runtime.run()
         else:
             st.info("Choose a symbol in the sidebar, then generate the read-only A 股 report.")
