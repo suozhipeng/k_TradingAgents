@@ -164,11 +164,42 @@ class TestAStockUiViews(unittest.TestCase):
             bear_output={"investment_debate_state": {"bear_history": "Bear: policy and margin risk."}},
             research_manager_output={"investment_plan": "**Recommendation**: Hold"},
             investment_plan="**Recommendation**: Hold",
-            runtime_trace=("AStock Analyst", "Bull Researcher", "Bear Researcher", "Research Manager"),
+            runtime_trace=(
+                "AStock Analyst",
+                "Bull Researcher",
+                "Bear Researcher",
+                "Research Manager",
+                "Trader",
+                "Aggressive Risk Analyst",
+                "Conservative Risk Analyst",
+                "Neutral Risk Analyst",
+                "Portfolio Manager",
+            ),
             llm_prompts={"bull": ["bull prompt"], "bear": ["bear prompt"], "research_manager": ["mgr prompt"]},
             summary="A-share payload ready for UI",
             status=status,
             metadata={"bridge_mode": "astock_research_bridge"},
+            runtime_profile="deterministic_verification",
+            research_conclusion={
+                "recommendation": "hold_bias",
+                "confidence": 0.45,
+                "summary": "**Recommendation**: Hold",
+            },
+            trader_proposal={
+                "candidate_action": "hold",
+                "position_cap_pct": 5.0,
+                "rationale": "Advisory hold until data gaps close.",
+            },
+            risk_decision={
+                "verdict": "needs_more_data",
+                "risk_level": "medium",
+                "constraints": ["ResearchOnly stop condition remains mandatory."],
+            },
+            portfolio_decision={
+                "disposition": "continue_research",
+                "exposure_cap_pct": 5.0,
+                "portfolio_notes": "Keep on watchlist until missing provider evidence is restored.",
+            },
         )
 
     def _make_legacy_payload(self, missing=True):
@@ -253,6 +284,26 @@ class TestAStockUiViews(unittest.TestCase):
         self.assertIsInstance(result, LegacyUiModel)
         self.assertEqual(result.ticker, "AAPL")
         self.assertTrue(is_legacy_report_payload(payload))
+
+    def test_build_astock_ui_model_exposes_phase09_blocks(self):
+        report = self._make_report()
+        model = build_astock_ui_model(report)
+
+        self.assertEqual(model.runtime_profile, "deterministic_verification")
+        self.assertTrue(any(title == "Trader Proposal" for title, _ in model.advisory_blocks))
+        self.assertTrue(any(title == "Portfolio Decision" for title, _ in model.advisory_blocks))
+
+    def test_render_astock_report_page_renders_phase09_sections(self):
+        report = self._make_report()
+        st = FakeStreamlit()
+
+        model = render_astock_report_page(st, report)
+
+        self.assertEqual(model.runtime_profile, "deterministic_verification")
+        expander_labels = [item[1] for item in st.calls if item[0] == "expander"]
+        self.assertIn("Trader Proposal", expander_labels)
+        self.assertIn("Risk Decision", expander_labels)
+        self.assertIn("Portfolio Decision", expander_labels)
 
     def test_legacy_missing_fields_still_render_notes(self):
         payload = self._make_legacy_payload()

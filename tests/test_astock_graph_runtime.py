@@ -91,7 +91,20 @@ class AStockGraphRuntimeTests(unittest.TestCase):
 
         report = runtime.run()
         self.assertIsInstance(report, AStockGraphReport)
-        self.assertEqual(report.runtime_trace, ("AStock Analyst", "Bull Researcher", "Bear Researcher", "Research Manager"))
+        self.assertEqual(
+            report.runtime_trace,
+            (
+                "AStock Analyst",
+                "Bull Researcher",
+                "Bear Researcher",
+                "Research Manager",
+                "Trader",
+                "Aggressive Risk Analyst",
+                "Conservative Risk Analyst",
+                "Neutral Risk Analyst",
+                "Portfolio Manager",
+            ),
+        )
         self.assertEqual(report.runtime_mode, "astock_research_bridge")
         self.assertEqual(report.decision_scope, "research_only")
         self.assertFalse(report.actionable)
@@ -116,11 +129,15 @@ class AStockGraphRuntimeTests(unittest.TestCase):
         self.assertIn("section_results", payload)
         self.assertIn("provider_coverage", payload)
         self.assertIn("degradation_notes", payload)
+        self.assertIn("trader_proposal", payload)
+        self.assertIn("risk_decision", payload)
+        self.assertIn("portfolio_decision", payload)
         self.assertEqual(payload["final_trade_decision"], report.final_trade_decision)
         legacy_state = report.to_legacy_state()
         self.assertIn("astock_display_report", legacy_state)
         self.assertIn("astock_runtime_report", legacy_state)
         self.assertEqual(legacy_state["astock_runtime_report"]["symbol"], "600519.SH")
+        self.assertIn("trader_proposal", legacy_state["phase09_advisory"])
 
     def test_bridge_runtime_runs_to_research_manager_and_keeps_fallback_semantics(self):
         result = run_astock_research_bridge(
@@ -131,7 +148,17 @@ class AStockGraphRuntimeTests(unittest.TestCase):
 
         self.assertEqual(
             result["runtime_trace"],
-            ["AStock Analyst", "Bull Researcher", "Bear Researcher", "Research Manager"],
+            [
+                "AStock Analyst",
+                "Bull Researcher",
+                "Bear Researcher",
+                "Research Manager",
+                "Trader",
+                "Aggressive Risk Analyst",
+                "Conservative Risk Analyst",
+                "Neutral Risk Analyst",
+                "Portfolio Manager",
+            ],
         )
         self.assertIn("**Recommendation**: Hold", result["investment_plan"])
         self.assertIn("A-share bridge payload assembled", result["llm_prompts"]["bull"][0])
@@ -293,6 +320,9 @@ class Phase09RuntimeProfileTests(unittest.TestCase):
         self.assertEqual(report.research_conclusion["symbol"], "600519.SH")
         self.assertFalse(report.research_conclusion["actionable"])
         self.assertEqual(report.research_conclusion["decision_scope"], "research_only")
+        self.assertIsNotNone(report.trader_proposal)
+        self.assertIsNotNone(report.risk_decision)
+        self.assertIsNotNone(report.portfolio_decision)
         # Runtime profile should be set
         self.assertEqual(report.runtime_profile, "deterministic_verification")
 
@@ -306,6 +336,9 @@ class Phase09RuntimeProfileTests(unittest.TestCase):
         payload = report.to_dict()
         self.assertIn("research_conclusion", payload)
         self.assertFalse(payload["research_conclusion"]["actionable"])
+        self.assertIn("trader_proposal", payload)
+        self.assertIn("risk_decision", payload)
+        self.assertIn("portfolio_decision", payload)
         # runtime_profile should appear when set
         self.assertIn("runtime_profile", payload)
 
@@ -321,6 +354,7 @@ class Phase09RuntimeProfileTests(unittest.TestCase):
         self.assertEqual(legacy["phase09_advisory"]["execution_signal"], "ResearchOnly")
         self.assertFalse(legacy["phase09_advisory"]["actionable"])
         self.assertEqual(legacy["phase09_advisory"]["runtime_profile"], "deterministic_verification")
+        self.assertIn("risk_decision", legacy["phase09_advisory"])
 
     def test_run_does_not_call_signal_processing_or_qmt(self):
         """Confirm that Phase 09 run does not invoke signal processing or QMT
@@ -343,22 +377,20 @@ class Phase09RuntimeProfileTests(unittest.TestCase):
         self.assertNotIn("store_decision", payload)
         self.assertNotIn("trade_decision", payload.get("phase09_advisory", {}) if hasattr(report, 'to_legacy_state') else "")
 
-    def test_degraded_run_produces_degraded_trader_proposal(self):
-        """When provider data is missing, the run should produce a degraded
-        ResearchConclusion but still set trader_proposal=None for partial."""
+    def test_partial_run_still_produces_phase09_advisory_chain(self):
+        """Partial provider coverage should still produce the advisory chain
+        with a needs-more-data risk verdict."""
         runtime = AStockGraphRuntime(
             symbol="600519.SH",
             interface=self.interface,
             trade_date="2026-06-13",
         )
         report = runtime.run()
-        # For partial status (2 sections missing), research_conclusion
-        # should exist but trader_proposal should remain None
-        # (degraded TraderProposal only appears for fully degraded runs)
         self.assertIsNotNone(report.research_conclusion)
-        # The existing fake interface returns status='partial', so
-        # research_conclusion should be populated (not degraded)
         self.assertFalse(report.research_conclusion["summary"].startswith("Degraded"))
+        self.assertEqual(report.trader_proposal["candidate_action"], "hold")
+        self.assertEqual(report.risk_decision["verdict"], "needs_more_data")
+        self.assertEqual(report.portfolio_decision["disposition"], "continue_research")
 
 
 if __name__ == "__main__":

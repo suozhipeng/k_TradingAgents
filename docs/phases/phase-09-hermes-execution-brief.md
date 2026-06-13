@@ -16,8 +16,8 @@ Use this brief together with:
 ## Phase status
 
 - Delivery phase: `9`
-- Current status: `specification_complete`
-- Implementation status: `not_started`
+- Current status: `implementation_complete`
+- Implementation status: `complete`
 - Branch: `xg_dev`
 - Execution mode: `research_only`
 - Non-negotiable guardrail: `actionable=false`
@@ -33,8 +33,8 @@ Use this brief together with:
 
 ## Task objective
 
-Implement Delivery Phase 09 for A-share advisory-only Trader, Risk, and
-Portfolio outputs.
+Maintain and extend Delivery Phase 09 for A-share advisory-only Trader, Risk,
+and Portfolio outputs.
 
 Hermes must extend the A-share runtime from research conclusions to portfolio
 advisory outputs without creating any execution path, signal-processing path,
@@ -55,7 +55,8 @@ Hermes must keep all of the following true:
 
 ## Required deliverables
 
-Hermes must produce all items below in one implementation pass:
+Phase 09 now includes all items below as implemented baseline; follow-up work
+must preserve them:
 
 1. Add A-share-specific Phase 09 schemas in a dedicated module under
    `tradingagents/astock/`.
@@ -153,7 +154,7 @@ Hermes must also persist the durable result locally:
 ## Direct Hermes command
 
 ```bash
-hermes chat -q "Implement Delivery Phase 09 in TradingAgents. Follow docs/phases/phase-09-trader-risk-portfolio.md and docs/phases/phase-09-hermes-execution-brief.md. Add A-share-only advisory contracts, enforce runtime profile separation, adapt Trader/Risk/Portfolio into research-only outputs, keep actionable=false and execution_signal=ResearchOnly, add ECC regression tests, update docs/phases archive plus docs/ASTOCK_CURRENT_STATUS.md, then commit on xg_dev." --skills astock-rollout-orchestrator,ecc-self-test
+hermes chat -q "Continue Delivery Phase 09 in TradingAgents. Follow docs/phases/phase-09-trader-risk-portfolio.md and docs/phases/phase-09-hermes-execution-brief.md. Preserve the A-share advisory-only chain, keep actionable=false and execution_signal=ResearchOnly, extend Phase 09 rendering or validation only within scope, run ECC regression tests, update docs/phases archive plus docs/ASTOCK_CURRENT_STATUS.md, then commit on xg_dev." --skills astock-rollout-orchestrator,ecc-self-test
 ```
 
 ## Corrections log

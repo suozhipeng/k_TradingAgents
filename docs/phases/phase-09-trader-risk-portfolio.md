@@ -11,6 +11,7 @@
 - Git branch: `xg_dev`
 - Specification commit SHA: `b57d4a6`
 - Implementation commit SHA: `5b30d73`
+- Follow-up commit SHA: `pending`
 
 ## Product objective
 
@@ -211,9 +212,14 @@ AStockGraphReport
   `portfolio_decision`) that are `None` by default.
 - Phase 09 advisory state is also embedded in `to_legacy_state()` under
   the `phase09_advisory` key for backward-compatible CLI/UI consumption.
-- The full Trader → Risk → Portfolio chain (three-viewpoint risk synthesis)
-  is structurally stubbed in the schemas and runtime profile but the state-flow
-  wiring (actual agent calls) is deferred to a later phase.
+- The A-share runtime now wires `ResearchConclusion -> TraderProposal ->
+  RiskDecision -> PortfolioDecision` directly inside `tradingagents/astock/runtime.py`
+  while preserving `ResearchOnly` stop conditions.
+- The three risk viewpoints are currently synthesized as explicit A-share
+  advisory adapter text in runtime metadata and legacy state, not by invoking
+  the generic risk-debater agents with executable trading semantics.
+- CLI and Streamlit read-only consumers now render Phase 09 advisory fields
+  directly from the stable display schema.
 
 ## ECC acceptance
 
@@ -259,32 +265,31 @@ python3 -m pytest -q \
 - Expected skips: opt-in live A-share providers and one live DeepSeek API test
   were not enabled in this environment.
 - Implementation commit: `5b30d73`.
+- Follow-up A-share regression: `62 passed` across runtime, bridge, interface,
+  provider fixtures, UI, CLI, and Git-gate checks.
 
 ## Risks and gaps
 
 - Generic Trader and Portfolio schemas contain executable trading language and
   cannot be reused without an A-share advisory adapter.
-- Existing risk agents return free text; Phase 9 needs structured synthesis.
+- Existing generic risk agents return free text; the current A-share adapter
+  uses deterministic synthesis instead of reusing those executable-facing
+  prompts directly.
 - `final_trade_decision` remains a compatibility field with ambiguous naming.
 - The static React WebUI and Streamlit viewer remain separate surfaces.
-- The full Trader → RiskDevision → PortfolioDecision flow is structurally
-  stubbed in schemas but not wired as state transitions. Agent-level calls
-  (invoking actual risk debaters and portfolio manager with real LLM) are
-  deferred.
-- CLI/UI rendering of Phase 09 advisory fields is not yet wired; currently
-  advisory data is accessible via `report.to_dict()` and `legacy_state` only.
+- Live Phase 09 `live_research` operation still depends on deploying real LLM
+  clients for the A-share chain.
 - This host runs Python 3.9; full pytest regression requires Python 3.10+.
   The `46 passed` contract test was run with `importlib`-based bypass of the
   package `__init__.py` dependency chain.
 
 ## Next-phase entry criteria
 
-1. Approve these four contract definitions.
-2. Add schema validation tests before graph wiring.
-3. Implement explicit runtime profiles before injecting real LLM clients.
-4. Keep all Phase 9 outputs non-actionable.
-5. Complete ECC regression and update this archive with implementation
-   evidence and commit SHA.
+1. Validate the A-share full regression slice in a Python 3.10+ environment.
+2. Deploy a runnable `live_research` environment for the A-share advisory
+   chain.
+3. Keep all Phase 9 outputs non-actionable.
+4. Preserve the `ResearchOnly` stop condition while Phase 10 starts.
 
 ## Corrections
 
@@ -295,3 +300,6 @@ python3 -m pytest -q \
   report extensions, and 46+6 test cases across
   `tests/test_astock_phase9_contracts.py` and
   `tests/test_astock_graph_runtime.py`. Committed as `5b30d73`.
+- 2026-06-14: Wired the A-share advisory chain through Trader, Risk, and
+  Portfolio state transitions, rendered Phase 09 fields in CLI / Streamlit,
+  and added the executable Codex-accept -> Git-commit gate script plus tests.

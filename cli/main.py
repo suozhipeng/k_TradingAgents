@@ -874,6 +874,48 @@ def _astock_coverage_markdown(provider_coverage):
 
 
 
+def _astock_phase09_markdown(payload):
+    sections = []
+    rc = payload.get("research_conclusion") or {}
+    if rc:
+        sections += [
+            "### Research Conclusion",
+            f"- Recommendation: {rc.get('recommendation', '-')}",
+            f"- Confidence: {rc.get('confidence', '-')}",
+            f"- Summary: {rc.get('summary', '-')}",
+            "",
+        ]
+    tp = payload.get("trader_proposal") or {}
+    if tp:
+        sections += [
+            "### Trader Proposal",
+            f"- Candidate Action: {tp.get('candidate_action', '-')}",
+            f"- Position Cap: {tp.get('position_cap_pct', '-')}",
+            f"- Rationale: {tp.get('rationale', '-')}",
+            "",
+        ]
+    rd = payload.get("risk_decision") or {}
+    if rd:
+        sections += [
+            "### Risk Decision",
+            f"- Verdict: {rd.get('verdict', '-')}",
+            f"- Risk Level: {rd.get('risk_level', '-')}",
+            f"- Constraints: {', '.join(rd.get('constraints', []) or ['-'])}",
+            "",
+        ]
+    pd = payload.get("portfolio_decision") or {}
+    if pd:
+        sections += [
+            "### Portfolio Decision",
+            f"- Disposition: {pd.get('disposition', '-')}",
+            f"- Exposure Cap: {pd.get('exposure_cap_pct', '-')}",
+            f"- Notes: {pd.get('portfolio_notes', '-')}",
+            "",
+        ]
+    return "\n".join(sections) if sections else "No Phase 09 advisory outputs available."
+
+
+
 def build_astock_report_markdown(report):
     payload = report.to_dict() if hasattr(report, "to_dict") else dict(report)
     section_results = payload.get("section_results", {}) or {}
@@ -912,6 +954,9 @@ def build_astock_report_markdown(report):
         "",
         "## Research Manager Conclusion",
         payload.get('research_manager_conclusion') or payload.get('final_trade_decision') or "Research manager conclusion unavailable",
+        "",
+        "## Phase 09 Advisory Outputs",
+        _astock_phase09_markdown(payload),
         "",
         "## Provider Coverage",
         _astock_coverage_markdown(payload.get('provider_coverage', {}) or {}),
@@ -959,6 +1004,7 @@ def display_astock_report(report: AStockGraphReport, render_console: Console = c
         ("Normalized", "normalized_symbol"),
         ("Trade Date", "trade_date"),
         ("Runtime Mode", "runtime_mode"),
+        ("Runtime Profile", "runtime_profile"),
         ("Status", "status"),
         ("Decision Scope", "decision_scope"),
         ("Actionable", "actionable"),
@@ -988,6 +1034,7 @@ def display_astock_report(report: AStockGraphReport, render_console: Console = c
     render_console.print(Panel(Markdown(payload.get("bull_view") or "Bull view unavailable"), title="Bull View", border_style="green", padding=(1, 2)))
     render_console.print(Panel(Markdown(payload.get("bear_view") or "Bear view unavailable"), title="Bear View", border_style="red", padding=(1, 2)))
     render_console.print(Panel(Markdown(payload.get("research_manager_conclusion") or payload.get("final_trade_decision") or "Research manager conclusion unavailable"), title="Research Manager Conclusion", border_style="magenta", padding=(1, 2)))
+    render_console.print(Panel(Markdown(_astock_phase09_markdown(payload)), title="Phase 09 Advisory Outputs", border_style="bright_blue", padding=(1, 2)))
 
     coverage_table = Table(title="Provider Coverage", box=box.SIMPLE, expand=True)
     coverage_table.add_column("Section", style="bold")

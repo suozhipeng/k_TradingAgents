@@ -89,6 +89,8 @@ No phase may be marked complete or handed off without a local archive record.
   phase archive to `complete`.
 - When Codex issues `accept` and the worktree is committable, Hermes should
   commit the approved changes to the Git repository before handoff.
+- `scripts/hermes_codex_git_gate.py` is the executable helper for that final
+  gate when Hermes wants a repo-local command instead of a manual git sequence.
 
 ## Current phase mapping
 

@@ -31,9 +31,14 @@ from .analyst import AStockAnalyst
 from .interface import AStockInterface
 from .data_sources import normalize_astock_symbol
 from .phase9_schemas import (
+    PortfolioDisposition,
     ResearchConclusion,
-    TraderProposal,
+    ResearchRecommendation,
     RiskDecision,
+    RiskLevel,
+    RiskVerdict,
+    TraderCandidateAction,
+    TraderProposal,
     PortfolioDecision,
     degraded_research_conclusion,
 )
@@ -233,6 +238,27 @@ class AStockGraphReport:
             "history": "",
             "judge_decision": "",
         }
+        if isinstance(self.metadata.get("phase09_viewpoints"), Mapping):
+            viewpoints = self.metadata["phase09_viewpoints"]
+            empty_risk_state = {
+                "aggressive_history": str(viewpoints.get("aggressive", "")),
+                "conservative_history": str(viewpoints.get("conservative", "")),
+                "neutral_history": str(viewpoints.get("neutral", "")),
+                "history": "\n".join(
+                    fragment
+                    for fragment in (
+                        viewpoints.get("aggressive", ""),
+                        viewpoints.get("conservative", ""),
+                        viewpoints.get("neutral", ""),
+                    )
+                    if fragment
+                ),
+                "judge_decision": (
+                    (self.portfolio_decision or {}).get("portfolio_notes", "")
+                    if isinstance(self.portfolio_decision, Mapping)
+                    else ""
+                ),
+            }
         return {
             "company_of_interest": self.symbol,
             "trade_date": self.trade_date,
@@ -248,7 +274,11 @@ class AStockGraphReport:
             "news_report": _section_text(news_section, self.summary),
             "fundamentals_report": _section_text(fundamentals_section, self.summary),
             "investment_debate_state": debate_state,
-            "trader_investment_plan": "",
+            "trader_investment_plan": (
+                (self.trader_proposal or {}).get("rationale", "")
+                if isinstance(self.trader_proposal, Mapping)
+                else ""
+            ),
             "risk_debate_state": empty_risk_state,
             "investment_plan": self.investment_plan,
             "final_trade_decision": self.final_trade_decision,
@@ -263,6 +293,10 @@ class AStockGraphReport:
                 "decision_scope": self.decision_scope,
                 "actionable": self.actionable,
                 "execution_signal": self.execution_signal,
+                "research_conclusion": copy.deepcopy(self.research_conclusion),
+                "trader_proposal": copy.deepcopy(self.trader_proposal),
+                "risk_decision": copy.deepcopy(self.risk_decision),
+                "portfolio_decision": copy.deepcopy(self.portfolio_decision),
             },
         }
 
@@ -402,6 +436,190 @@ def _build_view_text(payload: Mapping[str, Any], *, preferred_keys: Sequence[str
             if isinstance(value, str) and value.strip():
                 return value.strip()
     return fallback
+
+
+def _derive_research_recommendation(summary: str) -> ResearchRecommendation:
+    lowered = summary.lower()
+    if any(token in lowered for token in ("buy", "accumulate", "add")):
+        return ResearchRecommendation.BUY_BIAS
+    if any(token in lowered for token in ("sell", "reduce", "exit")):
+        return ResearchRecommendation.SELL_BIAS
+    if "hold" in lowered or "watch" in lowered:
+        return ResearchRecommendation.HOLD_BIAS
+    return ResearchRecommendation.INSUFFICIENT_DATA
+
+
+def _make_advisory_id(prefix: str, symbol: str, trade_date: Optional[str]) -> str:
+    compact_symbol = re.sub(r"[^A-Za-z0-9]", "", symbol)
+    compact_date = re.sub(r"[^0-9]", "", trade_date or "undated")
+    return f"{prefix}-{compact_symbol.lower()}-{compact_date}"
+
+
+def _build_trader_proposal(
+    conclusion: ResearchConclusion,
+    *,
+    status: str,
+    missing_data_notes: Sequence[str],
+) -> TraderProposal:
+    action_map = {
+        ResearchRecommendation.BUY_BIAS: TraderCandidateAction.CONSIDER_BUY,
+        ResearchRecommendation.HOLD_BIAS: TraderCandidateAction.HOLD,
+        ResearchRecommendation.SELL_BIAS: TraderCandidateAction.CONSIDER_REDUCE,
+        ResearchRecommendation.INSUFFICIENT_DATA: TraderCandidateAction.AVOID,
+    }
+    candidate_action = action_map[conclusion.recommendation]
+    degraded = conclusion.recommendation is ResearchRecommendation.INSUFFICIENT_DATA
+    position_cap_pct = None
+    entry_zone = None
+    if candidate_action is TraderCandidateAction.CONSIDER_BUY:
+        position_cap_pct = 12.0 if status == "ok" else 6.0
+        entry_zone = "Observe support/resistance confirmation before any later simulation step."
+    elif candidate_action is TraderCandidateAction.HOLD:
+        position_cap_pct = 8.0 if status == "ok" else 5.0
+    elif candidate_action is TraderCandidateAction.CONSIDER_REDUCE:
+        position_cap_pct = 4.0
+        entry_zone = "Use rally strength as an advisory reduce zone; no order path is enabled."
+
+    invalidation_conditions = list(conclusion.uncertainties)
+    invalidation_conditions.append("Any later stage must keep actionable=false and execution_signal=ResearchOnly.")
+    if degraded:
+        invalidation_conditions.append("Provider degradation blocks any stronger advisory action.")
+
+    rationale = (
+        f"Trader advisory derived from ResearchConclusion: {conclusion.summary} "
+        f"Bull case: {conclusion.bull_case or 'n/a'}. "
+        f"Bear case: {conclusion.bear_case or 'n/a'}."
+    )
+    if missing_data_notes:
+        rationale += f" Outstanding data gaps: {'; '.join(missing_data_notes)}."
+
+    return TraderProposal(
+        proposal_id=_make_advisory_id("tp", conclusion.symbol, conclusion.trade_date),
+        research_conclusion_id=_make_advisory_id("rc", conclusion.symbol, conclusion.trade_date),
+        candidate_action=candidate_action,
+        rationale=rationale,
+        entry_zone=entry_zone,
+        invalidation_conditions=invalidation_conditions,
+        position_cap_pct=position_cap_pct,
+        confidence=0.0 if degraded else max(0.1, min(conclusion.confidence, 0.85)),
+    )
+
+
+def _render_risk_viewpoints(
+    proposal: TraderProposal,
+    conclusion: ResearchConclusion,
+    *,
+    status: str,
+    missing_data_notes: Sequence[str],
+) -> Dict[str, str]:
+    shared_gap = "; ".join(missing_data_notes) if missing_data_notes else "no material provider gaps"
+    return {
+        "aggressive": (
+            f"Aggressive Analyst: The proposal is {proposal.candidate_action.value}. "
+            f"Upside comes from {conclusion.bull_case or 'the positive research view'}, "
+            f"but current data quality is {status}. Gaps: {shared_gap}."
+        ),
+        "conservative": (
+            f"Conservative Analyst: Preserve the research-only boundary. "
+            f"Main downside is {conclusion.bear_case or 'unresolved downside risk'}. "
+            f"Any missing evidence should cap exposure and block execution."
+        ),
+        "neutral": (
+            f"Neutral Analyst: Balance the bull/bear cases, keep the proposal advisory-only, "
+            f"and re-run research when the following gaps are cleared: {shared_gap}."
+        ),
+    }
+
+
+def _build_risk_decision(
+    proposal: TraderProposal,
+    conclusion: ResearchConclusion,
+    *,
+    status: str,
+    missing_data_notes: Sequence[str],
+) -> tuple[RiskDecision, Dict[str, str]]:
+    viewpoints = _render_risk_viewpoints(
+        proposal,
+        conclusion,
+        status=status,
+        missing_data_notes=missing_data_notes,
+    )
+    degraded = conclusion.recommendation is ResearchRecommendation.INSUFFICIENT_DATA
+    if degraded or proposal.candidate_action is TraderCandidateAction.AVOID:
+        verdict = RiskVerdict.REJECT_PROPOSAL
+        risk_level = RiskLevel.HIGH
+    elif status != "ok" or missing_data_notes:
+        verdict = RiskVerdict.NEEDS_MORE_DATA
+        risk_level = RiskLevel.MEDIUM
+    else:
+        verdict = RiskVerdict.ALLOW_ADVISORY
+        risk_level = RiskLevel.LOW if proposal.confidence >= 0.65 else RiskLevel.MEDIUM
+
+    constraints = [
+        "ResearchOnly stop condition remains mandatory.",
+        "No signal processing, memory write, or QMT call is allowed.",
+    ]
+    if proposal.position_cap_pct is not None:
+        constraints.append(f"Advisory exposure cap: {proposal.position_cap_pct:.1f}%.")
+    if status != "ok":
+        constraints.append("Provider gaps require a fresh research pass before any stronger advisory stance.")
+
+    risk_factors = [
+        factor
+        for factor in (
+            conclusion.bear_case,
+            "provider coverage incomplete" if missing_data_notes else "",
+            "advisory-only runtime cannot validate executable timing",
+        )
+        if factor
+    ]
+
+    decision = RiskDecision(
+        proposal_id=proposal.proposal_id,
+        verdict=verdict,
+        risk_level=risk_level,
+        risk_factors=risk_factors,
+        constraints=constraints,
+        missing_evidence=list(missing_data_notes),
+    )
+    return decision, viewpoints
+
+
+def _build_portfolio_decision(
+    proposal: TraderProposal,
+    risk_decision: RiskDecision,
+    conclusion: ResearchConclusion,
+) -> PortfolioDecision:
+    if risk_decision.verdict is RiskVerdict.REJECT_PROPOSAL:
+        disposition = PortfolioDisposition.ADVISORY_REJECTED
+        exposure_cap_pct = 0.0
+    elif risk_decision.verdict is RiskVerdict.NEEDS_MORE_DATA:
+        disposition = PortfolioDisposition.CONTINUE_RESEARCH
+        exposure_cap_pct = min(proposal.position_cap_pct or 5.0, 5.0)
+    else:
+        disposition = PortfolioDisposition.WATCHLIST
+        exposure_cap_pct = proposal.position_cap_pct
+
+    review_triggers = list(risk_decision.missing_evidence)
+    review_triggers.extend(
+        [
+            "Material change in five-layer provider coverage.",
+            "Research Manager recommendation changes on the next run.",
+        ]
+    )
+    portfolio_notes = (
+        f"Portfolio advisory derived from {proposal.candidate_action.value} with "
+        f"risk verdict {risk_decision.verdict.value}. Summary: {conclusion.summary}"
+    )
+
+    return PortfolioDecision(
+        proposal_id=proposal.proposal_id,
+        risk_decision_id=_make_advisory_id("rd", conclusion.symbol, conclusion.trade_date),
+        disposition=disposition,
+        portfolio_notes=portfolio_notes,
+        exposure_cap_pct=exposure_cap_pct,
+        review_triggers=review_triggers,
+    )
 
 
 
@@ -704,29 +922,42 @@ class AStockGraphRuntime:
                 symbol=str(normalized_symbol),
                 trade_date=self.trade_date or "",
                 summary=recommendation,
-                recommendation=type(research_conclusion.recommendation)("hold_bias")
-                if "Hold" in recommendation
-                else type(research_conclusion.recommendation)("insufficient_data"),
+                recommendation=_derive_research_recommendation(recommendation),
                 bull_case=bull_view,
                 bear_case=bear_view,
                 uncertainties=list(missing_data_notes),
                 provider_coverage=copy.deepcopy(provider_coverage),
-                confidence=0.5 if "Hold" in recommendation else 0.3,
+                confidence=0.65 if status == "ok" else 0.45,
             )
         report.research_conclusion = research_conclusion.model_dump()
 
-        # Phase 09: if degraded, produce degraded TraderProposal too
-        if status != "ok" and not research_conclusion.summary.startswith("Degraded"):
-            pass  # healthy path leaves trader_proposal=None for now
-        elif status != "ok":
-            from .phase9_schemas import degraded_trader_proposal
+        trader_proposal = _build_trader_proposal(
+            research_conclusion,
+            status=status,
+            missing_data_notes=missing_data_notes,
+        )
+        report.trader_proposal = trader_proposal.model_dump()
+        trace.append("Trader")
 
-            report.trader_proposal = degraded_trader_proposal(
-                conclusion_id=report.symbol,
-                reason="; ".join(missing_data_notes) if missing_data_notes else "provider degradation",
-            ).model_dump()
-            report.risk_decision = None  # no risk analysis on degraded data
-            report.portfolio_decision = None  # no portfolio analysis on degraded data
+        risk_decision, risk_viewpoints = _build_risk_decision(
+            trader_proposal,
+            research_conclusion,
+            status=status,
+            missing_data_notes=missing_data_notes,
+        )
+        report.risk_decision = risk_decision.model_dump()
+        trace.extend(["Aggressive Risk Analyst", "Conservative Risk Analyst", "Neutral Risk Analyst"])
+
+        portfolio_decision = _build_portfolio_decision(
+            trader_proposal,
+            risk_decision,
+            research_conclusion,
+        )
+        report.portfolio_decision = portfolio_decision.model_dump()
+        trace.append("Portfolio Manager")
+        report.runtime_trace = tuple(trace)
+        report.metadata["phase09_viewpoints"] = risk_viewpoints
+        report.metadata["phase09_chain_completed"] = True
         return report
 
 

@@ -35,10 +35,12 @@ class AStockUiModel:
     status: str
     decision_scope: str
     actionable: bool
+    runtime_profile: str
     analyst_summary: str
     bull_view: str
     bear_view: str
     research_manager_conclusion: str
+    advisory_blocks: tuple[tuple[str, str], ...]
     section_rows: tuple[AStockUiRow, ...]
     provider_rows: tuple[dict[str, Any], ...]
     missing_data_notes: tuple[str, ...]
@@ -121,6 +123,64 @@ def _normalize_provider_rows(payload: Mapping[str, Any]) -> tuple[dict[str, Any]
 
 def build_astock_ui_model(report: AStockGraphReport | Mapping[str, Any]) -> AStockUiModel:
     payload = _extract_payload(report)
+    advisory_blocks: list[tuple[str, str]] = []
+    if payload.get("research_conclusion"):
+        rc = payload["research_conclusion"]
+        advisory_blocks.append(
+            (
+                "Research Conclusion",
+                "\n".join(
+                    [
+                        f"- Recommendation: {rc.get('recommendation', '-')}",
+                        f"- Confidence: {rc.get('confidence', '-')}",
+                        f"- Summary: {rc.get('summary', '-')}",
+                    ]
+                ),
+            )
+        )
+    if payload.get("trader_proposal"):
+        tp = payload["trader_proposal"]
+        advisory_blocks.append(
+            (
+                "Trader Proposal",
+                "\n".join(
+                    [
+                        f"- Candidate Action: {tp.get('candidate_action', '-')}",
+                        f"- Position Cap: {tp.get('position_cap_pct', '-')}",
+                        f"- Rationale: {tp.get('rationale', '-')}",
+                    ]
+                ),
+            )
+        )
+    if payload.get("risk_decision"):
+        rd = payload["risk_decision"]
+        advisory_blocks.append(
+            (
+                "Risk Decision",
+                "\n".join(
+                    [
+                        f"- Verdict: {rd.get('verdict', '-')}",
+                        f"- Risk Level: {rd.get('risk_level', '-')}",
+                        f"- Constraints: {', '.join(rd.get('constraints', []) or ['-'])}",
+                    ]
+                ),
+            )
+        )
+    if payload.get("portfolio_decision"):
+        pd = payload["portfolio_decision"]
+        advisory_blocks.append(
+            (
+                "Portfolio Decision",
+                "\n".join(
+                    [
+                        f"- Disposition: {pd.get('disposition', '-')}",
+                        f"- Exposure Cap: {pd.get('exposure_cap_pct', '-')}",
+                        f"- Notes: {pd.get('portfolio_notes', '-')}",
+                    ]
+                ),
+            )
+        )
+
     return AStockUiModel(
         ticker=str(payload.get("ticker") or payload.get("symbol") or "-"),
         symbol=str(payload.get("symbol") or payload.get("ticker") or "-"),
@@ -130,6 +190,7 @@ def build_astock_ui_model(report: AStockGraphReport | Mapping[str, Any]) -> ASto
         status=str(payload.get("status") or "-"),
         decision_scope=str(payload.get("decision_scope") or "research_only"),
         actionable=bool(payload.get("actionable", False)),
+        runtime_profile=str(payload.get("runtime_profile") or "-"),
         analyst_summary=str(payload.get("analyst_summary") or payload.get("summary") or "-"),
         bull_view=str(payload.get("bull_view") or "-"),
         bear_view=str(payload.get("bear_view") or "-"),
@@ -139,6 +200,7 @@ def build_astock_ui_model(report: AStockGraphReport | Mapping[str, Any]) -> ASto
             or payload.get("investment_plan")
             or "-"
         ),
+        advisory_blocks=tuple(advisory_blocks),
         section_rows=_normalize_section_rows(payload),
         provider_rows=_normalize_provider_rows(payload),
         missing_data_notes=tuple(str(item) for item in payload.get("missing_data_notes", []) or []),
@@ -200,6 +262,7 @@ def render_astock_report_page(st: Any, report: AStockGraphReport | Mapping[str, 
             ("Ticker", model.ticker),
             ("Trade Date", model.trade_date or "-"),
             ("Runtime Mode", model.runtime_mode),
+            ("Runtime Profile", model.runtime_profile),
             ("Status", model.status),
             ("Decision Scope", model.decision_scope),
             ("Actionable", "Yes" if model.actionable else "No"),
@@ -210,6 +273,7 @@ def render_astock_report_page(st: Any, report: AStockGraphReport | Mapping[str, 
             ("Bull View", model.bull_view),
             ("Bear View", model.bear_view),
             ("Research Manager Conclusion", model.research_manager_conclusion),
+            *list(model.advisory_blocks),
         ],
         coverage_rows=list(model.provider_rows),
         coverage_notes=model.missing_data_notes,

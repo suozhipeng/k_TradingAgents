@@ -102,6 +102,15 @@ Codex should prioritize:
    - commit the approved changes to the Git repository
    - record the final commit SHA
 
+The executable helper for the final step is:
+
+```bash
+python3 scripts/hermes_codex_git_gate.py \
+  --verdict accept \
+  --commit-message "phase message here" \
+  path/to/file1 path/to/file2
+```
+
 ## Codex review gate
 
 Codex review is required when any of the following is true:
@@ -190,6 +199,8 @@ hermes chat -q "Implement the scoped phase work only. Follow AGENTS.md and docs/
 - Codex review evidence is part of the acceptance path, not an optional extra.
 - After Codex accepts a committable change set with no blocking issues, Hermes
   must create the Git commit before handoff.
+- Use `scripts/hermes_codex_git_gate.py` when you want the Codex-accept ->
+  Git-commit rule enforced by an executable gate instead of chat discipline.
 
 ## Correction policy
 

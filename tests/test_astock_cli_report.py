@@ -120,11 +120,42 @@ class TestAStockCliReport(unittest.TestCase):
             bear_output={"investment_debate_state": {"bear_history": "Bear bridge output: watch conversion risk."}},
             research_manager_output={"investment_plan": "**Recommendation**: Hold"},
             investment_plan="**Recommendation**: Hold",
-            runtime_trace=("AStock Analyst", "Bull Researcher", "Bear Researcher", "Research Manager"),
+            runtime_trace=(
+                "AStock Analyst",
+                "Bull Researcher",
+                "Bear Researcher",
+                "Research Manager",
+                "Trader",
+                "Aggressive Risk Analyst",
+                "Conservative Risk Analyst",
+                "Neutral Risk Analyst",
+                "Portfolio Manager",
+            ),
             llm_prompts={"bull": ["bull prompt"], "bear": ["bear prompt"], "research_manager": ["manager prompt"]},
             summary="A-share bridge payload assembled",
             status=status,
             metadata={"bridge_mode": "astock_research_bridge", "state_keys": ["astock_analysis"]},
+            runtime_profile="deterministic_verification",
+            research_conclusion={
+                "recommendation": "hold_bias",
+                "confidence": 0.45,
+                "summary": "**Recommendation**: Hold",
+            },
+            trader_proposal={
+                "candidate_action": "hold",
+                "position_cap_pct": 5.0,
+                "rationale": "Advisory hold until missing evidence is resolved.",
+            },
+            risk_decision={
+                "verdict": "needs_more_data",
+                "risk_level": "medium",
+                "constraints": ["ResearchOnly stop condition remains mandatory."],
+            },
+            portfolio_decision={
+                "disposition": "continue_research",
+                "exposure_cap_pct": 5.0,
+                "portfolio_notes": "Keep this name in advisory research until coverage improves.",
+            },
         )
 
     def test_display_astock_report_renders_schema_fields(self):
@@ -146,6 +177,8 @@ class TestAStockCliReport(unittest.TestCase):
         self.assertIn("Missing Data Notes", text)
         self.assertIn("Degradation Notes", text)
         self.assertIn("Runtime Trace", text)
+        self.assertIn("Phase 09 Advisory Outputs", text)
+        self.assertIn("continue_research", text)
 
     def test_save_astock_report_to_disk_writes_display_schema_artifacts(self):
         report = self._make_report()
@@ -163,11 +196,14 @@ class TestAStockCliReport(unittest.TestCase):
         self.assertIn("Decision Scope: research_only", md_text)
         self.assertIn("Actionable: False", md_text)
         self.assertIn("五层 Section 状态", md_text)
+        self.assertIn("Phase 09 Advisory Outputs", md_text)
+        self.assertIn("Trader Proposal", md_text)
         self.assertIn("Runtime Trace", md_text)
         self.assertEqual(json_text["ticker"], "600519.SH")
         self.assertEqual(json_text["decision_scope"], "research_only")
         self.assertFalse(json_text["actionable"])
         self.assertIn("section_results", json_text)
+        self.assertIn("portfolio_decision", json_text)
         self.assertEqual(json_text["status"], "partial")
 
     def test_run_analysis_routes_astock_ticker_to_runtime_report(self):
