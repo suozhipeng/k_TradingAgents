@@ -153,10 +153,12 @@ Hermes must also persist the durable result locally:
 ## Direct Hermes command
 
 ```bash
-hermes --agent astock-rollout-orchestrator --task "Implement Delivery Phase 09 in TradingAgents. Follow docs/phases/phase-09-trader-risk-portfolio.md and docs/phases/phase-09-hermes-execution-brief.md. Add A-share-only advisory contracts, enforce runtime profile separation, adapt Trader/Risk/Portfolio into research-only outputs, keep actionable=false and execution_signal=ResearchOnly, add ECC regression tests, update docs/phases archive plus docs/ASTOCK_CURRENT_STATUS.md, then commit on xg_dev."
+hermes chat -q "Implement Delivery Phase 09 in TradingAgents. Follow docs/phases/phase-09-trader-risk-portfolio.md and docs/phases/phase-09-hermes-execution-brief.md. Add A-share-only advisory contracts, enforce runtime profile separation, adapt Trader/Risk/Portfolio into research-only outputs, keep actionable=false and execution_signal=ResearchOnly, add ECC regression tests, update docs/phases archive plus docs/ASTOCK_CURRENT_STATUS.md, then commit on xg_dev." --skills astock-rollout-orchestrator,ecc-self-test
 ```
 
 ## Corrections log
 
 - 2026-06-13: Converted the existing Phase 09 specification into a Hermes
   execution brief so implementation can start without scope ambiguity.
+- 2026-06-13: Corrected the direct Hermes invocation to the current `hermes chat`
+  CLI shape with `--skills`, replacing the invalid `--agent` form.
