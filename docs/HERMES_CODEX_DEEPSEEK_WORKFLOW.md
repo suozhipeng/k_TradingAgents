@@ -99,6 +99,7 @@ Codex should prioritize:
    - update `docs/phases/`
    - update `docs/phases/README.md`
    - update `docs/ASTOCK_CURRENT_STATUS.md` if repo status changed
+   - commit the approved changes to the Git repository
    - record the final commit SHA
 
 ## Codex review gate
@@ -187,6 +188,8 @@ hermes chat -q "Implement the scoped phase work only. Follow AGENTS.md and docs/
 - A phase may not be closed on DeepSeek output alone.
 - A phase may not be closed on Hermes narration alone.
 - Codex review evidence is part of the acceptance path, not an optional extra.
+- After Codex accepts a committable change set with no blocking issues, Hermes
+  must create the Git commit before handoff.
 
 ## Correction policy
 

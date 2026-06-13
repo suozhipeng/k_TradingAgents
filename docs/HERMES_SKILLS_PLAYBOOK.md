@@ -87,6 +87,8 @@ No phase may be marked complete or handed off without a local archive record.
   triage.
 - Codex should issue `accept`, `partial`, or `fail` before Hermes updates the
   phase archive to `complete`.
+- When Codex issues `accept` and the worktree is committable, Hermes should
+  commit the approved changes to the Git repository before handoff.
 
 ## Current phase mapping
 
