@@ -6,6 +6,10 @@ small and read-only:
 
 `AStockAnalyst -> Bull Researcher -> Bear Researcher -> Research Manager`
 
+Phase 09 extends this chain with advisory-only Trader, Risk, and Portfolio
+Manager outputs that are never actionable and never trigger signal processing
+or execution.
+
 The same state builder and runtime execution path are used in every caller so
 there is no separate test-only helper and no divergent wiring path.
 """
@@ -26,6 +30,19 @@ from tradingagents.agents.schemas import ResearchPlan
 from .analyst import AStockAnalyst
 from .interface import AStockInterface
 from .data_sources import normalize_astock_symbol
+from .phase9_schemas import (
+    ResearchConclusion,
+    TraderProposal,
+    RiskDecision,
+    PortfolioDecision,
+    degraded_research_conclusion,
+)
+from .runtime_profile import (
+    RuntimeProfile,
+    profile_metadata,
+    resolve_profile,
+    require_live_research_clients,
+)
 
 _DEFAULT_SECTIONS: tuple[str, ...] = (
     "market",
@@ -113,6 +130,17 @@ class AStockGraphReport:
     actionable: bool = False
     metadata: Dict[str, Any] = field(default_factory=dict)
 
+    # ------------------------------------------------------------------
+    # Phase 09 advisory-only fields
+    # ------------------------------------------------------------------
+    # All are optional (None by default) so existing consumers that read
+    # ``to_dict()`` or access fields directly remain unaffected.
+    runtime_profile: Optional[str] = field(default=None)
+    research_conclusion: Optional[Dict[str, Any]] = field(default=None)
+    trader_proposal: Optional[Dict[str, Any]] = field(default=None)
+    risk_decision: Optional[Dict[str, Any]] = field(default=None)
+    portfolio_decision: Optional[Dict[str, Any]] = field(default=None)
+
     @property
     def ticker(self) -> str:
         return self.symbol
@@ -138,7 +166,7 @@ class AStockGraphReport:
         return _RESEARCH_ONLY_SIGNAL
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
+        result = {
             "mode": self.mode,
             "status": self.status,
             "decision_scope": self.decision_scope,
@@ -171,6 +199,18 @@ class AStockGraphReport:
             "llm_prompts": copy.deepcopy(self.llm_prompts),
             "metadata": copy.deepcopy(self.metadata),
         }
+        # Phase 09 advisory-only fields (included only when populated)
+        if self.runtime_profile is not None:
+            result["runtime_profile"] = self.runtime_profile
+        if self.research_conclusion is not None:
+            result["research_conclusion"] = copy.deepcopy(self.research_conclusion)
+        if self.trader_proposal is not None:
+            result["trader_proposal"] = copy.deepcopy(self.trader_proposal)
+        if self.risk_decision is not None:
+            result["risk_decision"] = copy.deepcopy(self.risk_decision)
+        if self.portfolio_decision is not None:
+            result["portfolio_decision"] = copy.deepcopy(self.portfolio_decision)
+        return result
 
     def to_legacy_state(self, include_runtime_report: bool = True) -> Dict[str, Any]:
         market_section = self.astock_sections.get("market", {}) if isinstance(self.astock_sections, Mapping) else {}
@@ -217,6 +257,13 @@ class AStockGraphReport:
             "astock_summary": self.summary,
             "astock_display_report": self.to_dict() if include_runtime_report else None,
             "astock_runtime_report": self.to_dict() if include_runtime_report else None,
+            # Phase 09 advisory state (empty by default, populated downstream)
+            "phase09_advisory": {
+                "runtime_profile": self.runtime_profile,
+                "decision_scope": self.decision_scope,
+                "actionable": self.actionable,
+                "execution_signal": self.execution_signal,
+            },
         }
 
     def _extract_bull_history(self) -> str:
@@ -419,7 +466,12 @@ def build_astock_research_bridge_state(
 
 @dataclass
 class AStockGraphRuntime:
-    """Formal research-only runtime entry for the minimal A-share bridge."""
+    """Formal research-only runtime entry for the minimal A-share bridge.
+
+    Phase 09 adds ``runtime_profile`` support.  When the profile is
+    ``LIVE_RESEARCH``, real LLM clients are required and BridgeLLM fallback
+    is forbidden.
+    """
 
     symbol: str
     interface: Optional[AStockInterface] = None
@@ -431,12 +483,20 @@ class AStockGraphRuntime:
     research_manager_llm: Optional[Any] = None
     sections: Sequence[str] = field(default_factory=lambda: _DEFAULT_SECTIONS)
     mode: str = "astock_research_bridge"
+    runtime_profile: Optional[str] = field(default=None)
 
     def describe(self) -> Dict[str, Any]:
         """Describe the runtime entrypoint, state flow, and output contract."""
 
+        profile = resolve_profile(
+            RuntimeProfile(self.runtime_profile) if self.runtime_profile else None,
+            has_bridge_llm=self.bull_llm is None,
+            has_real_llm=self.bull_llm is not None,
+        )
+
         return {
             "mode": self.mode,
+            "runtime_profile": profile.value,
             "decision_scope": "research_only",
             "actionable": False,
             "entrypoint": "AStockGraphRuntime.run",
@@ -450,10 +510,17 @@ class AStockGraphRuntime:
                 "Bear Researcher",
                 "Research Manager",
             ],
+            "phase09_state_flow": [
+                "ResearchConclusion",
+                "TraderProposal (advisory-only)",
+                "RiskDecision (three-viewpoint synthesis)",
+                "PortfolioDecision (ResearchOnly stop)",
+            ],
             "output_fields": [
                 "AStockGraphReport",
                 "ticker",
                 "runtime_mode",
+                "runtime_profile",
                 "section_results",
                 "analyst_summary",
                 "bull_view",
@@ -468,6 +535,10 @@ class AStockGraphRuntime:
                 "bear_output",
                 "research_manager_output",
                 "investment_plan",
+                "research_conclusion",
+                "trader_proposal",
+                "risk_decision",
+                "portfolio_decision",
                 "runtime_trace",
             ],
             "fallback_behavior": [
@@ -475,7 +546,9 @@ class AStockGraphRuntime:
                 "missing provider degrades to structured empty/partial output",
                 "empty section data does not stop the graph",
                 "research output never becomes an execution signal",
+                "live_research fails closed when real LLM clients are missing (no BridgeLLM fallback)",
             ],
+            "phase09_stop_condition": "Chain stops after PortfolioDecision; no signal processing, no QMT, no trade-decision memory.",
         }
 
     def build_state(self) -> Dict[str, Any]:
@@ -491,7 +564,31 @@ class AStockGraphRuntime:
         )
 
     def run(self) -> AStockGraphReport:
-        """Execute the minimal A-share research bridge with shared logic."""
+        """Execute the minimal A-share research bridge with shared logic.
+
+        Phase 09 addition: resolves the active runtime profile, enforces
+        live_research client requirements, and populates advisory-only Phase 09
+        contracts on the report.
+        """
+
+        # Resolve runtime profile
+        active_profile = resolve_profile(
+            RuntimeProfile(self.runtime_profile) if self.runtime_profile else None,
+            has_bridge_llm=self.bull_llm is None
+            and self.bear_llm is None
+            and self.research_manager_llm is None,
+            has_real_llm=self.bull_llm is not None
+            or self.bear_llm is not None
+            or self.research_manager_llm is not None,
+        )
+
+        # live_research: fail closed when real clients are missing
+        require_live_research_clients(
+            profile=active_profile,
+            bull_llm=self.bull_llm,
+            bear_llm=self.bear_llm,
+            research_manager_llm=self.research_manager_llm,
+        )
 
         state = self.build_state()
         trace = ["AStock Analyst"]
@@ -588,8 +685,48 @@ class AStockGraphRuntime:
                 "state_keys": sorted(state.keys()),
                 "bridge_mode": self.mode,
                 "missing_sections": missing_sections,
+                **profile_metadata(active_profile),
             },
+            # Phase 09 runtime profile
+            runtime_profile=active_profile.value,
         )
+
+        # Phase 09: populate ResearchConclusion from research output
+        recommendation = research_manager_conclusion or summary
+        research_conclusion = degraded_research_conclusion(
+            symbol=str(normalized_symbol),
+            trade_date=self.trade_date or "",
+            reason="missing provider data",
+        )
+        # Override with populated data when research output is available
+        if recommendation and "insufficient" not in recommendation.lower():
+            research_conclusion = ResearchConclusion(
+                symbol=str(normalized_symbol),
+                trade_date=self.trade_date or "",
+                summary=recommendation,
+                recommendation=type(research_conclusion.recommendation)("hold_bias")
+                if "Hold" in recommendation
+                else type(research_conclusion.recommendation)("insufficient_data"),
+                bull_case=bull_view,
+                bear_case=bear_view,
+                uncertainties=list(missing_data_notes),
+                provider_coverage=copy.deepcopy(provider_coverage),
+                confidence=0.5 if "Hold" in recommendation else 0.3,
+            )
+        report.research_conclusion = research_conclusion.model_dump()
+
+        # Phase 09: if degraded, produce degraded TraderProposal too
+        if status != "ok" and not research_conclusion.summary.startswith("Degraded"):
+            pass  # healthy path leaves trader_proposal=None for now
+        elif status != "ok":
+            from .phase9_schemas import degraded_trader_proposal
+
+            report.trader_proposal = degraded_trader_proposal(
+                conclusion_id=report.symbol,
+                reason="; ".join(missing_data_notes) if missing_data_notes else "provider degradation",
+            ).model_dump()
+            report.risk_decision = None  # no risk analysis on degraded data
+            report.portfolio_decision = None  # no portfolio analysis on degraded data
         return report
 
 
@@ -630,4 +767,8 @@ __all__ = [
     "build_astock_research_bridge_state",
     "is_astock_symbol",
     "run_astock_research_bridge",
+    "RuntimeProfile",
+    "ResearchConclusion",
+    "profile_metadata",
+    "require_live_research_clients",
 ]

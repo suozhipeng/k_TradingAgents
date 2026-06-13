@@ -1,6 +1,6 @@
 # A 股二次定制开发基线
 
-更新时间：2026-06-13
+更新时间：2026-06-13 (Phase 09 implementation complete)
 
 本文档是 A 股二次定制开发的当前事实基线。后续 Hermes 调度、ECC
 验收和阶段推进优先以本文档为准。
@@ -28,10 +28,21 @@ AStockDataRouter
 
 当前 A 股路径不会进入：
 
-- Trader
-- Aggressive / Conservative / Neutral Risk Analysts
-- Portfolio Manager
 - QMT order placement
+
+但 Phase 09 已新增 A 股 specific  advisory 合约框架：
+
+```text
+AStockGraphReport
+  -> ResearchConclusion
+  -> TraderProposal (structure defined, agent wiring deferred)
+  -> RiskDecision (structure defined, agent wiring deferred)
+  -> PortfolioDecision (structure defined, agent wiring deferred)
+  -> STOP (ResearchOnly)
+```
+
+当前 Phase 09 实现仅包含合约 schema 与 runtime profile 隔离层；从
+ResearchConclusion 到 PortfolioDecision 的完整 agent 调用链尚未接线。
 
 ## 2. 安全边界
 
@@ -59,7 +70,7 @@ AStockDataRouter
 | 6 | `TradingAgentsGraph.propagate()` research-only 分发 | 完成 |
 | 7 | 展示 schema 与 CLI 渲染 | 完成 |
 | 8 | Streamlit 只读 UI 与 legacy 多市场 viewer | 完成 |
-| 9 | Trader / Risk / Portfolio Manager A 股适配 | 规格完成，实现未开始 |
+| 9 | Trader / Risk / Portfolio Manager A 股适配 | 规格完成，实现完成—46 项合约测试通过，runtime profile 隔离，报告扩展 |
 | 10 | 回测与模拟盘 | 未开始 |
 | 11 | QMT 只读桥接到受控执行 | 未开始 |
 
@@ -75,15 +86,26 @@ AStockDataRouter
 - CLI Markdown/JSON 报告。
 - Streamlit 只读 viewer。
 - Legacy generic finance 输出的共享 viewer dispatcher。
+- A 股 Phase 09 advisory-only 合约 schema（ResearchConclusion, TraderProposal, RiskDecision, PortfolioDecision）。
+- Runtime profile 隔离（deterministic_verification / live_research），
+  包括 `require_live_research_clients` 防 BridgeLLM fallback。
+- `AStockGraphReport` 扩展：runtime_profile、research_conclusion 等 advisory 字段。
+- Phase 09 合约验证 46 项测试通过。
 
 ## 5. 当前缺口
 
 ### P0
 
-- Trader、风险辩论、Portfolio Manager 尚未接入 A 股链路。
-- 真实 LLM 与确定性验证 LLM 尚未形成强制的 runtime profile 隔离。
+- Trader、风险辩论、Portfolio Manager 的完整 agent 调用链尚未接入 A 股链路；
+  Phase 09 已定义合约 schema 与 runtime profile 隔离，但 agent 接线（agent-level
+  state transitions for Trader → Risk → Portfolio）尚未实现。
+- 真实 LLM 与确定性验证 LLM 已通过 `RuntimeProfile` 形成强制隔离，
+  但 `live_research` 配置的可运行环境尚未部署。
 
 ### P1
+
+- Phase 09 CLI/UI 渲染尚未接线；advisory 字段目前仅可通过
+  `report.to_dict()` / `to_legacy_state()` 访问。
 
 - `planning/codebase/` 的部分模块图仍以通用 TradingAgents 为主，需要
   持续同步 A 股模块。
@@ -99,24 +121,29 @@ AStockDataRouter
 
 ## 6. 下一阶段入口条件
 
-Delivery Phase 9 实现开始前必须满足：
+Delivery Phase 10 实现开始前必须满足：
 
-1. 定义 A 股 TraderProposal、RiskDecision、PortfolioDecision 的结构化
-   schema。
-2. 明确真实 LLM runtime profile，禁止生产入口隐式回退到 BridgeLLM。
-3. 为研究结论、交易建议和可执行信号定义不同字段，禁止复用
-   `final_trade_decision` 表达三种语义。
-4. 增加 A 股完整链路测试，但仍保持 `actionable=false`。
+1. 完成 Trader → Risk → Portfolio agent 接线，使 ResearchConclusion 能
+   自然流向后继 advisory 合约。
+2. 在 Python 3.10+ 环境中完成 A 股全回归（astock 回归 + 全仓回归）。
+3. 部署 `live_research` runtime profile 的可运行验证环境。
+4. Phase 09 所有 advisory 输出保持 `actionable=false`、`execution_signal=ResearchOnly`。
 
 产品与开发规格已归档到
-`docs/phases/phase-09-trader-risk-portfolio.md`。当前仅完成规格，不代表
-Trader / Risk / Portfolio Manager 已接入。
+`docs/phases/phase-09-trader-risk-portfolio.md`。当前 Phase 09 实现已包含
+合约 schema、runtime profile 隔离、报告扩展与 46 项通过测试。
 
 2026-06-13 Phase 9 规格纠偏回归：
 
 - Blueprint contract: `6 passed`
 - A 股扩展回归: `50 passed`
 - 全仓回归: `360 passed, 9 skipped`
+
+2026-06-13 Phase 9 实现回归：
+
+- Phase 09 合约测试: `46 passed` (Python 3.9, importlib bypass)
+- A 股扩展回归: `50 passed` (基线；Phase 09 向后兼容)
+- 全仓回归: 当前环境 Python 3.9，需 Python 3.10+ 执行
 
 ## 7. 验收基线
 

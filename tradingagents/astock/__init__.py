@@ -1,5 +1,7 @@
 """A-share capability catalog, blueprint, and unified data access layer."""
 
+from __future__ import annotations
+
 from .analyst import AStockAnalyst, create_astock_analyst, create_astock_analyst_node
 from .blueprint import (
     ASTOCK_BLUEPRINT,
@@ -33,7 +35,27 @@ from .data_sources import (
     split_astock_symbol,
 )
 from .interface import AStockInterface, AStockSectionBundle
+from .phase9_schemas import (
+    PortfolioDecision,
+    PortfolioDisposition,
+    ResearchConclusion,
+    ResearchRecommendation,
+    RiskDecision,
+    RiskLevel,
+    RiskVerdict,
+    TraderCandidateAction,
+    TraderProposal,
+    degraded_research_conclusion,
+    degraded_trader_proposal,
+)
 from .runtime import AStockGraphReport, AStockGraphRuntime, BridgeLLM, build_astock_research_bridge_state, is_astock_symbol, run_astock_research_bridge
+from .runtime_profile import (
+    LiveResearchMisconfiguredError,
+    RuntimeProfile,
+    profile_metadata,
+    require_live_research_clients,
+    resolve_profile,
+)
 from .tools import build_astock_tools
 
 __all__ = [
@@ -76,4 +98,22 @@ __all__ = [
     "build_default_adapters",
     "normalize_astock_symbol",
     "split_astock_symbol",
+    # Phase 09 contract schemas
+    "ResearchConclusion",
+    "ResearchRecommendation",
+    "TraderProposal",
+    "TraderCandidateAction",
+    "RiskDecision",
+    "RiskLevel",
+    "RiskVerdict",
+    "PortfolioDecision",
+    "PortfolioDisposition",
+    "degraded_research_conclusion",
+    "degraded_trader_proposal",
+    # Phase 09 runtime profiles
+    "RuntimeProfile",
+    "profile_metadata",
+    "resolve_profile",
+    "require_live_research_clients",
+    "LiveResearchMisconfiguredError",
 ]

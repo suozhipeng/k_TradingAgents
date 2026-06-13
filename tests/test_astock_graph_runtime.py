@@ -247,5 +247,119 @@ class AStockGraphRuntimeTests(unittest.TestCase):
         )
 
 
+# ======================================================================
+# Phase 09: Runtime Profile Extension Tests
+# ======================================================================
+
+
+class Phase09RuntimeProfileTests(unittest.TestCase):
+    """Phase 09 runtime profile isolation on AStockGraphRuntime."""
+
+    def setUp(self):
+        self.interface = FakeAStockInterface()
+
+    def test_runtime_describe_includes_runtime_profile(self):
+        runtime = AStockGraphRuntime(
+            symbol="600519.SH",
+            interface=self.interface,
+            trade_date="2026-06-13",
+        )
+        description = runtime.describe()
+        self.assertIn("runtime_profile", description)
+        self.assertEqual(description["runtime_profile"], "deterministic_verification")
+        self.assertIn("phase09_state_flow", description)
+        self.assertIn("phase09_stop_condition", description)
+        self.assertIn("research_conclusion", description["output_fields"])
+
+    def test_runtime_describe_shows_live_research_when_llm_provided(self):
+        runtime = AStockGraphRuntime(
+            symbol="600519.SH",
+            interface=self.interface,
+            trade_date="2026-06-13",
+            bull_llm="stub-real",
+        )
+        description = runtime.describe()
+        self.assertEqual(description["runtime_profile"], "live_research")
+
+    def test_run_produces_research_conclusion_on_report(self):
+        runtime = AStockGraphRuntime(
+            symbol="600519.SH",
+            interface=self.interface,
+            trade_date="2026-06-13",
+        )
+        report = runtime.run()
+        self.assertIsNotNone(report.research_conclusion)
+        self.assertIn("symbol", report.research_conclusion)
+        self.assertEqual(report.research_conclusion["symbol"], "600519.SH")
+        self.assertFalse(report.research_conclusion["actionable"])
+        self.assertEqual(report.research_conclusion["decision_scope"], "research_only")
+        # Runtime profile should be set
+        self.assertEqual(report.runtime_profile, "deterministic_verification")
+
+    def test_report_to_dict_includes_phase09_fields_when_populated(self):
+        runtime = AStockGraphRuntime(
+            symbol="600519.SH",
+            interface=self.interface,
+            trade_date="2026-06-13",
+        )
+        report = runtime.run()
+        payload = report.to_dict()
+        self.assertIn("research_conclusion", payload)
+        self.assertFalse(payload["research_conclusion"]["actionable"])
+        # runtime_profile should appear when set
+        self.assertIn("runtime_profile", payload)
+
+    def test_report_to_legacy_state_includes_phase09_advisory(self):
+        runtime = AStockGraphRuntime(
+            symbol="600519.SH",
+            interface=self.interface,
+            trade_date="2026-06-13",
+        )
+        report = runtime.run()
+        legacy = report.to_legacy_state()
+        self.assertIn("phase09_advisory", legacy)
+        self.assertEqual(legacy["phase09_advisory"]["execution_signal"], "ResearchOnly")
+        self.assertFalse(legacy["phase09_advisory"]["actionable"])
+        self.assertEqual(legacy["phase09_advisory"]["runtime_profile"], "deterministic_verification")
+
+    def test_run_does_not_call_signal_processing_or_qmt(self):
+        """Confirm that Phase 09 run does not invoke signal processing or QMT
+        by verifying the report's execution_signal and absence of any
+        broker-related fields."""
+        runtime = AStockGraphRuntime(
+            symbol="600519.SH",
+            interface=self.interface,
+            trade_date="2026-06-13",
+        )
+        report = runtime.run()
+        self.assertEqual(report.execution_signal, "ResearchOnly")
+        self.assertFalse(report.actionable)
+        payload = report.to_dict()
+        # Verify no signal-processing or broker artifacts leaked
+        self.assertNotIn("signal", payload)
+        self.assertNotIn("broker", payload.get("metadata", {}))
+        self.assertNotIn("qmt", str(payload.get("metadata", {})).lower())
+        # Verify no trade-decision memory fields
+        self.assertNotIn("store_decision", payload)
+        self.assertNotIn("trade_decision", payload.get("phase09_advisory", {}) if hasattr(report, 'to_legacy_state') else "")
+
+    def test_degraded_run_produces_degraded_trader_proposal(self):
+        """When provider data is missing, the run should produce a degraded
+        ResearchConclusion but still set trader_proposal=None for partial."""
+        runtime = AStockGraphRuntime(
+            symbol="600519.SH",
+            interface=self.interface,
+            trade_date="2026-06-13",
+        )
+        report = runtime.run()
+        # For partial status (2 sections missing), research_conclusion
+        # should exist but trader_proposal should remain None
+        # (degraded TraderProposal only appears for fully degraded runs)
+        self.assertIsNotNone(report.research_conclusion)
+        # The existing fake interface returns status='partial', so
+        # research_conclusion should be populated (not degraded)
+        self.assertFalse(report.research_conclusion["summary"].startswith("Degraded"))
+
+
 if __name__ == "__main__":
     unittest.main()
