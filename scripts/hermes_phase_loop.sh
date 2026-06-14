@@ -2,11 +2,17 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+DEFAULT_REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+if [[ -d "${PWD}/.git" && -f "${PWD}/AGENTS.md" ]]; then
+  REPO_ROOT="${PWD}"
+else
+  REPO_ROOT="${DEFAULT_REPO_ROOT}"
+fi
 REPO_ENV="${REPO_ROOT}/.env"
 STATE_DIR="${REPO_ROOT}/.hermes"
 RUN_DIR="${STATE_DIR}/runs"
 HERMES_BIN="${HERMES_BIN:-}"
+HERMES_TIMEOUT_SECONDS="${HERMES_TIMEOUT_SECONDS:-105}"
 
 MODE="continue"
 EXTRA_INSTRUCTION=""
@@ -164,7 +170,55 @@ timestamp="$(date +"%Y%m%d-%H%M%S")"
 tmp_output="$(mktemp)"
 
 set +e
-"${HERMES_BIN}" --oneshot "${PROMPT}" --accept-hooks >"${tmp_output}" 2>&1
+HERMES_BIN="${HERMES_BIN}" \
+HERMES_PHASE_PROMPT="${PROMPT}" \
+HERMES_OUTPUT_FILE="${tmp_output}" \
+HERMES_TIMEOUT_SECONDS="${HERMES_TIMEOUT_SECONDS}" \
+/usr/bin/python3 - <<'PY'
+import os
+import subprocess
+import sys
+
+cmd = [
+    os.environ["HERMES_BIN"],
+    "--oneshot",
+    os.environ["HERMES_PHASE_PROMPT"],
+    "--accept-hooks",
+]
+output_path = os.environ["HERMES_OUTPUT_FILE"]
+timeout = int(os.environ["HERMES_TIMEOUT_SECONDS"])
+
+try:
+    result = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+        check=False,
+    )
+    with open(output_path, "w", encoding="utf-8") as fh:
+        fh.write(result.stdout)
+        if result.stderr:
+            if result.stdout and not result.stdout.endswith("\n"):
+                fh.write("\n")
+            fh.write(result.stderr)
+    sys.exit(result.returncode)
+except subprocess.TimeoutExpired as exc:
+    stdout = exc.stdout or ""
+    stderr = exc.stderr or ""
+    with open(output_path, "w", encoding="utf-8") as fh:
+        if stdout:
+            fh.write(stdout)
+            if not stdout.endswith("\n"):
+                fh.write("\n")
+        if stderr:
+            fh.write(stderr)
+            if not stderr.endswith("\n"):
+                fh.write("\n")
+        fh.write(f"Hermes oneshot timed out after {timeout}s.\n")
+        fh.write("BLOCKED_ON_ENVIRONMENT\n")
+    sys.exit(124)
+PY
 hermes_rc=$?
 set -e
 
