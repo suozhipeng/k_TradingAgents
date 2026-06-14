@@ -35,7 +35,8 @@ checkpoint.
 | 8 | Read-only UI and multi-market viewer | Complete | [Phase 8](phase-08-readonly-viewer.md) |
 | 9 | Trader, Risk, Portfolio Manager adaptation | Implementation complete — advisory chain wiring, CLI/UI rendering, runtime profiles, 62-test regression slice | [Phase 9](phase-09-trader-risk-portfolio.md) |
 | 10 | Backtest and paper trading | Complete | [Phase 10](phase-10-backtest-paper-trading.md) |
-| 11 | QMT bridge — read-only to controlled execution | Complete | [Phase 11](phase-11-qmt-controlled-execution.md) |
+|| 11 | QMT bridge — read-only to controlled execution | Complete | [Phase 11](phase-11-qmt-controlled-execution.md) |
+|| 12 | DuckDB local database | Complete | [Phase 12](phase-12-duckdb-local-database.md) |
 
 ## Naming
 
@@ -45,6 +46,7 @@ Use lowercase ASCII filenames:
 phase-09-trader-risk-portfolio.md
 phase-10-backtest-paper-trading.md
 phase-11-qmt-controlled-execution.md
+phase-12-duckdb-local-database.md
 ```
 
 Do not overwrite historical results. Append a dated correction section when

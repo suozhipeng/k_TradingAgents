@@ -1,4 +1,5 @@
 import { type PropsWithChildren, useState } from "react";
+import { useTranslation } from "../hooks/useTranslation";
 import type { AStockGraphReport } from "../types";
 import { ASTOCK_SECTION_ORDER } from "../types";
 
@@ -51,22 +52,24 @@ function HeaderSection({
   report: AStockGraphReport;
   safety: SafetyLevel;
 }) {
+  const { t } = useTranslation();
+
   const badgeColors = {
     research_only: "bg-cyan-400/20 text-cyan-100 border-cyan-400/30",
     warning: "bg-amber-400/20 text-amber-100 border-amber-400/30",
     actionable: "bg-rose-400/20 text-rose-100 border-rose-400/30",
   };
   const badgeLabels = {
-    research_only: "Research Only",
-    warning: "Not Research-Only",
-    actionable: "Actionable",
+    research_only: t("report.safetyTag"),
+    warning: t("report.safetyTag.warning"),
+    actionable: t("report.safetyTag.actionable"),
   };
 
   return (
     <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-2">
-          <p className="text-xs uppercase tracking-[0.28em] text-cyan-200/80">AStockGraphReport</p>
+          <p className="text-xs uppercase tracking-[0.28em] text-cyan-200/80">{t("report.header")}</p>
           <h2 className="text-2xl font-semibold tracking-tight text-white">
             {report.symbol || report.ticker || "—"}
           </h2>
@@ -78,17 +81,17 @@ function HeaderSection({
             )}
             {report.trade_date && (
               <span>
-                Trade date: <span className="text-slate-200">{report.trade_date}</span>
+                {t("report.tradeDate")}<span className="text-slate-200">{report.trade_date}</span>
               </span>
             )}
             {report.runtime_mode && (
               <span>
-                Mode: <span className="text-slate-200">{report.runtime_mode}</span>
+                {t("report.mode")}<span className="text-slate-200">{report.runtime_mode}</span>
               </span>
             )}
             {report.runtime_profile && (
               <span>
-                Profile: <span className="text-slate-200">{report.runtime_profile}</span>
+                {t("report.profile")}<span className="text-slate-200">{report.runtime_profile}</span>
               </span>
             )}
           </div>
@@ -101,7 +104,7 @@ function HeaderSection({
       </div>
       {report.status && (
         <div className="mt-3 flex items-center gap-2">
-          <span className="rounded-full bg-white/5 px-2.5 py-1 text-xs text-slate-400">Status</span>
+          <span className="rounded-full bg-white/5 px-2.5 py-1 text-xs text-slate-400">{t("report.status")}</span>
           <span className="text-sm text-slate-200">{report.status}</span>
         </div>
       )}
@@ -117,18 +120,18 @@ function SafetyBanner({
   report: AStockGraphReport;
   safety: SafetyLevel;
 }) {
+  const { t } = useTranslation();
+
   if (safety === "research_only") {
     return (
       <Banner tone="cyan">
-        Research-only output.{" "}
-        {report.decision_scope ? `Decision scope: ${report.decision_scope}.` : ""}
-        {" "}No trading execution. Read-only analysis.
+        {t("report.safetyDesc", { scope: report.decision_scope || "research_only" })}
       </Banner>
     );
   }
   return (
     <Banner tone="rose">
-      This payload is marked as actionable. Verify before relying on any trade signal.
+      {t("report.safetyDesc.actionable")}
     </Banner>
   );
 }
@@ -152,62 +155,66 @@ function Banner({
 }
 
 /* ── Advisory Chain ── */
-const ADVISORY_BLOCKS: Array<{
+function buildAdvisoryBlocks(t: (key: string) => string): Array<{
   key: string;
   label: string;
   pick: (r: AStockGraphReport) => Record<string, unknown> | undefined;
   fields: Array<{ label: string; key: string }>;
-}> = [
-  {
-    key: "research_conclusion",
-    label: "Research Conclusion",
-    pick: (r) => r.research_conclusion as Record<string, unknown> | undefined,
-    fields: [
-      { label: "Recommendation", key: "recommendation" },
-      { label: "Confidence", key: "confidence" },
-      { label: "Summary", key: "summary" },
-    ],
-  },
-  {
-    key: "trader_proposal",
-    label: "Trader Proposal",
-    pick: (r) => r.trader_proposal as Record<string, unknown> | undefined,
-    fields: [
-      { label: "Candidate Action", key: "candidate_action" },
-      { label: "Position Cap", key: "position_cap_pct" },
-      { label: "Rationale", key: "rationale" },
-    ],
-  },
-  {
-    key: "risk_decision",
-    label: "Risk Decision",
-    pick: (r) => r.risk_decision as Record<string, unknown> | undefined,
-    fields: [
-      { label: "Verdict", key: "verdict" },
-      { label: "Risk Level", key: "risk_level" },
-      { label: "Constraints", key: "constraints" },
-    ],
-  },
-  {
-    key: "portfolio_decision",
-    label: "Portfolio Decision",
-    pick: (r) => r.portfolio_decision as Record<string, unknown> | undefined,
-    fields: [
-      { label: "Disposition", key: "disposition" },
-      { label: "Exposure Cap", key: "exposure_cap_pct" },
-      { label: "Notes", key: "portfolio_notes" },
-    ],
-  },
-];
+}> {
+  return [
+    {
+      key: "research_conclusion",
+      label: t("report.researchConclusion"),
+      pick: (r) => r.research_conclusion as Record<string, unknown> | undefined,
+      fields: [
+        { label: t("report.field.recommendation"), key: "recommendation" },
+        { label: t("report.field.confidence"), key: "confidence" },
+        { label: t("report.field.summary"), key: "summary" },
+      ],
+    },
+    {
+      key: "trader_proposal",
+      label: t("report.traderProposal"),
+      pick: (r) => r.trader_proposal as Record<string, unknown> | undefined,
+      fields: [
+        { label: t("report.field.candidateAction"), key: "candidate_action" },
+        { label: t("report.field.positionCap"), key: "position_cap_pct" },
+        { label: t("report.field.rationale"), key: "rationale" },
+      ],
+    },
+    {
+      key: "risk_decision",
+      label: t("report.riskDecision"),
+      pick: (r) => r.risk_decision as Record<string, unknown> | undefined,
+      fields: [
+        { label: t("report.field.verdict"), key: "verdict" },
+        { label: t("report.field.riskLevel"), key: "risk_level" },
+        { label: t("report.field.constraints"), key: "constraints" },
+      ],
+    },
+    {
+      key: "portfolio_decision",
+      label: t("report.portfolioDecision"),
+      pick: (r) => r.portfolio_decision as Record<string, unknown> | undefined,
+      fields: [
+        { label: t("report.field.disposition"), key: "disposition" },
+        { label: t("report.field.exposureCap"), key: "exposure_cap_pct" },
+        { label: t("report.field.portfolioNotes"), key: "portfolio_notes" },
+      ],
+    },
+  ];
+}
 
 function AdvisoryChain({ report }: ReportViewerProps) {
+  const { t } = useTranslation();
+  const ADVISORY_BLOCKS = buildAdvisoryBlocks(t);
   const available = ADVISORY_BLOCKS.filter((block) => block.pick(report));
 
   if (!available.length) return null;
 
   return (
     <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
-      <p className="text-xs uppercase tracking-[0.28em] text-cyan-200/80">Advisory Chain</p>
+      <p className="text-xs uppercase tracking-[0.28em] text-cyan-200/80">{t("report.advisoryChain")}</p>
       <div className="mt-4 grid gap-4 md:grid-cols-2">
         {available.map((block) => {
           const data = block.pick(report)!;
@@ -263,21 +270,22 @@ function AdvisoryChain({ report }: ReportViewerProps) {
 
 /* ── Section Results ── */
 function SectionResults({ report }: ReportViewerProps) {
+  const { t } = useTranslation();
   const sections = ASTOCK_SECTION_ORDER.filter((name) => report.section_results?.[name]);
   if (!sections.length) return null;
 
   return (
     <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
-      <p className="text-xs uppercase tracking-[0.28em] text-cyan-200/80">Research Sections</p>
+      <p className="text-xs uppercase tracking-[0.28em] text-cyan-200/80">{t("report.sections")}</p>
       <div className="mt-4 overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-white/10 text-left text-xs uppercase tracking-[0.2em] text-slate-400">
-              <th className="pb-2 pr-4 font-normal">Section</th>
-              <th className="pb-2 pr-4 font-normal">Status</th>
-              <th className="pb-2 pr-4 font-normal">Source</th>
-              <th className="pb-2 pr-4 font-normal">Data</th>
-              <th className="pb-2 font-normal">Summary</th>
+              <th className="pb-2 pr-4 font-normal">{t("report.sections.table.section")}</th>
+              <th className="pb-2 pr-4 font-normal">{t("report.sections.table.status")}</th>
+              <th className="pb-2 pr-4 font-normal">{t("report.sections.table.source")}</th>
+              <th className="pb-2 pr-4 font-normal">{t("report.sections.table.data")}</th>
+              <th className="pb-2 font-normal">{t("report.sections.table.summary")}</th>
             </tr>
           </thead>
           <tbody>
@@ -329,6 +337,7 @@ function StatusBadge({ label, ok }: { label: string; ok: boolean }) {
 
 /* ── Provider Coverage ── */
 function ProviderCoverage({ report }: ReportViewerProps) {
+  const { t } = useTranslation();
   const sections = ASTOCK_SECTION_ORDER.filter(
     (name) => report.provider_coverage?.[name]
   );
@@ -336,15 +345,15 @@ function ProviderCoverage({ report }: ReportViewerProps) {
 
   return (
     <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
-      <p className="text-xs uppercase tracking-[0.28em] text-cyan-200/80">Provider Coverage</p>
+      <p className="text-xs uppercase tracking-[0.28em] text-cyan-200/80">{t("report.coverage")}</p>
       <div className="mt-4 overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-white/10 text-left text-xs uppercase tracking-[0.2em] text-slate-400">
-              <th className="pb-2 pr-4 font-normal">Section</th>
-              <th className="pb-2 pr-4 font-normal">Source</th>
-              <th className="pb-2 pr-4 font-normal">Status</th>
-              <th className="pb-2 font-normal">Available</th>
+              <th className="pb-2 pr-4 font-normal">{t("report.coverage.table.section")}</th>
+              <th className="pb-2 pr-4 font-normal">{t("report.coverage.table.source")}</th>
+              <th className="pb-2 pr-4 font-normal">{t("report.coverage.table.status")}</th>
+              <th className="pb-2 font-normal">{t("report.coverage.table.available")}</th>
             </tr>
           </thead>
           <tbody>
@@ -379,18 +388,19 @@ function ProviderCoverage({ report }: ReportViewerProps) {
 
 /* ── Notes ── */
 function NotesSection({ report }: ReportViewerProps) {
+  const { t } = useTranslation();
   const missing = report.missing_data_notes ?? [];
   const degraded = report.degradation_notes ?? [];
   if (!missing.length && !degraded.length) return null;
 
   return (
     <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
-      <p className="text-xs uppercase tracking-[0.28em] text-cyan-200/80">Operational Notes</p>
+      <p className="text-xs uppercase tracking-[0.28em] text-cyan-200/80">{t("report.notes")}</p>
       <div className="mt-4 grid gap-4 md:grid-cols-2">
         {missing.length > 0 && (
           <div>
             <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-300">
-              Missing Data
+              {t("report.notes.missingData")}
             </h3>
             <ul className="mt-2 space-y-1">
               {missing.map((note, i) => (
@@ -405,7 +415,7 @@ function NotesSection({ report }: ReportViewerProps) {
         {degraded.length > 0 && (
           <div>
             <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-rose-300">
-              Degradation
+              {t("report.notes.degradation")}
             </h3>
             <ul className="mt-2 space-y-1">
               {degraded.map((note, i) => (
@@ -424,6 +434,7 @@ function NotesSection({ report }: ReportViewerProps) {
 
 /* ── Runtime Trace (collapsible) ── */
 function TraceSection({ report }: ReportViewerProps) {
+  const { t } = useTranslation();
   const trace = report.runtime_trace ?? [];
   if (!trace.length) return null;
 
@@ -437,7 +448,7 @@ function TraceSection({ report }: ReportViewerProps) {
         className="flex w-full items-center justify-between text-left"
       >
         <p className="text-xs uppercase tracking-[0.28em] text-cyan-200/80">
-          Runtime Trace ({trace.length} steps)
+          {t("report.trace")} ({trace.length} {t("report.trace.steps")})
         </p>
         <span className={`text-slate-400 transition ${open ? "rotate-180" : ""}`}>
           ▾
@@ -462,18 +473,19 @@ function TraceSection({ report }: ReportViewerProps) {
 
 /* ── Helper: bull / bear / manager blocks (shown if advisory chain missing) ── */
 function BullBearBlocks({ report }: ReportViewerProps) {
-  const hasAdvisory = ADVISORY_BLOCKS.some((b) => b.pick(report));
+  const { t } = useTranslation();
+  const hasAdvisory = buildAdvisoryBlocks(t).some((b) => b.pick(report));
   if (hasAdvisory) return null;
   if (!report.bull_view && !report.bear_view && !report.research_manager_conclusion) return null;
 
   return (
     <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
-      <p className="text-xs uppercase tracking-[0.28em] text-cyan-200/80">Research Debate</p>
+      <p className="text-xs uppercase tracking-[0.28em] text-cyan-200/80">{t("report.debate")}</p>
       <div className="mt-4 grid gap-4 md:grid-cols-3">
         {report.bull_view && (
           <div className="rounded-3xl border border-emerald-400/15 bg-emerald-400/[0.04] p-4">
             <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-300">
-              Bull
+              {t("report.debate.bull")}
             </h3>
             <p className="mt-2 text-sm leading-6 text-slate-200">{report.bull_view}</p>
           </div>
@@ -481,7 +493,7 @@ function BullBearBlocks({ report }: ReportViewerProps) {
         {report.bear_view && (
           <div className="rounded-3xl border border-rose-400/15 bg-rose-400/[0.04] p-4">
             <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-rose-300">
-              Bear
+              {t("report.debate.bear")}
             </h3>
             <p className="mt-2 text-sm leading-6 text-slate-200">{report.bear_view}</p>
           </div>
@@ -489,7 +501,7 @@ function BullBearBlocks({ report }: ReportViewerProps) {
         {report.research_manager_conclusion && (
           <div className="rounded-3xl border border-amber-400/15 bg-amber-400/[0.04] p-4">
             <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-300">
-              Manager
+              {t("report.debate.manager")}
             </h3>
             <p className="mt-2 text-sm leading-6 text-slate-200">
               {report.research_manager_conclusion}
@@ -503,13 +515,11 @@ function BullBearBlocks({ report }: ReportViewerProps) {
 
 /* ── Empty state ── */
 function EmptyReport() {
+  const { t } = useTranslation();
   return (
     <div className="flex min-h-[320px] items-center justify-center">
       <div className="max-w-md text-center">
-        <p className="text-xs uppercase tracking-[0.28em] text-cyan-200/80">No Report Loaded</p>
-        <p className="mt-3 text-sm leading-6 text-slate-400">
-          Paste or upload an AStockGraphReport JSON payload above to view the report.
-        </p>
+        <p className="text-xs uppercase tracking-[0.28em] text-cyan-200/80">{t("report.noData")}</p>
       </div>
     </div>
   );
@@ -521,6 +531,7 @@ function JsonInput({
 }: {
   onReport: (report: AStockGraphReport) => void;
 }) {
+  const { t } = useTranslation();
   const [jsonText, setJsonText] = useState("");
   const [error, setError] = useState<string | null>(null);
 
@@ -537,14 +548,12 @@ function JsonInput({
         !parsed.runtime_mode &&
         !parsed.runtime_profile
       ) {
-        setError(
-          "Parsed JSON does not look like an AStockGraphReport (missing symbol/ticker/runtime fields)."
-        );
+        setError(t("report.error.notReport"));
         return;
       }
       onReport(parsed as AStockGraphReport);
     } catch (e) {
-      setError(e instanceof SyntaxError ? e.message : "Invalid JSON");
+      setError(e instanceof SyntaxError ? e.message : t("report.error.invalidJson"));
     }
   }
 
@@ -572,12 +581,12 @@ function JsonInput({
             className="block w-full cursor-pointer rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-slate-300 file:mr-3 file:rounded-full file:border-0 file:bg-cyan-300 file:px-3 file:py-1 file:text-xs file:font-semibold file:text-slate-950 hover:file:bg-cyan-200"
           />
         </div>
-        <span className="text-xs text-slate-500">or paste JSON below</span>
+        <span className="text-xs text-slate-500">{t("report.pasteLabel")}</span>
       </div>
       <textarea
         value={jsonText}
         onChange={(e) => handleTextChange(e.target.value)}
-        placeholder='Paste AStockGraphReport JSON here...'
+        placeholder={t("report.pasteHint")}
         className="min-h-[120px] w-full rounded-2xl border border-white/10 bg-slate-950/60 p-4 font-mono text-xs leading-5 text-slate-200 placeholder-slate-500 focus:border-cyan-300/40 focus:outline-none"
       />
       {error && (
@@ -591,6 +600,7 @@ function JsonInput({
 
 /* ── Combined viewer: input + report display ── */
 export default function ReportViewerWrapper() {
+  const { t } = useTranslation();
   const [report, setReport] = useState<AStockGraphReport | null>(null);
   const [mode, setMode] = useState<"input" | "view">("input");
 
@@ -607,7 +617,7 @@ export default function ReportViewerWrapper() {
         <>
           <div className="flex items-center justify-between">
             <p className="text-xs text-slate-500">
-              Report for {report.symbol || report.ticker || "unknown symbol"}
+              {t("report.for", { symbol: report.symbol || report.ticker || "unknown symbol" })}
             </p>
             <button
               type="button"
@@ -617,7 +627,7 @@ export default function ReportViewerWrapper() {
               }}
               className="rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-xs text-slate-300 transition hover:border-cyan-200/40 hover:text-white"
             >
-              Clear & New
+              {t("report.clearAndNew")}
             </button>
           </div>
           <ReportViewer report={report} />

@@ -69,6 +69,8 @@ export type AStockGraphReport = {
   runtime_trace?: string[];
 };
 
+export type MarketType = "us" | "astock";
+
 export const ASTOCK_SECTION_ORDER = [
   "market",
   "news",

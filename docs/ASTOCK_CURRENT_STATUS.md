@@ -71,7 +71,8 @@ Phase 11 执行层增加了额外的安全边界：
 | 8 | Streamlit 只读 UI 与 legacy 多市场 viewer | 完成 |
 | 9 | Trader / Risk / Portfolio Manager A 股适配 | 规格完成，实现完成—A 股 advisory chain 接线、CLI/UI 渲染、runtime profile 隔离、62 项回归通过 |
 | 10 | 回测与模拟盘 | 完成 |
-| 11 | QMT 只读桥接到受控执行 | 完成 |
+|| 11 | QMT 只读桥接到受控执行 | 完成 |
+|| 12 | DuckDB 本地数据库（10 表，CLI 工具，导入/导出） | 完成 |
 
 ## 4. 已完成能力
 

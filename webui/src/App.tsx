@@ -1,40 +1,46 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import AgentFlow from "./components/AgentFlow";
+import LangSwitch from "./components/LangSwitch";
 import MarkdownReport from "./components/MarkdownReport";
+import MarketSwitch from "./components/MarketSwitch";
 import ModuleDetail from "./components/ModuleDetail";
 import ModuleTree from "./components/ModuleTree";
 import ReportViewerWrapper from "./components/ReportViewer";
 import RiskPanel from "./components/RiskPanel";
+import { LocaleProvider, useTranslation } from "./hooks/useTranslation";
+import { MarketProvider } from "./components/MarketSwitch";
 import rawModules from "./data/modules.json";
 import type { ModuleRecord, ModuleType } from "./types";
 
 const modules = rawModules as ModuleRecord[];
-const staticSourceLabel = "Static snapshot: webui/src/data/modules.json";
 
-const filterOptions: Array<{ label: string; value: ModuleType | "all" }> = [
-  { label: "All", value: "all" },
-  { label: "Analyst", value: "analyst" },
-  { label: "Researcher", value: "researcher" },
-  { label: "Trader", value: "trader" },
-  { label: "Risk", value: "risk" },
-  { label: "Dataflow", value: "dataflow" },
-  { label: "Config", value: "config" },
-  { label: "CLI", value: "cli" },
-];
+function AppContent() {
+  const { t } = useTranslation();
+  const staticSourceLabel = t("staticSource");
 
-const sections = [
-  { id: "dashboard", label: "Dashboard" },
-  { id: "module-map", label: "Module Map" },
-  { id: "agent-flow", label: "Agent Flow" },
-  { id: "task-center", label: "Task Center" },
-  { id: "reports", label: "Reports" },
-  { id: "settings", label: "Settings" },
-] as const;
+  const filterOptions: Array<{ label: string; value: ModuleType | "all" }> = [
+    { label: t("filter.all"), value: "all" },
+    { label: t("filter.analyst"), value: "analyst" },
+    { label: t("filter.researcher"), value: "researcher" },
+    { label: t("filter.trader"), value: "trader" },
+    { label: t("filter.risk"), value: "risk" },
+    { label: t("filter.dataflow"), value: "dataflow" },
+    { label: t("filter.config"), value: "config" },
+    { label: t("filter.cli"), value: "cli" },
+  ];
 
-type SectionId = (typeof sections)[number]["id"];
+  const sections = [
+    { id: "dashboard", label: t("nav.dashboard") },
+    { id: "module-map", label: t("nav.moduleMap") },
+    { id: "agent-flow", label: t("nav.agentFlow") },
+    { id: "task-center", label: t("nav.taskCenter") },
+    { id: "reports", label: t("nav.reports") },
+    { id: "settings", label: t("nav.settings") },
+  ] as const;
 
-function App() {
+  type SectionId = (typeof sections)[number]["id"];
+
   const [hydrated, setHydrated] = useState(false);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<ModuleType | "all">("all");
@@ -81,8 +87,8 @@ function App() {
   }, [filteredModules, selectedPath]);
 
   const reportMarkdown = useMemo(
-    () => buildReportMarkdown({ modules, filteredModules, selectedModule }),
-    [filteredModules, selectedModule],
+    () => buildReportMarkdown({ modules, filteredModules, selectedModule, t }),
+    [filteredModules, selectedModule, t],
   );
 
   if (!hydrated) {
@@ -90,7 +96,7 @@ function App() {
   }
 
   if (!modules.length) {
-    return <AppError message="modules.json is empty. The WebUI needs a static snapshot to render." />;
+    return <AppError message={t("app.error.message")} />;
   }
 
   return (
@@ -99,64 +105,69 @@ function App() {
         <header className="mb-5 rounded-3xl border border-white/10 bg-white/5 p-5 shadow-2xl shadow-slate-950/30 backdrop-blur">
           <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
             <div className="space-y-3">
-              <p className="text-xs uppercase tracking-[0.35em] text-cyan-200/80">TradingAgents Static WebUI</p>
+              <p className="text-xs uppercase tracking-[0.35em] text-cyan-200/80">{t("app.title")}</p>
               <div className="space-y-2">
-                <h1 className="text-3xl font-semibold tracking-tight text-white">Module map, flows, reports, and settings</h1>
+                <h1 className="text-3xl font-semibold tracking-tight text-white">{t("app.subtitle")}</h1>
                 <p className="max-w-4xl text-sm leading-6 text-slate-300">
-                  This dashboard reads only a static modules snapshot. It does not run trading, call external APIs,
-                  or execute TradingAgents business code.
+                  {t("app.disclaimer")}
                 </p>
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <StatCard label="Modules" value={String(modules.length)} />
-              <StatCard label="Visible" value={String(filteredModules.length)} />
-              <StatCard label="Types" value={String(new Set(modules.map((module) => module.type)).size)} />
-              <StatCard label="Static Source" value="1 JSON" />
+              <StatCard label={t("stat.modules")} value={String(modules.length)} />
+              <StatCard label={t("stat.visible")} value={String(filteredModules.length)} />
+              <StatCard label={t("stat.types")} value={String(new Set(modules.map((module) => module.type)).size)} />
+              <StatCard label={t("stat.staticSource")} value="1 JSON" />
             </div>
           </div>
 
-          <nav className="mt-5 flex flex-wrap gap-2 border-t border-white/10 pt-4">
-            {sections.map((section) => (
-              <a
-                key={section.id}
-                href={`#${section.id}`}
-                className={`rounded-full px-4 py-2 text-sm transition ${
-                  activeSection === section.id
-                    ? "bg-cyan-300 text-slate-950"
-                    : "border border-white/10 bg-white/5 text-slate-300 hover:border-cyan-200/40 hover:text-white"
-                }`}
-                onClick={() => setActiveSection(section.id)}
-              >
-                {section.label}
-              </a>
-            ))}
-          </nav>
+          <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
+            <nav className="flex flex-wrap gap-2">
+              {sections.map((section) => (
+                <a
+                  key={section.id}
+                  href={`#${section.id}`}
+                  className={`rounded-full px-4 py-2 text-sm transition ${
+                    activeSection === section.id
+                      ? "bg-cyan-300 text-slate-950"
+                      : "border border-white/10 bg-white/5 text-slate-300 hover:border-cyan-200/40 hover:text-white"
+                  }`}
+                  onClick={() => setActiveSection(section.id)}
+                >
+                  {section.label}
+                </a>
+              ))}
+            </nav>
+            <div className="flex items-center gap-2">
+              <MarketSwitch />
+              <LangSwitch />
+            </div>
+          </div>
         </header>
 
         <section id="dashboard" className="panel p-5">
           <SectionHeader
-            kicker="Dashboard"
-            title="Static snapshot at a glance"
-            description="Quick health overview for the WebUI dataset, module types, and flow coverage."
+            kicker={t("section.dashboard.kicker")}
+            title={t("section.dashboard.title")}
+            description={t("section.dashboard.desc")}
           />
           <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(280px,0.7fr)]">
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              <SummaryCard title="Analysts" value={String(modules.filter((m) => m.type === "analyst").length)} />
-              <SummaryCard title="Researchers" value={String(modules.filter((m) => m.type === "researcher").length)} />
-              <SummaryCard title="Dataflows" value={String(modules.filter((m) => m.type === "dataflow").length)} />
-              <SummaryCard title="Config / CLI" value={String(modules.filter((m) => m.type === "config" || m.type === "cli").length)} />
+              <SummaryCard title={t("dashboard.analysts")} value={String(modules.filter((m) => m.type === "analyst").length)} />
+              <SummaryCard title={t("dashboard.researchers")} value={String(modules.filter((m) => m.type === "researcher").length)} />
+              <SummaryCard title={t("dashboard.dataflows")} value={String(modules.filter((m) => m.type === "dataflow").length)} />
+              <SummaryCard title={t("dashboard.configCli")} value={String(modules.filter((m) => m.type === "config" || m.type === "cli").length)} />
             </div>
             <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4">
-              <h3 className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Checklist status</h3>
+              <h3 className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">{t("dashboard.checklist")}</h3>
               <div className="mt-4 space-y-2 text-sm text-slate-300">
-                <CheckItem ok label="Dashboard section present" />
-                <CheckItem ok label="Module Map section present" />
-                <CheckItem ok label="Agent Flow section present" />
-                <CheckItem ok label="Task Center section present" />
-                <CheckItem ok label="Reports section present" />
-                <CheckItem ok label="Settings section present" />
+                <CheckItem ok label={t("dashboard.check.dashboard")} />
+                <CheckItem ok label={t("dashboard.check.moduleMap")} />
+                <CheckItem ok label={t("dashboard.check.agentFlow")} />
+                <CheckItem ok label={t("dashboard.check.taskCenter")} />
+                <CheckItem ok label={t("dashboard.check.reports")} />
+                <CheckItem ok label={t("dashboard.check.settings")} />
               </div>
             </div>
           </div>
@@ -179,9 +190,9 @@ function App() {
 
         <section id="agent-flow" className="mt-5 panel p-5">
           <SectionHeader
-            kicker="Agent Flow"
-            title="Data Source → Analysts → Researchers → Trader → Risk Managers → Portfolio Manager"
-            description="A static overview of the repository flow, with counts derived from modules.json only."
+            kicker={t("section.agentFlow.kicker")}
+            title={t("section.agentFlow.title")}
+            description={t("section.agentFlow.desc")}
           />
           <div className="mt-5">
             <AgentFlow modules={modules} selectedModule={selectedModule} />
@@ -190,33 +201,33 @@ function App() {
 
         <section id="task-center" className="mt-5 panel p-5">
           <SectionHeader
-            kicker="Task Center"
-            title="Search, filter, and inspect a module"
-            description="This section acts as the control surface for locating and reviewing static modules."
+            kicker={t("section.taskCenter.kicker")}
+            title={t("section.taskCenter.title")}
+            description={t("section.taskCenter.desc")}
           />
           <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
             <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4">
               <div className="flex flex-wrap gap-2">
-                <QuickActionButton onClick={() => jumpTo("module-map")}>Open Module Map</QuickActionButton>
-                <QuickActionButton onClick={() => jumpTo("reports")}>Open Reports</QuickActionButton>
-                <QuickActionButton onClick={() => jumpTo("settings")}>Open Settings</QuickActionButton>
+                <QuickActionButton onClick={() => jumpTo("module-map")}>{t("taskCenter.openModuleMap")}</QuickActionButton>
+                <QuickActionButton onClick={() => jumpTo("reports")}>{t("taskCenter.openReports")}</QuickActionButton>
+                <QuickActionButton onClick={() => jumpTo("settings")}>{t("taskCenter.openSettings")}</QuickActionButton>
                 <QuickActionButton onClick={() => {
                   setSearch("");
                   setFilter("all");
-                }}>Reset Filters</QuickActionButton>
+                }}>{t("taskCenter.resetFilters")}</QuickActionButton>
               </div>
               <div className="mt-5 grid gap-3 md:grid-cols-3">
-                <SummaryCard title="Search" value={search.trim() || "—"} />
-                <SummaryCard title="Filter" value={filter} />
-                <SummaryCard title="Selected" value={selectedModule?.name ?? "None"} />
+                <SummaryCard title={t("taskCenter.search")} value={search.trim() || "—"} />
+                <SummaryCard title={t("taskCenter.filter")} value={filter} />
+                <SummaryCard title={t("taskCenter.selected")} value={selectedModule?.name ?? t("taskCenter.none")} />
               </div>
             </div>
             <div className="rounded-3xl border border-dashed border-white/10 bg-slate-950/30 p-4 text-sm leading-6 text-slate-300">
-              <p className="font-medium text-white">What to do here</p>
+              <p className="font-medium text-white">{t("taskCenter.whatToDo")}</p>
               <ul className="mt-3 space-y-2 text-slate-400">
-                <li>• Search by module name, path, dependency, input, output, or risk.</li>
-                <li>• Filter to isolate analysts, researchers, risk teams, dataflows, config, or CLI.</li>
-                <li>• Select a module to view its IO, dependency surface, and risk notes.</li>
+                <li>{t("taskCenter.hint1")}</li>
+                <li>{t("taskCenter.hint2")}</li>
+                <li>{t("taskCenter.hint3")}</li>
               </ul>
             </div>
           </div>
@@ -224,9 +235,9 @@ function App() {
 
         <section id="reports" className="mt-5 panel p-5">
           <SectionHeader
-            kicker="Reports"
-            title="A-stock report viewer"
-            description="Paste or upload an AStockGraphReport JSON payload to view a structured report with advisory chain, research sections, provider coverage, and runtime trace."
+            kicker={t("section.reports.kicker")}
+            title={t("section.reports.title")}
+            description={t("section.reports.desc")}
           />
           <div className="mt-5">
             <ReportViewerWrapper />
@@ -235,15 +246,15 @@ function App() {
 
         <section id="settings" className="mt-5 panel p-5">
           <SectionHeader
-            kicker="Settings"
-            title="Static-only configuration"
-            description="These settings are informational and remind users that the WebUI is read-only."
+            kicker={t("section.settings.kicker")}
+            title={t("section.settings.title")}
+            description={t("section.settings.desc")}
           />
           <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <ToggleCard title="External APIs" enabled={false} detail="Disabled in WebUI" />
-            <ToggleCard title="Trading Execution" enabled={false} detail="Not available" />
-            <ToggleCard title="Data Source" enabled detail={staticSourceLabel} />
-            <ToggleCard title="Edit Mode" enabled={false} detail="Read-only snapshot" />
+            <ToggleCard title={t("settings.externalApis")} enabled={false} detail={t("settings.externalApis.detail")} />
+            <ToggleCard title={t("settings.tradingExecution")} enabled={false} detail={t("settings.tradingExecution.detail")} />
+            <ToggleCard title={t("settings.dataSource")} enabled detail={staticSourceLabel} />
+            <ToggleCard title={t("settings.editMode")} enabled={false} detail={t("settings.editMode.detail")} />
           </div>
         </section>
       </div>
@@ -251,7 +262,7 @@ function App() {
   );
 }
 
-function jumpTo(sectionId: SectionId) {
+function jumpTo(sectionId: string) {
   document.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
@@ -259,10 +270,12 @@ function buildReportMarkdown({
   modules,
   filteredModules,
   selectedModule,
+  t,
 }: {
   modules: ModuleRecord[];
   filteredModules: ModuleRecord[];
   selectedModule?: ModuleRecord;
+  t: (key: string, params?: Record<string, string>) => string;
 }) {
   const typeCounts = Object.fromEntries(
     ["analyst", "researcher", "trader", "risk", "dataflow", "config", "cli"].map((type) => [
@@ -271,36 +284,46 @@ function buildReportMarkdown({
     ]),
   ) as Record<ModuleType, number>;
 
-  return `# TradingAgents WebUI Static Report
+  const noneLabel = t("report.md.none");
+  const selectedName = selectedModule?.name ?? noneLabel;
 
-> ${staticSourceLabel}
+  return (
+    `# ${t("app.title")}` +
+    "\n\n> " + t("staticSource") +
+    "\n\n" + t("report.md.summary") +
+    "\n\n" + t("report.md.totalModules", { count: String(modules.length) }) +
+    "\n" + t("report.md.visibleModules", { count: String(filteredModules.length) }) +
+    "\n" + t("report.md.selectedModule", { name: selectedName }) +
+    "\n\n" + t("report.md.typeCoverage") +
+    "\n\n" + t("report.md.analysts", { count: String(typeCounts.analyst) }) +
+    "\n" + t("report.md.researchers", { count: String(typeCounts.researcher) }) +
+    "\n" + t("report.md.trader", { count: String(typeCounts.trader) }) +
+    "\n" + t("report.md.risk", { count: String(typeCounts.risk) }) +
+    "\n" + t("report.md.dataflows", { count: String(typeCounts.dataflow) }) +
+    "\n" + t("report.md.config", { count: String(typeCounts.config) }) +
+    "\n" + t("report.md.cli", { count: String(typeCounts.cli) }) +
+    "\n\n" + t("report.md.currentSelection") +
+    "\n\n" + (selectedModule
+      ? "### " + selectedModule.name +
+        "\n\n" + t("report.md.path", { path: selectedModule.path }) +
+        "\n" + t("report.md.type", { type: selectedModule.type }) +
+        "\n" + t("report.md.description", { desc: selectedModule.description })
+      : t("report.md.noSelection")) +
+    "\n\n" + t("report.md.notes") +
+    "\n\n" + t("report.md.note1") +
+    "\n" + t("report.md.note2") +
+    "\n" + t("report.md.note3") + "\n"
+  );
+}
 
-## Snapshot Summary
-
-- Total modules: **${modules.length}**
-- Visible after current filters: **${filteredModules.length}**
-- Selected module: **${selectedModule?.name ?? "None"}**
-
-## Type Coverage
-
-- Analysts: ${typeCounts.analyst}
-- Researchers: ${typeCounts.researcher}
-- Trader: ${typeCounts.trader}
-- Risk: ${typeCounts.risk}
-- Dataflows: ${typeCounts.dataflow}
-- Config: ${typeCounts.config}
-- CLI: ${typeCounts.cli}
-
-## Current Selection
-
-${selectedModule ? `### ${selectedModule.name}\n\n- Path: \`${selectedModule.path}\`\n- Type: **${selectedModule.type}**\n- Description: ${selectedModule.description}` : "No module selected."}
-
-## Notes
-
-- This report is rendered from static WebUI data only.
-- It is safe to view without running any trading logic.
-- Search indexing includes names, paths, descriptions, inputs, outputs, dependencies, and risks.
-`;
+function App() {
+  return (
+    <LocaleProvider>
+      <MarketProvider>
+        <AppContent />
+      </MarketProvider>
+    </LocaleProvider>
+  );
 }
 
 function AppLoading() {
@@ -319,11 +342,12 @@ function AppLoading() {
 }
 
 function AppError({ message }: { message: string }) {
+  const { t } = useTranslation();
   return (
     <div className="min-h-screen bg-app px-4 py-8 text-slate-100">
       <div className="mx-auto max-w-4xl rounded-3xl border border-rose-400/30 bg-rose-500/10 p-8 shadow-2xl shadow-slate-950/30">
-        <p className="text-xs uppercase tracking-[0.35em] text-rose-200/80">WebUI error</p>
-        <h1 className="mt-3 text-3xl font-semibold text-white">Unable to render static modules</h1>
+        <p className="text-xs uppercase tracking-[0.35em] text-rose-200/80">{t("app.error.label")}</p>
+        <h1 className="mt-3 text-3xl font-semibold text-white">{t("app.error.title")}</h1>
         <p className="mt-3 text-sm leading-6 text-rose-100/90">{message}</p>
       </div>
     </div>
@@ -390,12 +414,13 @@ function QuickActionButton({ children, onClick }: { children: ReactNode; onClick
 }
 
 function ToggleCard({ title, enabled, detail }: { title: string; enabled: boolean; detail: string }) {
+  const { t } = useTranslation();
   return (
     <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4">
       <div className="flex items-center justify-between gap-3">
         <h3 className="text-sm font-medium text-white">{title}</h3>
         <span className={`rounded-full px-2 py-1 text-[11px] uppercase tracking-[0.2em] ${enabled ? "bg-emerald-400/20 text-emerald-100" : "bg-slate-700/60 text-slate-200"}`}>
-          {enabled ? "On" : "Off"}
+          {enabled ? t("settings.on") : t("settings.off")}
         </span>
       </div>
       <p className="mt-3 text-sm leading-6 text-slate-400">{detail}</p>
