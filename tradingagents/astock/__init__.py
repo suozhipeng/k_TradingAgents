@@ -75,6 +75,7 @@ from .execution import (
     StrategyBase,
 )
 from .tools import build_astock_tools
+from .store import AStockStore, init_astock_db, KlineLoader, ValuationLoader, BatchLoader
 from .verification_provenance import (
     VerificationProvenance,
     capture_verification_provenance,
@@ -158,4 +159,10 @@ __all__ = [
     "PaperTrader",
     "RiskGate",
     "RiskGateResult",
+    # Phase 12 DuckDB store
+    "AStockStore",
+    "init_astock_db",
+    "KlineLoader",
+    "ValuationLoader",
+    "BatchLoader",
 ]
