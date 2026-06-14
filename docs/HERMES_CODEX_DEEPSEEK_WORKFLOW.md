@@ -229,6 +229,15 @@ project-manager mode and forces one terminal state:
 - `BLOCKED_ON_HUMAN_INPUT`
 - `BLOCKED_ON_ENVIRONMENT`
 
+The script also writes durable state into repo-local `.hermes/` so Codex and
+the user can consume the latest gate without reading cron stderr only:
+
+- `.hermes/phase_loop_latest.txt`: latest full Hermes output
+- `.hermes/phase_loop_status.env`: latest terminal status and timestamp
+- `.hermes/codex_review_request.md`: latest Codex review packet when blocked on review
+- `.hermes/human_input_request.md`: latest human/environment request when blocked
+- `.hermes/runs/*.txt`: timestamped execution history
+
 When all numbered phases are already complete, the phase loop must
 automatically switch into backlog / maintenance mode instead of stopping
 simply because no `Phase 12` exists yet. In that mode, Hermes should continue

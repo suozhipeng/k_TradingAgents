@@ -4,6 +4,9 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 REPO_ENV="${REPO_ROOT}/.env"
+STATE_DIR="${REPO_ROOT}/.hermes"
+RUN_DIR="${STATE_DIR}/runs"
+HERMES_BIN="${HERMES_BIN:-}"
 
 MODE="continue"
 EXTRA_INSTRUCTION=""
@@ -28,6 +31,29 @@ Output contract:
   - BLOCKED_ON_HUMAN_INPUT
   - BLOCKED_ON_ENVIRONMENT
 EOF
+}
+
+resolve_hermes_bin() {
+  if [[ -n "${HERMES_BIN}" && -x "${HERMES_BIN}" ]]; then
+    return 0
+  fi
+
+  local candidate=""
+  candidate="$(command -v hermes 2>/dev/null || true)"
+  if [[ -n "${candidate}" && -x "${candidate}" ]]; then
+    HERMES_BIN="${candidate}"
+    return 0
+  fi
+
+  for candidate in /Users/szp/.local/bin/hermes /opt/homebrew/bin/hermes /usr/local/bin/hermes; do
+    if [[ -x "${candidate}" ]]; then
+      HERMES_BIN="${candidate}"
+      return 0
+    fi
+  done
+
+  echo "Unable to locate hermes executable." >&2
+  exit 127
 }
 
 while [[ $# -gt 0 ]]; do
@@ -71,6 +97,9 @@ if [[ -f "${REPO_ENV}" ]]; then
   source "${REPO_ENV}"
   set +a
 fi
+
+mkdir -p "${RUN_DIR}"
+resolve_hermes_bin
 
 read -r -d '' PROMPT <<EOF || true
 ${MODE_INSTRUCTION}
@@ -130,4 +159,46 @@ ${EXTRA_INSTRUCTION}
 EOF
 
 cd "${REPO_ROOT}"
-exec hermes --oneshot "${PROMPT}" --accept-hooks
+
+timestamp="$(date +"%Y%m%d-%H%M%S")"
+tmp_output="$(mktemp)"
+
+set +e
+"${HERMES_BIN}" --oneshot "${PROMPT}" --accept-hooks >"${tmp_output}" 2>&1
+hermes_rc=$?
+set -e
+
+cat "${tmp_output}"
+
+latest_output="${STATE_DIR}/phase_loop_latest.txt"
+run_output="${RUN_DIR}/${timestamp}.txt"
+cp "${tmp_output}" "${latest_output}"
+cp "${tmp_output}" "${run_output}"
+
+terminal_state="$(
+  grep -E '^(PHASE_ADVANCED|BLOCKED_ON_CODEX|BLOCKED_ON_HUMAN_INPUT|BLOCKED_ON_ENVIRONMENT)$' "${tmp_output}" | tail -n 1 || true
+)"
+
+printf 'timestamp=%s\nmode=%s\nstatus=%s\n' "${timestamp}" "${MODE}" "${terminal_state:-UNKNOWN}" > "${STATE_DIR}/phase_loop_status.env"
+
+case "${terminal_state}" in
+  BLOCKED_ON_CODEX)
+    cp "${tmp_output}" "${STATE_DIR}/codex_review_request.md"
+    rm -f "${STATE_DIR}/human_input_request.md"
+    ;;
+  BLOCKED_ON_HUMAN_INPUT|BLOCKED_ON_ENVIRONMENT)
+    cp "${tmp_output}" "${STATE_DIR}/human_input_request.md"
+    rm -f "${STATE_DIR}/codex_review_request.md"
+    ;;
+  PHASE_ADVANCED)
+    rm -f "${STATE_DIR}/codex_review_request.md" "${STATE_DIR}/human_input_request.md"
+    ;;
+esac
+
+rm -f "${tmp_output}"
+
+if [[ -n "${terminal_state}" ]]; then
+  exit 0
+fi
+
+exit "${hermes_rc}"

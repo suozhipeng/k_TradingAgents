@@ -95,6 +95,9 @@ No phase may be marked complete or handed off without a local archive record.
   commit the approved changes to the Git repository before handoff.
 - `scripts/hermes_codex_git_gate.py` is the executable helper for that final
   gate when Hermes wants a repo-local command instead of a manual git sequence.
+- `scripts/hermes_phase_loop.sh` is the repo-local backlog driver. Its latest
+  machine-consumable outputs live under `.hermes/` so Codex can review the
+  current gate packet without requiring the user to manually relay Hermes chat.
 
 ## Current phase mapping
 
