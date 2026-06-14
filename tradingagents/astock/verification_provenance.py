@@ -139,6 +139,52 @@ def preserve_verification_provenance(
     return str(path)
 
 
+def load_verification_provenance(
+    provider_name: str,
+    base_dir: str = "docs/verification_provenance",
+) -> VerificationProvenance:
+    """Load the most recent provenance record from durable JSON storage.
+
+    Scans ``{base_dir}/{provider_name}_*.json`` files sorted by filename
+    in descending order and returns the parsed result of the most recent
+    file.  If no files exist, returns a static default with
+    ``verified_on="unknown"``.
+
+    Args:
+        provider_name: Provider identifier (e.g. ``"akshare"``).
+        base_dir: Directory containing provenance JSON files.
+
+    Returns:
+        A ``VerificationProvenance`` instance.
+    """
+    base = Path(base_dir).resolve()
+    pattern = f"{provider_name}_*.json"
+    files = sorted(base.glob(pattern), reverse=True)
+    if files:
+        data = json.loads(files[0].read_text(encoding="utf-8"))
+        return VerificationProvenance(
+            verified_on=data.get("verified_on", "unknown"),
+            verified_at_commit=data.get("verified_at_commit", "unknown"),
+            test_command=data.get("test_command", ""),
+            python_version=data.get("python_version", ""),
+            platform=data.get("platform", ""),
+            capabilities=tuple(data.get("capabilities", [])),
+            evidence_ref=data.get("evidence_ref", ""),
+            pass_count=data.get("pass_count", 0),
+            fail_count=data.get("fail_count", 0),
+            skip_count=data.get("skip_count", 0),
+        )
+    return VerificationProvenance(
+        verified_on="unknown",
+        verified_at_commit="unknown",
+        test_command="",
+        python_version="",
+        platform="",
+        capabilities=(),
+        evidence_ref=f"No durable verification record found for '{provider_name}'.",
+    )
+
+
 def render_provenance_block(provenance: VerificationProvenance) -> dict:
     """Render a provenance record as a dict suitable for the blueprint payload.
 

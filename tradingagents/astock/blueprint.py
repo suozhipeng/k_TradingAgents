@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
 
-from .verification_provenance import capture_verification_provenance
+from .verification_provenance import load_verification_provenance
 
 
 @dataclass(frozen=True)
@@ -93,11 +93,7 @@ class AStockBlueprint:
                     "akshare": {
                         "implemented": ["daily_kline", "valuation", "stock_news", "research_list", "quarterly_financials"],
                         "live_verified": ["daily_kline", "valuation", "stock_news", "research_list", "quarterly_financials"],
-                        "live_verification": capture_verification_provenance(
-                            test_command="python3 scripts/verify_astock_live_pipeline.py",
-                            capabilities=("daily_kline", "valuation", "stock_news", "research_list", "quarterly_financials"),
-                            evidence_ref="docs/ASTOCK_CURRENT_STATUS.md",
-                        ).to_dict(),
+                        "live_verification": load_verification_provenance("akshare").to_dict(),
                         "fixture_verified": ["daily_kline", "valuation", "stock_news", "research_list", "quarterly_financials"],
                         "optional_dependency": "akshare",
                         "requires_credentials": False,
@@ -106,11 +102,7 @@ class AStockBlueprint:
                     "tencent": {
                         "implemented": ["snapshot", "order_book", "trade_tape", "turnover_rate"],
                         "live_verified": ["snapshot", "order_book", "trade_tape", "turnover_rate"],
-                        "live_verification": capture_verification_provenance(
-                            test_command="python3 scripts/verify_astock_live_pipeline.py",
-                            capabilities=("snapshot", "order_book", "trade_tape", "turnover_rate"),
-                            evidence_ref="docs/ASTOCK_CURRENT_STATUS.md",
-                        ).to_dict(),
+                        "live_verification": load_verification_provenance("tencent").to_dict(),
                         "fixture_verified": ["snapshot", "order_book", "trade_tape", "turnover_rate"],
                         "optional_dependency": "requests",
                         "requires_credentials": False,
@@ -118,11 +110,7 @@ class AStockBlueprint:
                     "cninfo": {
                         "implemented": ["announcement_summary", "announcement_full"],
                         "live_verified": ["announcement_summary", "announcement_full"],
-                        "live_verification": capture_verification_provenance(
-                            test_command="python3 scripts/verify_astock_live_pipeline.py",
-                            capabilities=("announcement_summary", "announcement_full"),
-                            evidence_ref="docs/ASTOCK_CURRENT_STATUS.md",
-                        ).to_dict(),
+                        "live_verification": load_verification_provenance("cninfo").to_dict(),
                         "fixture_verified": ["announcement_summary", "announcement_full"],
                         "optional_dependency": "requests",
                         "requires_credentials": False,
@@ -130,11 +118,7 @@ class AStockBlueprint:
                     "mootdx": {
                         "implemented": ["daily_kline", "order_book", "trade_tape", "f10"],
                         "live_verified": ["daily_kline", "order_book", "trade_tape", "f10"],
-                        "live_verification": capture_verification_provenance(
-                            test_command="python3 scripts/verify_astock_live_pipeline.py",
-                            capabilities=("daily_kline", "order_book", "trade_tape", "f10"),
-                            evidence_ref="docs/ASTOCK_CURRENT_STATUS.md",
-                        ).to_dict(),
+                        "live_verification": load_verification_provenance("mootdx").to_dict(),
                         "fixture_verified": ["daily_kline", "order_book", "trade_tape", "f10"],
                         "optional_dependency": "mootdx",
                         "requires_credentials": False,
@@ -143,11 +127,7 @@ class AStockBlueprint:
                     "iwencai": {
                         "implemented": ["nl_search", "institution_expectation"],
                         "live_verified": [],
-                        "live_verification": capture_verification_provenance(
-                            test_command="N/A — requires credentials",
-                            capabilities=(),
-                            evidence_ref="ASTOCK_IWENCAI_COOKIE not configured",
-                        ).to_dict(),
+                        "live_verification": load_verification_provenance("iwencai").to_dict(),
                         "fixture_verified": ["nl_search", "institution_expectation"],
                         "optional_dependency": "pywencai",
                         "requires_credentials": True,
@@ -156,11 +136,7 @@ class AStockBlueprint:
                     "qmt": {
                         "implemented": ["read_only_placeholder"],
                         "live_verified": [],
-                        "live_verification": capture_verification_provenance(
-                            test_command="N/A — placeholder only; no live bridge",
-                            capabilities=(),
-                            evidence_ref="placeholder only; no live bridge",
-                        ).to_dict(),
+                        "live_verification": load_verification_provenance("qmt").to_dict(),
                         "fixture_verified": [],
                         "optional_dependency": "QMT local client",
                         "requires_credentials": True,

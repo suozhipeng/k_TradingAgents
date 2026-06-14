@@ -78,6 +78,7 @@ from .tools import build_astock_tools
 from .verification_provenance import (
     VerificationProvenance,
     capture_verification_provenance,
+    load_verification_provenance,
     preserve_verification_provenance,
     render_provenance_block,
 )
@@ -104,6 +105,7 @@ __all__ = [
     # Verification provenance
     "VerificationProvenance",
     "capture_verification_provenance",
+    "load_verification_provenance",
     "preserve_verification_provenance",
     "render_provenance_block",
     # Data-layer errors & adapters
