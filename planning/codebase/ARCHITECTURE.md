@@ -501,7 +501,11 @@ Python 3.12 Main System
 - 实盘控制入口
 - 风控状态显示
 
-当前代码证据：A 股当前只提供 CLI 报告和 Streamlit 只读 viewer；没有面向执行的 A 股 API 或通知层实现。
+当前代码证据：A 股当前通过三种展示表面呈现：
+- WebUI（`webui/`）：React/TypeScript 静态仪表盘，产品端入口，展示模块总览、Agent Flow、风险面板
+- Streamlit（`tradingagents/ui/`）：运行时 viewer 后端，可生成并渲染实时 A 股研究报告
+- CLI（`cli/main.py`）：终端报告渲染
+WebUI 与 Streamlit 保持独立代码库，不做全技术合并。
 
 ### 12.2 CLI
 CLI 仍可保留，用于：

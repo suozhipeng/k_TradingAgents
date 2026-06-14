@@ -27,8 +27,9 @@ contract.
 
 ## Remaining risk
 
-The static React WebUI and Streamlit runtime viewer remain separate product
-surfaces.
+The static React WebUI and Streamlit runtime viewer have distinct roles:
+WebUI = product entrypoint (static dashboard + report viewer), Streamlit = runtime viewer backend.
+Both codebases stay separate; no full technical merge.
 
 ## Next entry criteria
 

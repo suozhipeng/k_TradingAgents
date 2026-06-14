@@ -49,7 +49,7 @@
 | A 股 Interface / Analyst | `tradingagents/astock/interface.py / tools.py / analyst.py` | analyst | 将五层 provider 能力收敛成结构化 section，并写入 A 股研究状态。 | 缺失 provider 会降级；section 完成不等于完整交易决策链完成 |
 | A 股 Research Runtime | `tradingagents/astock/runtime.py` | researcher | 执行 AStockAnalyst、Bull、Bear、Research Manager、Phase 9 advisory chain（ResearchConclusion → TraderProposal → RiskDecision → PortfolioDecision），生成 `AStockGraphReport`。 | 默认 BridgeLLM 是确定性验证实现；输出固定为 research-only，不可作为交易执行信号 |
 | A 股 Runtime Profile & Phase 9 Schema | `tradingagents/astock/runtime_profile.py / phase9_schemas.py` | config | 定义 `RuntimeProfile`（deterministic_verification / live_research）隔离策略，以及 Phase 9 advisory 合约 schema。 | `require_live_research_clients` 防 BridgeLLM fallback；合约 schema 与 CLI/UI 渲染耦合 |
-| A 股 CLI / Read-only Viewer | `cli/main.py / tradingagents/ui/*` | cli | CLI 和 Streamlit 共享 AStockGraphReport 展示 schema，并通过 dispatcher 兼容 legacy payload。 | 当前只有只读展示；静态 WebUI 与 Streamlit viewer 是两个独立前端表面 |
+| A 股 CLI / Read-only Viewer | `cli/main.py / tradingagents/ui/*` | cli | CLI 和 Streamlit 共享 AStockGraphReport 展示 schema，并通过 dispatcher 兼容 legacy payload。 | 当前只有只读展示；WebUI 为产品端入口（静态仪表盘 + 报告查看器），Streamlit 为运行时 viewer 后端 |
 | A 股 回测引擎 | `tradingagents/astock/execution/backtest_engine.py` | dataflow | Phase 10 交付。按历史数据执行策略信号回放，支持周期调仓、费率模拟、多策略对比。 | 需要历史数据源；结果依赖数据完整性；费率模型和真实券商可能不一致 |
 | A 股 模拟盘引擎 | `tradingagents/astock/execution/paper_trader.py` | dataflow | Phase 10 交付。虚拟券商 + 真实费率，定时调度自动调仓，风控拦截和仓位记录。 | 虚拟成交不代表真实流动性环境；需持续运行积累跟踪记录 |
 | A 股 QMT 桥接 | `tradingagents/astock/execution/qmt_bridge.py` | dataflow | Phase 11 交付。通过 HTTP :58609 桥接 Python 3.6.8 QMT 环境，分离 xtdata（只读）和 xttrader（下单）权限。 | 需要真实 QMT 客户端；默认 safety mode；降级到模拟盘路径 |

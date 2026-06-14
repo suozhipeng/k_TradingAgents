@@ -280,7 +280,7 @@ python3 -m pytest -q \
   uses deterministic synthesis instead of reusing those executable-facing
   prompts directly.
 - `final_trade_decision` remains a compatibility field with ambiguous naming.
-- The static React WebUI and Streamlit viewer remain separate surfaces.
+- The static React WebUI and Streamlit viewer have distinct roles: WebUI = product entrypoint, Streamlit = runtime viewer backend. Both codebases stay separate.
 - Live Phase 09 `live_research` operation still depends on deploying real LLM
   clients for the A-share chain and exposing the provider key in the process
   environment.
