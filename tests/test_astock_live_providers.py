@@ -11,6 +11,10 @@ from tradingagents.astock.data_sources import (
     MootdxAdapter,
     TencentFinanceAdapter,
 )
+from tradingagents.astock.verification_provenance import (
+    capture_verification_provenance,
+    preserve_verification_provenance,
+)
 
 
 RUN_LIVE = os.getenv("ASTOCK_RUN_LIVE_TESTS") == "1"
@@ -43,6 +47,18 @@ def _emit(label, response):
         "field_sources": meta.get("field_sources", {}),
         "notes": list(response.notes),
     }, ensure_ascii=False))
+
+
+def _provenance_and_preserve(provider_name, capabilities, evidence_ref="docs/phases/phase-04-research-graph.md"):
+    """Capture provenance for a provider and write it to docs/verification_provenance/."""
+    prov = capture_verification_provenance(
+        test_command="ASTOCK_RUN_LIVE_TESTS=1 python3 -m pytest -q tests/test_astock_live_providers.py -m integration",
+        capabilities=tuple(sorted(capabilities)),
+        evidence_ref=evidence_ref,
+    )
+    written_path = preserve_verification_provenance(provider_name, prov)
+    print(f"[provenance] wrote {written_path}")
+    return prov
 
 
 @pytest.fixture(scope="module")
@@ -85,6 +101,7 @@ def test_live_akshare_core_capabilities(akshare_facade, symbol):
     assert kline.status == "ok"
     assert valuation.status == "ok"
     assert financials.status in {"ok", "empty"}
+    _provenance_and_preserve("akshare", ["daily_kline", "valuation", "quarterly_financials"])
 
 
 def test_live_akshare_news_and_research(akshare_facade):
@@ -94,6 +111,7 @@ def test_live_akshare_news_and_research(akshare_facade):
     _emit("akshare-research-600519.SH", research)
     assert news.status in {"ok", "empty"}
     assert research.status in {"ok", "empty"}
+    _provenance_and_preserve("akshare", ["stock_news", "research_list"])
 
 
 @pytest.mark.parametrize("symbol", ["600519.SH", "000001.SZ"])
@@ -107,6 +125,7 @@ def test_live_tencent_snapshot_and_trades(tencent_facade, symbol):
     assert order_book.status == "ok"
     assert trade_tape.status == "ok"
     assert turnover.status == "ok"
+    _provenance_and_preserve("tencent", ["snapshot", "order_book", "trade_tape", "turnover_rate"])
 
 
 def test_live_cninfo_announcements(cninfo_facade):
@@ -117,6 +136,7 @@ def test_live_cninfo_announcements(cninfo_facade):
     full = cninfo_facade.get_announcement_full("600519.SH", source="cninfo", extras={"announcement_id": announcement_id})
     _emit("cninfo-full-600519.SH", full)
     assert full.status == "ok"
+    _provenance_and_preserve("cninfo", ["announcement_summary", "announcement_full"])
 
 
 def test_live_mootdx_if_available(mootdx_facade):
@@ -140,6 +160,7 @@ def test_live_mootdx_if_available(mootdx_facade):
     assert order_book.status == "ok"
     assert trade_tape.status in {"ok", "empty"}
     assert f10.status in {"ok", "empty"}
+    _provenance_and_preserve("mootdx", ["daily_kline", "order_book", "trade_tape", "f10"])
 
 
 def test_live_iwencai_if_configured(iwencai_facade):
@@ -151,3 +172,4 @@ def test_live_iwencai_if_configured(iwencai_facade):
     _emit("iwencai-expectation", expectation)
     assert search.status == "ok"
     assert expectation.status == "ok"
+    _provenance_and_preserve("iwencai", ["nl_search", "institution_expectation"], evidence_ref="ASTOCK_IWENCAI_COOKIE not configured")

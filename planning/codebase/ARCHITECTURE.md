@@ -48,12 +48,12 @@ START
 - 局限：
   - 决策仍偏 LLM 文本推理主导
   - A 股专用五层数据体系和统一接口已形成基础实现，但 provider 完整度不一致，且 runtime 仍只读
-  - A 股 runtime 当前止于 Research Manager，尚未进入 Trader / Risk / Portfolio Manager
+  - A 股 research-only runtime 已扩展为完整 advisory chain（ResearchConclusion → TraderProposal → RiskDecision → PortfolioDecision，Phase 9），但所有 advisory 输出固定为 `actionable=false`
   - A 股默认 BridgeLLM 仅适合确定性验证，输出固定为 research-only
-  - 没有完整的回测 / 模拟盘 / 实盘闭环基线
-  - 没有 QMT 桥接和受控下单层的现成架构表达
+  - 回测引擎与模拟盘引擎已交付（Phase 10），但 QMT 实盘桥接默认 safety mode 且未接入真实券商账户
+  - QMT 桥接与受控下单层已交付（Phase 11），管理模式下执行需人工确认
 
-### 1.4 当前 A 股只读链路
+### 1.4 当前 A 股主链路（Phase 0–11 交付后）
 
 ```text
 AStockDataRouter
@@ -62,17 +62,34 @@ AStockDataRouter
   -> Bull Researcher
   -> Bear Researcher
   -> Research Manager
+  -> Phase 9 Advisory Chain
+  |    (ResearchConclusion -> TraderProposal -> RiskDecision -> PortfolioDecision)
   -> AStockGraphReport
   -> CLI / Streamlit read-only viewer
+  -> { BacktestEngine (Phase 10) | PaperTrader (Phase 10) | QmtExecution (Phase 11, managed) }
 ```
 
-当前契约：
+Phase 9–11 交付后的链路扩展：
+
+- 研究结论后进入 advisory chain，四个合约（ResearchConclusion / TraderProposal / RiskDecision / PortfolioDecision）均采用结构化 schema
+- 执行层区分回测 / 模拟盘 / QMT 桥接三种模式
+- QMT 桥接默认 safety mode（人工确认），auto mode 需用户显式开启
+- 所有执行路径均可用，但实盘路径默认不自动下单
+
+当前契约（advisory chain 阶段）：
 
 - `decision_scope=research_only`
 - `actionable=false`
 - `execution_signal=ResearchOnly`
 - 不写入交易决策记忆
 - 不进入通用交易信号解析
+
+Phase 11 执行层额外契约：
+
+- Safety mode：每次执行操作需要人工确认（`confirmed=True`）
+- ATR 止损：实时计算止损线，触发时自动拒绝下单
+- QMT 降级：桥接不可用时自动走模拟盘路径
+- 一切执行输出保持 `actionable=false`，直到 safety mode 下人工确认
 
 ---
 
@@ -279,7 +296,7 @@ iwencai
 - 产出结构化中间报告
 - 不直接越层做执行动作
 
-当前代码证据：A 股分析链已经有 `AStockInterface -> tools -> AStockAnalyst -> Bull/Bear/Research Manager` 的只读闭环，但没有进入 Trader / Risk / Portfolio 的 A 股适配实现。
+当前代码证据：A 股分析链已有完整的只读闭环 + Phase 9 advisory chain，包含 `AStockInterface -> tools -> AStockAnalyst -> Bull/Bear/Research Manager -> ResearchConclusion -> TraderProposal -> RiskDecision -> PortfolioDecision`，合约 schema 在 `tradingagents/astock/phase9_schemas.py`，46 项回归测试通过。
 
 #### Research Team（目标态）
 - 保留多空辩论作为项目辨识度能力
@@ -295,9 +312,9 @@ iwencai
   - 允许进入模拟盘
   - 允许进入实盘确认
 
-当前状态：Phase 9 仅完成产品与开发契约，尚未实现 A 股 Trader 节点。
-规格见 `docs/phases/phase-09-trader-risk-portfolio.md`。Phase 9 固定为
-`actionable=false`，不能进入 signal processing、交易记忆或 QMT。
+当前状态：Phase 9 已交付完整 advisory chain（ResearchConclusion → TraderProposal → RiskDecision → PortfolioDecision），合约 schema 在 `tradingagents/astock/phase9_schemas.py`，46 项回归测试通过。
+所有 advisory 输出固定为 `actionable=false`，不能进入 signal processing、交易记忆或 QMT 自动下单。
+规格见 `docs/phases/phase-09-trader-risk-portfolio.md`。
 
 #### Risk / Portfolio Layer（目标态）
 - 需要显式吸收：
@@ -308,9 +325,10 @@ iwencai
   - 组合风控
 - 这层不只是文本辩论，而是执行权限与交易约束的最后关口
 
-当前状态：通用 Risk Agent 仍输出自由文本，A 股 `RiskDecision` 与
-`PortfolioDecision` 尚未实现。Phase 9 需要新增结构化 advisory contract，
-而不是直接复用通用 `final_trade_decision`。
+当前状态：Phase 9 advisory chain 已交付 A 股 `RiskDecision` 与
+`PortfolioDecision` 结构化 schema。Phase 11 进一步交付了
+`risk_gate.py`（ATR 止损、safety mode 人工确认门、组合风控约束）。
+通用 Risk Agent 仍输出自由文本且不参与 A 股链路。
 
 ---
 
@@ -349,7 +367,7 @@ Five-Layer Analysis Results
 
 目标态最关键的变化之一，是执行层必须显式分三级，而不是把所有动作混在同一条链路里。
 
-当前代码证据：仓库没有 A 股回测引擎、模拟盘引擎或实盘引擎实现；现有 A 股 runtime 只生成 `decision_scope=research_only`、`actionable=false`、`execution_signal=ResearchOnly`。
+当前代码证据：A 股执行层已交付 Phase 10 回测引擎（`tradingagents/astock/execution/backtest_engine.py`）、模拟盘引擎（`paper_trader.py`），以及 Phase 11 QMT 桥接（`qmt_bridge.py` / `qmt_execution.py`）。风险控制层（`risk_gate.py`）提供 ATR 止损、safety mode 和组合风控。所有执行路径默认保持 `decision_scope=research_only`、`actionable=false`、`execution_signal=ResearchOnly`。见 `docs/ASTOCK_CURRENT_STATUS.md` §2 安全边界。
 
 ### 9.1 第一阶段：回测验证
 基于图片规划，回测阶段包括：
@@ -416,7 +434,7 @@ Python 3.12 Main System
 - 承担 Web、Agent、策略、调度、风控主逻辑
 - 通过 HTTP 调用桥接层
 
-当前代码证据：QMT 只有蓝图里的 `read_only_placeholder`，没有可执行桥接或下单代码。
+当前代码证据：QMT 桥接已交付（`tradingagents/astock/execution/qmt_bridge.py` 与 `qmt_execution.py`），包含 xtdata/xttrader 适配、safety/auto 模式切换、ATR 止损和 QMT 降级到模拟盘的自动回退逻辑。对应测试 `tests/test_astock_qmt_bridge.py` / `tests/test_astock_qmt_execution.py`。
 
 #### 桥接层（Python 3.6.8）
 - 适配 QMT 运行环境
@@ -440,7 +458,7 @@ Python 3.12 Main System
 
 目标态里，风控不是单个 agent，而是一整套控制平面。
 
-当前代码证据：仓库未发现 A 股风控控制平面实现；现有风控仅是通用 TradingAgents 的研究决策辩论节点，并未接入 A 股执行链路。
+当前代码证据：A 股风控控制平面已作为 Phase 11 的一部分交付（`tradingagents/astock/execution/risk_gate.py`），包含 ATR 动态止损、safety mode 人工确认门、组合风控约束和实时止损计算。对应测试 `tests/test_astock_execution_risk_gate.py`。
 
 ### 11.1 风控要素
 根据图片规划，应至少包含：
@@ -545,14 +563,14 @@ Providers
 - CLI 与 Web 的双入口思路
 
 ### 14.2 必须重做或新建的部分
-- A 股研究结论到交易提案的合同实现（产品契约已在 Phase 9 归档）
-- 策略层
-- 回测引擎与回测验收体系
-- 模拟盘引擎
-- QMT 桥接层
-- 实盘控制平面
-- 风控控制平面
-- API / 通知体系
+- A 股研究结论到交易提案的合同实现（Phase 9 已交付，见 `tradingagents/astock/phase9_schemas.py`；原蓝图契约已在 Phase 9 归档）
+- 策略层（尚未实现，仓库无 A 股策略评分模块）
+- 回测引擎与回测验收体系（Phase 10 已交付，`tradingagents/astock/execution/backtest_engine.py` + `test_astock_backtest.py`）
+- 模拟盘引擎（Phase 10 已交付，`tradingagents/astock/execution/paper_trader.py` + `test_astock_paper_trader.py`）
+- QMT 桥接层（Phase 11 已交付，`qmt_bridge.py` / `qmt_execution.py` + 对应测试）
+- 实盘控制平面（Phase 11 safety/auto 模式已实现，但仅限 QMT 桥接；完整实盘控制平面依赖真实券商账户接入）
+- 风控控制平面（Phase 11 已交付 `risk_gate.py` + `test_astock_execution_risk_gate.py`；包含 ATR 止损、safety mode 人工确认）
+- API / 通知体系（尚未实现）
 
 ### 14.3 不应混淆的部分
 - 当前仓库已有的“研究/交易建议”能力

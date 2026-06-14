@@ -75,6 +75,12 @@ from .execution import (
     StrategyBase,
 )
 from .tools import build_astock_tools
+from .verification_provenance import (
+    VerificationProvenance,
+    capture_verification_provenance,
+    preserve_verification_provenance,
+    render_provenance_block,
+)
 
 __all__ = [
     "ASTOCK_BLUEPRINT",
@@ -95,6 +101,12 @@ __all__ = [
     "build_astock_tools",
     "create_astock_analyst",
     "create_astock_analyst_node",
+    # Verification provenance
+    "VerificationProvenance",
+    "capture_verification_provenance",
+    "preserve_verification_provenance",
+    "render_provenance_block",
+    # Data-layer errors & adapters
     "AStockDataError",
     "AStockDataFacade",
     "AStockDataRouter",

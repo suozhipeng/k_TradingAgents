@@ -12,7 +12,8 @@ TradingAgents/
 ├── tests/
 ├── scripts/
 ├── assets/
-└── planning/codebase/
+├── planning/codebase/
+└── webui/
 ```
 
 > 本次重点分析范围按要求聚焦：`main.py`、`cli/`、`tradingagents/`、`pyproject.toml`、`requirements.txt`、`docker-compose.yml`。
@@ -73,6 +74,15 @@ TradingAgents/
 - `reflection.py`：事后反思逻辑
 - `checkpointer.py`：断点恢复
 - `analyst_execution.py`：分析师执行计划与耗时追踪
+
+#### `tradingagents/astock/`
+- A 股专用模块（Phase 0–11 交付）
+- 包含五层 provider 路由、统一接口、Analyst、Research Runtime、advisory chain schema、执行引擎（回测/模拟盘/QMT 桥接/风控门）
+
+关键子目录：
+- `data_sources/`：五层 18 个能力点的 symbol 标准化、provider 路由、fallback、缓存和统一错误语义
+- `execution/`：Phase 10 回测引擎（`backtest_engine.py`）、模拟盘引擎（`paper_trader.py`）、Phase 11 QMT 桥接（`qmt_bridge.py`、`qmt_execution.py`）、风控门（`risk_gate.py`）、策略基类（`strategy_base.py`）
+- 根层文件：`interface.py`、`tools.py`、`analyst.py`、`runtime.py`、`runtime_profile.py`、`phase9_schemas.py`
 
 #### `tradingagents/agents/`
 - 各类角色 agent 定义

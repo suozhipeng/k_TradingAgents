@@ -32,7 +32,7 @@ cli.main:app
   -> 保存 report / log / JSON
 ```
 
-### 链路 3：A 股 research-only 入口
+### 链路 3：A 股 research-only 入口（Phase 0–9）
 
 ```text
 TradingAgentsGraph.propagate("600519.SH", date)
@@ -42,13 +42,37 @@ TradingAgentsGraph.propagate("600519.SH", date)
   -> Bull Researcher
   -> Bear Researcher
   -> Research Manager
-  -> AStockGraphReport.to_legacy_state()
-  -> execution_signal = ResearchOnly
+  -> Phase 9 Advisory Chain
+  |   (ResearchConclusion -> TraderProposal -> RiskDecision -> PortfolioDecision)
+  -> { no_exec } research-only:
+  |     AStockGraphReport.to_legacy_state()
+  |     execution_signal = ResearchOnly
+  |-> { execution } Phase 10/11:
+        -> BacktestEngine | PaperTrader | QmtExecution (managed)
+        -> risk_gate (ATR stop, safety mode)
+        -> execution_signal = ResearchOnly (default)
 ```
 
-CLI 对 A 股标的直接生成 `AStockGraphReport` 并保存
-`complete_report.md` 与 `astock_report.json`。Streamlit viewer 使用同一
-schema。当前链路不进入 Trader、Risk Debate、Portfolio Manager 或 QMT。
+CLI 对 A 股标的生成 `AStockGraphReport` 并保存 `complete_report.md` 与
+`astock_report.json`。Streamlit viewer 使用同一 schema。
+
+Phase 9 advisory chain 合约输出始终携带 `actionable=false` 和
+`execution_signal=ResearchOnly`。Phase 10 回测/模拟盘和 Phase 11
+QMT 桥接可从 advisory chain 接收信号，但默认 safety mode 下
+仍需人工确认后才执行。
+
+当前链路完整流转（已验证端到端 live pipeline）：
+
+```text
+AStockDataRouter
+  -> AStockInterface
+  -> AStockAnalyst
+  -> Bull/Bear Researcher
+  -> Research Manager
+  -> Advisory Chain (4 contracts)
+  -> { CLI | Streamlit | BacktestEngine | PaperTrader | QmtExecution }
+  -> AStockGraphReport -> 报告保存
+```
 
 ## 核心类 / 函数
 

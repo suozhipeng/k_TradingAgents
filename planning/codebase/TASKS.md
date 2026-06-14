@@ -12,15 +12,17 @@
 
 ## 当前基线 vs 目标态
 
-### 当前基线（来自现有仓库）
+### 当前基线（来自现有仓库，Phase 0–11 交付后）
 - 基于 LangGraph 的多 Agent 编排
-- 主要链路是 Analyst → Bull/Bear → Trader → Risk Debate → Portfolio Manager
-- 现有数据层更偏通用金融/美股研究框架
-- 输出更接近研究结论与交易建议
+- 主要链路是 Analyst → Bull/Bear → Research Manager → Advisory Chain (ResearchConclusion → TraderProposal → RiskDecision → PortfolioDecision，Phase 9)
+- 通用数据层以 yfinance 为主，A 股五层数据路由已独立实现
+- 输出包括研究报告、advisory 合约和可选的执行路径（回测/模拟盘/QMT）
 - 已增加 A 股五层数据路由、统一接口和 AStockAnalyst
-- 已增加 research-only A 股 runtime，当前止于 Research Manager
+- 已增加包含 Phase 9 advisory chain 的 research runtime，advisory 输出固定为 `actionable=false`
 - 已增加 A 股 CLI 报告、Streamlit 只读 UI 和 legacy 多市场 viewer
-- 当前 A 股结果不可执行，尚未接入 Trader / Risk / Portfolio Manager
+- 已增加回测引擎和模拟盘引擎（Phase 10）
+- 已增加 QMT 桥接和受控执行层（Phase 11），默认 safety mode
+- 当前 A 股所有 advisory 和执行输出保持 `actionable=false`，除非 safety mode 下人工确认
 
 ### 目标态（来自 `planning/a-stock-resource/`）
 - 面向 **A 股投研分析 + 交易闭环**
