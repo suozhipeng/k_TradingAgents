@@ -37,6 +37,7 @@ checkpoint.
 | 10 | Backtest and paper trading | Complete | [Phase 10](phase-10-backtest-paper-trading.md) |
 || 11 | QMT bridge — read-only to controlled execution | Complete | [Phase 11](phase-11-qmt-controlled-execution.md) |
 || 12 | DuckDB local database | Complete | [Phase 12](phase-12-duckdb-local-database.md) |
+|| 14 | Six backtest strategies | Complete | [Phase 14](phase-14-strategy-expansion.md) |
 
 ## Naming
 

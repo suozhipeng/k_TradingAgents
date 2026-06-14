@@ -1,6 +1,6 @@
 # A 股二次定制开发基线
 
-|更新时间：2026-06-14 (All 11 phases + P0/P1/P2 backlog closed — A-stock customization baseline complete) 
+|更新时间：2026-06-15 (All 14 phases complete — A-stock customization + DuckDB + 6 strategy baseline) 
 
 本文档是 A 股二次定制开发的当前事实基线。后续 Hermes 调度、ECC
 验收和阶段推进优先以本文档为准。
@@ -14,6 +14,8 @@
 - Phase 0-9：只读研究与展示链路
 - Phase 10：回测验证与模拟盘试跑
 - Phase 11：QMT 桥接与受控执行（安全模式默认）
+- Phase 12：DuckDB 本地数据库（持久化存储层）
+- Phase 14：六种回测策略（2 牛市 / 2 震荡 / 2 熊市）
 
 已打通的主路径：
 
@@ -71,8 +73,9 @@ Phase 11 执行层增加了额外的安全边界：
 | 8 | Streamlit 只读 UI 与 legacy 多市场 viewer | 完成 |
 | 9 | Trader / Risk / Portfolio Manager A 股适配 | 规格完成，实现完成—A 股 advisory chain 接线、CLI/UI 渲染、runtime profile 隔离、62 项回归通过 |
 | 10 | 回测与模拟盘 | 完成 |
-|| 11 | QMT 只读桥接到受控执行 | 完成 |
-|| 12 | DuckDB 本地数据库（10 表，CLI 工具，导入/导出） | 完成 |
+| 11 | QMT 只读桥接到受控执行 | 完成 |
+| 12 | DuckDB 本地数据库（10 表，CLI 工具，导入/导出） | 完成 |
+| 14 | 六种回测策略（2 牛 / 2 震荡 / 2 熊） | 完成 |
 
 ## 4. 已完成能力
 

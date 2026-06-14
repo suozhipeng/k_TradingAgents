@@ -1,0 +1,94 @@
+"""Market / analysis API routes — composite snapshots and strategy listing.
+
+All routes return JSON.  Error responses follow ``{"error": ..., "status": N}``.
+
+No heavy ``tradingagents.astock`` imports at module level.
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+from flask import Blueprint, Response, current_app, jsonify, request
+
+bp = Blueprint("market", __name__)
+
+AVAILABLE_STRATEGIES = [
+    {"name": "MovingAverageTrend", "description": "Dual moving average trend following"},
+    {"name": "BullTrend", "description": "Bull market trend strategy"},
+    {"name": "ValueAverage", "description": "Value averaging strategy"},
+    {"name": "MeanReversion", "description": "Mean reversion trading"},
+    {"name": "RSIRange", "description": "RSI range-bound trading"},
+    {"name": "DefensiveMomentum", "description": "Defensive momentum strategy"},
+    {"name": "PutWrite", "description": "Put write / cash-secured put strategy"},
+]
+
+
+def _store() -> Any:
+    return current_app.config["STORE"]
+
+
+def _df_to_json(df: Any) -> list[dict[str, Any]]:
+    if df is None or (hasattr(df, "empty") and df.empty):
+        return []
+    if hasattr(df, "to_dict"):
+        return df.to_dict(orient="records")
+    return list(df)
+
+
+# ---------------------------------------------------------------------------
+# GET /api/v1/market/summary
+# ---------------------------------------------------------------------------
+
+
+@bp.route("/market/summary")
+def market_summary() -> tuple[Response, int]:
+    """Composite market snapshot for a symbol.
+
+    Query params:
+        symbol (str) — required
+    """
+    symbol = request.args.get("symbol", "")
+    if not symbol:
+        return jsonify({"error": "symbol is required", "status": 400}), 400
+
+    try:
+        store = _store()
+        kline_df = store.query_kline(symbol)
+        val_df = store.query_valuations(symbol)
+        indicators_df = store.query_market_indicators(symbol)
+
+        kline_bars = _df_to_json(kline_df)
+        valuations = _df_to_json(val_df)
+        indicators = _df_to_json(indicators_df)
+
+        # Latest close price & basic stats
+        latest_bar = kline_bars[-1] if kline_bars else {}
+        latest_val = valuations[-1] if valuations else {}
+
+        return jsonify(
+            {
+                "symbol": symbol,
+                "latest_price": latest_bar.get("close", 0),
+                "latest_date": latest_bar.get("trade_date", ""),
+                "kline_bars": kline_bars,
+                "valuations": valuations[-10:] if len(valuations) > 10 else valuations,
+                "indicators": indicators[-10:] if len(indicators) > 10 else indicators,
+                "pe": latest_val.get("pe", 0),
+                "pb": latest_val.get("pb", 0),
+                "market_cap": latest_val.get("market_cap", 0),
+            }
+        ), 200
+    except Exception as exc:
+        return jsonify({"error": str(exc), "status": 500}), 500
+
+
+# ---------------------------------------------------------------------------
+# GET /api/v1/market/strategies
+# ---------------------------------------------------------------------------
+
+
+@bp.route("/market/strategies")
+def list_strategies() -> tuple[Response, int]:
+    """Return the list of available backtest strategies."""
+    return jsonify({"strategies": AVAILABLE_STRATEGIES}), 200
