@@ -3,6 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+REPO_ENV="${REPO_ROOT}/.env"
 
 MODE="continue"
 EXTRA_INSTRUCTION=""
@@ -63,6 +64,13 @@ case "${MODE}" in
     exit 2
     ;;
 esac
+
+if [[ -f "${REPO_ENV}" ]]; then
+  set -a
+  # shellcheck disable=SC1090
+  source "${REPO_ENV}"
+  set +a
+fi
 
 read -r -d '' PROMPT <<EOF || true
 ${MODE_INSTRUCTION}

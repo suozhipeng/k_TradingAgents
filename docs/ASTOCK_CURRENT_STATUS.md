@@ -100,8 +100,13 @@ Phase 11 执行层增加了额外的安全边界：
 ### P0
 
 - 真实 LLM 与确定性验证 LLM 已通过 `RuntimeProfile` 形成强制隔离，
-  且 `live_research` 启动链已部署；当前主机仍缺实际 provider 环境变量 /
-  API key 注入，因此还未完成真实 live 调用验证。
+  且 `live_research` 启动链已部署。
+- **环境变量注入已确认**：`.env` 包含 `DEEPSEEK_API_KEY`（35 字符有效值），
+  `check_astock_live_research_env.py` 验证通过。
+- **DeepSeek 实时 API 调用已验证**：`POST https://api.deepseek.com/chat/completions`
+  返回 HTTP 200。
+- **当前待完成**：运行完整的 A 股 `run-analysis` pipeline 端到端验证
+  （从 ticker 输入到 advisory chain 输出）。
 
 ### P1
 
