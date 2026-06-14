@@ -152,3 +152,6 @@ N/A — Phase 11 是当前 roadmap 最后一个 delivery phase。
   passed (68 Phase 11 + 49 Phase 10 regression). Codex acceptance audit
   passed. Safety mode is default and mandatory. No unsafe execution paths
   introduced.
+- 2026-06-14: Follow-up close-out commit `6386cd2` — updated status docs
+  (ASTOCK_CURRENT_STATUS.md, phases/README.md) and added pandas import
+  guard to QMT execution tests. 145 Phase 11 regression tests passed.
