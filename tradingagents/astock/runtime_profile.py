@@ -1,15 +1,25 @@
-"""Explicit runtime profile configuration for the A-share research-only chain.
+"""Explicit runtime profile configuration for the A-share research-and-execution chain.
 
-Two profiles are defined:
+Three profiles are defined:
 
 - ``deterministic_verification`` — Uses BridgeLLM. Allowed only for tests,
   fixtures, and offline demonstrations. Must identify itself in metadata.
 - ``live_research`` — Requires explicit injected/configured LLM clients.
   Fails closed when required clients are unavailable. Must not fall back to
   BridgeLLM.
+- ``production_execution`` — (Phase 11) Live execution mode. Permits
+  order placement through the QMT bridge with ATR stop-loss and safety
+  mode enforcement.
 
-These profiles are deliberately separate from any production-execution profile,
-which is not implemented until Phase 11.
+Profile legality
+----------------
+- Phase 09 research profiles: ``deterministic_verification``, ``live_research``.
+- Phase 10 paper-trading profiles: same as Phase 09 (paper trading is
+  still research-only).
+- Phase 11 controlled execution: ``production_execution`` is the only
+  profile with ``is_phase11_legal == True``.
+- Phase 09/10 profiles and Phase 11 profile are **mutually exclusive**:
+  a session cannot be simultaneously research-only and execution.
 """
 
 from __future__ import annotations
@@ -21,14 +31,17 @@ from typing import Any, Dict, Literal, Optional
 class RuntimeProfile(str, Enum):
     """Named runtime profiles for the A-share advisory chain.
 
-    Only ``DETERMINISTIC_VERIFICATION`` and ``LIVE_RESEARCH`` are valid for
-    Phase 09.  ``PRODUCTION_EXECUTION`` is reserved for Phase 11 and MUST NOT
-    be used in Phase 09.
+    ``DETERMINISTIC_VERIFICATION`` and ``LIVE_RESEARCH`` are valid for
+    Phase 09 and Phase 10 (research-only).  ``PRODUCTION_EXECUTION`` is
+    valid for Phase 11 (controlled execution) and MUST NOT be used in
+    earlier phases.
+
+    Profile legality is **mutually exclusive** across phases.
     """
 
     DETERMINISTIC_VERIFICATION = "deterministic_verification"
     LIVE_RESEARCH = "live_research"
-    PRODUCTION_EXECUTION = "production_execution"  # reserved; not used in Phase 09
+    PRODUCTION_EXECUTION = "production_execution"  # Phase 11: controlled execution
 
     @property
     def allows_bridge_llm(self) -> bool:
@@ -46,22 +59,51 @@ class RuntimeProfile(str, Enum):
         return self in (RuntimeProfile.DETERMINISTIC_VERIFICATION, RuntimeProfile.LIVE_RESEARCH)
 
     @property
+    def is_phase10_legal(self) -> bool:
+        """Return True when the profile is permitted in Phase 10 (paper trading).
+
+        Paper trading is still research-only, so the same profiles as
+        Phase 09 are legal.
+        """
+        return self in (RuntimeProfile.DETERMINISTIC_VERIFICATION, RuntimeProfile.LIVE_RESEARCH)
+
+    @property
+    def is_phase11_legal(self) -> bool:
+        """Return True when the profile is permitted in Phase 11 (controlled execution).
+
+        Only ``PRODUCTION_EXECUTION`` is Phase 11-legal.  This is mutually
+        exclusive with Phase 09/10 profiles: a Phase 11 session cannot
+        simultaneously be research-only.
+        """
+        return self == RuntimeProfile.PRODUCTION_EXECUTION
+
+    @property
     def decision_scope(self) -> str:
         """Return the decision_scope string used in report metadata."""
         if self == RuntimeProfile.DETERMINISTIC_VERIFICATION:
             return "research_only"
         if self == RuntimeProfile.LIVE_RESEARCH:
             return "research_only"
-        return "execution"  # Phase 11+
+        return "execution"  # Phase 11+ (PRODUCTION_EXECUTION)
 
     @property
     def actionable(self) -> bool:
-        """Return False for every Phase 09 profile."""
-        return False
+        """Return True only for execution-capable profiles.
+
+        Phase 09/10 profiles are always non-actionable (research-only).
+        Phase 11 ``PRODUCTION_EXECUTION`` is actionable.
+        """
+        return self == RuntimeProfile.PRODUCTION_EXECUTION
 
     @property
-    def execution_signal(self) -> Literal["ResearchOnly"]:
-        """Return ``ResearchOnly`` for every Phase 09 profile."""
+    def execution_signal(self) -> Literal["ResearchOnly", "Execution"]:
+        """Return the execution signal for this profile.
+
+        Phase 09/10 profiles return ``"ResearchOnly"``.
+        Phase 11 ``PRODUCTION_EXECUTION`` returns ``"Execution"``.
+        """
+        if self == RuntimeProfile.PRODUCTION_EXECUTION:
+            return "Execution"
         return "ResearchOnly"
 
 
@@ -80,6 +122,9 @@ def profile_metadata(profile: RuntimeProfile) -> Dict[str, Any]:
         "runtime_profile": profile.value,
         "allows_bridge_llm": profile.allows_bridge_llm,
         "requires_real_llm": profile.requires_real_llm,
+        "is_phase09_legal": profile.is_phase09_legal,
+        "is_phase10_legal": profile.is_phase10_legal,
+        "is_phase11_legal": profile.is_phase11_legal,
         "decision_scope": profile.decision_scope,
         "actionable": profile.actionable,
         "execution_signal": profile.execution_signal,
@@ -100,8 +145,7 @@ def resolve_profile(
         * If ``has_bridge_llm`` is True → ``DETERMINISTIC_VERIFICATION``
         * Otherwise → ``DETERMINISTIC_VERIFICATION`` (default safe profile)
 
-    This function is deliberately simple and predictable.  Profile selection
-    is never implicit during a live_research run.
+    Note: ``PRODUCTION_EXECUTION`` can only be selected via ``profile_override``.
     """
     if profile_override is not None:
         return profile_override

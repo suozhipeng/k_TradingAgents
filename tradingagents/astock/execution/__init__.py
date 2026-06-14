@@ -1,7 +1,9 @@
-"""A-share execution subpackage — backtest, paper trading, and risk gate.
+"""A-share execution subpackage — backtest, paper trading, risk gate, and QMT bridge.
 
 All models in this subpackage carry ``actionable=false`` and
-``execution_signal="ResearchOnly"``.  No code here may place a real order.
+``execution_signal=\"ResearchOnly\"`` unless the Phase 11 QMT execution
+engine is explicitly configured.  No code here may place a real order
+without going through the ``QmtExecutionEngine`` safety gates.
 """
 
 from __future__ import annotations
@@ -16,7 +18,15 @@ from .metrics import (
     summarize_metrics,
 )
 from .paper_trader import PaperTradeState, PaperTrader
-from .risk_gate import RiskGate, RiskGateResult
+from .qmt_bridge import QmtBridge, QmtBridgeConfig
+from .qmt_execution import ExecutionMode, QmtExecutionConfig, QmtExecutionEngine
+from .risk_gate import (
+    ATRStopLoss,
+    RiskGate,
+    RiskGateResult,
+    TrailingStop,
+    calculate_atr,
+)
 from .strategy_base import MovingAverageTrendStrategy, StrategyBase
 
 __all__ = [
@@ -35,4 +45,12 @@ __all__ = [
     "PaperTrader",
     "RiskGate",
     "RiskGateResult",
+    "ATRStopLoss",
+    "TrailingStop",
+    "calculate_atr",
+    "QmtBridge",
+    "QmtBridgeConfig",
+    "QmtExecutionConfig",
+    "QmtExecutionEngine",
+    "ExecutionMode",
 ]
