@@ -229,6 +229,13 @@ project-manager mode and forces one terminal state:
 - `BLOCKED_ON_HUMAN_INPUT`
 - `BLOCKED_ON_ENVIRONMENT`
 
+When all numbered phases are already complete, the phase loop must
+automatically switch into backlog / maintenance mode instead of stopping
+simply because no `Phase 12` exists yet. In that mode, Hermes should continue
+from the highest-priority documented gap in `docs/ASTOCK_CURRENT_STATUS.md`,
+then from uncommitted or unpushed accepted work, and only then ask for a human
+decision.
+
 Recommended cron job:
 
 ```bash

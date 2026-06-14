@@ -6,7 +6,6 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 MODE="continue"
 EXTRA_INSTRUCTION=""
-SKILLS="astock-rollout-orchestrator,ecc-readonly-review"
 
 usage() {
   cat <<'EOF'
@@ -73,7 +72,8 @@ ${REPO_ROOT}
 
 Mandatory rules:
 - Follow AGENTS.md, docs/HERMES_SKILLS_PLAYBOOK.md, docs/HERMES_CODEX_DEEPSEEK_WORKFLOW.md, docs/phases/README.md, and docs/ASTOCK_CURRENT_STATUS.md.
-- Use astock-rollout-orchestrator for stage control.
+- Treat the repo-local skills declared in AGENTS.md and docs/HERMES_SKILLS_PLAYBOOK.md as the project playbook even if Hermes global skill registry does not list those names explicitly.
+- Use astock-rollout-orchestrator semantics for stage control.
 - Use the narrow Hermes-only exception only for doc-only factual reconciliation.
 - Do not imply or invent a Codex accept verdict.
 - Do not change docs/phases/README.md status vocabulary unless the repo contract is explicitly changed first.
@@ -81,6 +81,19 @@ Mandatory rules:
 - If a Codex gate is required, stop before acceptance and output BLOCKED_ON_CODEX with the exact review packet.
 - If a human decision or credential is required, output BLOCKED_ON_HUMAN_INPUT or BLOCKED_ON_ENVIRONMENT.
 - If you successfully move the phase forward without needing Codex or human input, output PHASE_ADVANCED.
+- If all numbered phases in docs/phases/README.md are complete, do NOT stop only because there is no "Phase 12".
+  In that case, automatically switch to backlog / maintenance mode and continue from the highest-priority documented gap in docs/ASTOCK_CURRENT_STATUS.md section 5 or other explicit repo TODO evidence.
+- Only output BLOCKED_ON_HUMAN_INPUT when the next smallest action truly requires a human product decision, approval, missing credential, or an undocumented new scope.
+- Treat branch drift as actionable project state:
+  - if the branch is ahead of origin, mention the exact ahead count and whether pushing is the next smallest action
+  - if there are uncommitted tracked changes, mention them explicitly
+  - if there are untracked phase docs or implementation files, inspect whether they represent unfinished repo work before concluding the roadmap is complete
+
+Reasoning priority:
+1. Active blocked phase work
+2. Uncommitted or unpushed accepted work
+3. Highest-priority documented gap (P0 before P1 before P2)
+4. Only then human-defined new scope
 
 Required output shape:
 1. Current phase state
@@ -98,4 +111,4 @@ ${EXTRA_INSTRUCTION}
 EOF
 
 cd "${REPO_ROOT}"
-exec hermes --oneshot "${PROMPT}" --skills "${SKILLS}" --accept-hooks
+exec hermes --oneshot "${PROMPT}" --accept-hooks
