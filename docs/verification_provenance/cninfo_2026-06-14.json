@@ -1,0 +1,15 @@
+{
+  "capabilities": [
+    "announcement_full",
+    "announcement_summary"
+  ],
+  "evidence_ref": "docs/phases/phase-04-research-graph.md",
+  "fail_count": 0,
+  "pass_count": 0,
+  "platform": "macOS-26.0-arm64-arm-64bit-Mach-O",
+  "python_version": "3.13.9",
+  "skip_count": 0,
+  "test_command": "ASTOCK_RUN_LIVE_TESTS=1 python3 -m pytest -q tests/test_astock_live_providers.py -m integration",
+  "verified_at_commit": "cbcc5f3ca5e0cde9af9d3e226e986b4c16ed3238",
+  "verified_on": "2026-06-14"
+}

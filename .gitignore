@@ -232,6 +232,5 @@ webui/dist/
 
 # Hermes/local archives and runtime dumps
 hermes-*-profile-*.tar.gz
-.hermes/
 
 /webui/dist/
