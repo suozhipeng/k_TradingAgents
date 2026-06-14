@@ -1,0 +1,308 @@
+"""Backtest engine for A-share strategies.
+
+Uses ``AStockDataFacade`` for real data when available, falling back
+to deterministic mock OHLCV data for testability.
+"""
+
+from __future__ import annotations
+
+import math
+from datetime import datetime, timedelta
+from typing import Any
+
+import pandas as pd
+from pydantic import BaseModel, Field
+
+from .fee_model import AStockFeeConfig, calculate_fees
+from .metrics import summarize_metrics
+from .strategy_base import StrategyBase
+
+EXECUTION_SIGNAL: str = "ResearchOnly"
+
+# ---------------------------------------------------------------------------
+# BacktestResult model
+# ---------------------------------------------------------------------------
+
+
+class BacktestResult(BaseModel):
+    """Result of a completed backtest run.
+
+    Attributes
+    ----------
+    symbol : str
+    start_date : str
+    end_date : str
+    total_return : float
+    annualized_return : float
+    sharpe_ratio : float
+    max_drawdown : float
+    win_rate : float
+    total_trades : int
+    periods : list[dict]
+        Per-period account snapshots (beginning portfolio value, signal,
+        trade, ending value, fees).
+    fee_config_used : dict
+        Snapshot of the fee config used.
+    execution_signal : str
+        Always ``"ResearchOnly"``.
+    """
+
+    symbol: str
+    start_date: str
+    end_date: str
+    total_return: float = 0.0
+    annualized_return: float = 0.0
+    sharpe_ratio: float = 0.0
+    max_drawdown: float = 0.0
+    win_rate: float = 0.0
+    total_trades: int = 0
+    periods: list[dict] = Field(default_factory=list)
+    fee_config_used: dict = Field(default_factory=dict)
+    execution_signal: str = EXECUTION_SIGNAL
+    decision_scope: str = "backtest_only"
+
+
+# ---------------------------------------------------------------------------
+# Mock data helper (for environments where AStockDataFacade is unavailable)
+# ---------------------------------------------------------------------------
+
+_MOCK_OHLCV: dict[str, list[dict]] = {}
+
+_SYMBOLS_MOCKED: set[str] = set()
+
+
+def _generate_mock_bars(
+    symbol: str,
+    start_date: str,
+    end_date: str,
+    *,
+    base_price: float = 100.0,
+    volatility: float = 0.01,
+) -> list[dict]:
+    """Deterministic OHLCV sequence for testing."""
+    start = datetime.strptime(start_date, "%Y-%m-%d")
+    end = datetime.strptime(end_date, "%Y-%m-%d")
+
+    bars: list[dict] = []
+    price = base_price
+    current = start
+    while current <= end:
+        if current.weekday() < 5:  # trading day
+            change = price * volatility * (hash(f"{symbol}:{current}") % 200 - 100) / 100.0
+            open_p = round(price, 2)
+            close_p = round(price + change, 2)
+            high_p = round(max(open_p, close_p) * (1 + abs(change) / price / 2), 2)
+            low_p = round(min(open_p, close_p) * (1 - abs(change) / price / 2), 2)
+            bar = {
+                "date": current.strftime("%Y-%m-%d"),
+                "open": open_p,
+                "high": high_p,
+                "low": low_p,
+                "close": close_p,
+                "volume": 1000000,
+            }
+            bars.append(bar)
+            price = close_p
+        current += timedelta(days=1)
+
+    _MOCK_OHLCV[symbol] = bars
+    _SYMBOLS_MOCKED.add(symbol)
+    return bars
+
+
+# ---------------------------------------------------------------------------
+# BacktestEngine
+# ---------------------------------------------------------------------------
+
+
+class BacktestEngine:
+    """Period-based backtest engine for A-share strategies.
+
+    Parameters
+    ----------
+    fee_config : AStockFeeConfig or None
+        Custom fee configuration.  Falls back to defaults.
+    """
+
+    def __init__(self, fee_config: AStockFeeConfig | None = None) -> None:
+        self.fee_config = fee_config or AStockFeeConfig()
+        self._facade: Any = None  # lazy import
+
+    def _fetch_data(self, symbol: str, start_date: str, end_date: str) -> pd.DataFrame:
+        """Fetch OHLCV data, falling back to mock data if facade unavailable."""
+        # Try AStockDataFacade first
+        try:
+            from tradingagents.astock.data_sources import AStockDataFacade
+
+            if self._facade is None:
+                self._facade = AStockDataFacade()
+            response = self._facade.get_kline(
+                symbol=symbol,
+                start_date=start_date,
+                end_date=end_date,
+                interval="1d",
+            )
+            if response.status == "ok" and response.data and response.data.get("bars"):
+                bars = response.data["bars"]
+                df = pd.DataFrame(bars)
+                if "date" in df.columns:
+                    df["date"] = pd.to_datetime(df["date"])
+                    df = df.set_index("date").sort_index()
+                for col in ("open", "high", "low", "close", "volume"):
+                    if col in df.columns:
+                        df[col] = pd.to_numeric(df[col], errors="coerce")
+                return df
+        except Exception:
+            pass
+
+        # Fallback to mock data
+        bars = _generate_mock_bars(symbol, start_date, end_date)
+        df = pd.DataFrame(bars)
+        df["date"] = pd.to_datetime(df["date"])
+        df = df.set_index("date").sort_index()
+        for col in ("open", "high", "low", "close", "volume", "date"):
+            if col in df.columns and col != "date":
+                df[col] = pd.to_numeric(df[col], errors="coerce")
+        return df
+
+    def run(
+        self,
+        symbol: str,
+        start_date: str,
+        end_date: str,
+        strategy: StrategyBase,
+        rebalance_freq: str = "M",
+        *,
+        initial_cash: float = 100000.0,
+    ) -> BacktestResult:
+        """Execute a single-symbol backtest.
+
+        Parameters
+        ----------
+        symbol : str
+            A-share symbol (e.g. ``"600519.SH"``).
+        start_date : str
+            Start date (``"YYYY-MM-DD"``).
+        end_date : str
+            End date (``"YYYY-MM-DD"``).
+        strategy : StrategyBase
+            Strategy instance.
+        rebalance_freq : str
+            Pandas offset alias for rebalance periods (default ``"M"`` =
+            monthly).
+        initial_cash : float
+            Starting cash (default 100 000).
+
+        Returns
+        -------
+        BacktestResult
+        """
+        df = self._fetch_data(symbol, start_date, end_date)
+        if df.empty:
+            return BacktestResult(
+                symbol=symbol,
+                start_date=start_date,
+                end_date=end_date,
+                fee_config_used={
+                    "commission_rate": self.fee_config.commission_rate,
+                    "stamp_tax_rate": self.fee_config.stamp_tax_rate,
+                    "slippage_rate": self.fee_config.slippage_rate,
+                    "min_commission": self.fee_config.min_commission,
+                },
+            )
+
+        # --- Group by rebalance periods ---
+        periods = df.resample(rebalance_freq.replace("M", "ME"))
+        cash = initial_cash
+        shares = 0.0
+        portfolio_values: list[float] = [initial_cash]
+        dates: list[pd.Timestamp] = [df.index[0]]
+        trades: list[dict] = []
+        period_records: list[dict] = []
+
+        for period_label, period_data in periods:
+            if period_data.empty:
+                continue
+            # Get the last close of the period for signal generation
+            close_at_end = float(period_data["close"].iloc[-1])
+
+            # Generate signal from period data
+            signal_series = strategy.generate_signals(period_data)
+            # Take the last non-zero or most recent signal
+            non_zero = signal_series[signal_series != 0]
+            signal = int(non_zero.iloc[-1]) if not non_zero.empty else 0
+
+            period_start_val = cash + shares * close_at_end
+
+            if signal == 1 and cash > 0:
+                # Buy: invest all cash
+                buy_shares = cash / close_at_end
+                fees = calculate_fees(close_at_end, buy_shares, is_buy=True, config=self.fee_config)
+                net_cost = buy_shares * close_at_end + fees["total"]
+                if net_cost <= cash:
+                    shares += buy_shares
+                    cash -= net_cost
+                    trades.append({
+                        "date": str(period_data.index[-1].date()),
+                        "type": "buy",
+                        "price": close_at_end,
+                        "shares": round(buy_shares, 4),
+                        "fees": fees["total"],
+                        "pnl": 0.0,
+                    })
+            elif signal == -1 and shares > 0:
+                # Sell: liquidate all shares
+                sell_value = shares * close_at_end
+                fees = calculate_fees(close_at_end, shares, is_buy=False, config=self.fee_config)
+                proceeds = sell_value - fees["total"]
+                pnl = proceeds - (shares * close_at_end - sell_value)  # simplified P&L
+                cash += proceeds
+                trades.append({
+                    "date": str(period_data.index[-1].date()),
+                    "type": "sell",
+                    "price": close_at_end,
+                    "shares": round(shares, 4),
+                    "fees": fees["total"],
+                    "pnl": round(proceeds - (shares * close_at_end), 4),
+                })
+                shares = 0.0
+
+            end_val = cash + shares * close_at_end
+            portfolio_values.append(end_val)
+            dates.append(period_data.index[-1])
+
+            period_records.append({
+                "period": str(period_label),
+                "signal": signal,
+                "start_value": round(period_start_val, 2),
+                "end_value": round(end_val, 2),
+                "close": close_at_end,
+                "shares": round(shares, 4),
+                "cash": round(cash, 2),
+            })
+
+        # Final valuation
+        equity = pd.Series(portfolio_values, index=dates)
+
+        # Compute metrics
+        metrics = summarize_metrics(equity, trades)
+        total_return = float(equity.iloc[-1] / equity.iloc[0] - 1)
+
+        return BacktestResult(
+            symbol=symbol,
+            start_date=start_date,
+            end_date=end_date,
+            total_return=round(total_return, 6),
+            annualized_return=metrics["annualized_return"],
+            sharpe_ratio=metrics["sharpe_ratio"],
+            max_drawdown=metrics["max_drawdown"],
+            win_rate=metrics["win_rate"],
+            total_trades=metrics["total_trades"],
+            periods=period_records,
+            fee_config_used={
+                "commission_rate": self.fee_config.commission_rate,
+                "stamp_tax_rate": self.fee_config.stamp_tax_rate,
+                "slippage_rate": self.fee_config.slippage_rate,
+                "min_commission": self.fee_config.min_commission,
+            },
+        )

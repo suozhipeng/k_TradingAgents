@@ -64,6 +64,16 @@ from .runtime_profile import (
     require_live_research_clients,
     resolve_profile,
 )
+from .execution import (
+    BacktestEngine,
+    BacktestResult,
+    MovingAverageTrendStrategy,
+    PaperTradeState,
+    PaperTrader,
+    RiskGate,
+    RiskGateResult,
+    StrategyBase,
+)
 from .tools import build_astock_tools
 
 __all__ = [
@@ -125,4 +135,13 @@ __all__ = [
     "resolve_profile",
     "require_live_research_clients",
     "LiveResearchMisconfiguredError",
+    # Phase 10 execution subpackage
+    "StrategyBase",
+    "MovingAverageTrendStrategy",
+    "BacktestEngine",
+    "BacktestResult",
+    "PaperTradeState",
+    "PaperTrader",
+    "RiskGate",
+    "RiskGateResult",
 ]
