@@ -1,6 +1,6 @@
 # A 股二次定制开发基线
 
-更新时间：2026-06-14 (Phase 09 advisory chain + rendering + live runtime entry complete)
+|更新时间：2026-06-14 (Phase 10 backtest + paper trading complete → Phase 11 QMT bridge + controlled execution complete, all committed + Codex-accepted)
 
 本文档是 A 股二次定制开发的当前事实基线。后续 Hermes 调度、ECC
 验收和阶段推进优先以本文档为准。
@@ -10,8 +10,10 @@
 
 ## 1. 当前定位
 
-当前系统是一个只读 A 股研究与展示链路，不是完整交易决策链，也不
-包含自动下单能力。
+当前系统是一个支撑全链路 A 股投资工作流的系统：
+- Phase 0-9：只读研究与展示链路
+- Phase 10：回测验证与模拟盘试跑
+- Phase 11：QMT 桥接与受控执行（安全模式默认）
 
 已打通的主路径：
 
@@ -24,31 +26,17 @@ AStockDataRouter
   -> Research Manager
   -> AStockGraphReport
   -> CLI / Streamlit read-only viewer
+  -> Advisory chain (ResearchConclusion → TraderProposal → RiskDecision → PortfolioDecision)
+  -> BacktestEngine / PaperTrader (Phase 10)
+  -> QMTAdapter / QmtExecution (Phase 11, managed mode)
 ```
 
-当前 A 股路径不会进入：
-
-- QMT order placement
-
-但 Phase 09 已新增并接线 A 股 specific advisory 合约链：
-
-```text
-AStockGraphReport
-  -> ResearchConclusion
-  -> TraderProposal
-  -> RiskDecision
-  -> PortfolioDecision
-  -> STOP (ResearchOnly)
-```
-
-当前 Phase 09 已包含 research conclusion 到 portfolio advisory 的状态接线，
-并已在 CLI / Streamlit 只读展示层消费 advisory 字段。该链路仍保持
-`ResearchOnly`，不会进入信号处理、交易记忆或 QMT。
+Phase 11 的默认执行模式是 **safety mode**（人工确认），auto mode 需用户显式开启。QMT 桥接不可用时自动降级到模拟盘路径。所有执行路径均保持 `actionable=false` 和 `execution_signal=ResearchOnly` 标记，直到人工确认放行。
 
 ## 2. 安全边界
 
 `AStockGraphRuntime` 当前仍允许使用确定性的 `BridgeLLM` 做离线验证。
-因此其输出必须标记为：
+因此其研究链路输出必须标记为：
 
 - `decision_scope=research_only`
 - `actionable=false`
@@ -57,6 +45,16 @@ AStockGraphReport
 兼容字段 `final_trade_decision` 只供旧报告结构展示，不代表可执行交易
 决策。`TradingAgentsGraph` 不得把该字段传给通用信号解析器，也不得将
 其写入交易决策记忆。
+
+Phase 11 执行层增加了额外的安全边界：
+
+- **Safety mode（默认）**：每次执行操作需要人工确认（`confirmed=True`）。
+- **Auto mode**：用户显式通过配置或 CLI 参数开启，风险自担。
+- **ATR 止损层**：实时计算 ATR 止损线，触发时自动拒绝下单，不依赖
+  人工判断。
+- **QMT 降级**：QMT 桥接不可用时自动走模拟盘路径，不中断分析链。
+- **一切执行输出均保持 `actionable=false`**：直到 safety mode 下人工
+  确认后才转为可执行信号。
 
 ## 3. Delivery Phase
 
@@ -72,8 +70,8 @@ AStockGraphReport
 | 7 | 展示 schema 与 CLI 渲染 | 完成 |
 | 8 | Streamlit 只读 UI 与 legacy 多市场 viewer | 完成 |
 | 9 | Trader / Risk / Portfolio Manager A 股适配 | 规格完成，实现完成—A 股 advisory chain 接线、CLI/UI 渲染、runtime profile 隔离、62 项回归通过 |
-| 10 | 回测与模拟盘 | 未开始 |
-| 11 | QMT 只读桥接到受控执行 | 未开始 |
+| 10 | 回测与模拟盘 | 完成 |
+| 11 | QMT 只读桥接到受控执行 | 完成 |
 
 ## 4. 已完成能力
 

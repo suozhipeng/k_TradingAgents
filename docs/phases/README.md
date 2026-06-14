@@ -34,8 +34,8 @@ checkpoint.
 | 7 | Display schema and CLI | Complete | [Phase 7](phase-07-schema-cli.md) |
 | 8 | Read-only UI and multi-market viewer | Complete | [Phase 8](phase-08-readonly-viewer.md) |
 | 9 | Trader, Risk, Portfolio Manager adaptation | Implementation complete — advisory chain wiring, CLI/UI rendering, runtime profiles, 62-test regression slice | [Phase 9](phase-09-trader-risk-portfolio.md) |
-| 10 | Backtest and paper trading | Not started | Create from [template](TEMPLATE.md) |
-| 11 | QMT read-only to controlled execution | Not started | Create from [template](TEMPLATE.md) |
+| 10 | Backtest and paper trading | Complete | [Phase 10](phase-10-backtest-paper-trading.md) |
+| 11 | QMT bridge — read-only to controlled execution | Complete | [Phase 11](phase-11-qmt-controlled-execution.md) |
 
 ## Naming
 

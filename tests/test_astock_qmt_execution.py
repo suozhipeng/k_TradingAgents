@@ -13,6 +13,12 @@ from pathlib import Path
 from typing import Any, Dict
 from unittest.mock import MagicMock, patch
 
+try:
+    import pandas as pd  # noqa: F401
+    _HAS_PANDAS = True
+except ImportError:
+    _HAS_PANDAS = False
+
 # ---------------------------------------------------------------------------
 # Direct module imports
 # ---------------------------------------------------------------------------
@@ -389,6 +395,7 @@ class TestATRStopLoss(unittest.TestCase):
 class TestCalculateATR(unittest.TestCase):
     """calculate_atr standalone tests."""
 
+    @unittest.skipIf(not _HAS_PANDAS, "pandas not installed")
     def test_calculate_atr_insufficient_data(self) -> None:
         import pandas as pd
 
@@ -396,6 +403,7 @@ class TestCalculateATR(unittest.TestCase):
         atr = calculate_atr(prices, period=14)
         self.assertEqual(atr, 0.0)
 
+    @unittest.skipIf(not _HAS_PANDAS, "pandas not installed")
     def test_calculate_atr_sufficient_data(self) -> None:
         import pandas as pd
 
@@ -405,6 +413,7 @@ class TestCalculateATR(unittest.TestCase):
         self.assertGreater(atr, 0.0)
         self.assertAlmostEqual(atr, 0.5, delta=0.01)
 
+    @unittest.skipIf(not _HAS_PANDAS, "pandas not installed")
     def test_calculate_atr_flat_prices(self) -> None:
         import pandas as pd
 
