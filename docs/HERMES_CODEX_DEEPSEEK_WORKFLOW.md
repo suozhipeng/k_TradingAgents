@@ -212,6 +212,38 @@ hermes chat -q "Implement the scoped phase work only. Follow AGENTS.md and docs/
   --skills astock-rollout-orchestrator,ecc-self-test
 ```
 
+## Semi-automatic phase loop
+
+For this repository, the preferred low-touch driver is:
+
+```bash
+scripts/hermes_phase_loop.sh --mode continue
+```
+
+Use it when you want Hermes to keep the current phase moving forward without
+rewriting the control prompt every time. The script runs Hermes in one-shot
+project-manager mode and forces one terminal state:
+
+- `PHASE_ADVANCED`
+- `BLOCKED_ON_CODEX`
+- `BLOCKED_ON_HUMAN_INPUT`
+- `BLOCKED_ON_ENVIRONMENT`
+
+Recommended cron job:
+
+```bash
+hermes cron create \
+  --name "tradingagents-phase-loop" \
+  --workdir /Users/szp/Desktop/Code/k-code/ai-lab/TradingAgents \
+  --script /Users/szp/Desktop/Code/k-code/ai-lab/TradingAgents/scripts/hermes_phase_loop.sh \
+  "every 30m"
+```
+
+This keeps Hermes advancing the active phase until it reaches a real gate. When
+the terminal state is `BLOCKED_ON_CODEX`, hand the review packet to Codex. When
+the state is `BLOCKED_ON_HUMAN_INPUT` or `BLOCKED_ON_ENVIRONMENT`, only then is
+human intervention required.
+
 ## Repo-specific rules
 
 - The canonical phase archive remains `docs/phases/`.
