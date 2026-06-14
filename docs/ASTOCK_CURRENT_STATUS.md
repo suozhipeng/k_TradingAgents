@@ -1,6 +1,6 @@
 # A 股二次定制开发基线
 
-|更新时间：2026-06-14 (Phase 10 backtest + paper trading complete → Phase 11 QMT bridge + controlled execution complete, all committed + Codex-accepted)
+|更新时间：2026-06-14 (All 11 phases complete + live end-to-end pipeline verified) 
 
 本文档是 A 股二次定制开发的当前事实基线。后续 Hermes 调度、ECC
 验收和阶段推进优先以本文档为准。
@@ -97,7 +97,7 @@ Phase 11 执行层增加了额外的安全边界：
 
 ## 5. 当前缺口
 
-### P0
+### P0 — 全部完成 ✅
 
 - 真实 LLM 与确定性验证 LLM 已通过 `RuntimeProfile` 形成强制隔离，
   且 `live_research` 启动链已部署。
@@ -105,8 +105,11 @@ Phase 11 执行层增加了额外的安全边界：
   `check_astock_live_research_env.py` 验证通过。
 - **DeepSeek 实时 API 调用已验证**：`POST https://api.deepseek.com/chat/completions`
   返回 HTTP 200。
-- **当前待完成**：运行完整的 A 股 `run-analysis` pipeline 端到端验证
-  （从 ticker 输入到 advisory chain 输出）。
+- **端到端 pipeline 验证已通过**：`scripts/verify_astock_live_pipeline.py` 对 `600519.SH`（贵州茅台）
+  使用真实 DeepSeek 模型运行完整的 research→advisory chain（70 步），
+  全部四个合约输出（ResearchConclusion → TraderProposal → RiskDecision → PortfolioDecision）
+  均正确生成，`actionable=False` / `execution_signal=ResearchOnly` / `decision_scope=research_only`
+  保持不变。
 
 ### P1
 
