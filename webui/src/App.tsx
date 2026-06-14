@@ -4,6 +4,7 @@ import AgentFlow from "./components/AgentFlow";
 import MarkdownReport from "./components/MarkdownReport";
 import ModuleDetail from "./components/ModuleDetail";
 import ModuleTree from "./components/ModuleTree";
+import ReportViewerWrapper from "./components/ReportViewer";
 import RiskPanel from "./components/RiskPanel";
 import rawModules from "./data/modules.json";
 import type { ModuleRecord, ModuleType } from "./types";
@@ -224,20 +225,11 @@ function App() {
         <section id="reports" className="mt-5 panel p-5">
           <SectionHeader
             kicker="Reports"
-            title="Markdown report viewer"
-            description="A static markdown preview that summarizes the current WebUI snapshot."
+            title="A-stock report viewer"
+            description="Paste or upload an AStockGraphReport JSON payload to view a structured report with advisory chain, research sections, provider coverage, and runtime trace."
           />
-          <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.5fr)_minmax(320px,0.5fr)]">
-            <MarkdownReport markdown={reportMarkdown} />
-            <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4">
-              <h3 className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Report metadata</h3>
-              <ul className="mt-4 space-y-2 text-sm text-slate-300">
-                <li>• Source: static JSON snapshot only</li>
-                <li>• Layout: markdown viewer + structured notes</li>
-                <li>• Scope: TradingAgents module map / flow review</li>
-                <li>• Safety: no API calls, no trading actions</li>
-              </ul>
-            </div>
+          <div className="mt-5">
+            <ReportViewerWrapper />
           </div>
         </section>
 

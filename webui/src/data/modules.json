@@ -974,5 +974,34 @@
       "tradingagents/graph/trading_graph.py",
       "tradingagents/default_config.py"
     ]
+  },
+  {
+    "name": "AStockGraphReport 报告查看器",
+    "path": "webui/src/components/ReportViewer.tsx",
+    "type": "cli",
+    "description": "WebUI 内置报告查看器，支持粘贴或上传 AStockGraphReport JSON 并结构化展示标的信息、Advisory Chain（ResearchConclusion → TraderProposal → RiskDecision → PortfolioDecision）、Research Sections、Provider Coverage 与 Runtime Trace。",
+    "inputs": [
+      "AStockGraphReport JSON payload",
+      "文件上传（.json）或文本粘贴"
+    ],
+    "outputs": [
+      "结构化报告展示",
+      "安全标签（actionable / research_only）",
+      "Advisory Chain 卡片",
+      "Research Sections 表格",
+      "Provider Coverage 表格"
+    ],
+    "dependencies": [
+      "webui/src/types.ts (AStockGraphReport type)"
+    ],
+    "risks": [
+      "JSON schema 需手动与 Python AStockGraphReport 同步",
+      "WebUI 不会自动连接到运行时后端——用户须手动提供 JSON"
+    ],
+    "related_files": [
+      "webui/src/components/ReportViewer.tsx",
+      "webui/src/types.ts",
+      "tradingagents/astock/runtime.py"
+    ]
   }
 ]

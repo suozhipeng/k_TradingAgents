@@ -1,6 +1,6 @@
 # A 股二次定制开发基线
 
-|更新时间：2026-06-14 (All 11 phases complete + live end-to-end pipeline verified) 
+| 更新时间：2026-06-14 (All 11 phases complete + live end-to-end pipeline verified + WebUI/Streamlit role clarified) 
 
 本文档是 A 股二次定制开发的当前事实基线。后续 Hermes 调度、ECC
 验收和阶段推进优先以本文档为准。
@@ -117,8 +117,8 @@ Phase 11 执行层增加了额外的安全边界：
   持续同步 A 股模块。
 - Provider `live_verified` 状态需要绑定测试日期和环境证据，不能只保留
   无日期的静态声明。
-- WebUI 静态模块总览与 Streamlit runtime viewer 是两个独立前端，需要
-  明确长期保留策略。
+- WebUI 为产品端入口（静态仪表盘 + 报告查看器），Streamlit 为运行时
+  viewer 后端——角色已明确。两者保持独立代码库，不做全技术合并。
 
 ### P2
 
