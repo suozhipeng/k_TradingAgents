@@ -11,7 +11,7 @@
 - Git branch: `xg_dev`
 - Specification commit SHA: `b57d4a6`
 - Implementation commit SHA: `5b30d73`
-- Follow-up commit SHA: `pending`
+- Follow-up commit SHA: `01bae55`
 
 ## Product objective
 
@@ -311,3 +311,8 @@ python3 -m pytest -q \
 - 2026-06-14: Wired the A-share `live_research` entry through config, CLI, and
   Streamlit; added `.env.example` support plus
   `scripts/check_astock_live_research_env.py`.
+- 2026-06-14: Codex acceptance audit passed. Archive consistency verified,
+  46 contract tests, 62 A-share regression, and 48 deployment regression
+  coverage confirmed. Product boundary (`actionable=false`,
+  `execution_signal=ResearchOnly`, `decision_scope` separation) intact.
+  Follow-up commit SHA corrected to `01bae55`.
