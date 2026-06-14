@@ -49,12 +49,20 @@ def _emit(label, response):
     }, ensure_ascii=False))
 
 
-def _provenance_and_preserve(provider_name, capabilities, evidence_ref="docs/phases/phase-04-research-graph.md"):
-    """Capture provenance for a provider and write it to docs/verification_provenance/."""
+def _provenance_and_preserve(provider_name, capabilities, evidence_ref="docs/phases/phase-04-research-graph.md",
+                            pass_count=0, fail_count=0, skip_count=0):
+    """Capture provenance for a provider and write it to docs/verification_provenance/.
+
+    Should be called from a try/finally or teardown so provenance is captured
+    even when a test assertion fails.
+    """
     prov = capture_verification_provenance(
         test_command="ASTOCK_RUN_LIVE_TESTS=1 python3 -m pytest -q tests/test_astock_live_providers.py -m integration",
         capabilities=tuple(sorted(capabilities)),
         evidence_ref=evidence_ref,
+        pass_count=pass_count,
+        fail_count=fail_count,
+        skip_count=skip_count,
     )
     written_path = preserve_verification_provenance(provider_name, prov)
     print(f"[provenance] wrote {written_path}")

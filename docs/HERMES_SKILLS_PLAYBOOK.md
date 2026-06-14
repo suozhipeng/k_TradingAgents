@@ -62,6 +62,9 @@ Hermes is the project manager for this routing layer. By default in this repo:
 - `DeepSeek` is the default coding engine used by Hermes
 - `Codex` is the independent review gate for decomposition quality, coding
   conclusion verification, and drift correction
+- If Codex is unavailable in the current environment, `Hermes` may perform the
+  review gate itself only under the fallback conditions defined in
+  `docs/HERMES_CODEX_DEEPSEEK_WORKFLOW.md`
 
 See `docs/HERMES_CODEX_DEEPSEEK_WORKFLOW.md` for the full operating loop.
 
@@ -87,6 +90,8 @@ No phase may be marked complete or handed off without a local archive record.
   triage.
 - Codex should issue `accept`, `partial`, or `fail` before Hermes updates the
   phase archive to `complete`.
+- If Codex is unavailable, Hermes may issue the same verdict shape as a
+  clearly labeled `Hermes fallback review` and must record the fallback reason.
 - Narrow exception: Hermes may directly fix doc-only factual mismatches before
   acceptance when no code/tests/status taxonomy/product conclusion changes are
   involved, for example a missing follow-up commit SHA or an objectively wrong

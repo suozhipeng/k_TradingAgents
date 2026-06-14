@@ -121,7 +121,10 @@ Mandatory rules:
 - Do not imply or invent a Codex accept verdict.
 - Do not change docs/phases/README.md status vocabulary unless the repo contract is explicitly changed first.
 - If code or tests must change, package the work for DeepSeek instead of widening scope yourself.
-- If a Codex gate is required, stop before acceptance and output BLOCKED_ON_CODEX with the exact review packet.
+- If a Codex gate is required, prefer Codex review first.
+- If Codex is unavailable in the current environment because of auth failure, service outage, repeated timeout, or explicit operator instruction, perform a clearly labeled Hermes fallback review instead of blocking forever.
+- Never fabricate a Codex verdict when Hermes fallback review is used.
+- Only output BLOCKED_ON_CODEX when Codex review is still the next smallest action and Hermes fallback review is not allowed by the repo rules or current operator instruction.
 - If a human decision or credential is required, output BLOCKED_ON_HUMAN_INPUT or BLOCKED_ON_ENVIRONMENT.
 - If you successfully move the phase forward without needing Codex or human input, output PHASE_ADVANCED.
 - If all numbered phases in docs/phases/README.md are complete, do NOT stop only because there is no "Phase 12".
@@ -154,7 +157,7 @@ Required output shape:
 2. Next smallest action
 3. Exact files involved
 4. Whether DeepSeek is needed
-5. Whether Codex is needed
+5. Whether Codex review or Hermes fallback review is needed
 6. Final status line containing exactly one of:
    PHASE_ADVANCED
    BLOCKED_ON_CODEX

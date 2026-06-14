@@ -104,6 +104,27 @@ Codex should prioritize:
    - commit the approved changes to the Git repository
    - record the final commit SHA
 
+## Fallback review gate
+
+Codex remains the default reviewer. If Codex is unavailable in the current
+environment, Hermes may perform the acceptance review itself only under all of
+the following conditions:
+
+- the blocking reason is concrete and external, such as auth failure, service
+  outage, repeated timeout, or explicit operator instruction to proceed
+- Hermes records that fallback review was used and why Codex was unavailable
+- Hermes applies the same ECC acceptance criteria it would have requested from
+  Codex: correctness, drift, regression coverage, and documentation alignment
+- Hermes does not fabricate a Codex verdict
+
+In fallback mode, Hermes should emit a verdict in the same shape:
+
+- `accept`
+- `partial`
+- `fail`
+
+and label it clearly as `Hermes fallback review`, not `Codex accept`.
+
 ### Narrow Hermes-only exception
 
 Hermes may directly apply a doc-only factual correction before `Codex accept`
@@ -124,7 +145,8 @@ This exception does not allow Hermes to:
 - alter product decisions, scope, or acceptance criteria
 
 If a requested doc update goes beyond factual reconciliation, return to the
-normal `Hermes -> DeepSeek -> Codex` loop.
+normal `Hermes -> DeepSeek -> Codex` loop, or `Hermes -> DeepSeek -> Hermes
+fallback review` only when the fallback conditions above are met.
 
 The executable helper for the final step is:
 
@@ -153,6 +175,11 @@ Codex must produce a compact verdict with:
 - evidence
 - open risks
 - next required step
+
+If Codex is unavailable and Hermes fallback review is used instead, Hermes
+must produce the same output shape and include one extra line:
+
+- fallback reason
 
 ## Handoff format
 
@@ -256,9 +283,10 @@ hermes cron create \
 ```
 
 This keeps Hermes advancing the active phase until it reaches a real gate. When
-the terminal state is `BLOCKED_ON_CODEX`, hand the review packet to Codex. When
-the state is `BLOCKED_ON_HUMAN_INPUT` or `BLOCKED_ON_ENVIRONMENT`, only then is
-human intervention required.
+the terminal state is `BLOCKED_ON_CODEX`, hand the review packet to Codex
+unless the repo rules or operator instruction allow Hermes fallback review in
+the current environment. When the state is `BLOCKED_ON_HUMAN_INPUT` or
+`BLOCKED_ON_ENVIRONMENT`, only then is human intervention required.
 
 ## Repo-specific rules
 
@@ -268,7 +296,10 @@ human intervention required.
 - `docs/ASTOCK_CURRENT_STATUS.md` remains the current factual repo baseline.
 - A phase may not be closed on DeepSeek output alone.
 - A phase may not be closed on Hermes narration alone.
-- Codex review evidence is part of the acceptance path, not an optional extra.
+- Codex review evidence is part of the default acceptance path, not an
+  optional extra.
+- If Codex is unavailable, Hermes fallback review is allowed only under the
+  explicit fallback gate above and must be labeled as such.
 - Hermes may directly apply doc-only factual reconciliations before acceptance
   only under the narrow exception above.
 - After Codex accepts a committable change set with no blocking issues, Hermes
