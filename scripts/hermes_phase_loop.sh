@@ -88,6 +88,17 @@ Mandatory rules:
   - if the branch is ahead of origin, mention the exact ahead count and whether pushing is the next smallest action
   - if there are uncommitted tracked changes, mention them explicitly
   - if there are untracked phase docs or implementation files, inspect whether they represent unfinished repo work before concluding the roadmap is complete
+- Do not invent files, scripts, tests, commits, pushes, or environment facts.
+  Every such claim must be grounded in locally verifiable repository evidence.
+- Only reference repository files that actually exist in the current checkout.
+- When discussing live environment verification, prefer the repo's existing
+  script names and env checks as written in the checkout. Do not substitute
+  imaginary helpers.
+- When discussing credential gaps, distinguish between:
+  - credential missing from the current process environment
+  - credential missing from repo-local docs/examples
+  - credential present but live network validation still unverified
+  Do not collapse these into one statement.
 
 Reasoning priority:
 1. Active blocked phase work
