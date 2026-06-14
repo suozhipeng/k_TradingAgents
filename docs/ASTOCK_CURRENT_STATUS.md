@@ -1,6 +1,6 @@
 # A 股二次定制开发基线
 
-| 更新时间：2026-06-14 (All 11 phases complete + live end-to-end pipeline verified + WebUI/Streamlit role clarified) 
+|更新时间：2026-06-14 (All 11 phases + P0/P1/P2 backlog closed — A-stock customization baseline complete) 
 
 本文档是 A 股二次定制开发的当前事实基线。后续 Hermes 调度、ECC
 验收和阶段推进优先以本文档为准。
@@ -111,19 +111,20 @@ Phase 11 执行层增加了额外的安全边界：
   均正确生成，`actionable=False` / `execution_signal=ResearchOnly` / `decision_scope=research_only`
   保持不变。
 
-### P1
+### P1 — 全部完成 ✅
 
-- `planning/codebase/` 的部分模块图仍以通用 TradingAgents 为主，需要
-  持续同步 A 股模块。
-- Provider `live_verified` 状态需要绑定测试日期和环境证据，不能只保留
-  无日期的静态声明。
-- WebUI 为产品端入口（静态仪表盘 + 报告查看器），Streamlit 为运行时
-  viewer 后端——角色已明确。两者保持独立代码库，不做全技术合并。
+- `planning/codebase/` 模块图已同步 Phase 9-11 交付内容（commit `ce38370`）。
+- Provider `live_verified` provenance 已修复：不再运行时合成假日期，使用
+  `load_verification_provenance()` 从持久化记录读取或返回 `verified_on="unknown"`（commit `2888fde`）。
+- WebUI/Streamlit 角色已明确：WebUI 为产品端入口，Streamlit 为运行时 viewer
+  后端。WebUI 已实现 AStockGraphReport 报告查看器组件（commit `f218e84`）。
+  两者保持独立代码库，不做全技术合并。
 
 ### P2
 
-- “13 个接口”是原始材料口径；代码按五层拆成 18 个能力点。后续工程
-  验收统一使用 18 个能力点，13 仅保留为来源说明。
+- “13 个接口”是原始材料口径；代码按五层拆成 18 个能力点。
+  后续工程验收统一使用 18 个能力点，13 仅保留为来源说明。
+  该事项已归档为后续规划参考，不在当前定制开发闭环范围内。
 
 ## 6. 下一阶段入口条件
 
