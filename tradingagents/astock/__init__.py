@@ -67,12 +67,18 @@ from .runtime_profile import (
 from .execution import (
     BacktestEngine,
     BacktestResult,
+    BullTrendStrategy,
+    DefensiveMomentumStrategy,
+    MeanReversionStrategy,
     MovingAverageTrendStrategy,
     PaperTradeState,
     PaperTrader,
+    PutWriteStrategy,
+    RSIRangeStrategy,
     RiskGate,
     RiskGateResult,
     StrategyBase,
+    ValueAverageStrategy,
 )
 from .tools import build_astock_tools
 from .store import AStockStore, init_astock_db, KlineLoader, ValuationLoader, BatchLoader
@@ -153,6 +159,12 @@ __all__ = [
     # Phase 10 execution subpackage
     "StrategyBase",
     "MovingAverageTrendStrategy",
+    "BullTrendStrategy",
+    "ValueAverageStrategy",
+    "MeanReversionStrategy",
+    "RSIRangeStrategy",
+    "DefensiveMomentumStrategy",
+    "PutWriteStrategy",
     "BacktestEngine",
     "BacktestResult",
     "PaperTradeState",

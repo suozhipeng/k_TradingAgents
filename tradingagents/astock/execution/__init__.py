@@ -27,11 +27,26 @@ from .risk_gate import (
     TrailingStop,
     calculate_atr,
 )
-from .strategy_base import MovingAverageTrendStrategy, StrategyBase
+from .strategy_base import (
+    BullTrendStrategy,
+    DefensiveMomentumStrategy,
+    MeanReversionStrategy,
+    MovingAverageTrendStrategy,
+    PutWriteStrategy,
+    RSIRangeStrategy,
+    StrategyBase,
+    ValueAverageStrategy,
+)
 
 __all__ = [
     "StrategyBase",
     "MovingAverageTrendStrategy",
+    "BullTrendStrategy",
+    "ValueAverageStrategy",
+    "MeanReversionStrategy",
+    "RSIRangeStrategy",
+    "DefensiveMomentumStrategy",
+    "PutWriteStrategy",
     "AStockFeeConfig",
     "calculate_fees",
     "BacktestEngine",
