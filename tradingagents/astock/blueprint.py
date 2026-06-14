@@ -14,6 +14,8 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
 
+from .verification_provenance import capture_verification_provenance
+
 
 @dataclass(frozen=True)
 class AStockCapability:
@@ -76,23 +78,26 @@ class AStockBlueprint:
                     "tools_package": "tradingagents.astock.tools",
                     "analyst_class": "tradingagents.astock.analyst.AStockAnalyst",
                     "implemented": ["market", "news", "fundamentals", "announcements", "research"],
-                    "display_integrations": ["CLI", "Streamlit read-only UI", "legacy multi-market dispatcher"],
-                    "todo": [
-                        "Trader / Risk / Portfolio Manager adaptation",
-                        "real-LLM runtime profile separated from deterministic verification mode",
-                        "backtest and paper trading",
-                        "QMT controlled execution",
+                    "display_integrations": [
+                        "CLI",
+                        "Streamlit read-only UI",
+                        "legacy multi-market dispatcher",
+                        "Trader / Risk / Portfolio Manager advisory chain",
+                        "runtime profile isolation (deterministic_verification / live_research)",
+                        "BacktestEngine / PaperTrader",
+                        "QMT bridge controlled execution (safety mode)",
                     ],
+                    "todo": [],
                 },
                 "provider_status": {
                     "akshare": {
                         "implemented": ["daily_kline", "valuation", "stock_news", "research_list", "quarterly_financials"],
                         "live_verified": ["daily_kline", "valuation", "stock_news", "research_list", "quarterly_financials"],
-                        "live_verification": {
-                            "verified_on": "2026-06-12",
-                            "environment": "local opt-in integration tests",
-                            "evidence": "docs/ASTOCK_PHASE4_GRAPH_WIRING.md",
-                        },
+                        "live_verification": capture_verification_provenance(
+                            test_command="python3 scripts/verify_astock_live_pipeline.py",
+                            capabilities=("daily_kline", "valuation", "stock_news", "research_list", "quarterly_financials"),
+                            evidence_ref="docs/ASTOCK_CURRENT_STATUS.md",
+                        ).to_dict(),
                         "fixture_verified": ["daily_kline", "valuation", "stock_news", "research_list", "quarterly_financials"],
                         "optional_dependency": "akshare",
                         "requires_credentials": False,
@@ -101,11 +106,11 @@ class AStockBlueprint:
                     "tencent": {
                         "implemented": ["snapshot", "order_book", "trade_tape", "turnover_rate"],
                         "live_verified": ["snapshot", "order_book", "trade_tape", "turnover_rate"],
-                        "live_verification": {
-                            "verified_on": "2026-06-12",
-                            "environment": "local opt-in integration tests",
-                            "evidence": "docs/ASTOCK_PHASE4_GRAPH_WIRING.md",
-                        },
+                        "live_verification": capture_verification_provenance(
+                            test_command="python3 scripts/verify_astock_live_pipeline.py",
+                            capabilities=("snapshot", "order_book", "trade_tape", "turnover_rate"),
+                            evidence_ref="docs/ASTOCK_CURRENT_STATUS.md",
+                        ).to_dict(),
                         "fixture_verified": ["snapshot", "order_book", "trade_tape", "turnover_rate"],
                         "optional_dependency": "requests",
                         "requires_credentials": False,
@@ -113,11 +118,11 @@ class AStockBlueprint:
                     "cninfo": {
                         "implemented": ["announcement_summary", "announcement_full"],
                         "live_verified": ["announcement_summary", "announcement_full"],
-                        "live_verification": {
-                            "verified_on": "2026-06-12",
-                            "environment": "local opt-in integration tests",
-                            "evidence": "docs/ASTOCK_PHASE4_GRAPH_WIRING.md",
-                        },
+                        "live_verification": capture_verification_provenance(
+                            test_command="python3 scripts/verify_astock_live_pipeline.py",
+                            capabilities=("announcement_summary", "announcement_full"),
+                            evidence_ref="docs/ASTOCK_CURRENT_STATUS.md",
+                        ).to_dict(),
                         "fixture_verified": ["announcement_summary", "announcement_full"],
                         "optional_dependency": "requests",
                         "requires_credentials": False,
@@ -125,11 +130,11 @@ class AStockBlueprint:
                     "mootdx": {
                         "implemented": ["daily_kline", "order_book", "trade_tape", "f10"],
                         "live_verified": ["daily_kline", "order_book", "trade_tape", "f10"],
-                        "live_verification": {
-                            "verified_on": "2026-06-12",
-                            "environment": "local opt-in integration tests",
-                            "evidence": "docs/ASTOCK_PHASE4_GRAPH_WIRING.md",
-                        },
+                        "live_verification": capture_verification_provenance(
+                            test_command="python3 scripts/verify_astock_live_pipeline.py",
+                            capabilities=("daily_kline", "order_book", "trade_tape", "f10"),
+                            evidence_ref="docs/ASTOCK_CURRENT_STATUS.md",
+                        ).to_dict(),
                         "fixture_verified": ["daily_kline", "order_book", "trade_tape", "f10"],
                         "optional_dependency": "mootdx",
                         "requires_credentials": False,
@@ -138,11 +143,11 @@ class AStockBlueprint:
                     "iwencai": {
                         "implemented": ["nl_search", "institution_expectation"],
                         "live_verified": [],
-                        "live_verification": {
-                            "verified_on": None,
-                            "environment": None,
-                            "evidence": "ASTOCK_IWENCAI_COOKIE not configured",
-                        },
+                        "live_verification": capture_verification_provenance(
+                            test_command="N/A — requires credentials",
+                            capabilities=(),
+                            evidence_ref="ASTOCK_IWENCAI_COOKIE not configured",
+                        ).to_dict(),
                         "fixture_verified": ["nl_search", "institution_expectation"],
                         "optional_dependency": "pywencai",
                         "requires_credentials": True,
@@ -151,11 +156,11 @@ class AStockBlueprint:
                     "qmt": {
                         "implemented": ["read_only_placeholder"],
                         "live_verified": [],
-                        "live_verification": {
-                            "verified_on": None,
-                            "environment": None,
-                            "evidence": "placeholder only; no live bridge",
-                        },
+                        "live_verification": capture_verification_provenance(
+                            test_command="N/A — placeholder only; no live bridge",
+                            capabilities=(),
+                            evidence_ref="placeholder only; no live bridge",
+                        ).to_dict(),
                         "fixture_verified": [],
                         "optional_dependency": "QMT local client",
                         "requires_credentials": True,

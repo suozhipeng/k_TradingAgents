@@ -1,4 +1,7 @@
+import re
 import unittest
+from datetime import date, timedelta
+from pathlib import Path
 
 from cli.models import AssetType
 from cli.utils import detect_asset_type, filter_analysts_for_asset_type
@@ -33,13 +36,22 @@ class AStockBlueprintTests(unittest.TestCase):
         self.assertIn("research", payload["data_entrypoint"]["upper_layer_bridge"]["implemented"])
         self.assertNotIn("research", payload["data_entrypoint"]["upper_layer_bridge"]["todo"])
         self.assertNotIn("announcements", payload["data_entrypoint"]["upper_layer_bridge"]["todo"])
-        self.assertIn(
-            "Trader / Risk / Portfolio Manager adaptation",
-            payload["data_entrypoint"]["upper_layer_bridge"]["todo"],
-        )
+        self.assertEqual(payload["data_entrypoint"]["upper_layer_bridge"]["todo"], [])
         self.assertIn("CLI", payload["data_entrypoint"]["upper_layer_bridge"]["display_integrations"])
         self.assertIn(
             "Streamlit read-only UI",
+            payload["data_entrypoint"]["upper_layer_bridge"]["display_integrations"],
+        )
+        self.assertIn(
+            "Trader / Risk / Portfolio Manager advisory chain",
+            payload["data_entrypoint"]["upper_layer_bridge"]["display_integrations"],
+        )
+        self.assertIn(
+            "BacktestEngine / PaperTrader",
+            payload["data_entrypoint"]["upper_layer_bridge"]["display_integrations"],
+        )
+        self.assertIn(
+            "QMT bridge controlled execution (safety mode)",
             payload["data_entrypoint"]["upper_layer_bridge"]["display_integrations"],
         )
 
@@ -47,17 +59,68 @@ class AStockBlueprintTests(unittest.TestCase):
         status = build_blueprint_payload()["data_entrypoint"]["provider_status"]
         self.assertIn("valuation", status["akshare"]["implemented"])
         self.assertIn("valuation", status["akshare"]["live_verified"])
-        self.assertEqual(status["akshare"]["live_verification"]["verified_on"], "2026-06-12")
+        lv = status["akshare"]["live_verification"]
+        self.assertIn("verified_on", lv)
+        self.assertIn("verified_at_commit", lv)
+        self.assertIn("evidence_ref", lv)
         self.assertIn(
-            "ASTOCK_PHASE4_GRAPH_WIRING.md",
-            status["akshare"]["live_verification"]["evidence"],
+            "ASTOCK_CURRENT_STATUS.md",
+            lv["evidence_ref"],
         )
         self.assertTrue(status["iwencai"]["requires_credentials"])
         self.assertEqual(status["iwencai"]["live_verified"], [])
-        self.assertIsNone(status["iwencai"]["live_verification"]["verified_on"])
+        iw_lv = status["iwencai"]["live_verification"]
+        self.assertEqual(iw_lv["capabilities"], [])
         self.assertIn("mootdx", status["mootdx"]["optional_dependency"])
         self.assertIn("f10", status["mootdx"]["fixture_verified"])
         self.assertIn("f10", status["mootdx"]["live_verified"])
+
+    def test_provider_live_verification_provenance_schema(self):
+        """Validate provenance schema for all providers with non-empty live_verified."""
+        status = build_blueprint_payload()["data_entrypoint"]["provider_status"]
+        iso_date_re = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+        for pname, ps in status.items():
+            lv = ps.get("live_verification", {})
+            live_verified = ps.get("live_verified", [])
+            if not live_verified:
+                # Providers without live capabilities may still have a provenance
+                # frame with empty capabilities — that's valid.
+                self.assertEqual(lv.get("capabilities"), [])
+                continue
+            self.assertRegex(lv.get("verified_on", ""), iso_date_re)
+            self.assertNotEqual(lv.get("verified_at_commit", ""), "")
+            self.assertNotEqual(lv.get("test_command", ""), "")
+            caps = lv.get("capabilities", [])
+            self.assertIsInstance(caps, list)
+            self.assertGreater(len(caps), 0)
+            self.assertNotEqual(lv.get("platform", ""), "")
+            evidence_ref = lv.get("evidence_ref", "")
+            if evidence_ref and "/" in evidence_ref:
+                # File-path evidence must exist in the repo checkout
+                evidence_path = Path(evidence_ref)
+                self.assertTrue(
+                    evidence_path.exists(),
+                    f"evidence_ref '{evidence_ref}' for provider '{pname}' does not exist",
+                )
+
+    def test_provider_live_verification_date_recent(self):
+        """Assert verified_on is within 90 days of today for providers with live_verified."""
+        status = build_blueprint_payload()["data_entrypoint"]["provider_status"]
+        today = date.today()
+        cutoff = today - timedelta(days=90)
+        for pname, ps in status.items():
+            lv = ps.get("live_verification", {})
+            live_verified = ps.get("live_verified", [])
+            if not live_verified:
+                continue
+            verified_on_str = lv.get("verified_on", "")
+            if verified_on_str:
+                verified_on = date.fromisoformat(verified_on_str)
+                self.assertGreaterEqual(
+                    verified_on,
+                    cutoff,
+                    f"Provider '{pname}' verified_on {verified_on_str} is older than 90 days",
+                )
 
     def test_benchmark_map_includes_a_share_suffixes(self):
         benchmark_map = DEFAULT_CONFIG["benchmark_map"]
