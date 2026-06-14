@@ -87,6 +87,10 @@ No phase may be marked complete or handed off without a local archive record.
   triage.
 - Codex should issue `accept`, `partial`, or `fail` before Hermes updates the
   phase archive to `complete`.
+- Narrow exception: Hermes may directly fix doc-only factual mismatches before
+  acceptance when no code/tests/status taxonomy/product conclusion changes are
+  involved, for example a missing follow-up commit SHA or an objectively wrong
+  archive field.
 - When Codex issues `accept` and the worktree is committable, Hermes should
   commit the approved changes to the Git repository before handoff.
 - `scripts/hermes_codex_git_gate.py` is the executable helper for that final

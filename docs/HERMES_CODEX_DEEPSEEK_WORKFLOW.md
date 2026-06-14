@@ -28,6 +28,8 @@ Hermes owns:
 - progress tracking and next-step scheduling
 - packaging the coding brief for DeepSeek
 - collecting changed files, test evidence, and open risks
+- applying narrow factual doc corrections when no code/test/product conclusion
+  changes are involved
 - updating durable phase artifacts after Codex acceptance
 
 Hermes must not:
@@ -101,6 +103,28 @@ Codex should prioritize:
    - update `docs/ASTOCK_CURRENT_STATUS.md` if repo status changed
    - commit the approved changes to the Git repository
    - record the final commit SHA
+
+### Narrow Hermes-only exception
+
+Hermes may directly apply a doc-only factual correction before `Codex accept`
+when all of the following are true:
+
+- no Python source or tests change
+- no product boundary, acceptance conclusion, or status taxonomy changes
+- the edit only reconciles already-confirmed facts, such as:
+  - filling in a known commit SHA
+  - correcting a date, filename, or command reference
+  - fixing an archive field that is objectively inconsistent with `git log`
+
+This exception does not allow Hermes to:
+
+- mark a phase complete
+- add or imply a Codex `accept` verdict
+- change `docs/phases/README.md` status vocabulary
+- alter product decisions, scope, or acceptance criteria
+
+If a requested doc update goes beyond factual reconciliation, return to the
+normal `Hermes -> DeepSeek -> Codex` loop.
 
 The executable helper for the final step is:
 
@@ -197,6 +221,8 @@ hermes chat -q "Implement the scoped phase work only. Follow AGENTS.md and docs/
 - A phase may not be closed on DeepSeek output alone.
 - A phase may not be closed on Hermes narration alone.
 - Codex review evidence is part of the acceptance path, not an optional extra.
+- Hermes may directly apply doc-only factual reconciliations before acceptance
+  only under the narrow exception above.
 - After Codex accepts a committable change set with no blocking issues, Hermes
   must create the Git commit before handoff.
 - Use `scripts/hermes_codex_git_gate.py` when you want the Codex-accept ->
@@ -210,6 +236,10 @@ If Codex rejects the current result, Hermes must explicitly state:
 - which files or tests were insufficient
 - whether the issue is scope drift, missing implementation, or weak evidence
 - what exact correction DeepSeek must make next
+
+Pure doc-only factual reconciliation remains the only exception: when the fix
+does not change code, tests, product meaning, or acceptance status, Hermes may
+apply it directly and then return to Codex for review of the corrected record.
 
 Do not continue to the next phase until the rejected issue is either corrected
 or explicitly re-scoped by the human owner.

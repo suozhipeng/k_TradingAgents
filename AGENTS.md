@@ -43,7 +43,8 @@ Project-local skills are installed in `skills/` and should be treated as the def
 2. Hermes dispatches coding work to DeepSeek with the relevant repo-local skills.
 3. Codex reviews the task split, changed files, test evidence, and product conclusion before the phase is accepted.
 4. If Codex finds drift, missing tests, or unsupported conclusions, the task returns to Hermes for re-planning and DeepSeek rework.
-5. Only after Codex acceptance may Hermes mark the phase complete, update `docs/phases/`, commit the approved changes to the Git repository, and then hand off.
+5. Narrow exception: Hermes may directly fix doc-only factual mismatches before Codex acceptance when no code, tests, product conclusion, or status taxonomy changes are involved.
+6. Only after Codex acceptance may Hermes mark the phase complete, update `docs/phases/`, commit the approved changes to the Git repository, and then hand off.
 
 See `docs/HERMES_CODEX_DEEPSEEK_WORKFLOW.md` for the durable operating procedure.
 
