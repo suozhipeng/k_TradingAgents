@@ -93,12 +93,14 @@ def create_app(
     from . import routes_paper
     from . import routes_market
     from . import routes_qmt
+    from . import routes_sse
 
     app.register_blueprint(routes_data.bp, url_prefix="/api/v1")
     app.register_blueprint(routes_backtest.bp, url_prefix="/api/v1")
     app.register_blueprint(routes_paper.bp, url_prefix="/api/v1")
     app.register_blueprint(routes_market.bp, url_prefix="/api/v1")
     app.register_blueprint(routes_qmt.bp, url_prefix="/api/v1")
+    app.register_blueprint(routes_sse.bp, url_prefix="/api/v1")
 
     # -- Health check ---------------------------------------------------------
     @app.route("/api/v1/health")

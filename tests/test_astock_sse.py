@@ -1,0 +1,173 @@
+"""SSE / EventBus tests — at least 2 tests.
+
+Tests verify:
+1. EventBus publish/poll/peek/clear work correctly
+2. SSE route structure (blueprint registration, response type)
+"""
+
+from __future__ import annotations
+
+import importlib.util
+import json
+import sys
+import unittest
+from pathlib import Path
+
+import pandas as pd
+
+_REPO = Path(__file__).resolve().parent.parent
+_EXEC = _REPO / "tradingagents" / "astock" / "execution"
+_API = _REPO / "tradingagents" / "astock" / "api"
+_PKG_PARENT_EXEC = "tradingagents.astock.execution"
+_PKG_PARENT_API = "tradingagents.astock.api"
+
+
+def _load_submodule(rel_name: str, path_root: Path, pkg_parent: str):
+    fname = rel_name + ".py"
+    full_name = f"{pkg_parent}.{rel_name}"
+    path = str(path_root / fname)
+    spec = importlib.util.spec_from_file_location(full_name, path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Cannot load {full_name} from {path}")
+    for parent in ("tradingagents", "tradingagents.astock"):
+        if parent not in sys.modules:
+            pkg_spec = importlib.util.spec_from_loader(parent, loader=None, is_package=True)
+            parent_mod = importlib.util.module_from_spec(pkg_spec)
+            parent_mod.__path__ = []
+            sys.modules[parent] = parent_mod
+    # Make sure the immediate parent package exists
+    if pkg_parent not in sys.modules:
+        pkg_spec = importlib.util.spec_from_loader(pkg_parent, loader=None, is_package=True)
+        pkg_mod = importlib.util.module_from_spec(pkg_spec)
+        pkg_mod.__path__ = [str(path_root)]
+        sys.modules[pkg_parent] = pkg_mod
+    exec_pkg = sys.modules[pkg_parent]
+    exec_pkg.__path__ = [str(path_root)]
+    mod = importlib.util.module_from_spec(spec)
+    mod.__package__ = pkg_parent
+    mod.__name__ = full_name
+    sys.modules[full_name] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
+# Load modules
+_eb = _load_submodule("event_bus", _EXEC, _PKG_PARENT_EXEC)
+_sse = _load_submodule("routes_sse", _API, _PKG_PARENT_API)
+
+EventBus = _eb.EventBus
+
+
+class TestEventBus(unittest.TestCase):
+    """Test the in-process EventBus."""
+
+    def setUp(self):
+        EventBus.clear()
+
+    def tearDown(self):
+        EventBus.clear()
+
+    def test_publish_and_poll(self):
+        """Published events can be polled in FIFO order."""
+        EventBus.publish({"type": "test", "value": 1})
+        EventBus.publish({"type": "test", "value": 2})
+        self.assertEqual(EventBus.size(), 2)
+
+        e1 = EventBus.poll()
+        self.assertEqual(e1["value"], 1)
+        e2 = EventBus.poll()
+        self.assertEqual(e2["value"], 2)
+        self.assertIsNone(EventBus.poll())  # Empty
+
+    def test_peek_all_returns_copy(self):
+        """peek_all returns all events without removing them."""
+        EventBus.publish({"type": "alpha"})
+        EventBus.publish({"type": "beta"})
+        all_events = EventBus.peek_all()
+        self.assertEqual(len(all_events), 2)
+        # Buffer should still have events
+        self.assertEqual(EventBus.size(), 2)
+        # peek_all returns a copy
+        all_events.append({"type": "gamma"})
+        self.assertEqual(EventBus.size(), 2)
+
+    def test_clear(self):
+        """clear removes all buffered events."""
+        EventBus.publish({"type": "test"})
+        EventBus.publish({"type": "test"})
+        self.assertEqual(EventBus.size(), 2)
+        EventBus.clear()
+        self.assertEqual(EventBus.size(), 0)
+        self.assertIsNone(EventBus.poll())
+
+    def test_to_json_list(self):
+        """to_json_list returns valid JSON array string."""
+        EventBus.publish({"type": "a", "val": 1})
+        EventBus.publish({"type": "b", "val": 2})
+        json_str = EventBus.to_json_list()
+        parsed = json.loads(json_str)
+        self.assertIsInstance(parsed, list)
+        self.assertEqual(len(parsed), 2)
+
+    def test_ring_buffer_max_size(self):
+        """EventBus caps buffer at MAX_EVENTS."""
+        for i in range(EventBus.MAX_EVENTS + 100):
+            EventBus.publish({"i": i})
+        self.assertLessEqual(EventBus.size(), EventBus.MAX_EVENTS)
+
+
+class TestSseBlueprint(unittest.TestCase):
+    """Test SSE blueprint structure."""
+
+    def test_blueprint_created(self):
+        """routes_sse has a valid blueprint with expected routes."""
+        bp = _sse.bp
+        self.assertIsNotNone(bp)
+        # Check the blueprint name
+        self.assertEqual(bp.name, "sse")
+
+    def test_sse_route_returns_response(self):
+        """paper_progress_sse endpoint can be created."""
+        # Create a minimal Flask app to test the route
+        try:
+            from flask import Flask
+
+            app = Flask(__name__)
+            app.register_blueprint(_sse.bp, url_prefix="/api/v1")
+            with app.test_client() as client:
+                # Use streamed=True to get a streaming response
+                resp = client.get("/api/v1/sse/paper-progress")
+                self.assertEqual(resp.status_code, 200)
+                self.assertEqual(resp.mimetype, "text/event-stream")
+                # Read first 200 bytes from the streaming response
+                # (the generator yields data: {...}\n\n or a heartbeat)
+                first_chunk = b""
+                for chunk in resp.response:
+                    first_chunk += chunk
+                    if len(first_chunk) >= 200:
+                        break
+                self.assertIn(b"data: ", first_chunk)
+        except Exception as e:
+            self.fail(f"SSE route test failed: {e}")
+
+    def test_events_endpoint(self):
+        """GET /sse/events returns buffered events."""
+        EventBus.clear()
+        EventBus.publish({"type": "test_event"})
+        try:
+            from flask import Flask
+
+            app = Flask(__name__)
+            app.register_blueprint(_sse.bp, url_prefix="/api/v1")
+            with app.test_client() as client:
+                resp = client.get("/api/v1/sse/events")
+                self.assertEqual(resp.status_code, 200)
+                data = json.loads(resp.data.decode("utf-8"))
+                self.assertIsInstance(data, list)
+                self.assertGreaterEqual(len(data), 1)
+        except Exception as e:
+            self.fail(f"Events endpoint test failed: {e}")
+
+
+if __name__ == "__main__":
+    unittest.main()
