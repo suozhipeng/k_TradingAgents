@@ -54,6 +54,9 @@ MeanReversionStrategy = _sb.MeanReversionStrategy
 RSIRangeStrategy = _sb.RSIRangeStrategy
 DefensiveMomentumStrategy = _sb.DefensiveMomentumStrategy
 PutWriteStrategy = _sb.PutWriteStrategy
+MACDTrendStrategy = _sb.MACDTrendStrategy
+BollingerBandsReversionStrategy = _sb.BollingerBandsReversionStrategy
+GridTradingStrategy = _sb.GridTradingStrategy
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -348,6 +351,9 @@ class TestStrategyUniformConstraints(unittest.TestCase):
         RSIRangeStrategy,
         DefensiveMomentumStrategy,
         PutWriteStrategy,
+        MACDTrendStrategy,
+        BollingerBandsReversionStrategy,
+        GridTradingStrategy,
     ]
 
     def test_output_is_integer_series(self) -> None:
@@ -390,6 +396,145 @@ class TestStrategyUniformConstraints(unittest.TestCase):
                 strat = cls()
                 with self.assertRaises(KeyError):
                     strat.generate_signals(df)
+
+
+# ===================================================================
+# MACD 趋势跟踪策略测试
+# ===================================================================
+
+
+class TestMACDTrendStrategy(unittest.TestCase):
+    """MACDTrendStrategy — MACD 金叉/死叉趋势跟踪。"""
+
+    def test_golden_cross_buy(self) -> None:
+        """持续上涨后应产生买入信号（MACD 上穿信号线）。"""
+        # Uptrend: accelerating price rise → MACD turns positive
+        prices = [100 + i * 0.5 + (i * 0.02) ** 2 for i in range(60)]
+        df = _make_test_df(prices)
+        strat = MACDTrendStrategy()
+        signals = strat.generate_signals(df)
+        # After warmup, upward momentum should trigger at least one buy
+        self.assertIn(1, signals.values, "Expected buy signal in uptrend")
+
+    def test_death_cross_sell(self) -> None:
+        """持续下跌后应产生卖出信号（MACD 下穿信号线）。"""
+        # Downtrend: accelerating price fall
+        prices = [200 - i * 0.5 - (i * 0.02) ** 2 for i in range(60)]
+        df = _make_test_df(prices)
+        strat = MACDTrendStrategy()
+        signals = strat.generate_signals(df)
+        self.assertIn(-1, signals.values, "Expected sell signal in downtrend")
+
+    def test_flat_prices_no_signal(self) -> None:
+        """价格横盘不应产生交易信号。"""
+        prices = [100] * 60
+        df = _make_test_df(prices)
+        strat = MACDTrendStrategy()
+        signals = strat.generate_signals(df)
+        # Flat prices: MACD ≈ 0, no crossover → mostly 0
+        # (initial warmup may produce edge signals; just check not all are non-zero)
+        non_zero = (signals != 0).sum()
+        self.assertLessEqual(non_zero, 5, "Flat market should produce few signals")
+
+    def test_validation_fast_slow_order(self) -> None:
+        """fast_period < slow_period 必须成立。"""
+        with self.assertRaises(ValueError):
+            MACDTrendStrategy({"fast_period": 26, "slow_period": 12})
+
+
+# ===================================================================
+# Bollinger Bands 均值回归策略测试
+# ===================================================================
+
+
+class TestBollingerBandsStrategy(unittest.TestCase):
+    """BollingerBandsReversionStrategy — 布林带均值回归。"""
+
+    def test_buy_at_lower_band(self) -> None:
+        """价格跌破下轨 → 买入信号。"""
+        # Stable prices with a sharp drop at the end
+        prices = [100] * 25 + [80, 79, 78]
+        df = _make_test_df(prices)
+        strat = BollingerBandsReversionStrategy()
+        signals = strat.generate_signals(df)
+        self.assertIn(1, signals.values, "Expected buy signal at lower band")
+
+    def test_sell_at_upper_band(self) -> None:
+        """价格突破上轨 → 卖出信号。"""
+        # Stable prices with a sharp rise at the end
+        prices = [100] * 25 + [120, 121, 122]
+        df = _make_test_df(prices)
+        strat = BollingerBandsReversionStrategy()
+        signals = strat.generate_signals(df)
+        self.assertIn(-1, signals.values, "Expected sell signal at upper band")
+
+    def test_no_signal_within_bands(self) -> None:
+        """价格在布林带内 → 无信号。"""
+        # Small oscillations within bands
+        import math
+        prices = [100 + 5 * math.sin(i * 0.3) for i in range(40)]
+        df = _make_test_df(prices)
+        strat = BollingerBandsReversionStrategy({"num_std": 3.0})
+        signals = strat.generate_signals(df)
+        # With 3x std and small amplitude, should stay inside
+        non_zero = (signals != 0).sum()
+        self.assertLessEqual(non_zero, len(signals) * 0.1,
+                             "Most periods should be within bands")
+
+    def test_validation_ma_period(self) -> None:
+        """ma_period >= 2 必须成立。"""
+        with self.assertRaises(ValueError):
+            BollingerBandsReversionStrategy({"ma_period": 1})
+
+
+# ===================================================================
+# 网格交易策略测试
+# ===================================================================
+
+
+class TestGridTradingStrategy(unittest.TestCase):
+    """GridTradingStrategy — 固定价格网格交易。"""
+
+    def test_buy_on_drop_through_grid(self) -> None:
+        """价格跌破网格层 → 买入信号。"""
+        # Start at base=100, drop through 98, 96, 94, 92, 90
+        prices = [100] + [95, 90, 85]
+        df = _make_test_df(prices)
+        strat = GridTradingStrategy({"grid_levels": 3, "grid_spacing": 0.02,
+                                      "base_price": 100})
+        signals = strat.generate_signals(df)
+        self.assertIn(1, signals.values, "Expected buy when price drops through grid")
+
+    def test_sell_on_rise_through_grid(self) -> None:
+        """价格涨破网格层 → 卖出信号。"""
+        # Start at base=100, rise through 102, 104, 106
+        prices = [100] + [105, 110, 115]
+        df = _make_test_df(prices)
+        strat = GridTradingStrategy({"grid_levels": 3, "grid_spacing": 0.02,
+                                      "base_price": 100})
+        signals = strat.generate_signals(df)
+        self.assertIn(-1, signals.values, "Expected sell when price rises through grid")
+
+    def test_no_signal_near_base(self) -> None:
+        """价格在基准价附近波动 → 信号较少。"""
+        # Small oscillation around base
+        prices = [100, 100.5, 99.5, 100, 100.3, 99.7, 100.1]
+        df = _make_test_df(prices)
+        strat = GridTradingStrategy({"grid_levels": 5, "grid_spacing": 0.05,
+                                      "base_price": 100})
+        signals = strat.generate_signals(df)
+        non_zero = (signals != 0).sum()
+        self.assertLessEqual(non_zero, 6, "Tight oscillation should produce limited grid signals")
+
+    def test_validation_grid_levels(self) -> None:
+        """grid_levels >= 1 必须成立。"""
+        with self.assertRaises(ValueError):
+            GridTradingStrategy({"grid_levels": 0})
+
+    def test_validation_grid_spacing(self) -> None:
+        """grid_spacing > 0 必须成立。"""
+        with self.assertRaises(ValueError):
+            GridTradingStrategy({"grid_spacing": -1})
 
 
 if __name__ == "__main__":

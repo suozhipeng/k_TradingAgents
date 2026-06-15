@@ -28,8 +28,11 @@ from .risk_gate import (
     calculate_atr,
 )
 from .strategy_base import (
+    BollingerBandsReversionStrategy,
     BullTrendStrategy,
     DefensiveMomentumStrategy,
+    GridTradingStrategy,
+    MACDTrendStrategy,
     MeanReversionStrategy,
     MovingAverageTrendStrategy,
     PutWriteStrategy,
@@ -47,6 +50,9 @@ __all__ = [
     "RSIRangeStrategy",
     "DefensiveMomentumStrategy",
     "PutWriteStrategy",
+    "MACDTrendStrategy",
+    "BollingerBandsReversionStrategy",
+    "GridTradingStrategy",
     "AStockFeeConfig",
     "calculate_fees",
     "BacktestEngine",

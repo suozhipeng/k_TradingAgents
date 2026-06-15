@@ -29,8 +29,11 @@ def _get_strategy_registry() -> dict[str, type]:
 
     # Lazy import — only triggered when a backtest endpoint is actually called
     from tradingagents.astock.execution.strategy_base import (
+        BollingerBandsReversionStrategy,
         BullTrendStrategy,
         DefensiveMomentumStrategy,
+        GridTradingStrategy,
+        MACDTrendStrategy,
         MeanReversionStrategy,
         MovingAverageTrendStrategy,
         PutWriteStrategy,
@@ -46,6 +49,9 @@ def _get_strategy_registry() -> dict[str, type]:
         "RSIRange": RSIRangeStrategy,
         "DefensiveMomentum": DefensiveMomentumStrategy,
         "PutWrite": PutWriteStrategy,
+        "MACDTrend": MACDTrendStrategy,
+        "BollingerBands": BollingerBandsReversionStrategy,
+        "GridTrading": GridTradingStrategy,
     }
     return _STRATEGY_REGISTRY
 
