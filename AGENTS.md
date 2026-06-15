@@ -24,9 +24,15 @@ Project-local skills are installed in `skills/` and should be treated as the def
 1. For review / acceptance / regression tasks, start with ECC skills.
 2. For A-share feature delivery, start with the matching A-stock skill.
 3. For cross-phase work, invoke `astock-rollout-orchestrator` first, then route into one ECC skill and one A-stock skill.
-4. Write durable project findings into `docs/HERMES_SKILLS_PLAYBOOK.md` or adjacent `docs/` artifacts, not transient chat only.
-5. Every Delivery Phase must be recorded under `docs/phases/` before handoff and Git commit.
-6. A phase archive must include scope, product decisions, implementation evidence, tests, risks, next entry criteria, and commit SHA.
+4. **For any new feature or ambiguous requirement, follow the enhanced decomposition workflow:**
+   - If the requirement is vague → load `interview-me` first (one-question-at-a-time clarification)
+   - Before any code → load `spec-driven-development` (write PRD with scope/API/AC/UX)
+   - After spec approval → load `writing-plans` (tasks with dependency ordering + acceptance criteria)
+   - Execution → load `subagent-driven-development` (parallel dispatch + isolation + 2-stage review)
+   - Debugging/verification → `software-development-workflows` applies (anti-rationalization + doubt-driven)
+5. Write durable project findings into `docs/HERMES_SKILLS_PLAYBOOK.md` or adjacent `docs/` artifacts, not transient chat only.
+6. Every Delivery Phase must be recorded under `docs/phases/` before handoff and Git commit.
+7. A phase archive must include scope, product decisions, implementation evidence, tests, risks, next entry criteria, and commit SHA.
 
 ### Role Contract
 
