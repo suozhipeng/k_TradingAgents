@@ -66,6 +66,11 @@ def settings() -> str:
     return render_template("settings.html")
 
 
+@bp.route("/performance")
+def performance() -> str:
+    return render_template("performance.html")
+
+
 # ---------------------------------------------------------------------------
 # Export
 # ---------------------------------------------------------------------------

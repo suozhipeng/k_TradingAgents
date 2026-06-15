@@ -1,0 +1,260 @@
+{% extends "base.html" %}
+{% block title %}Performance — AStock WebUI{% endblock %}
+{% block head_extra %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+{% endblock %}
+{% block content %}
+<h2 class="text-2xl font-bold text-white mb-6">📊 策略绩效分析 Performance Analysis</h2>
+
+<!-- Input Panel -->
+<div class="card mb-6">
+  <div class="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+    <div>
+      <label class="block text-xs text-gray-400 mb-1">策略 Strategy</label>
+      <select id="pa-strategy" class="w-full"></select>
+    </div>
+    <div>
+      <label class="block text-xs text-gray-400 mb-1">股票代码 Symbol</label>
+      <input type="text" id="pa-symbol" value="600519.SH" class="w-full">
+    </div>
+    <div>
+      <label class="block text-xs text-gray-400 mb-1">开始日期</label>
+      <input type="text" id="pa-start" value="2024-01-01" class="w-full">
+    </div>
+    <div>
+      <label class="block text-xs text-gray-400 mb-1">结束日期</label>
+      <input type="text" id="pa-end" value="2025-06-01" class="w-full">
+    </div>
+    <button onclick="runAnalysis()" class="btn btn-primary w-full">📊 分析 Analyze</button>
+  </div>
+  <div id="pa-status" class="text-xs text-gray-400 mt-2"></div>
+</div>
+
+<!-- Results (hidden until run) -->
+<div id="pa-results" class="hidden">
+  <!-- Metric Cards -->
+  <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6" id="pa-metrics">
+    <div class="card text-center"><div class="text-xs text-gray-400 mb-1">总收益</div><div class="stat-value" id="m-total-return">--</div></div>
+    <div class="card text-center"><div class="text-xs text-gray-400 mb-1">年化收益</div><div class="stat-value" id="m-annual-return">--</div></div>
+    <div class="card text-center"><div class="text-xs text-gray-400 mb-1">Sharpe</div><div class="stat-value" id="m-sharpe">--</div></div>
+    <div class="card text-center"><div class="text-xs text-gray-400 mb-1">最大回撤</div><div class="stat-value" id="m-drawdown">--</div></div>
+    <div class="card text-center"><div class="text-xs text-gray-400 mb-1">胜率</div><div class="stat-value" id="m-win-rate">--</div></div>
+    <div class="card text-center"><div class="text-xs text-gray-400 mb-1">交易次数</div><div class="stat-value" id="m-trades">--</div></div>
+  </div>
+
+  <!-- Charts -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+    <div class="card">
+      <h3 class="text-lg font-semibold text-white mb-4">📈 净值曲线 Equity Curve</h3>
+      <canvas id="chart-equity" height="250"></canvas>
+    </div>
+    <div class="card">
+      <h3 class="text-lg font-semibold text-white mb-4">📉 回撤曲线 Drawdown</h3>
+      <canvas id="chart-drawdown" height="250"></canvas>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+    <div class="card">
+      <h3 class="text-lg font-semibold text-white mb-4">📊 周期收益 Period Returns</h3>
+      <canvas id="chart-returns" height="200"></canvas>
+    </div>
+    <div class="card">
+      <h3 class="text-lg font-semibold text-white mb-4">📋 交易信号分布 Signal Distribution</h3>
+      <canvas id="chart-signals" height="200"></canvas>
+    </div>
+  </div>
+
+  <!-- Detail table -->
+  <div class="card">
+    <h3 class="text-lg font-semibold text-white mb-4">📋 周期明细 Period Details</h3>
+    <div id="pa-table" class="overflow-x-auto text-sm"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let chartInstances = {};
+
+async function loadStrategies() {
+  try {
+    const res = await fetch('/api/v1/market/strategies');
+    const data = await res.json();
+    const sel = document.getElementById('pa-strategy');
+    sel.innerHTML = '<option value="">-- 选择 --</option>' +
+      (data.strategies || []).map(s => `<option value="${s.name}">${s.name}</option>`).join('');
+  } catch (e) {
+    document.getElementById('pa-strategy').innerHTML = '<option>加载失败</option>';
+  }
+}
+
+async function runAnalysis() {
+  const strategy = document.getElementById('pa-strategy').value;
+  const symbol = document.getElementById('pa-symbol').value.trim();
+  const start = document.getElementById('pa-start').value.trim();
+  const end = document.getElementById('pa-end').value.trim();
+  const status = document.getElementById('pa-status');
+
+  if (!strategy) { status.textContent = '请选择策略'; return; }
+  if (!symbol || !start || !end) { status.textContent = '请填写完整参数'; return; }
+
+  status.textContent = '⏳ 运行中...';
+  document.getElementById('pa-results').classList.add('hidden');
+  destroyCharts();
+
+  try {
+    const res = await fetch('/api/v1/backtest/analyze', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({strategy, symbol, start_date: start, end_date: end}),
+    });
+    const data = await res.json();
+    if (data.error) { status.textContent = '❌ ' + data.error; return; }
+
+    status.textContent = '✅ 分析完成';
+    document.getElementById('pa-results').classList.remove('hidden');
+    renderMetrics(data.metrics);
+    renderEquityChart(data.equity_curve, data.metrics.max_drawdown);
+    renderReturnsChart(data.returns);
+    renderSignalsChart(data.trades, data.equity_curve);
+    renderTable(data.equity_curve);
+
+  } catch (e) {
+    status.textContent = '❌ ' + e.message;
+  }
+}
+
+function renderMetrics(m) {
+  setMetric('m-total-return', fmtPct(m.total_return), m.total_return >= 0 ? 'text-emerald-400' : 'text-red-400');
+  setMetric('m-annual-return', fmtPct(m.annualized_return), m.annualized_return >= 0 ? 'text-emerald-400' : 'text-red-400');
+  setMetric('m-sharpe', m.sharpe_ratio?.toFixed(2) ?? '--', m.sharpe_ratio > 1 ? 'text-emerald-400' : m.sharpe_ratio > 0 ? 'text-amber-400' : 'text-red-400');
+  setMetric('m-drawdown', fmtPct(m.max_drawdown), m.max_drawdown < 0.15 ? 'text-emerald-400' : m.max_drawdown < 0.3 ? 'text-amber-400' : 'text-red-400');
+  setMetric('m-win-rate', fmtPct(m.win_rate), m.win_rate > 0.5 ? 'text-emerald-400' : 'text-amber-400');
+  setMetric('m-trades', m.total_trades, 'text-white');
+}
+
+function setMetric(id, value, cls) {
+  const el = document.getElementById(id);
+  el.textContent = value;
+  el.className = 'stat-value ' + cls;
+}
+
+function fmtPct(v) {
+  if (v === undefined || v === null) return '--';
+  return (v * 100).toFixed(2) + '%';
+}
+
+function renderEquityChart(equity, maxDD) {
+  const labels = equity.map(e => e.period?.substring(0, 7) || '');
+  const values = equity.map(e => e.value);
+
+  // Compute drawdown
+  let peak = values[0];
+  const dd = values.map(v => {
+    peak = Math.max(peak, v);
+    return (v - peak) / peak;
+  });
+
+  chartInstances.equity = new Chart(document.getElementById('chart-equity'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: '净值', data: values, borderColor: '#818cf8', backgroundColor: 'rgba(129,140,248,0.1)', fill: true, tension: 0.3, pointRadius: 0 },
+        { label: '初始资金', data: Array(values.length).fill(values[0]), borderColor: '#334155', borderDash: [5,5], pointRadius: 0 },
+      ]
+    },
+    options: chartOpts('资金', true),
+  });
+
+  chartInstances.drawdown = new Chart(document.getElementById('chart-drawdown'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: '回撤', data: dd.map(v => v * 100), borderColor: '#f87171',
+        backgroundColor: 'rgba(248,113,113,0.15)', fill: true, tension: 0.3, pointRadius: 0,
+      }]
+    },
+    options: chartOpts('回撤 %'),
+  });
+}
+
+function renderReturnsChart(returns) {
+  if (!returns || returns.length === 0) return;
+  const labels = returns.map(r => r.period?.substring(0, 7) || '');
+  const vals = returns.map(r => (r.return * 100));
+  const colors = vals.map(v => v >= 0 ? 'rgba(52,211,153,0.7)' : 'rgba(248,113,113,0.7)');
+
+  chartInstances.returns = new Chart(document.getElementById('chart-returns'), {
+    type: 'bar',
+    data: { labels, datasets: [{ label: '周期收益 %', data: vals, backgroundColor: colors }] },
+    options: chartOpts('收益 %'),
+  });
+}
+
+function renderSignalsChart(trades, equity) {
+  if (!trades || trades.length === 0) {
+    document.getElementById('chart-signals').parentElement.innerHTML =
+      '<h3 class="text-lg font-semibold text-white mb-4">📋 信号分布</h3><p class="text-gray-500 text-sm">暂无交易信号</p>';
+    return;
+  }
+  const buyCount = trades.filter(t => t.signal === 1).length;
+  const sellCount = trades.filter(t => t.signal === -1).length;
+
+  chartInstances.signals = new Chart(document.getElementById('chart-signals'), {
+    type: 'doughnut',
+    data: {
+      labels: ['买入 (Buy)', '卖出 (Sell)'],
+      datasets: [{
+        data: [buyCount, sellCount],
+        backgroundColor: ['rgba(52,211,153,0.7)', 'rgba(248,113,113,0.7)'],
+        borderColor: ['#34d399', '#f87171'],
+        borderWidth: 2,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      plugins: {
+        legend: { labels: { color: '#9ca3af' } },
+        tooltip: { backgroundColor: '#1e293b', titleColor: '#fff', bodyColor: '#d1d5db' },
+      }
+    }
+  });
+}
+
+function renderTable(equity) {
+  const el = document.getElementById('pa-table');
+  if (!equity || equity.length === 0) { el.innerHTML = '<p class="text-gray-500">暂无数据</p>'; return; }
+  el.innerHTML = '<table><thead><tr><th>周期</th><th>净值</th></tr></thead><tbody>' +
+    equity.slice().reverse().slice(0, 24).map(e =>
+      `<tr><td class="text-gray-300">${e.period}</td><td class="text-right text-white font-mono">${e.value?.toFixed(2)}</td></tr>`
+    ).join('') + '</tbody></table>';
+}
+
+function chartOpts(yLabel, formatMoney) {
+  return {
+    responsive: true, maintainAspectRatio: true,
+    plugins: {
+      legend: { labels: { color: '#9ca3af', boxWidth: 12, padding: 12 } },
+      tooltip: { backgroundColor: '#1e293b', titleColor: '#fff', bodyColor: '#d1d5db' },
+    },
+    scales: {
+      x: { ticks: { color: '#6b7280', maxTicksLimit: 12, maxRotation: 0 }, grid: { color: '#1e293b' } },
+      y: {
+        ticks: { color: '#6b7280', callback: v => formatMoney ? v.toLocaleString() : v.toFixed(1) },
+        grid: { color: '#1e293b' },
+      },
+    },
+  };
+}
+
+function destroyCharts() {
+  Object.values(chartInstances).forEach(c => { try { c.destroy(); } catch(e) {} });
+  chartInstances = {};
+}
+
+loadStrategies();
+</script>
+{% endblock %}

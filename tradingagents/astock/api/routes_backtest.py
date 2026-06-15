@@ -239,6 +239,92 @@ def compare_backtests() -> tuple[Response, int]:
 
 
 # ---------------------------------------------------------------------------
+# POST /api/v1/backtest/analyze — detailed performance analysis
+# ---------------------------------------------------------------------------
+
+
+@bp.route("/backtest/analyze", methods=["POST"])
+def analyze_backtest() -> tuple[Response, int]:
+    """POST /api/v1/backtest/analyze
+    JSON: {
+      "strategy": "MACDTrend",
+      "symbol": "600519.SH",
+      "start_date": "2024-01-01",
+      "end_date": "2025-12-31",
+    }
+    Returns detailed performance data for charting.
+    """
+    body = request.get_json(force=True, silent=True) or {}
+    strategy_name = body.get("strategy", "")
+    if not strategy_name:
+        return jsonify({"error": "strategy is required", "status": 400}), 400
+    symbol = body.get("symbol", "600519.SH")
+    start_date = body.get("start_date", "")
+    end_date = body.get("end_date", "")
+    if not start_date or not end_date:
+        return jsonify({"error": "start_date and end_date are required", "status": 400}), 400
+
+    registry = _get_strategy_registry()
+    if strategy_name not in registry:
+        return jsonify({
+            "error": f"Unknown strategy {strategy_name!r}. Available: {list(registry)}",
+            "status": 400,
+        }), 400
+
+    try:
+        strategy = registry[strategy_name]()
+        engine = _get_backtest_engine()
+        result = engine.run(symbol, start_date, end_date, strategy)
+
+        # Extract equity curve from periods
+        periods = result.periods or []
+        equity_curve = [
+            {"period": p["period"], "value": p["end_value"]}
+            for p in periods
+        ]
+        # Compute returns for each period
+        returns = []
+        prev_val = None
+        for p in periods:
+            val = p["end_value"]
+            if prev_val is not None and prev_val > 0:
+                ret = (val - prev_val) / prev_val
+                returns.append({"period": p["period"], "return": round(ret, 6)})
+            prev_val = val
+
+        # Trade P&L extraction
+        trades = []
+        for p in periods:
+            if p.get("signal", 0) != 0:
+                trades.append({
+                    "period": p["period"],
+                    "signal": p["signal"],
+                    "value": p["end_value"],
+                })
+
+        payload = {
+            "strategy": strategy_name,
+            "symbol": symbol,
+            "start_date": start_date,
+            "end_date": end_date,
+            "metrics": {
+                "total_return": result.total_return,
+                "annualized_return": result.annualized_return,
+                "sharpe_ratio": result.sharpe_ratio,
+                "max_drawdown": result.max_drawdown,
+                "win_rate": result.win_rate,
+                "total_trades": result.total_trades,
+            },
+            "equity_curve": equity_curve,
+            "returns": returns,
+            "trades": trades,
+        }
+        return jsonify(payload), 200
+    except Exception as exc:
+        return jsonify({"error": str(exc), "status": 500}), 500
+
+
+# ---------------------------------------------------------------------------
 # POST /api/v1/backtest/optimize — parameter grid search
 # ---------------------------------------------------------------------------
 
