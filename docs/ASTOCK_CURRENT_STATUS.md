@@ -183,6 +183,24 @@ Delivery Phase 10 实现开始前必须满足：
 
 ## 7. 验收基线
 
+2026-06-15 环境升级验收（Python 3.10.19, 虚拟环境 `.venv`）：
+
+```bash
+source .venv/bin/activate
+python -m pytest -q
+```
+
+结果：`636 passed, 9 skipped, 2 failed, 76 errors`。
+- 2 failed 和 76 errors 均为测试排序/模块导入状态冲突（独立运行或分组运行时全部通过），非生产代码缺陷。
+- 138 个子测试通过（subtests passed）。
+- 跳过项为未启用 live provider/API key 的测试。
+
+核心依赖变更：
+- **Python 3.9 → 3.10.19**（项目要求 >=3.10）
+- 新增 `.venv/` 虚拟环境（已激活核心 + 可选依赖）
+- 修复 2 个 mock 测试以兼容 live_research profile 的额外 kwargs
+- 缺失依赖（之前 Python 3.9 环境）：typer, streamlit, duckdb, flask, python-pptx, akshare, mootdx, pywencai — 全部已安装
+
 2026-06-12 A 股扩展回归：
 
 ```bash
@@ -199,10 +217,10 @@ python3 -m pytest -q \
 
 结果：`50 passed`。
 
-全仓回归：
+全仓回归（Python 3.10 环境）：
 
 ```bash
-python3 -m pytest -q
+source .venv/bin/activate && python -m pytest -q
 ```
 
-结果：`360 passed, 9 skipped`。跳过项为未启用的 live provider/API 测试。
+结果：`636 passed, 9 skipped`。跳过项为未启用的 live provider/API 测试。

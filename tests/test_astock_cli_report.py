@@ -235,7 +235,11 @@ class TestAStockCliReport(unittest.TestCase):
                  mock.patch.object(m, "console", capture):
                 m.run_analysis(checkpoint=False)
 
-        runtime_cls.assert_called_once_with(symbol="600519.SH", trade_date="2026-06-10", source="cli")
+        runtime_cls.assert_called_once()
+        call_kwargs = runtime_cls.call_args.kwargs
+        self.assertEqual(call_kwargs.get("symbol"), "600519.SH")
+        self.assertEqual(call_kwargs.get("trade_date"), "2026-06-10")
+        self.assertEqual(call_kwargs.get("source"), "cli")
         fake_runtime.run.assert_called_once()
         graph_cls.assert_not_called()
         text = capture.export_text()

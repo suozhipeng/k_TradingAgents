@@ -388,7 +388,11 @@ class TestAStockUiViews(unittest.TestCase):
             render_page.return_value = None
             streamlit_app.main(st=live_st)
 
-        runtime_cls.assert_called_once_with(symbol="600519.SH", trade_date="2026-06-10", source="ui")
+        runtime_cls.assert_called_once()
+        call_kwargs = runtime_cls.call_args.kwargs
+        self.assertEqual(call_kwargs.get("symbol"), "600519.SH")
+        self.assertEqual(call_kwargs.get("trade_date"), "2026-06-10")
+        self.assertEqual(call_kwargs.get("source"), "ui")
         render_page.assert_called_once()
         self.assertEqual(render_page.call_args.args[1].ticker, "600519.SH")
         self.assertEqual(live_st.titles[0], "TradingAgents Multi-Market Viewer")
