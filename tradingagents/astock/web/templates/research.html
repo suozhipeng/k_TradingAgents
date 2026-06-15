@@ -10,7 +10,8 @@
       <input type="text" id="symbol-input" placeholder="600519.SH" class="w-40" value="600519.SH">
     </div>
     <button onclick="loadResearch()" class="btn btn-primary">🔍 查询 Research</button>
-    <button onclick="refreshKlineForResearch()" class="btn btn-secondary">📥 刷新 K线 Refresh</button>
+    <button onclick="refreshKlineForResearch()" class="btn btn-secondary">📥 刷新 K线 (baostock)</button>
+    <button onclick="refreshBaoStockAll()" class="btn btn-success" style="background:#059669">🌿 拉取 baostock 历史 K</button>
     <button onclick="refreshValuationForResearch()" class="btn btn-secondary">💰 刷新估值 Refresh Val.</button>
   </div>
   <div id="refresh-msg" class="mt-2 text-xs text-gray-400"></div>
@@ -145,6 +146,26 @@ async function refreshValuationForResearch() {
     const data = await res.json();
     el.textContent = data.status === 'ok'
       ? `✅ 估值刷新完成 (插入 ${data.rows_inserted} 行)`
+      : '❌ 失败: ' + (data.error || '');
+    if (data.status === 'ok') loadResearch();
+  } catch (e) {
+    el.textContent = '❌ 请求失败: ' + e.message;
+  }
+}
+
+async function refreshBaoStockAll() {
+  const el = document.getElementById('refresh-msg');
+  const symbol = document.getElementById('symbol-input').value.trim() || '600519.SH';
+  el.textContent = '🌿 正在从 baostock 拉取全部历史 K 线...（可能较慢）';
+  try {
+    const res = await fetch('/api/v1/data/refresh/kline', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({symbol, start: '2000-01-01'})  // full history
+    });
+    const data = await res.json();
+    el.textContent = data.status === 'ok'
+      ? `🌿 baostock 拉取完成 (插入 ${data.rows_inserted} 行)`
       : '❌ 失败: ' + (data.error || '');
     if (data.status === 'ok') loadResearch();
   } catch (e) {

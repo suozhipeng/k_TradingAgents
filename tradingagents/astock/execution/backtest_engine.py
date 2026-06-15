@@ -130,7 +130,7 @@ class BacktestEngine:
 
     def _fetch_data(self, symbol: str, start_date: str, end_date: str) -> pd.DataFrame:
         """Fetch OHLCV data, falling back to mock data if facade unavailable."""
-        # Try AStockDataFacade first
+        # Try AStockDataFacade first (uses baostock as primary default)
         try:
             from tradingagents.astock.data_sources import AStockDataFacade
 

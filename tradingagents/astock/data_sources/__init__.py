@@ -9,6 +9,7 @@ from __future__ import annotations
 from .adapters import (
     AStockAdapterBase,
     AkshareAdapter,
+    BaoStockAdapter,
     CninfoAdapter,
     IwencaiAdapter,
     MootdxAdapter,
