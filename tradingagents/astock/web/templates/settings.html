@@ -27,14 +27,58 @@
       <div id="save-status" class="text-xs text-gray-400"></div>
     </div>
   </div>
+
+  <!-- Cache Management -->
   <div class="card">
-    <h3 class="text-lg font-semibold text-white mb-4">ℹ️ 系统信息 System Info</h3>
-    <div id="system-info" class="text-gray-400 text-sm space-y-2">
-      <div class="flex justify-between py-1 border-b border-dark-border"><span>版本</span><span class="text-white" id="sys-version">--</span></div>
-      <div class="flex justify-between py-1 border-b border-dark-border"><span>数据库</span><span class="text-white" id="sys-db">--</span></div>
-      <div class="flex justify-between py-1 border-b border-dark-border"><span>API 端点</span><span class="text-white">19</span></div>
-      <div class="flex justify-between py-1"><span>状态</span><span class="text-emerald-400" id="sys-status">--</span></div>
+    <h3 class="text-lg font-semibold text-white mb-4">💾 缓存管理 Cache</h3>
+    <div id="cache-info" class="text-gray-400 text-sm space-y-2">
+      <div class="flex justify-between py-1"><span>缓存状态</span><span class="text-white" id="cache-status">--</span></div>
+      <div class="flex justify-between py-1"><span>缓存类型</span><span class="text-white" id="cache-type">--</span></div>
+      <div class="flex justify-between py-1 border-b border-dark-border"><span>快照 (snapshots)</span><span class="text-white" id="cache-snapshots">--</span></div>
+      <div class="flex justify-between py-1 border-b border-dark-border"><span>历史 (history)</span><span class="text-white" id="cache-history">--</span></div>
+      <div class="flex justify-between py-1 border-b border-dark-border"><span>摘要 (summaries)</span><span class="text-white" id="cache-summaries">--</span></div>
     </div>
+    <div class="mt-4 flex gap-3 flex-wrap">
+      <button onclick="clearCache()" class="btn btn-secondary">🗑️ 清除缓存 Clear Cache</button>
+      <button onclick="refreshCacheStatus()" class="btn btn-secondary">🔄 刷新状态 Refresh Status</button>
+    </div>
+    <div id="cache-action-status" class="mt-2 text-xs text-gray-400"></div>
+  </div>
+
+  <!-- Data Refresh Panel -->
+  <div class="card lg:col-span-2">
+    <h3 class="text-lg font-semibold text-white mb-4">📥 数据刷新 Data Refresh</h3>
+    <p class="text-xs text-gray-400 mb-4">从数据源拉取最新数据并写入本地 DuckDB 数据库。</p>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div class="space-y-2">
+        <label class="block text-xs text-gray-400">股票代码 Symbol</label>
+        <input type="text" id="refresh-symbol" value="600519.SH" class="w-full" placeholder="600519.SH">
+      </div>
+      <div class="space-y-2">
+        <label class="block text-xs text-gray-400">开始日期 Start</label>
+        <input type="text" id="refresh-start" value="2026-01-01" class="w-full" placeholder="2026-01-01">
+      </div>
+      <div class="space-y-2">
+        <label class="block text-xs text-gray-400">结束日期 End</label>
+        <input type="text" id="refresh-end" value="" class="w-full" placeholder="(今天)">
+      </div>
+    </div>
+    <div class="mt-4 flex gap-3 flex-wrap">
+      <button onclick="refreshKline()" class="btn btn-primary">📊 刷新 K线 Refresh K-line</button>
+      <button onclick="refreshValuation()" class="btn btn-secondary">💰 刷新估值 Refresh Valuation</button>
+    </div>
+    <div id="refresh-status" class="mt-2 text-xs text-gray-400"></div>
+  </div>
+</div>
+
+<!-- System Info Panel -->
+<div class="mt-6 card">
+  <h3 class="text-lg font-semibold text-white mb-4">ℹ️ 系统信息 System Info</h3>
+  <div id="system-info" class="text-gray-400 text-sm space-y-2">
+    <div class="flex justify-between py-1 border-b border-dark-border"><span>版本</span><span class="text-white" id="sys-version">--</span></div>
+    <div class="flex justify-between py-1 border-b border-dark-border"><span>数据库</span><span class="text-white" id="sys-db">--</span></div>
+    <div class="flex justify-between py-1 border-b border-dark-border"><span>API 端点</span><span class="text-white">19</span></div>
+    <div class="flex justify-between"><span>状态</span><span class="text-emerald-400" id="sys-status">--</span></div>
   </div>
 </div>
 {% endblock %}
@@ -56,6 +100,90 @@ function saveSettings() {
   document.getElementById('save-status').textContent = '设置仅前端模拟。Settings are frontend-only in this demo.';
   setTimeout(() => document.getElementById('save-status').textContent = '', 3000);
 }
+
+// --- Cache Management ---
+async function refreshCacheStatus() {
+  const el = document.getElementById('cache-action-status');
+  try {
+    const res = await fetch('/api/v1/cache/status');
+    const data = await res.json();
+    const c = data?.cache || {};
+    document.getElementById('cache-status').textContent = c.enabled ? '✅ 已启用' : '❌ 未启用';
+    document.getElementById('cache-type').textContent = c.type || 'N/A';
+    document.getElementById('cache-snapshots').textContent = c.snapshots ?? 'N/A';
+    document.getElementById('cache-history').textContent = c.history_ranges ?? 'N/A';
+    document.getElementById('cache-summaries').textContent = c.summaries ?? 'N/A';
+  } catch (e) {
+    document.getElementById('cache-status').textContent = '❌ Offline';
+  }
+}
+
+async function clearCache() {
+  const el = document.getElementById('cache-action-status');
+  el.textContent = '⏳ 清除中...';
+  try {
+    const res = await fetch('/api/v1/cache/clear', { method: 'POST' });
+    const data = await res.json();
+    if (data.cleared) {
+      el.textContent = '✅ 缓存已清除';
+    } else {
+      el.textContent = '⚠️ 清除失败: ' + (data.reason || 'unknown');
+    }
+    refreshCacheStatus();
+  } catch (e) {
+    el.textContent = '❌ 请求失败: ' + e.message;
+  }
+}
+
+// --- Data Refresh ---
+async function refreshKline() {
+  const el = document.getElementById('refresh-status');
+  const symbol = document.getElementById('refresh-symbol').value.trim();
+  const start = document.getElementById('refresh-start').value.trim() || undefined;
+  const end = document.getElementById('refresh-end').value.trim() || undefined;
+  if (!symbol) { el.textContent = '❌ 请输入股票代码'; return; }
+  el.textContent = '⏳ 正在拉取 K-line 数据...';
+  try {
+    const res = await fetch('/api/v1/data/refresh/kline', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({symbol, start, end})
+    });
+    const data = await res.json();
+    if (data.status === 'ok') {
+      el.textContent = `✅ K-line 刷新完成，插入 ${data.rows_inserted} 行`;
+    } else {
+      el.textContent = '❌ 刷新失败: ' + (data.error || 'unknown');
+    }
+  } catch (e) {
+    el.textContent = '❌ 请求失败: ' + e.message;
+  }
+}
+
+async function refreshValuation() {
+  const el = document.getElementById('refresh-status');
+  const symbol = document.getElementById('refresh-symbol').value.trim();
+  if (!symbol) { el.textContent = '❌ 请输入股票代码'; return; }
+  el.textContent = '⏳ 正在拉取估值数据...';
+  try {
+    const res = await fetch('/api/v1/data/refresh/valuation', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({symbol})
+    });
+    const data = await res.json();
+    if (data.status === 'ok') {
+      el.textContent = `✅ 估值刷新完成，插入 ${data.rows_inserted} 行`;
+    } else {
+      el.textContent = '❌ 刷新失败: ' + (data.error || 'unknown');
+    }
+  } catch (e) {
+    el.textContent = '❌ 请求失败: ' + e.message;
+  }
+}
+
+// Auto-load on page load
 loadSettings();
+refreshCacheStatus();
 </script>
 {% endblock %}

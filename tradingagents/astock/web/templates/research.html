@@ -9,8 +9,11 @@
       <label class="block text-xs text-gray-400 mb-1">股票代码 Symbol</label>
       <input type="text" id="symbol-input" placeholder="600519.SH" class="w-40" value="600519.SH">
     </div>
-    <button onclick="loadResearch()" class="btn btn-primary">查询 Research</button>
+    <button onclick="loadResearch()" class="btn btn-primary">🔍 查询 Research</button>
+    <button onclick="refreshKlineForResearch()" class="btn btn-secondary">📥 刷新 K线 Refresh</button>
+    <button onclick="refreshValuationForResearch()" class="btn btn-secondary">💰 刷新估值 Refresh Val.</button>
   </div>
+  <div id="refresh-msg" class="mt-2 text-xs text-gray-400"></div>
 </div>
 
 <div id="research-results" class="space-y-6">
@@ -47,23 +50,22 @@ async function loadResearch() {
   document.getElementById('analysis-content').textContent = 'Loading...';
 
   try {
-    const [klineRes, valRes, newsRes, researchRes] = await Promise.all([
-      fetch(`/api/v1/data/kline?symbol=${symbol}&interval=1d&limit=30`),
-      fetch(`/api/v1/data/valuation?symbol=${symbol}&limit=10`),
-      fetch(`/api/v1/data/news?symbol=${symbol}&limit=10`),
-      fetch(`/api/v1/data/research?symbol=${symbol}`),
+    const [klineRes, valRes, newsRes] = await Promise.all([
+      fetch(`/api/v1/kline?symbol=${symbol}&interval=1d&limit=30`),
+      fetch(`/api/v1/valuation?symbol=${symbol}`),
+      fetch(`/api/v1/news?symbol=${symbol}&limit=10`),
     ]);
 
     const kline = await klineRes.json();
     const val = await valRes.json();
     const news = await newsRes.json();
-    const research = await researchRes.json();
 
     // Kline table
     const tbody = document.getElementById('kline-body');
-    if (kline?.data?.length) {
-      tbody.innerHTML = kline.data.slice(0, 30).map((bar, i) =>
-        `<tr${i >= kline.data.length - 1 ? ' class="font-semibold text-white"' : ''}>
+    const bars = kline?.bars || [];
+    if (bars.length) {
+      tbody.innerHTML = bars.slice(0, 30).map((bar, i) =>
+        `<tr${i >= bars.length - 1 ? ' class="font-semibold text-white"' : ''}>
           <td class="text-gray-300">${bar.trade_date}</td>
           <td>${bar.open?.toFixed(2)}</td>
           <td>${bar.high?.toFixed(2)}</td>
@@ -78,9 +80,10 @@ async function loadResearch() {
 
     // Valuation
     const vc = document.getElementById('valuation-content');
-    if (val?.data?.length) {
-      vc.innerHTML = '<table><thead><tr><th>日期</th><th>PE</th><th>PB</th><th>市值</th></tr></thead><tbody>' +
-        val.data.slice(0, 10).map(v =>
+    const vals = val?.valuations || [];
+    if (vals.length) {
+      vc.innerHTML = '<table><thead><tr><th>日期</th><th>PE</th><th>PB</th><th>市值(亿)</th></tr></thead><tbody>' +
+        vals.slice(0, 10).map(v =>
           `<tr><td class="text-gray-300">${v.trade_date}</td><td>${v.pe?.toFixed(2) ?? '--'}</td><td>${v.pb?.toFixed(2) ?? '--'}</td><td>${v.market_cap ? (v.market_cap / 1e8).toFixed(0) + '亿' : '--'}</td></tr>`
         ).join('') + '</tbody></table>';
     } else {
@@ -89,27 +92,18 @@ async function loadResearch() {
 
     // News
     const nc = document.getElementById('news-content');
-    if (news?.data?.length) {
-      nc.innerHTML = news.data.slice(0, 10).map(n =>
+    const items = news?.news || [];
+    if (items.length) {
+      nc.innerHTML = items.slice(0, 10).map(n =>
         `<div class="py-2 border-b border-dark-border last:border-0">
-          <a href="${n.url || '#'}" target="_blank" class="text-sky-400 hover:underline text-sm">${n.title || n.content?.substring(0, 80)}</a>
-          <p class="text-xs text-gray-500 mt-0.5">${n.date || n.trade_date || ''}</p>
+          <a href="${n.url || '#'}" target="_blank" class="text-sky-400 hover:underline text-sm">${n.title || (n.content || '').substring(0, 80)}</a>
+          <p class="text-xs text-gray-500 mt-0.5">${n.publish_date || n.date || ''}</p>
         </div>`
       ).join('');
     } else {
       nc.textContent = 'No news data.';
     }
 
-    // Analysis
-    const ac = document.getElementById('analysis-content');
-    if (research?.summary) {
-      ac.innerHTML = `<p class="text-gray-300">${research.summary}</p>`;
-      if (research?.investment_plan) {
-        ac.innerHTML += `<h4 class="text-white font-semibold mt-4 mb-2">投资计划</h4><p class="text-gray-300">${research.investment_plan}</p>`;
-      }
-    } else {
-      ac.textContent = 'No research analysis available.';
-    }
   } catch (e) {
     document.getElementById('kline-body').innerHTML = '<tr><td colspan="6" class="text-center py-4 text-red-400">Error loading data.</td></tr>';
     document.getElementById('valuation-content').textContent = 'Error';
@@ -117,6 +111,47 @@ async function loadResearch() {
     document.getElementById('analysis-content').textContent = 'Error';
   }
 }
+
+async function refreshKlineForResearch() {
+  const el = document.getElementById('refresh-msg');
+  const symbol = document.getElementById('symbol-input').value.trim() || '600519.SH';
+  el.textContent = '⏳ 正在刷新 K-line...';
+  try {
+    const res = await fetch('/api/v1/data/refresh/kline', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({symbol})
+    });
+    const data = await res.json();
+    el.textContent = data.status === 'ok'
+      ? `✅ K-line 刷新完成 (插入 ${data.rows_inserted} 行)`
+      : '❌ 失败: ' + (data.error || '');
+    if (data.status === 'ok') loadResearch();
+  } catch (e) {
+    el.textContent = '❌ 请求失败: ' + e.message;
+  }
+}
+
+async function refreshValuationForResearch() {
+  const el = document.getElementById('refresh-msg');
+  const symbol = document.getElementById('symbol-input').value.trim() || '600519.SH';
+  el.textContent = '⏳ 正在刷新估值...';
+  try {
+    const res = await fetch('/api/v1/data/refresh/valuation', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({symbol})
+    });
+    const data = await res.json();
+    el.textContent = data.status === 'ok'
+      ? `✅ 估值刷新完成 (插入 ${data.rows_inserted} 行)`
+      : '❌ 失败: ' + (data.error || '');
+    if (data.status === 'ok') loadResearch();
+  } catch (e) {
+    el.textContent = '❌ 请求失败: ' + e.message;
+  }
+}
+
 loadResearch();
 </script>
 {% endblock %}

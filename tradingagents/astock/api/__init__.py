@@ -67,6 +67,15 @@ def create_app(
     app.config["STORE"] = store
     app.config["DB_PATH"] = resolved_db
 
+    # -- Data facade (router + loaders for refresh API) -----------------------
+    try:
+        from tradingagents.astock.data_sources.router import AStockDataFacade
+
+        facade = AStockDataFacade()
+        app.config["DATA_FACADE"] = facade
+    except Exception:
+        app.config["DATA_FACADE"] = None
+
     # Override config for testing
     if test_config:
         app.config.update(test_config)

@@ -8,16 +8,24 @@ chain at module load time.
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from flask import Blueprint, Response, current_app, jsonify, request
 
 bp = Blueprint("data", __name__)
 
+logger = logging.getLogger(__name__)
+
 
 def _store() -> Any:
     """Grab the store from app config (lazy; already initialised by factory)."""
     return current_app.config["STORE"]
+
+
+def _router() -> Any:
+    """Grab the AStockDataFacade/router from app config (lazy)."""
+    return current_app.config.get("DATA_FACADE")
 
 
 def _df_to_json(df: Any) -> list[dict[str, Any]]:
@@ -169,5 +177,125 @@ def get_store_stats() -> tuple[Response, int]:
     try:
         stats = _store().get_table_stats()
         return jsonify({"stats": stats}), 200
+    except Exception as exc:
+        return jsonify({"error": str(exc), "status": 500}), 500
+
+
+# ---------------------------------------------------------------------------
+# Data refresh (manual pull from provider → DuckDB)
+# ---------------------------------------------------------------------------
+
+
+@bp.route("/data/refresh/kline", methods=["POST"])
+def refresh_kline() -> tuple[Response, int]:
+    """POST /api/v1/data/refresh/kline
+    JSON: {"symbol": "600519.SH", "start": "2026-01-01", "end": "2026-06-15"}
+    """
+    body = request.get_json(force=True, silent=True) or {}
+    symbol = body.get("symbol", "")
+    if not symbol:
+        return jsonify({"error": "symbol is required", "status": 400}), 400
+    start = body.get("start")
+    end = body.get("end")
+    interval = body.get("interval", "1d")
+    try:
+        from tradingagents.astock.store.loader import KlineLoader
+
+        store = _store()
+        router = _router()
+        loader = KlineLoader(store, router)
+        count = loader.load(symbol, start=start, end=end, interval=interval)
+        return jsonify({"symbol": symbol, "rows_inserted": count, "status": "ok"}), 200
+    except Exception as exc:
+        logger.warning("Refresh kline failed for %s: %s", symbol, exc)
+        return jsonify({"error": str(exc), "status": 500}), 500
+
+
+@bp.route("/data/refresh/valuation", methods=["POST"])
+def refresh_valuation() -> tuple[Response, int]:
+    """POST /api/v1/data/refresh/valuation
+    JSON: {"symbol": "600519.SH"}
+    """
+    body = request.get_json(force=True, silent=True) or {}
+    symbol = body.get("symbol", "")
+    if not symbol:
+        return jsonify({"error": "symbol is required", "status": 400}), 400
+    try:
+        from tradingagents.astock.store.loader import ValuationLoader
+
+        store = _store()
+        router = _router()
+        loader = ValuationLoader(store, router)
+        count = loader.load(symbol)
+        return jsonify({"symbol": symbol, "rows_inserted": count, "status": "ok"}), 200
+    except Exception as exc:
+        logger.warning("Refresh valuation failed for %s: %s", symbol, exc)
+        return jsonify({"error": str(exc), "status": 500}), 500
+
+
+@bp.route("/data/refresh/all", methods=["POST"])
+def refresh_all() -> tuple[Response, int]:
+    """POST /api/v1/data/refresh/all
+    JSON: {"symbols": ["600519.SH", "000001.SZ"], "start": "2026-01-01", "end": "2026-06-15"}
+    """
+    body = request.get_json(force=True, silent=True) or {}
+    symbols = body.get("symbols", [])
+    if not symbols:
+        return jsonify({"error": "symbols list is required", "status": 400}), 400
+    start = body.get("start")
+    end = body.get("end")
+    interval = body.get("interval", "1d")
+    try:
+        from tradingagents.astock.store.loader import BatchLoader
+
+        store = _store()
+        router = _router()
+        loader = BatchLoader(store, router)
+        results = loader.load_all(symbols, kline_start=start, kline_end=end)
+        return jsonify({"results": results, "status": "ok"}), 200
+    except Exception as exc:
+        logger.warning("Refresh all failed: %s", exc)
+        return jsonify({"error": str(exc), "status": 500}), 500
+
+
+# ---------------------------------------------------------------------------
+# Cache management
+# ---------------------------------------------------------------------------
+
+
+@bp.route("/cache/status")
+def cache_status() -> tuple[Response, int]:
+    """GET /api/v1/cache/status — in-memory cache stats."""
+    try:
+        router = _router()
+        if not router or not hasattr(router, 'router'):
+            return jsonify({"cache": {"enabled": False}}), 200
+        cache = router.router.cache if hasattr(router, 'router') else None
+        if cache is None:
+            return jsonify({"cache": {"enabled": False}}), 200
+        info = {"enabled": True, "type": type(cache).__name__}
+        if hasattr(cache, "_snapshots"):
+            info["snapshots"] = len(cache._snapshots)
+        if hasattr(cache, "_history_ranges"):
+            info["history_ranges"] = len(cache._history_ranges)
+        if hasattr(cache, "_summaries"):
+            info["summaries"] = len(cache._summaries)
+        return jsonify({"cache": info}), 200
+    except Exception as exc:
+        return jsonify({"error": str(exc), "status": 500}), 500
+
+
+@bp.route("/cache/clear", methods=["POST"])
+def cache_clear() -> tuple[Response, int]:
+    """POST /api/v1/cache/clear — clear all in-memory caches."""
+    try:
+        router = _router()
+        if not router:
+            return jsonify({"status": "ok", "cleared": False, "reason": "no router"}), 200
+        cache = router.router.cache if hasattr(router, 'router') else None
+        if cache and hasattr(cache, "clear"):
+            cache.clear()
+            return jsonify({"status": "ok", "cleared": True}), 200
+        return jsonify({"status": "ok", "cleared": False, "reason": "cache has no clear()"}), 200
     except Exception as exc:
         return jsonify({"error": str(exc), "status": 500}), 500
