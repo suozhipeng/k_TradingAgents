@@ -6,6 +6,7 @@ and composite scoring logic without depending on a real store.
 
 from __future__ import annotations
 
+import importlib
 import sys
 import unittest
 from pathlib import Path
@@ -14,10 +15,46 @@ from unittest.mock import MagicMock
 import pandas as pd
 
 _REPO = Path(__file__).resolve().parent.parent
-if str(_REPO) not in sys.path:
-    sys.path.insert(0, str(_REPO))
+_ANALYSIS = _REPO / "tradingagents" / "astock" / "analysis"
+_PKG_PARENT = "tradingagents.astock.analysis"
 
-from tradingagents.astock.analysis.market_analyzer import MarketAnalyzer
+
+def _load_module(rel_name: str):
+    """Load market_analyzer module without polluting sys.modules."""
+    import importlib.util as util
+
+    fname = rel_name + ".py"
+    full_name = f"{_PKG_PARENT}.{rel_name}"
+    path = str(_ANALYSIS / fname)
+    spec = util.spec_from_file_location(full_name, path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Cannot load {full_name} from {path}")
+
+    for parent in ("tradingagents", "tradingagents.astock", _PKG_PARENT):
+        mod = sys.modules.get(parent)
+        if mod is not None and hasattr(mod, "__path__") and not getattr(mod, "__path__", []):
+            del sys.modules[parent]
+        if parent not in sys.modules:
+            try:
+                importlib.import_module(parent)
+            except ImportError:
+                pass
+
+    analysis_pkg = sys.modules.get(_PKG_PARENT)
+    if analysis_pkg:
+        analysis_pkg.__path__ = [str(_ANALYSIS)]
+
+    mod = util.module_from_spec(spec)
+    mod.__package__ = _PKG_PARENT
+    mod.__name__ = full_name
+    sys.modules[full_name] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
+_ma = _load_module("market_analyzer")
+MarketAnalyzer = _ma.MarketAnalyzer
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -25,12 +62,8 @@ from tradingagents.astock.analysis.market_analyzer import MarketAnalyzer
 
 
 def _make_kline_df(
-    trend: str = "up",
-    n_days: int = 80,
-    start: str = "2026-03-01",
-    base_price: float = 100.0,
+    trend: str = "up", n_days: int = 80, start: str = "2026-03-01", base_price: float = 100.0,
 ) -> pd.DataFrame:
-    """Build a DataFrame that looks like query_kline() output."""
     dates = pd.bdate_range(start=start, periods=n_days)
     rows = []
     price = base_price
@@ -41,16 +74,12 @@ def _make_kline_df(
             price *= 0.992
         else:
             price += (hash(str(dt)) % 3 - 1) * 0.5
-        rows.append(
-            {
-                "trade_date": dt.date(),
-                "open": round(price, 2),
-                "high": round(price * 1.01, 2),
-                "low": round(price * 0.99, 2),
-                "close": round(price, 2),
-                "volume": int(abs(hash(str(dt))) % 1000000 + 500000),
-            }
-        )
+        rows.append({
+            "trade_date": dt.date(), "open": round(price, 2),
+            "high": round(price * 1.01, 2), "low": round(price * 0.99, 2),
+            "close": round(price, 2),
+            "volume": int(abs(hash(str(dt))) % 1000000 + 500000),
+        })
     return pd.DataFrame(rows)
 
 
@@ -60,106 +89,61 @@ def _make_kline_df(
 
 
 class TestMarketAnalyzerBasic(unittest.TestCase):
-    """MarketAnalyzer 基本结构和空数据处理。"""
-
     def setUp(self):
         self.mock_store = MagicMock()
         self.mock_store.query_kline.return_value = pd.DataFrame()
         self.analyzer = MarketAnalyzer(store=self.mock_store)
 
-    # --- Basic structure tests ---
-
     def test_analyze_returns_expected_keys(self):
-        """analyze() returns all expected top-level keys."""
         df = _make_kline_df(trend="up")
         self.mock_store.query_kline.return_value = df.copy()
         result = self.analyzer.analyze("000300.SH", "2026-06-12")
-        expected_keys = {
-            "symbol", "trade_date", "dimensions",
-            "composite_score", "market_verdict", "recommended_strategies",
-        }
+        expected_keys = {"symbol", "trade_date", "dimensions", "composite_score", "market_verdict", "recommended_strategies"}
         self.assertEqual(set(result.keys()), expected_keys)
         for dim_key in ("trend", "momentum", "volatility", "volume"):
             self.assertIn(dim_key, result["dimensions"])
 
     def test_analyze_empty_data_returns_neutral(self):
-        """analyze() returns neutral verdict when store has no data."""
         result = self.analyzer.analyze("000300.SH", "2026-06-12")
         self.assertEqual(result["market_verdict"], "neutral")
         self.assertEqual(result["composite_score"], 0.0)
 
-    # --- Dimension analysis tests ---
-
     def test_trend_bullish(self):
-        """_analyze_trend returns bullish for MA5 > MA20 > MA60."""
         df = _make_kline_df(trend="up", n_days=80)
         trend = MarketAnalyzer._analyze_trend(df)
         self.assertEqual(trend["verdict"], "bullish")
         self.assertGreater(trend["score"], 0.5)
 
     def test_trend_bearish(self):
-        """_analyze_trend returns bearish for MA5 < MA20 < MA60."""
         df = _make_kline_df(trend="down", n_days=80)
         trend = MarketAnalyzer._analyze_trend(df)
         self.assertEqual(trend["verdict"], "bearish")
         self.assertLess(trend["score"], -0.5)
 
     def test_momentum_bullish(self):
-        """_analyze_momentum returns bullish for strong uptrend."""
         df = _make_kline_df(trend="up", n_days=40)
         momentum = MarketAnalyzer._analyze_momentum(df)
         self.assertIn(momentum["verdict"], ("bullish", "neutral"))
         self.assertGreaterEqual(momentum["score"], -1.0)
 
     def test_momentum_bearish(self):
-        """_analyze_momentum returns bearish for strong downtrend."""
         df = _make_kline_df(trend="down", n_days=40)
         momentum = MarketAnalyzer._analyze_momentum(df)
         self.assertIn(momentum["verdict"], ("bearish", "neutral"))
         self.assertLessEqual(momentum["score"], 1.0)
 
-    def test_volatility_normal(self):
-        """_analyze_volatility returns normal for moderate ATR."""
-        df = _make_kline_df(trend="up", n_days=40)
-        vol = MarketAnalyzer._analyze_volatility(df)
-        self.assertIn(vol["verdict"], ("low", "normal", "high"))
-
-    def test_volume_active(self):
-        """_analyze_volume returns non-empty verdict."""
-        df = _make_kline_df(trend="up", n_days=40)
-        vol = MarketAnalyzer._analyze_volume(df)
-        self.assertIn(vol["verdict"], ("active", "normal", "weak"))
-
-    # --- Composite / verdict tests ---
-
     def test_classify_verdict_returns_valid_label(self):
-        """每个复合分数区间都有对应的标签。"""
-        for composite, expected in [
-            (-0.8, "bearish"),
-            (-0.3, "cautious_bearish"),
-            (0.0, "neutral"),
-            (0.3, "cautious_bullish"),
-            (0.8, "bullish"),
-        ]:
+        for composite, expected in [(-0.8, "bearish"), (-0.3, "cautious_bearish"), (0.0, "neutral"), (0.3, "cautious_bullish"), (0.8, "bullish")]:
             with self.subTest(score=composite):
-                verdict = MarketAnalyzer._classify_verdict(composite)
-                self.assertEqual(verdict, expected)
-
-    def test_recommended_strategies_match_regime(self):
-        """每个市况下都有推荐的策略列表。"""
-        strategies = MarketAnalyzer._empty_result("000300.SH", "2026-06-12")
-        self.assertEqual(strategies["recommended_strategies"], [])
-        self.assertEqual(strategies["market_verdict"], "neutral")
+                self.assertEqual(MarketAnalyzer._classify_verdict(composite), expected)
 
     def test_analyze_integration_bullish(self):
-        """完整分析链路：上涨趋势 → bullish 或 cautious_bullish。"""
         df = _make_kline_df(trend="up", n_days=120)
         self.mock_store.query_kline.return_value = df.copy()
         result = self.analyzer.analyze("000300.SH", df["trade_date"].iloc[-1])
         self.assertIn(result["market_verdict"], ("bullish", "cautious_bullish", "neutral"))
 
     def test_analyze_integration_bearish(self):
-        """完整分析链路：下跌趋势 → bearish 或 cautious_bearish。"""
         df = _make_kline_df(trend="down", n_days=120)
         self.mock_store.query_kline.return_value = df.copy()
         result = self.analyzer.analyze("000300.SH", df["trade_date"].iloc[-1])

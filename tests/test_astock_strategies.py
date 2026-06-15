@@ -2,30 +2,74 @@
 
 from __future__ import annotations
 
+import importlib
 import sys
 import unittest
 from pathlib import Path
 
 import pandas as pd
 
-# Ensure repo root is on sys.path for direct imports
-_REPO = Path(__file__).resolve().parent.parent
-if str(_REPO) not in sys.path:
-    sys.path.insert(0, str(_REPO))
+# ---------------------------------------------------------------------------
+# Clean module loader — loads a single submodule without polluting sys.modules
+# with fake parent packages.  Real parent packages are imported once via
+# importlib; only the target submodule is loaded from its file path.
+# ---------------------------------------------------------------------------
 
-from tradingagents.astock.execution.strategy_base import (
-    BollingerBandsReversionStrategy,
-    BullTrendStrategy,
-    DefensiveMomentumStrategy,
-    GridTradingStrategy,
-    MACDTrendStrategy,
-    MeanReversionStrategy,
-    MovingAverageTrendStrategy,
-    PutWriteStrategy,
-    RSIRangeStrategy,
-    StrategyBase,
-    ValueAverageStrategy,
-)
+_REPO = Path(__file__).resolve().parent.parent
+_EXEC = _REPO / "tradingagents" / "astock" / "execution"
+_PKG_PARENT = "tradingagents.astock.execution"
+
+
+def _load_submodule(rel_name: str):
+    """Load a single submodule by file path without fake-package pollution."""
+    fname = rel_name + ".py"
+    full_name = f"{_PKG_PARENT}.{rel_name}"
+    path = str(_EXEC / fname)
+    spec = importlib.util.spec_from_file_location(full_name, path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Cannot load {full_name} from {path}")
+
+    # Ensure real parent packages are importable (not fake shells from older runs)
+    for parent in ("tradingagents", "tradingagents.astock", _PKG_PARENT):
+        mod = sys.modules.get(parent)
+        if mod is not None and hasattr(mod, "__path__") and not getattr(mod, "__path__", []):
+            del sys.modules[parent]
+        if parent not in sys.modules:
+            try:
+                importlib.import_module(parent)
+            except ImportError:
+                pass  # real package exists on sys.path, import will work at runtime
+
+    exec_pkg = sys.modules.get(_PKG_PARENT)
+    if exec_pkg:
+        exec_pkg.__path__ = [str(_EXEC)]
+
+    # Load only the target submodule
+    mod = importlib.util.module_from_spec(spec)
+    mod.__package__ = _PKG_PARENT
+    mod.__name__ = full_name
+    sys.modules[full_name] = mod
+    spec.loader.exec_module(mod)
+
+    # Clean up: remove this submodule so it doesn't shadow other imports
+    del sys.modules[full_name]
+
+    return mod
+
+
+_sb = _load_submodule("strategy_base")
+
+StrategyBase = _sb.StrategyBase
+MovingAverageTrendStrategy = _sb.MovingAverageTrendStrategy
+BullTrendStrategy = _sb.BullTrendStrategy
+ValueAverageStrategy = _sb.ValueAverageStrategy
+MeanReversionStrategy = _sb.MeanReversionStrategy
+RSIRangeStrategy = _sb.RSIRangeStrategy
+DefensiveMomentumStrategy = _sb.DefensiveMomentumStrategy
+PutWriteStrategy = _sb.PutWriteStrategy
+MACDTrendStrategy = _sb.MACDTrendStrategy
+BollingerBandsReversionStrategy = _sb.BollingerBandsReversionStrategy
+GridTradingStrategy = _sb.GridTradingStrategy
 
 # ---------------------------------------------------------------------------
 # Helpers

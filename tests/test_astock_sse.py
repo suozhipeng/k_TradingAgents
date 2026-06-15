@@ -23,26 +23,27 @@ _PKG_PARENT_API = "tradingagents.astock.api"
 
 
 def _load_submodule(rel_name: str, path_root: Path, pkg_parent: str):
+    """Load a module without polluting sys.modules with fake packages."""
+    import importlib
+
     fname = rel_name + ".py"
     full_name = f"{pkg_parent}.{rel_name}"
     path = str(path_root / fname)
     spec = importlib.util.spec_from_file_location(full_name, path)
     if spec is None or spec.loader is None:
         raise ImportError(f"Cannot load {full_name} from {path}")
-    for parent in ("tradingagents", "tradingagents.astock"):
+    for parent in ("tradingagents", "tradingagents.astock", pkg_parent):
+        mod = sys.modules.get(parent)
+        if mod is not None and hasattr(mod, "__path__") and not getattr(mod, "__path__", []):
+            del sys.modules[parent]
         if parent not in sys.modules:
-            pkg_spec = importlib.util.spec_from_loader(parent, loader=None, is_package=True)
-            parent_mod = importlib.util.module_from_spec(pkg_spec)
-            parent_mod.__path__ = []
-            sys.modules[parent] = parent_mod
-    # Make sure the immediate parent package exists
-    if pkg_parent not in sys.modules:
-        pkg_spec = importlib.util.spec_from_loader(pkg_parent, loader=None, is_package=True)
-        pkg_mod = importlib.util.module_from_spec(pkg_spec)
-        pkg_mod.__path__ = [str(path_root)]
-        sys.modules[pkg_parent] = pkg_mod
-    exec_pkg = sys.modules[pkg_parent]
-    exec_pkg.__path__ = [str(path_root)]
+            try:
+                importlib.import_module(parent)
+            except ImportError:
+                pass
+    exec_pkg = sys.modules.get(pkg_parent)
+    if exec_pkg:
+        exec_pkg.__path__ = [str(path_root)]
     mod = importlib.util.module_from_spec(spec)
     mod.__package__ = pkg_parent
     mod.__name__ = full_name

@@ -21,26 +21,29 @@ _PKG_PARENT = "tradingagents.astock.execution"
 
 
 def _load_submodule(rel_name: str):
-    """Load a module from the execution package with correct package context."""
+    """Load a module without polluting sys.modules with fake packages."""
+    import importlib
+
     fname = rel_name + ".py"
     full_name = f"{_PKG_PARENT}.{rel_name}"
     path = str(_EXEC / fname)
     spec = importlib.util.spec_from_file_location(full_name, path)
     if spec is None or spec.loader is None:
         raise ImportError(f"Cannot load {full_name} from {path}")
-    # Ensure parent packages exist in sys.modules
-    for parent in ("tradingagents", "tradingagents.astock", "tradingagents.astock.execution"):
+    for parent in ("tradingagents", "tradingagents.astock", _PKG_PARENT):
+        mod = sys.modules.get(parent)
+        if mod is not None and hasattr(mod, "__path__") and not getattr(mod, "__path__", []):
+            del sys.modules[parent]
         if parent not in sys.modules:
-            pkg_spec = importlib.util.spec_from_loader(parent, loader=None, is_package=True)
-            parent_mod = importlib.util.module_from_spec(pkg_spec)
-            parent_mod.__path__ = []
-            sys.modules[parent] = parent_mod
-    # Set up execution package with __path__ so relative imports resolve
-    exec_pkg = sys.modules[_PKG_PARENT]
-    exec_pkg.__path__ = [str(_EXEC)]
-
+            try:
+                importlib.import_module(parent)
+            except ImportError:
+                pass
+    exec_pkg = sys.modules.get(_PKG_PARENT)
+    if exec_pkg:
+        exec_pkg.__path__ = [str(_EXEC)]
     mod = importlib.util.module_from_spec(spec)
-    mod.__package__ = _PKG_PARENT  # critical: set package for relative imports
+    mod.__package__ = _PKG_PARENT
     mod.__name__ = full_name
     sys.modules[full_name] = mod
     spec.loader.exec_module(mod)

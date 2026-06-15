@@ -171,7 +171,8 @@ class TestWebSpecificPages:
         resp = client.get("/strategies")
         html = resp.data.decode("utf-8")
         assert "strategies-list" in html
-        assert "strategies-scores" in html
+        assert "opt-strategy" in html
+        assert "opt-results" in html
 
     def test_paper_has_account_state(self, client):
         resp = client.get("/paper")
