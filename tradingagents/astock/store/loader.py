@@ -148,6 +148,11 @@ class ValuationLoader:
         items = None
         if isinstance(data, dict):
             items = data.get("items") or data.get("valuations")
+            # Flat dict (single snapshot) — wrap as single-row list
+            if items is None and any(
+                k in data for k in ("pe", "pb", "market_cap", "price", "symbol")
+            ):
+                items = [data]
         elif isinstance(data, pd.DataFrame):
             items = data
 
@@ -163,6 +168,11 @@ class ValuationLoader:
 
         if df is None or df.empty:
             return 0
+
+        # Flat-snapshot records may not have trade_date — add today's date
+        if "trade_date" not in df.columns and "date" not in df.columns:
+            from datetime import date
+            df["trade_date"] = date.today()
 
         return self._store.insert_valuations(symbol, df, source=source)
 
