@@ -36,8 +36,12 @@ checkpoint.
 | 9 | Trader, Risk, Portfolio Manager adaptation | Implementation complete — advisory chain wiring, CLI/UI rendering, runtime profiles, 62-test regression slice | [Phase 9](phase-09-trader-risk-portfolio.md) |
 | 10 | Backtest and paper trading | Complete | [Phase 10](phase-10-backtest-paper-trading.md) |
 || 11 | QMT bridge — read-only to controlled execution | Complete | [Phase 11](phase-11-qmt-controlled-execution.md) |
-|| 12 | DuckDB local database | Complete | [Phase 12](phase-12-duckdb-local-database.md) |
-|| 14 | Six backtest strategies | Complete | [Phase 14](phase-14-strategy-expansion.md) |
+| 12 | DuckDB local database — 10 tables, CLI tool, import/export | Complete | [Phase 12](phase-12-duckdb-local-database.md) |
+| 13 | WebUI i18n + market switch — zh/en, LangSwitch, MarketSwitch | Complete | commit `02aee20` |
+| 14 | Six backtest strategies (2 bull / 2 oscillation / 2 bear) | Complete | [Phase 14](phase-14-strategy-expansion.md) |
+| 15 | Flask REST API + Chart.js + WebUI API client — 19 endpoints | Complete | commit `eff5d24` |
+| 16 | Batch backtest, market analyzer, scheduler, SSE — 36 tests | Complete | commit `0019dc9` |
+| 17 | Flask Jinja2 WebUI 9 pages + PPT reporting — 54 tests | Complete | commit `8f2423e` |
 
 ## Naming
 

@@ -1,6 +1,6 @@
 # A 股二次定制开发基线
 
-|更新时间：2026-06-15 (All 14 phases complete — A-stock customization + DuckDB + 6 strategy baseline) 
+|更新时间：2026-06-15 (All 17 phases complete — A股全链路定制: Provider/分析/研究/CLI/WebUI/API/回测/执行/DuckDB/策略/WebUI 国际化/Flask API/图表/批量回测/市场分析/调度/流式推送/Jinja2 页面/PPT) |
 
 本文档是 A 股二次定制开发的当前事实基线。后续 Hermes 调度、ECC
 验收和阶段推进优先以本文档为准。
@@ -15,7 +15,11 @@
 - Phase 10：回测验证与模拟盘试跑
 - Phase 11：QMT 桥接与受控执行（安全模式默认）
 - Phase 12：DuckDB 本地数据库（持久化存储层）
+- Phase 13：WebUI 国际化与市场切换（中英双语 + 美股/A 股切换）
 - Phase 14：六种回测策略（2 牛市 / 2 震荡 / 2 熊市）
+- Phase 15：Flask REST API + Chart.js 图表 + WebUI API 客户端（19 端点）
+- Phase 16：批量回测 + 市场分析器 + 定时调度 + SSE 流式推送
+- Phase 17：Flask Jinja2 WebUI 9 页面 + PPT 报告生成
 
 已打通的主路径：
 
@@ -75,7 +79,11 @@ Phase 11 执行层增加了额外的安全边界：
 | 10 | 回测与模拟盘 | 完成 |
 | 11 | QMT 只读桥接到受控执行 | 完成 |
 | 12 | DuckDB 本地数据库（10 表，CLI 工具，导入/导出） | 完成 |
+| 13 | WebUI 国际化 + 市场切换（zh/en, LangSwitch, MarketSwitch） | 完成 |
 | 14 | 六种回测策略（2 牛 / 2 震荡 / 2 熊） | 完成 |
+| 15 | Flask REST API + Chart.js + WebUI API 客户端（19 端点） | 完成 |
+| 16 | 批量回测 + 市场分析器 + 调度器 + SSE（36 项测试） | 完成 |
+| 17 | Flask Jinja2 WebUI 9 页面 + PPT 报告（54 项测试） | 完成 |
 
 ## 4. 已完成能力
 
