@@ -59,9 +59,23 @@ if __name__ == "__main__":
         default=30,
         help="Scheduler interval in minutes (default: 30)",
     )
+    parser.add_argument(
+        "--no-web",
+        action="store_true",
+        help="Disable the Jinja2 WebUI (default: enabled)",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=5860,
+        help="Server port (default: 5860)",
+    )
     args = parser.parse_args()
 
     if args.scheduler:
         _start_scheduler(args.interval)
 
-    app.run(host="0.0.0.0", port=5860, debug=True)
+    if not args.no_web:
+        logging.getLogger("run_astock_api").info("Web UI enabled at http://localhost:%d", args.port)
+
+    app.run(host="0.0.0.0", port=args.port, debug=True)

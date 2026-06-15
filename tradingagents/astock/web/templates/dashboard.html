@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — AStock WebUI{% endblock %}
+{% block content %}
+<h2 class="text-2xl font-bold text-white mb-6">📊 总览 Dashboard</h2>
+
+<!-- Stats Cards -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6" id="stats-cards">
+  <div class="card"><div class="stat-label">股票跟踪</div><div class="stat-value" id="stat-symbols">--</div></div>
+  <div class="card"><div class="stat-label">回测已完成</div><div class="stat-value" id="stat-backtests">--</div></div>
+  <div class="card"><div class="stat-label">模拟持仓</div><div class="stat-value" id="stat-positions">--</div></div>
+  <div class="card"><div class="stat-label">风控告警</div><div class="stat-value" id="stat-risks">--</div></div>
+</div>
+
+<!-- Market Summary -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+  <div class="card">
+    <h3 class="text-lg font-semibold text-white mb-4">📈 市场概要 Market Summary</h3>
+    <div id="market-summary-content" class="text-gray-400 text-sm">Loading...</div>
+  </div>
+  <div class="card">
+    <h3 class="text-lg font-semibold text-white mb-4">⚡ 最近回测 Recent Backtests</h3>
+    <div id="recent-backtests" class="text-gray-400 text-sm">Loading...</div>
+  </div>
+</div>
+
+<!-- Recent Activity -->
+<div class="card mt-6">
+  <h3 class="text-lg font-semibold text-white mb-4">📋 最近活动 Recent Activity</h3>
+  <div id="recent-activity" class="text-gray-400 text-sm">Loading...</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadDashboard() {
+  try {
+    const [marketRes, btRes] = await Promise.all([
+      fetch('/api/v1/market/summary'),
+      fetch('/api/v1/backtest/list?limit=5'),
+    ]);
+    const market = await marketRes.json();
+    const btData = await btRes.json();
+
+    document.getElementById('stat-symbols').textContent = market?.symbols_tracked ?? '--';
+    document.getElementById('stat-backtests').textContent = btData?.total ?? '--';
+    document.getElementById('stat-positions').textContent = market?.positions ?? '--';
+    document.getElementById('stat-risks').textContent = market?.risk_alerts ?? '--';
+
+    const mc = document.getElementById('market-summary-content');
+    if (market?.summary) {
+      mc.innerHTML = `<p class="text-gray-300">${market.summary}</p>`;
+    } else {
+      mc.innerHTML = '<p class="text-gray-500">No market data available.</p>';
+    }
+
+    const rb = document.getElementById('recent-backtests');
+    if (btData?.backtests?.length) {
+      rb.innerHTML = '<div class="space-y-2">' + btData.backtests.map(bt =>
+        `<div class="flex justify-between items-center py-1 border-b border-dark-border last:border-0">
+          <span class="text-gray-300">${bt.symbol || bt.id}</span>
+          <span class="badge ${bt.status === 'completed' ? 'badge-success' : 'badge-warning'}">${bt.status}</span>
+        </div>`
+      ).join('') + '</div>';
+    } else {
+      rb.innerHTML = '<p class="text-gray-500">No backtests yet.</p>';
+    }
+
+    document.getElementById('recent-activity').innerHTML =
+      '<p class="text-gray-500">实时活动流即将推出。</p>';
+  } catch (e) {
+    document.querySelectorAll('#stats-cards .stat-value').forEach(el => el.textContent = 'ERR');
+    document.getElementById('market-summary-content').innerHTML = '<p class="text-red-400">Failed to load dashboard data.</p>';
+  }
+}
+loadDashboard();
+</script>
+{% endblock %}

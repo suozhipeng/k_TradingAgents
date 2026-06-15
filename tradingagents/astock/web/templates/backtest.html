@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}Backtest — AStock WebUI{% endblock %}
+{% block content %}
+<h2 class="text-2xl font-bold text-white mb-6">🔄 回测 Backtest</h2>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+  <!-- Run Backtest -->
+  <div class="lg:col-span-1 card">
+    <h3 class="text-lg font-semibold text-white mb-4">运行回测</h3>
+    <div class="space-y-3">
+      <div>
+        <label class="block text-xs text-gray-400 mb-1">股票 Symbol</label>
+        <input type="text" id="bt-symbol" placeholder="600519.SH" class="w-full" value="600519.SH">
+      </div>
+      <div>
+        <label class="block text-xs text-gray-400 mb-1">策略 Strategy</label>
+        <select id="bt-strategy" class="w-full">
+          <option value="ma_cross">MA Cross</option>
+          <option value="macd">MACD</option>
+          <option value="bollinger">Bollinger</option>
+          <option value="momentum">Momentum</option>
+          <option value="mean_reversion">Mean Reversion</option>
+          <option value="volume_breakout">Volume Breakout</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs text-gray-400 mb-1">起始日期</label>
+        <input type="text" id="bt-start" placeholder="2024-01-01" class="w-full" value="2024-01-01">
+      </div>
+      <div>
+        <label class="block text-xs text-gray-400 mb-1">结束日期</label>
+        <input type="text" id="bt-end" placeholder="2024-12-31" class="w-full" value="2024-12-31">
+      </div>
+      <button onclick="runBacktest()" class="btn btn-primary w-full">▶ 运行 Backtest</button>
+      <div id="bt-run-status" class="text-xs text-gray-400 mt-2"></div>
+    </div>
+  </div>
+
+  <!-- Results -->
+  <div class="lg:col-span-2 card">
+    <h3 class="text-lg font-semibold text-white mb-4">结果 Results</h3>
+    <div id="bt-results-content" class="text-gray-400 text-sm">点击运行开始回测...</div>
+  </div>
+</div>
+
+<!-- Backtest History -->
+<div class="card mt-6">
+  <h3 class="text-lg font-semibold text-white mb-4">📋 回测历史对比</h3>
+  <div id="bt-history" class="text-gray-400 text-sm overflow-x-auto">Loading...</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function runBacktest() {
+  const symbol = document.getElementById('bt-symbol').value.trim();
+  const strategy = document.getElementById('bt-strategy').value;
+  const startDate = document.getElementById('bt-start').value.trim();
+  const endDate = document.getElementById('bt-end').value.trim();
+  const statusEl = document.getElementById('bt-run-status');
+  statusEl.textContent = 'Running...';
+
+  try {
+    const res = await fetch('/api/v1/backtest/run', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ symbol, strategy, start_date: startDate, end_date: endDate })
+    });
+    const data = await res.json();
+    statusEl.textContent = data?.status || 'Done';
+
+    const rc = document.getElementById('bt-results-content');
+    if (data?.metrics) {
+      rc.innerHTML = '<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">' +
+        Object.entries(data.metrics).map(([k, v]) =>
+          `<div class="bg-dark-bg rounded-lg p-3"><div class="text-xs text-gray-400">${k}</div><div class="text-lg font-bold text-white">${typeof v === 'number' ? v.toFixed(4) : v}</div></div>`
+        ).join('') + '</div>';
+    } else {
+      rc.innerHTML = `<pre class="text-xs">${JSON.stringify(data, null, 2)}</pre>`;
+    }
+    loadBtHistory();
+  } catch (e) {
+    statusEl.textContent = 'Error: ' + e.message;
+  }
+}
+
+async function loadBtHistory() {
+  try {
+    const res = await fetch('/api/v1/backtest/list?limit=20');
+    const data = await res.json();
+    const el = document.getElementById('bt-history');
+    if (data?.backtests?.length) {
+      el.innerHTML = '<table><thead><tr><th>ID</th><th>Symbol</th><th>Strategy</th><th>状态</th><th>Sharpe</th><th>Return</th></tr></thead><tbody>' +
+        data.backtests.map(bt =>
+          `<tr>
+            <td class="text-gray-300 text-xs">${bt.id?.substring(0, 8)}</td>
+            <td>${bt.symbol}</td>
+            <td><span class="badge badge-info">${bt.strategy || '--'}</span></td>
+            <td><span class="badge ${bt.status === 'completed' ? 'badge-success' : bt.status === 'running' ? 'badge-warning' : 'badge-error'}">${bt.status}</span></td>
+            <td>${bt.metrics?.sharpe_ratio?.toFixed(2) ?? '--'}</td>
+            <td>${bt.metrics?.total_return ? (bt.metrics.total_return * 100).toFixed(2) + '%' : '--'}</td>
+          </tr>`
+        ).join('') + '</tbody></table>';
+    } else {
+      el.innerHTML = '<p class="text-gray-500">No backtests found.</p>';
+    }
+  } catch (e) {
+    document.getElementById('bt-history').innerHTML = '<p class="text-red-400">Failed to load history.</p>';
+  }
+}
+loadBtHistory();
+</script>
+{% endblock %}

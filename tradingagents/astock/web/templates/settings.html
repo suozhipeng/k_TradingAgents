@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Settings — AStock WebUI{% endblock %}
+{% block content %}
+<h2 class="text-2xl font-bold text-white mb-6">⚙️ 设置 Settings</h2>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+  <div class="card">
+    <h3 class="text-lg font-semibold text-white mb-4">🔧 系统配置 System Config</h3>
+    <div class="space-y-4">
+      <div>
+        <label class="block text-xs text-gray-400 mb-1">数据源 Provider</label>
+        <select id="cfg-provider" class="w-full">
+          <option value="eastmoney">东方财富 EastMoney</option>
+          <option value="sina">新浪 Sina</option>
+          <option value="akshare">AKShare</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs text-gray-400 mb-1">默认回测资金</label>
+        <input type="text" id="cfg-capital" value="1000000" class="w-full">
+      </div>
+      <div>
+        <label class="block text-xs text-gray-400 mb-1">API 基础 URL</label>
+        <input type="text" id="cfg-api-url" value="/api/v1" class="w-full" readonly>
+      </div>
+      <button onclick="saveSettings()" class="btn btn-primary">保存设置 Save</button>
+      <div id="save-status" class="text-xs text-gray-400"></div>
+    </div>
+  </div>
+  <div class="card">
+    <h3 class="text-lg font-semibold text-white mb-4">ℹ️ 系统信息 System Info</h3>
+    <div id="system-info" class="text-gray-400 text-sm space-y-2">
+      <div class="flex justify-between py-1 border-b border-dark-border"><span>版本</span><span class="text-white" id="sys-version">--</span></div>
+      <div class="flex justify-between py-1 border-b border-dark-border"><span>数据库</span><span class="text-white" id="sys-db">--</span></div>
+      <div class="flex justify-between py-1 border-b border-dark-border"><span>API 端点</span><span class="text-white">19</span></div>
+      <div class="flex justify-between py-1"><span>状态</span><span class="text-emerald-400" id="sys-status">--</span></div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadSettings() {
+  try {
+    const res = await fetch('/api/v1/health');
+    const data = await res.json();
+    document.getElementById('sys-version').textContent = data?.version || '0.1.0';
+    document.getElementById('sys-status').textContent = data?.status === 'ok' ? 'Online' : 'Degraded';
+  } catch (e) {
+    document.getElementById('sys-status').textContent = 'Offline';
+    document.getElementById('sys-version').textContent = 'ERR';
+  }
+}
+function saveSettings() {
+  document.getElementById('save-status').textContent = '设置仅前端模拟。Settings are frontend-only in this demo.';
+  setTimeout(() => document.getElementById('save-status').textContent = '', 3000);
+}
+loadSettings();
+</script>
+{% endblock %}

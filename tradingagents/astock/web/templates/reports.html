@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}Reports — AStock WebUI{% endblock %}
+{% block content %}
+<h2 class="text-2xl font-bold text-white mb-6">📄 报告 Reports</h2>
+
+<div class="card mb-6">
+  <div class="flex flex-wrap gap-4 items-end">
+    <div>
+      <label class="block text-xs text-gray-400 mb-1">股票代码 Symbol</label>
+      <input type="text" id="rpt-symbol" placeholder="600519.SH" class="w-40" value="600519.SH">
+    </div>
+    <button onclick="generateReport()" class="btn btn-primary">📄 生成报告 Generate</button>
+    <button onclick="downloadPptx()" class="btn btn-secondary">⬇ 下载 PPTX</button>
+  </div>
+  <div id="rpt-status" class="text-xs text-gray-400 mt-3"></div>
+</div>
+
+<div id="report-content" class="space-y-6">
+  <div class="card">
+    <h3 class="text-lg font-semibold text-white mb-4">📋 报告列表 Generated Reports</h3>
+    <div id="reports-list" class="text-gray-400 text-sm">No reports generated yet.</div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function generateReport() {
+  const symbol = document.getElementById('rpt-symbol').value.trim() || '600519.SH';
+  document.getElementById('rpt-status').textContent = 'Generating report for ' + symbol + '...';
+  try {
+    const res = await fetch(`/api/v1/data/research?symbol=${symbol}`);
+    const data = await res.json();
+
+    const rl = document.getElementById('reports-list');
+    const now = new Date().toISOString();
+    rl.innerHTML = `
+      <div class="bg-dark-bg rounded-lg p-4">
+        <div class="flex justify-between items-center mb-2">
+          <span class="text-white font-medium">${symbol} 研究报告</span>
+          <span class="badge badge-success">${data?.status || 'ok'}</span>
+        </div>
+        <p class="text-xs text-gray-500 mb-2">生成时间: ${now}</p>
+        <p class="text-gray-300 text-sm">${data?.summary || 'No analysis summary available.'}</p>
+        ${data?.investment_plan ? `<div class="mt-3"><h4 class="text-white text-sm font-semibold mb-1">投资计划</h4><p class="text-gray-300 text-sm">${data.investment_plan}</p></div>` : ''}
+        <div class="mt-3 flex gap-2">
+          <button onclick="downloadPptx()" class="btn btn-secondary text-xs">⬇ 下载 PPTX 报告</button>
+        </div>
+      </div>`;
+    document.getElementById('rpt-status').textContent = 'Report generated.';
+  } catch (e) {
+    document.getElementById('rpt-status').textContent = 'Error: ' + e.message;
+  }
+}
+
+async function downloadPptx() {
+  const symbol = document.getElementById('rpt-symbol').value.trim() || '600519.SH';
+  document.getElementById('rpt-status').textContent = 'Downloading PPTX...';
+  try {
+    const res = await fetch(`/api/v1/reports/pptx?symbol=${symbol}`);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${symbol}_report.pptx`;
+    a.click();
+    URL.revokeObjectURL(url);
+    document.getElementById('rpt-status').textContent = 'PPTX downloaded.';
+  } catch (e) {
+    document.getElementById('rpt-status').textContent = 'PPT download not available: ' + e.message;
+  }
+}
+</script>
+{% endblock %}

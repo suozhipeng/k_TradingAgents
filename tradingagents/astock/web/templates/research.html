@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block title %}Research — AStock WebUI{% endblock %}
+{% block content %}
+<h2 class="text-2xl font-bold text-white mb-6">🔬 个股研究 Research</h2>
+
+<div class="card mb-6">
+  <div class="flex flex-wrap gap-4 items-end">
+    <div>
+      <label class="block text-xs text-gray-400 mb-1">股票代码 Symbol</label>
+      <input type="text" id="symbol-input" placeholder="600519.SH" class="w-40" value="600519.SH">
+    </div>
+    <button onclick="loadResearch()" class="btn btn-primary">查询 Research</button>
+  </div>
+</div>
+
+<div id="research-results" class="space-y-6">
+  <div class="card">
+    <h3 class="text-lg font-semibold text-white mb-4">📊 K 线数据 Kline</h3>
+    <div id="kline-content" class="text-gray-400 text-sm overflow-x-auto">
+      <table><thead><tr><th>日期</th><th>开</th><th>高</th><th>低</th><th>收</th><th>成交量</th></tr></thead><tbody id="kline-body"></tbody></table>
+    </div>
+  </div>
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="card">
+      <h3 class="text-lg font-semibold text-white mb-4">📋 估值 Valuation</h3>
+      <div id="valuation-content" class="text-gray-400 text-sm">输入股票代码查询...</div>
+    </div>
+    <div class="card">
+      <h3 class="text-lg font-semibold text-white mb-4">📰 新闻 News</h3>
+      <div id="news-content" class="text-gray-400 text-sm">输入股票代码查询...</div>
+    </div>
+  </div>
+  <div class="card">
+    <h3 class="text-lg font-semibold text-white mb-4">📝 分析总结 Analysis</h3>
+    <div id="analysis-content" class="text-gray-400 text-sm">输入股票代码查询...</div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadResearch() {
+  const symbol = document.getElementById('symbol-input').value.trim() || '600519.SH';
+  document.getElementById('kline-body').innerHTML = '<tr><td colspan="6" class="text-center py-4 text-gray-500">Loading...</td></tr>';
+  document.getElementById('valuation-content').textContent = 'Loading...';
+  document.getElementById('news-content').textContent = 'Loading...';
+  document.getElementById('analysis-content').textContent = 'Loading...';
+
+  try {
+    const [klineRes, valRes, newsRes, researchRes] = await Promise.all([
+      fetch(`/api/v1/data/kline?symbol=${symbol}&interval=1d&limit=30`),
+      fetch(`/api/v1/data/valuation?symbol=${symbol}&limit=10`),
+      fetch(`/api/v1/data/news?symbol=${symbol}&limit=10`),
+      fetch(`/api/v1/data/research?symbol=${symbol}`),
+    ]);
+
+    const kline = await klineRes.json();
+    const val = await valRes.json();
+    const news = await newsRes.json();
+    const research = await researchRes.json();
+
+    // Kline table
+    const tbody = document.getElementById('kline-body');
+    if (kline?.data?.length) {
+      tbody.innerHTML = kline.data.slice(0, 30).map((bar, i) =>
+        `<tr${i >= kline.data.length - 1 ? ' class="font-semibold text-white"' : ''}>
+          <td class="text-gray-300">${bar.trade_date}</td>
+          <td>${bar.open?.toFixed(2)}</td>
+          <td>${bar.high?.toFixed(2)}</td>
+          <td>${bar.low?.toFixed(2)}</td>
+          <td>${bar.close?.toFixed(2)}</td>
+          <td>${(bar.volume / 10000).toFixed(0)}万</td>
+        </tr>`
+      ).join('');
+    } else {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-gray-500">No kline data.</td></tr>';
+    }
+
+    // Valuation
+    const vc = document.getElementById('valuation-content');
+    if (val?.data?.length) {
+      vc.innerHTML = '<table><thead><tr><th>日期</th><th>PE</th><th>PB</th><th>市值</th></tr></thead><tbody>' +
+        val.data.slice(0, 10).map(v =>
+          `<tr><td class="text-gray-300">${v.trade_date}</td><td>${v.pe?.toFixed(2) ?? '--'}</td><td>${v.pb?.toFixed(2) ?? '--'}</td><td>${v.market_cap ? (v.market_cap / 1e8).toFixed(0) + '亿' : '--'}</td></tr>`
+        ).join('') + '</tbody></table>';
+    } else {
+      vc.textContent = 'No valuation data.';
+    }
+
+    // News
+    const nc = document.getElementById('news-content');
+    if (news?.data?.length) {
+      nc.innerHTML = news.data.slice(0, 10).map(n =>
+        `<div class="py-2 border-b border-dark-border last:border-0">
+          <a href="${n.url || '#'}" target="_blank" class="text-sky-400 hover:underline text-sm">${n.title || n.content?.substring(0, 80)}</a>
+          <p class="text-xs text-gray-500 mt-0.5">${n.date || n.trade_date || ''}</p>
+        </div>`
+      ).join('');
+    } else {
+      nc.textContent = 'No news data.';
+    }
+
+    // Analysis
+    const ac = document.getElementById('analysis-content');
+    if (research?.summary) {
+      ac.innerHTML = `<p class="text-gray-300">${research.summary}</p>`;
+      if (research?.investment_plan) {
+        ac.innerHTML += `<h4 class="text-white font-semibold mt-4 mb-2">投资计划</h4><p class="text-gray-300">${research.investment_plan}</p>`;
+      }
+    } else {
+      ac.textContent = 'No research analysis available.';
+    }
+  } catch (e) {
+    document.getElementById('kline-body').innerHTML = '<tr><td colspan="6" class="text-center py-4 text-red-400">Error loading data.</td></tr>';
+    document.getElementById('valuation-content').textContent = 'Error';
+    document.getElementById('news-content').textContent = 'Error';
+    document.getElementById('analysis-content').textContent = 'Error';
+  }
+}
+loadResearch();
+</script>
+{% endblock %}

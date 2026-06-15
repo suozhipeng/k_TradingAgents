@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Risk — AStock WebUI{% endblock %}
+{% block content %}
+<h2 class="text-2xl font-bold text-white mb-6">⚠️ 风控 Risk</h2>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+  <div class="card">
+    <h3 class="text-lg font-semibold text-white mb-4">🛡️ 风控规则 Risk Rules</h3>
+    <div id="risk-rules" class="text-gray-400 text-sm">Loading...</div>
+  </div>
+  <div class="card">
+    <h3 class="text-lg font-semibold text-white mb-4">🚨 告警列表 Alerts</h3>
+    <div id="risk-alerts" class="text-gray-400 text-sm">Loading...</div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadRisk() {
+  try {
+    const res = await fetch('/api/v1/market/summary');
+    const data = await res.json();
+
+    const rr = document.getElementById('risk-rules');
+    const rules = data?.risk_rules ?? [
+      { name: '单票集中度', limit: '10%', status: 'active' },
+      { name: '最大回撤', limit: '15%', status: 'active' },
+      { name: '日交易次数', limit: '20', status: 'active' },
+      { name: '杠杆限制', limit: '1:1', status: 'active' },
+    ];
+    rr.innerHTML = '<div class="space-y-2">' + rules.map(r =>
+      `<div class="flex justify-between items-center py-2 px-3 bg-dark-bg rounded-lg">
+        <span class="text-gray-300">${r.name || r.rule || ''}</span>
+        <div class="flex items-center gap-3">
+          <span class="text-xs text-gray-500">${r.limit || r.value || ''}</span>
+          <span class="badge ${(r.status === 'active' || r.enabled) ? 'badge-success' : 'badge-error'}">${r.status || (r.enabled ? '启用' : '禁用')}</span>
+        </div>
+      </div>`
+    ).join('') + '</div>';
+
+    const ra = document.getElementById('risk-alerts');
+    const alerts = data?.risk_alerts_list ?? [];
+    if (alerts.length) {
+      ra.innerHTML = '<div class="space-y-2">' + alerts.map(a =>
+        `<div class="flex items-start gap-3 py-2 px-3 bg-dark-bg rounded-lg">
+          <span class="mt-0.5">${a.severity === 'high' ? '🔴' : a.severity === 'medium' ? '🟡' : '🟢'}</span>
+          <div><p class="text-sm text-gray-300">${a.message || a.description || ''}</p><p class="text-xs text-gray-500 mt-0.5">${a.time || a.date || ''}</p></div>
+        </div>`
+      ).join('') + '</div>';
+    } else {
+      ra.innerHTML = '<p class="text-gray-500">✅ 无告警 No active alerts.</p>';
+    }
+  } catch (e) {
+    document.getElementById('risk-rules').innerHTML = '<p class="text-red-400">Failed to load.</p>';
+    document.getElementById('risk-alerts').innerHTML = '<p class="text-red-400">Failed to load.</p>';
+  }
+}
+loadRisk();
+</script>
+{% endblock %}

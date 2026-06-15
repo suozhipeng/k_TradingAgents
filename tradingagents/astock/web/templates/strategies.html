@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Strategies — AStock WebUI{% endblock %}
+{% block content %}
+<h2 class="text-2xl font-bold text-white mb-6">🧠 策略 Strategies</h2>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+  <div class="card">
+    <h3 class="text-lg font-semibold text-white mb-4">📋 可用策略 Available</h3>
+    <div id="strategies-list" class="text-gray-400 text-sm">Loading...</div>
+  </div>
+  <div class="card">
+    <h3 class="text-lg font-semibold text-white mb-4">⭐ 策略评分 Scores</h3>
+    <div id="strategies-scores" class="text-gray-400 text-sm">Loading...</div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadStrategies() {
+  try {
+    const res = await fetch('/api/v1/market/strategies');
+    const data = await res.json();
+
+    const sl = document.getElementById('strategies-list');
+    if (data?.strategies?.length) {
+      sl.innerHTML = '<div class="space-y-2">' + data.strategies.map(s =>
+        `<div class="flex justify-between items-center py-2 px-3 bg-dark-bg rounded-lg">
+          <span class="text-white font-medium">${s.name || s.id}</span>
+          <span class="text-xs text-gray-400">${s.description || ''}</span>
+        </div>`
+      ).join('') + '</div>';
+    } else {
+      sl.innerHTML = '<p class="text-gray-500">No strategies loaded.</p>';
+    }
+
+    const ss = document.getElementById('strategies-scores');
+    if (data?.scores?.length) {
+      ss.innerHTML = '<table><thead><tr><th>策略</th><th>评分</th><th>状态</th></tr></thead><tbody>' +
+        data.scores.map(s =>
+          `<tr>
+            <td class="text-gray-300">${s.name || s.id}</td>
+            <td class="text-white font-bold">${s.score?.toFixed(2) ?? '--'}</td>
+            <td><span class="badge ${s.score >= 70 ? 'badge-success' : s.score >= 40 ? 'badge-warning' : 'badge-error'}">${s.score >= 70 ? '推荐' : s.score >= 40 ? '一般' : '回避'}</span></td>
+          </tr>`
+        ).join('') + '</tbody></table>';
+    } else {
+      ss.innerHTML = '<p class="text-gray-500">No scores available.</p>';
+    }
+  } catch (e) {
+    document.getElementById('strategies-list').innerHTML = '<p class="text-red-400">Failed to load strategies.</p>';
+    document.getElementById('strategies-scores').innerHTML = '<p class="text-red-400">Failed to load scores.</p>';
+  }
+}
+loadStrategies();
+</script>
+{% endblock %}
