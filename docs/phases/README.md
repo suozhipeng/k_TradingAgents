@@ -42,6 +42,8 @@ checkpoint.
 | 15 | Flask REST API + Chart.js + WebUI API client — 19 endpoints | Complete | commit `eff5d24` |
 | 16 | Batch backtest, market analyzer, scheduler, SSE — 36 tests | Complete | commit `0019dc9` |
 | 17 | Flask Jinja2 WebUI 9 pages + PPT reporting — 54 tests | Complete | commit `8f2423e` |
+| 18 | Strategy expansion + optimizer — MACD, Bollinger, Grid + grid-search optimizer | Complete | commit `88b57a4`, `a1520d4`, `2c37feb` |
+| 19 | Performance analysis + data refresh/cache + test refactor — Chart.js, 739/739 | Complete | commit `91c13b7`, `02aab36`, `957d159` |
 
 ## Naming
 

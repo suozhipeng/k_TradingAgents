@@ -121,6 +121,8 @@ No phase may be marked complete or handed off without a local archive record.
 | Phase 15: `astock-rollout-orchestrator` + `ecc-self-test` |
 | Phase 16: `astock-rollout-orchestrator` + `ecc-self-test` |
 | Phase 17: `astock-rollout-orchestrator` + `ecc-self-test` |
+| Phase 18: `astock-rollout-orchestrator` + `ecc-self-test` |
+| Phase 19: `astock-rollout-orchestrator` + `ecc-self-test` |
 
 The canonical phase scope and completion status are maintained in
 `docs/ASTOCK_CURRENT_STATUS.md`.

@@ -1,6 +1,6 @@
 # A 股二次定制开发基线
 
-|更新时间：2026-06-16 (All 17 phases complete + 后续增强: 10 策略 + 优化器 + 绩效分析 + 数据刷新/缓存 WebUI) |
+|更新时间：2026-06-16 (All 17 phases complete + Phase 18-19: 10 策略 + 优化器 + 绩效分析 + 数据刷新/缓存 WebUI + 测试全回归 739/739) |
 
 本文档是 A 股二次定制开发的当前事实基线。后续 Hermes 调度、ECC
 验收和阶段推进优先以本文档为准。
@@ -20,7 +20,8 @@
 - Phase 15：Flask REST API + Chart.js 图表 + WebUI API 客户端（30 端点）
 - Phase 16：批量回测 + 市场分析器 + 定时调度 + SSE 流式推送
 - Phase 17：Flask Jinja2 WebUI 10 页面 + PPT 报告生成
-- 后续增强：策略参数优化器 + 绩效分析 WebUI（Chart.js 图表） + 数据刷新/缓存管理 WebUI
+- Phase 18：十种回测策略 + 策略参数优化器（MACD 趋势 / 布林带均值回归 / 网格交易 + StrategyOptimizer 网格搜索）
+- Phase 19：绩效分析 WebUI（Chart.js 图表） + 数据刷新/缓存管理 + 测试重构全回归 739/739
 
 已打通的主路径：
 
@@ -81,10 +82,12 @@ Phase 11 执行层增加了额外的安全边界：
 | 11 | QMT 只读桥接到受控执行 | 完成 |
 | 12 | DuckDB 本地数据库（10 表，CLI 工具，导入/导出） | 完成 |
 | 13 | WebUI 国际化 + 市场切换（zh/en, LangSwitch, MarketSwitch） | 完成 |
-| 14 | 六种回测策略（2 牛 / 2 震荡 / 2 熊） | 完成 |
-| 15 | Flask REST API + Chart.js + WebUI API 客户端（19 端点） | 完成 |
+| 14 | 十种回测策略（2 牛 / 2 震荡 / 2 熊 + MACD 趋势 + 布林带均值回归 + 网格交易） | 完成 |
+| 15 | Flask REST API + Chart.js + WebUI API 客户端（30 端点） | 完成 |
 | 16 | 批量回测 + 市场分析器 + 调度器 + SSE（36 项测试） | 完成 |
-| 17 | Flask Jinja2 WebUI 9 页面 + PPT 报告（54 项测试） | 完成 |
+| 17 | Flask Jinja2 WebUI 10 页面 + PPT 报告（54 项测试） | 完成 |
+| 18 | 策略扩展 + 参数优化器（3 新策略 + grid search + API + WebUI） | 完成 |
+| 19 | 绩效分析 + 数据刷新/缓存 + 测试重构（Chart.js + 全回归 739/739） | 完成 |
 
 ## 4. 已完成能力
 
@@ -107,6 +110,15 @@ Phase 11 执行层增加了额外的安全边界：
 - Phase 09 advisory chain：`ResearchConclusion -> TraderProposal -> RiskDecision -> PortfolioDecision`。
 - CLI Markdown/JSON 与 Streamlit read-only viewer 已渲染 Phase 09 advisory 字段。
 - Phase 09 合约验证 46 项测试通过。
+- **3 个新策略**：MACD 趋势跟踪、布林带均值回归、网格交易（共 10 策略）
+- **策略参数优化器**：`StrategyOptimizer` grid search + 默认搜索空间 + `POST /backtest/optimize`
+- **WebUI 策略优化面板**：策略选择、日期范围、Top N、排名结果表格
+- **绩效分析 WebUI**：Chart.js 净值曲线、回撤曲线、周期收益柱状图、信号分布图
+- **数据刷新 API**：`POST /data/refresh/kline|valuation|all` — 手动拉取 provider → DuckDB
+- **缓存管理 API**：`GET /cache/status` + `POST /cache/clear`
+- **valuation 路由优化**：tencent 优先（~0.3s vs akshare ~26s），PB/market_cap 非空
+- **测试重构**：11 个测试文件消除 `__path__=[]` 假包污染，全仓回归 739/739
+- **运行脚本**：`run_webui.py`（`PORT=8080 python run_webui.py`）
 
 ## 5. 当前缺口
 
@@ -225,3 +237,19 @@ source .venv/bin/activate && python -m pytest -q
 ```
 
 结果：`636 passed, 9 skipped`。跳过项为未启用的 live provider/API 测试。
+
+### 2026-06-16 最终验收
+
+| 验收项 | 结果 |
+|--------|------|
+| 全仓回归 | **739 passed, 9 skipped, 0 failed, 0 errors** |
+| 测试假包污染修复 | 11 个测试文件重构，消除 `__path__=[]` 注入 |
+| WebUI 10 页面 | 全部 200 OK |
+| API 30 端点 | 全部注册并响应 |
+| 10 策略 | MovingAverageTrend, BullTrend, ValueAverage, MeanReversion, RSIRange, DefensiveMomentum, PutWrite, **MACDTrend**, **BollingerBands**, **GridTrading** |
+| 策略优化器 | `POST /backtest/optimize` + WebUI 面板 |
+| 绩效分析 | `POST /backtest/analyze` + Chart.js 图表 |
+| 数据刷新 | `POST /data/refresh/kline|valuation|all` |
+| 缓存管理 | `GET /cache/status` + `POST /cache/clear` |
+| valuation 路由 | tencent 优先（~0.3s，PB 非空） |
+| Python 环境 | 3.10.19, `.venv` 虚拟环境 |
