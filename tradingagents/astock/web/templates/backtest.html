@@ -86,7 +86,7 @@ async function runBacktest() {
 
 async function loadBtHistory() {
   try {
-    const res = await fetch('/api/v1/backtest/list?limit=20');
+    const res = await fetch('/api/v1/backtest/results?limit=20');
     const data = await res.json();
     const el = document.getElementById('bt-history');
     if (data?.backtests?.length) {

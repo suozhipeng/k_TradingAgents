@@ -29,7 +29,7 @@ async function generateReport() {
   const symbol = document.getElementById('rpt-symbol').value.trim() || '600519.SH';
   document.getElementById('rpt-status').textContent = 'Generating report for ' + symbol + '...';
   try {
-    const res = await fetch(`/api/v1/data/research?symbol=${symbol}`);
+    const res = await fetch(`/api/v1/research?symbol=${symbol}`);
     const data = await res.json();
 
     const rl = document.getElementById('reports-list');

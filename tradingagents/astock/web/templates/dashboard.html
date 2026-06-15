@@ -36,7 +36,7 @@ async function loadDashboard() {
   try {
     const [marketRes, btRes] = await Promise.all([
       fetch('/api/v1/market/summary'),
-      fetch('/api/v1/backtest/list?limit=5'),
+      fetch('/api/v1/backtest/results?limit=5'),
     ]);
     const market = await marketRes.json();
     const btData = await btRes.json();
