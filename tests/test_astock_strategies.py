@@ -1,62 +1,31 @@
-"""Phase 14: 6 策略层测试 — 2 牛 / 2 震荡 / 2 熊 + MA Trend 回归。"""
+"""Phase 14: 策略层测试 — 2 牛 / 2 震荡 / 2 熊 + 3 新策略 + MA Trend 回归。"""
 
 from __future__ import annotations
 
-import importlib.util
 import sys
 import unittest
 from pathlib import Path
 
 import pandas as pd
 
-# ---------------------------------------------------------------------------
-# Direct module imports (bypass package __init__.py chain)
-# ---------------------------------------------------------------------------
-
+# Ensure repo root is on sys.path for direct imports
 _REPO = Path(__file__).resolve().parent.parent
-_EXEC = _REPO / "tradingagents" / "astock" / "execution"
+if str(_REPO) not in sys.path:
+    sys.path.insert(0, str(_REPO))
 
-_PKG_PARENT = "tradingagents.astock.execution"
-
-
-def _load_submodule(rel_name: str):
-    """Load a module from the execution package with correct package context."""
-    fname = rel_name + ".py"
-    full_name = f"{_PKG_PARENT}.{rel_name}"
-    path = str(_EXEC / fname)
-    spec = importlib.util.spec_from_file_location(full_name, path)
-    if spec is None or spec.loader is None:
-        raise ImportError(f"Cannot load {full_name} from {path}")
-    for parent in ("tradingagents", "tradingagents.astock", "tradingagents.astock.execution"):
-        if parent not in sys.modules:
-            pkg_spec = importlib.util.spec_from_loader(parent, loader=None, is_package=True)
-            parent_mod = importlib.util.module_from_spec(pkg_spec)
-            parent_mod.__path__ = []
-            sys.modules[parent] = parent_mod
-    exec_pkg = sys.modules[_PKG_PARENT]
-    exec_pkg.__path__ = [str(_EXEC)]
-
-    mod = importlib.util.module_from_spec(spec)
-    mod.__package__ = _PKG_PARENT
-    mod.__name__ = full_name
-    sys.modules[full_name] = mod
-    spec.loader.exec_module(mod)
-    return mod
-
-
-_sb = _load_submodule("strategy_base")
-
-StrategyBase = _sb.StrategyBase
-MovingAverageTrendStrategy = _sb.MovingAverageTrendStrategy
-BullTrendStrategy = _sb.BullTrendStrategy
-ValueAverageStrategy = _sb.ValueAverageStrategy
-MeanReversionStrategy = _sb.MeanReversionStrategy
-RSIRangeStrategy = _sb.RSIRangeStrategy
-DefensiveMomentumStrategy = _sb.DefensiveMomentumStrategy
-PutWriteStrategy = _sb.PutWriteStrategy
-MACDTrendStrategy = _sb.MACDTrendStrategy
-BollingerBandsReversionStrategy = _sb.BollingerBandsReversionStrategy
-GridTradingStrategy = _sb.GridTradingStrategy
+from tradingagents.astock.execution.strategy_base import (
+    BollingerBandsReversionStrategy,
+    BullTrendStrategy,
+    DefensiveMomentumStrategy,
+    GridTradingStrategy,
+    MACDTrendStrategy,
+    MeanReversionStrategy,
+    MovingAverageTrendStrategy,
+    PutWriteStrategy,
+    RSIRangeStrategy,
+    StrategyBase,
+    ValueAverageStrategy,
+)
 
 # ---------------------------------------------------------------------------
 # Helpers

@@ -2,49 +2,23 @@
 
 from __future__ import annotations
 
+import sys
 import unittest
 from pathlib import Path
 
 import pandas as pd
 
 _REPO = Path(__file__).resolve().parent.parent
-_EXEC = _REPO / "tradingagents" / "astock" / "execution"
-_PKG_PARENT = "tradingagents.astock.execution"
+if str(_REPO) not in sys.path:
+    sys.path.insert(0, str(_REPO))
 
-
-def _load_submodule(rel_name: str):
-    import importlib.util
-    import sys
-
-    fname = rel_name + ".py"
-    full_name = f"{_PKG_PARENT}.{rel_name}"
-    path = str(_EXEC / fname)
-    spec = importlib.util.spec_from_file_location(full_name, path)
-    if spec is None or spec.loader is None:
-        raise ImportError(f"Cannot load {full_name} from {path}")
-    for parent in ("tradingagents", "tradingagents.astock", _PKG_PARENT):
-        if parent not in sys.modules:
-            pkg_spec = importlib.util.spec_from_loader(parent, loader=None, is_package=True)
-            parent_mod = importlib.util.module_from_spec(pkg_spec)
-            parent_mod.__path__ = []
-            sys.modules[parent] = parent_mod
-    pkg = sys.modules[_PKG_PARENT]
-    pkg.__path__ = [str(_EXEC)]
-
-    mod = importlib.util.module_from_spec(spec)
-    mod.__package__ = _PKG_PARENT
-    mod.__name__ = full_name
-    sys.modules[full_name] = mod
-    spec.loader.exec_module(mod)
-    return mod
-
-
-_opt = _load_submodule("optimizer")
-
-StrategyOptimizer = _opt.StrategyOptimizer
-optimize_strategy = _opt.optimize_strategy
-DEFAULT_SEARCH_SPACES = _opt.DEFAULT_SEARCH_SPACES
-_get_strategy_map = _opt._get_strategy_map
+from tradingagents.astock.execution.optimizer import (
+    DEFAULT_SEARCH_SPACES,
+    StrategyOptimizer,
+    optimize_strategy,
+    _get_strategy_map,
+    _composite_score,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -91,7 +65,7 @@ class TestCompositeScore(unittest.TestCase):
             "max_drawdown": 0.1,
             "total_trades": 10,
         }
-        score = _opt._composite_score(metrics)
+        score = _composite_score(metrics)
         self.assertGreater(score, 0.0)
 
     def test_negative_sharpe_scores_negative(self) -> None:
@@ -102,22 +76,22 @@ class TestCompositeScore(unittest.TestCase):
             "max_drawdown": 0.3,
             "total_trades": 5,
         }
-        score = _opt._composite_score(metrics)
+        score = _composite_score(metrics)
         self.assertLess(score, 0.0)
 
     def test_high_drawdown_penalizes(self) -> None:
         """高回撤 → 分数降低。"""
-        good = _opt._composite_score({
+        good = _composite_score({
             "sharpe_ratio": 1.0, "total_return": 0.2, "max_drawdown": 0.05, "total_trades": 10,
         })
-        bad = _opt._composite_score({
+        bad = _composite_score({
             "sharpe_ratio": 1.0, "total_return": 0.2, "max_drawdown": 0.5, "total_trades": 10,
         })
         self.assertGreater(good, bad)
 
     def test_no_trades_scores_low(self) -> None:
         """零交易 → 分数较低。"""
-        score = _opt._composite_score({
+        score = _composite_score({
             "sharpe_ratio": 0.0, "total_return": 0.0, "max_drawdown": 0.0, "total_trades": 0,
         })
         self.assertAlmostEqual(score, 0.0, places=4)
@@ -212,7 +186,6 @@ class TestOptimizerRun(unittest.TestCase):
             param_grid={},
             top_n=1,
         )
-        # Should use defaults -> at least one result
         self.assertTrue(len(results) >= 0)
 
 
