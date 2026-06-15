@@ -17,6 +17,7 @@ from .metrics import (
     calculate_win_rate,
     summarize_metrics,
 )
+from .optimizer import StrategyOptimizer, optimize_strategy
 from .paper_trader import PaperTradeState, PaperTrader
 from .qmt_bridge import QmtBridge, QmtBridgeConfig
 from .qmt_execution import ExecutionMode, QmtExecutionConfig, QmtExecutionEngine
@@ -53,6 +54,8 @@ __all__ = [
     "MACDTrendStrategy",
     "BollingerBandsReversionStrategy",
     "GridTradingStrategy",
+    "StrategyOptimizer",
+    "optimize_strategy",
     "AStockFeeConfig",
     "calculate_fees",
     "BacktestEngine",

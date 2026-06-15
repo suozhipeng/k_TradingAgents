@@ -21,6 +21,9 @@ AVAILABLE_STRATEGIES = [
     {"name": "RSIRange", "description": "RSI range-bound trading"},
     {"name": "DefensiveMomentum", "description": "Defensive momentum strategy"},
     {"name": "PutWrite", "description": "Put write / cash-secured put strategy"},
+    {"name": "MACDTrend", "description": "MACD golden/death cross trend following"},
+    {"name": "BollingerBands", "description": "Bollinger Bands mean reversion"},
+    {"name": "GridTrading", "description": "Fixed grid-level trading strategy"},
 ]
 
 

@@ -56,6 +56,13 @@ def _get_strategy_registry() -> dict[str, type]:
     return _STRATEGY_REGISTRY
 
 
+def _get_optimizer() -> Any:
+    """Lazy import + instantiate StrategyOptimizer."""
+    from tradingagents.astock.execution.optimizer import StrategyOptimizer
+
+    return StrategyOptimizer
+
+
 def _get_backtest_engine() -> Any:
     """Lazy import + instantiate BacktestEngine."""
     from tradingagents.astock.execution.backtest_engine import BacktestEngine
@@ -227,5 +234,63 @@ def compare_backtests() -> tuple[Response, int]:
                 }
             )
         return jsonify({"comparison": results}), 200
+    except Exception as exc:
+        return jsonify({"error": str(exc), "status": 500}), 500
+
+
+# ---------------------------------------------------------------------------
+# POST /api/v1/backtest/optimize — parameter grid search
+# ---------------------------------------------------------------------------
+
+
+@bp.route("/backtest/optimize", methods=["POST"])
+def optimize_strategy_api() -> tuple[Response, int]:
+    """POST /api/v1/backtest/optimize
+    JSON: {
+      "strategy": "MACDTrend",
+      "symbol": "600519.SH",
+      "start_date": "2024-01-01",
+      "end_date": "2025-12-31",
+      "param_grid": {"fast_period": [8,12,16], "slow_period": [20,26,32]},
+      "top_n": 5
+    }
+    """
+    body = request.get_json(force=True, silent=True) or {}
+    strategy_name = body.get("strategy", "")
+    if not strategy_name:
+        return jsonify({"error": "strategy is required", "status": 400}), 400
+    symbol = body.get("symbol", "600519.SH")
+    start_date = body.get("start_date", "")
+    end_date = body.get("end_date", "")
+    if not start_date or not end_date:
+        return jsonify({"error": "start_date and end_date are required", "status": 400}), 400
+    param_grid = body.get("param_grid")
+    top_n = int(body.get("top_n", 5))
+
+    registry = _get_strategy_registry()
+    if strategy_name not in registry:
+        return jsonify({
+            "error": f"Unknown strategy {strategy_name!r}. Available: {list(registry)}",
+            "status": 400,
+        }), 400
+
+    try:
+        OptimizerCls = _get_optimizer()
+        optimizer = OptimizerCls(strategy_name)
+        results = optimizer.optimize(
+            symbol=symbol,
+            start_date=start_date,
+            end_date=end_date,
+            param_grid=param_grid,
+            top_n=top_n,
+        )
+        return jsonify({
+            "strategy": strategy_name,
+            "symbol": symbol,
+            "start_date": start_date,
+            "end_date": end_date,
+            "total_trials": len(results),
+            "results": results,
+        }), 200
     except Exception as exc:
         return jsonify({"error": str(exc), "status": 500}), 500
