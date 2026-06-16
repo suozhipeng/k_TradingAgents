@@ -252,6 +252,76 @@ def _temporarily_disable_proxies(enabled: bool = True):
             os.environ["no_proxy"] = no_proxy_lower_original
 
 
+# ===================================================================
+# Anti-crawling 工具集
+# ===================================================================
+
+import random
+import time as _time
+
+
+def _random_sleep(min_s: float = 0.3, max_s: float = 1.5) -> None:
+    """随机延迟，降低被封概率。
+
+    测试环境中（ASTOCK_TESTING=1）跳过延迟以加速测试。
+    """
+    if os.environ.get("ASTOCK_TESTING") == "1":
+        return
+    _time.sleep(random.uniform(min_s, max_s))
+
+
+def _retry_with_backoff(
+    func, max_retries: int = 3, base_delay: float = 1.0,
+    name: str = "request",
+):
+    """带指数退避的重试包装器。
+
+    Args:
+        func: 无参 callable（闭包捕获外部状态）
+        max_retries: 最大重试次数
+        base_delay: 初始延迟秒数
+        name: 日志用名称
+
+    Returns:
+        func() 的返回值
+
+    Raises:
+        最后一次失败的异常
+    """
+    last_exc = None
+    for attempt in range(max_retries + 1):
+        try:
+            return func()
+        except Exception as exc:
+            last_exc = exc
+            if attempt < max_retries:
+                # 测试环境中不延迟
+                if os.environ.get("ASTOCK_TESTING") != "1":
+                    delay = base_delay * (2 ** attempt) + random.uniform(0, 0.5)
+                    _time.sleep(delay)
+    raise last_exc  # type: ignore[misc]
+
+
+_DEFAULT_UA = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/125.0.0.0 Safari/537.36"
+)
+
+
+def _common_headers(referer: str = "https://finance.sina.com.cn/") -> dict:
+    """返回一组常见的请求头，降低被识别为爬虫的概率。"""
+    from collections import OrderedDict
+
+    return OrderedDict([
+        ("User-Agent", _DEFAULT_UA),
+        ("Accept", "text/html,application/json,*/*"),
+        ("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8"),
+        ("Referer", referer),
+        ("Connection", "keep-alive"),
+    ])
+
+
 class AStockAdapterBase(object):
     """Base adapter: concrete providers override the capability methods."""
 
@@ -348,13 +418,25 @@ class AkshareAdapter(AStockAdapterBase):
                 kwargs["timeout"] = self.timeout
         except Exception:
             pass
-        try:
+
+        # Anti-crawling: random delay + retry with exponential backoff
+        _random_sleep(0.5, 2.0)
+
+        def _do_call():
             with _temporarily_disable_proxies(bool(self.config.get("disable_env_proxy", True))):
                 return func(**kwargs)
+
+        try:
+            return _retry_with_backoff(_do_call, max_retries=2, base_delay=1.0, name="akshare." + func_name)
         except AStockNoDataError:
             raise
+        except AStockSourceUnavailableError:
+            raise
         except Exception as exc:
-            raise AStockSourceUnavailableError(self.name, "{0} failed: {1}".format(func_name, exc), capability=request.capability)
+            raise AStockSourceUnavailableError(
+                self.name, "{0} failed after retries: {1}".format(func_name, exc),
+                capability=request.capability,
+            )
 
     def _parse_kline(self, request: AStockRequest, payload: Any) -> Dict[str, Any]:
         records = _ensure_records(_records_from_payload(payload), request, self.name, "akshare stock_zh_a_hist returned no rows")
@@ -860,7 +942,10 @@ class CninfoAdapter(AStockAdapterBase):
 
     def _request_json(self, request: AStockRequest, method: str, url: str, **kwargs: Any) -> Dict[str, Any]:
         session = self._get_session()
-        try:
+        # Anti-crawling: random delay before each request
+        _random_sleep(0.5, 2.0)
+
+        def _do_request():
             response = getattr(session, method.lower())(url, headers=self.headers, timeout=self.timeout, **kwargs)
             if hasattr(response, "raise_for_status"):
                 response.raise_for_status()
@@ -868,10 +953,16 @@ class CninfoAdapter(AStockAdapterBase):
             if not isinstance(data, dict):
                 raise ValueError("cninfo response is not a JSON object")
             return data
+
+        try:
+            return _retry_with_backoff(_do_request, max_retries=2, base_delay=1.0, name="cninfo." + method)
         except AStockNoDataError:
             raise
         except Exception as exc:
-            raise AStockSourceUnavailableError(self.name, "cninfo request failed: {0}".format(exc), capability=request.capability)
+            raise AStockSourceUnavailableError(
+                self.name, "cninfo request failed after retries: {0}".format(exc),
+                capability=request.capability,
+            )
 
     def _exchange_meta(self, request: AStockRequest) -> Dict[str, str]:
         code, exchange = split_astock_symbol(request.symbol)
@@ -1001,12 +1092,22 @@ class MootdxAdapter(AStockAdapterBase):
         method = getattr(client, method_name, None)
         if method is None:
             raise AStockSourceUnavailableError(self.name, "mootdx method missing: {0}".format(method_name), capability=request.capability)
-        try:
+
+        # Anti-crawling: mootdx 连接 TDX 服务器，礼貌性延迟
+        _random_sleep(0.2, 0.8)
+
+        def _do_call():
             return method(**kwargs)
+
+        try:
+            return _retry_with_backoff(_do_call, max_retries=2, base_delay=0.5, name="mootdx." + method_name)
         except AStockNoDataError:
             raise
         except Exception as exc:
-            raise AStockSourceUnavailableError(self.name, "mootdx {0} failed: {1}".format(method_name, exc), capability=request.capability)
+            raise AStockSourceUnavailableError(
+                self.name, "mootdx {0} failed after retries: {1}".format(method_name, exc),
+                capability=request.capability,
+            )
 
     def _parse_bars(self, request: AStockRequest, payload: Any) -> Dict[str, Any]:
         records = _ensure_records(_records_from_payload(payload), request, self.name, "mootdx bars returned no rows")
@@ -1338,7 +1439,13 @@ class BaoStockAdapter(AStockAdapterBase):
             raise AStockSourceUnavailableError(
                 self.name, "baostock package not installed. Run: pip install baostock"
             )
-        lg = bs.login()
+        import socket
+
+        socket.setdefaulttimeout(5.0)
+        try:
+            lg = bs.login()
+        finally:
+            socket.setdefaulttimeout(None)
         if lg.error_code != "0":
             raise AStockSourceUnavailableError(
                 self.name, "baostock login failed: {0}".format(lg.error_msg)
@@ -1374,6 +1481,9 @@ class BaoStockAdapter(AStockAdapterBase):
         start = request.start_date or "2000-01-01"
         end = request.end_date or "2026-12-31"
 
+        # Anti-crawling: baostock 虽然免费，但礼貌性延迟
+        _random_sleep(0.3, 1.0)
+
         try:
             import baostock as bs
             import pandas as pd  # noqa: F811
@@ -1382,55 +1492,55 @@ class BaoStockAdapter(AStockAdapterBase):
                 self.name, "baostock package not installed"
             )
 
-        rs = bs.query_history_k_data_plus(
-            bs_symbol,
-            fields="date,open,high,low,close,preclose,volume,amount,pctChg",
-            start_date=start,
-            end_date=end,
-            frequency="d",
-            adjustflag="2",  # 后复权
-        )
-        if rs.error_code != "0":
-            raise AStockNoDataError(
-                request.raw_symbol,
-                request.symbol,
-                "baostock query failed: {0}".format(rs.error_msg),
-                source=self.name,
-                capability=request.capability,
+        def _do_query():
+            rs = bs.query_history_k_data_plus(
+                bs_symbol,
+                fields="date,open,high,low,close,preclose,volume,amount,pctChg",
+                start_date=start,
+                end_date=end,
+                frequency="d",
+                adjustflag="2",  # 后复权
             )
+            if rs.error_code != "0":
+                raise AStockNoDataError(
+                    request.raw_symbol,
+                    request.symbol,
+                    "baostock query failed: {0}".format(rs.error_msg),
+                    source=self.name,
+                    capability=request.capability,
+                )
+            bars = []
+            while rs.next():
+                row = rs.get_row_data()
+                date_str = row[0]
+                if not date_str:
+                    continue
+                try:
+                    bar = {
+                        "date": date_str,
+                        "open": float(row[1]) if row[1] else 0.0,
+                        "high": float(row[2]) if row[2] else 0.0,
+                        "low": float(row[3]) if row[3] else 0.0,
+                        "close": float(row[4]) if row[4] else 0.0,
+                        "preclose": float(row[5]) if row[5] else 0.0,
+                        "volume": float(row[6]) if row[6] else 0.0,
+                        "amount": float(row[7]) if row[7] else 0.0,
+                        "pctChg": float(row[8]) if row[8] else 0.0,
+                    }
+                    bars.append(bar)
+                except (ValueError, IndexError):
+                    continue
+            if not bars:
+                raise AStockNoDataError(
+                    request.raw_symbol,
+                    request.symbol,
+                    "no kline data from baostock",
+                    source=self.name,
+                    capability=request.capability,
+                )
+            return {"bars": bars, "count": len(bars)}
 
-        bars = []
-        while rs.next():
-            row = rs.get_row_data()
-            date_str = row[0]
-            if not date_str:
-                continue
-            try:
-                bar = {
-                    "date": date_str,
-                    "open": float(row[1]) if row[1] else 0.0,
-                    "high": float(row[2]) if row[2] else 0.0,
-                    "low": float(row[3]) if row[3] else 0.0,
-                    "close": float(row[4]) if row[4] else 0.0,
-                    "preclose": float(row[5]) if row[5] else 0.0,
-                    "volume": float(row[6]) if row[6] else 0.0,
-                    "amount": float(row[7]) if row[7] else 0.0,
-                    "pctChg": float(row[8]) if row[8] else 0.0,
-                }
-                bars.append(bar)
-            except (ValueError, IndexError):
-                continue
-
-        if not bars:
-            raise AStockNoDataError(
-                request.raw_symbol,
-                request.symbol,
-                "no kline data from baostock",
-                source=self.name,
-                capability=request.capability,
-            )
-
-        return {"bars": bars, "count": len(bars)}
+        return _retry_with_backoff(_do_query, max_retries=2, base_delay=0.5, name="baostock.kline")
 
     def __del__(self):
         self._logout()

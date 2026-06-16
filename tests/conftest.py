@@ -11,6 +11,11 @@ def pytest_configure(config):
         config.addinivalue_line("markers", f"{marker}: {marker}-level tests")
 
 
+# 测试模式下跳过反爬机制的随机延迟（必须在 conftest 导入时设置，
+# 因为 pytest_configure 在 test file 收集之后才执行）
+os.environ.setdefault("ASTOCK_TESTING", "1")
+
+
 _API_KEY_ENV_VARS = (
     "OPENAI_API_KEY",
     "GOOGLE_API_KEY",
