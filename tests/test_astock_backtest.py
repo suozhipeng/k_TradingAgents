@@ -236,15 +236,15 @@ class TestMetrics(unittest.TestCase):
 class TestBacktestEngine(unittest.TestCase):
     def test_run_returns_backtest_result(self) -> None:
         """Minimal run returns a BacktestResult."""
-        engine = BacktestEngine()
+        engine = BacktestEngine(use_mock_data=True)
         strat = MovingAverageTrendStrategy()
-        result = engine.run("000001.SH", "2024-01-02", "2024-01-31", strat)
+        result = engine.run("MOCK.SH", "2024-01-02", "2024-01-31", strat)
         self.assertIsInstance(result, BacktestResult)
-        self.assertEqual(result.symbol, "000001.SH")
+        self.assertEqual(result.symbol, "MOCK.SH")
 
     def test_run_with_mock_populates_metrics(self) -> None:
         """Mock data yields non-trivial metrics."""
-        engine = BacktestEngine()
+        engine = BacktestEngine(use_mock_data=True)
         strat = MovingAverageTrendStrategy({"fast_period": 3, "slow_period": 7})
         result = engine.run("MOCK.A", "2024-01-02", "2024-02-29", strat)
         self.assertGreaterEqual(result.total_trades, 0)
@@ -252,34 +252,26 @@ class TestBacktestEngine(unittest.TestCase):
         self.assertIsInstance(result.sharpe_ratio, float)
 
     def test_run_with_known_equity_result(self) -> None:
-        """Running a strong uptrend with MA5/MA20 should produce positive return."""
-        engine = BacktestEngine()
+        engine = BacktestEngine(use_mock_data=True)
         strat = MovingAverageTrendStrategy({"fast_period": 3, "slow_period": 10})
-        # Use a longer period so MAs stabilise
         result = engine.run("MOCK.B", "2024-01-02", "2024-06-30", strat)
-        # Total return could be positive or negative depending on mock randomness
-        # Just verify it returns a valid float
         self.assertIsInstance(result.total_return, float)
 
     def test_custom_fee_config_propagates(self) -> None:
-        """Custom fee config appears in result."""
         cfg = AStockFeeConfig(commission_rate=0.001, min_commission=1.0)
-        engine = BacktestEngine(fee_config=cfg)
+        engine = BacktestEngine(fee_config=cfg, use_mock_data=True)
         strat = MovingAverageTrendStrategy()
         result = engine.run("MOCK.C", "2024-01-02", "2024-03-31", strat)
         self.assertEqual(result.fee_config_used["commission_rate"], 0.001)
 
     def test_empty_data_handling(self) -> None:
-        """Empty or invalid date range returns empty result gracefully."""
-        engine = BacktestEngine()
+        engine = BacktestEngine(use_mock_data=True)
         strat = MovingAverageTrendStrategy()
         result = engine.run("MOCK.D", "2099-01-01", "2099-01-02", strat)
         self.assertEqual(result.total_trades, 0)
 
-
     def test_run_deterministic(self) -> None:
-        """同一输入运行两次，结果必须完全一致。"""
-        engine = BacktestEngine()
+        engine = BacktestEngine(use_mock_data=True)
         strategy = MovingAverageTrendStrategy()
         result1 = engine.run("TEST", "2024-01-01", "2024-01-31", strategy, "W")
         result2 = engine.run("TEST", "2024-01-01", "2024-01-31", strategy, "W")

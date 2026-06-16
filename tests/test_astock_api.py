@@ -243,6 +243,7 @@ class TestBacktestEndpoints:
             "strategy": "MovingAverageTrend",
             "start": "2024-01-01",
             "end": "2024-01-10",
+            "mock_data": True,
         }
         resp = app.post(
             "/api/v1/backtest/run",
@@ -288,6 +289,7 @@ class TestBacktestEndpoints:
             "strategy": "MeanReversion",
             "start": "2024-01-01",
             "end": "2024-01-10",
+            "mock_data": True,
         }
         app.post(
             "/api/v1/backtest/run",
@@ -302,7 +304,7 @@ class TestBacktestEndpoints:
 
     def test_compare_backtests(self, app):
         resp = app.get(
-            "/api/v1/backtest/compare?strategies=BullTrend,MeanReversion&symbol=600519.SH&start=2024-01-01&end=2024-01-10"
+            "/api/v1/backtest/compare?strategies=BullTrend,MeanReversion&symbol=600519.SH&start=2024-01-01&end=2024-01-10&mock_data=1"
         )
         assert resp.status_code == 200
         data = resp.get_json()

@@ -63,11 +63,11 @@ def _get_optimizer() -> Any:
     return StrategyOptimizer
 
 
-def _get_backtest_engine() -> Any:
+def _get_backtest_engine(use_mock_data: bool = False) -> Any:
     """Lazy import + instantiate BacktestEngine."""
     from tradingagents.astock.execution.backtest_engine import BacktestEngine
 
-    return BacktestEngine()
+    return BacktestEngine(use_mock_data=use_mock_data)
 
 
 def _store() -> Any:
@@ -89,6 +89,7 @@ def run_backtest() -> tuple[Response, int]:
         start (str) — required, YYYY-MM-DD
         end (str) — required, YYYY-MM-DD
         rebalance_freq (str) — optional, default "M"
+        mock_data (bool) — optional, force mock data (for testing)
     """
     data = request.get_json(silent=True) or {}
     symbol = data.get("symbol", "")
@@ -96,6 +97,7 @@ def run_backtest() -> tuple[Response, int]:
     start_date = data.get("start", "")
     end_date = data.get("end", "")
     rebalance_freq = data.get("rebalance_freq", "M")
+    use_mock = bool(data.get("mock_data", False))
 
     if not symbol:
         return jsonify({"error": "symbol is required", "status": 400}), 400
@@ -116,7 +118,7 @@ def run_backtest() -> tuple[Response, int]:
     try:
         strategy_cls = registry[strategy_name]
         strategy = strategy_cls()
-        engine = _get_backtest_engine()
+        engine = _get_backtest_engine(use_mock_data=use_mock)
         result = engine.run(symbol, start_date, end_date, strategy, rebalance_freq)
 
         # Persist to store
@@ -193,6 +195,7 @@ def compare_backtests() -> tuple[Response, int]:
     symbol = request.args.get("symbol", "")
     start_date = request.args.get("start", "")
     end_date = request.args.get("end", "")
+    use_mock = bool(request.args.get("mock_data", "0"))
 
     if not strategies_param:
         return jsonify({"error": "strategies is required (comma-separated)", "status": 400}), 400
@@ -216,7 +219,7 @@ def compare_backtests() -> tuple[Response, int]:
         ), 400
 
     try:
-        engine = _get_backtest_engine()
+        engine = _get_backtest_engine(use_mock_data=use_mock)
         results = []
         for name in names:
             strategy = registry[name]()
@@ -273,7 +276,7 @@ def analyze_backtest() -> tuple[Response, int]:
 
     try:
         strategy = registry[strategy_name]()
-        engine = _get_backtest_engine()
+        engine = _get_backtest_engine(use_mock_data=bool(body.get("mock_data", False)))
         result = engine.run(symbol, start_date, end_date, strategy)
 
         # Extract equity curve from periods

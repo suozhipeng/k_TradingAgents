@@ -124,12 +124,17 @@ class BacktestEngine:
         Custom fee configuration.  Falls back to defaults.
     """
 
-    def __init__(self, fee_config: AStockFeeConfig | None = None) -> None:
+    def __init__(self, fee_config: AStockFeeConfig | None = None, use_mock_data: bool = False) -> None:
         self.fee_config = fee_config or AStockFeeConfig()
         self._facade: Any = None  # lazy import
+        self._use_mock_data = use_mock_data
 
     def _fetch_data(self, symbol: str, start_date: str, end_date: str) -> pd.DataFrame:
         """Fetch OHLCV data, falling back to mock data if facade unavailable."""
+        # use_mock_data=True -> skip real data, go straight to mock
+        if self._use_mock_data:
+            return self._mock_fallback(symbol, start_date, end_date)
+
         # Try AStockDataFacade first (uses baostock as primary default)
         try:
             from tradingagents.astock.data_sources import AStockDataFacade
@@ -156,12 +161,17 @@ class BacktestEngine:
             pass
 
         # Fallback to mock data
+        return self._mock_fallback(symbol, start_date, end_date)
+
+    @staticmethod
+    def _mock_fallback(symbol: str, start_date: str, end_date: str) -> pd.DataFrame:
+        """Generate mock OHLCV data for testing / fallback."""
         bars = _generate_mock_bars(symbol, start_date, end_date)
         df = pd.DataFrame(bars)
         df["date"] = pd.to_datetime(df["date"])
         df = df.set_index("date").sort_index()
-        for col in ("open", "high", "low", "close", "volume", "date"):
-            if col in df.columns and col != "date":
+        for col in ("open", "high", "low", "close", "volume"):
+            if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors="coerce")
         return df
 
