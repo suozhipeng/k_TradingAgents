@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% block title %}Stock Screener — AStock WebUI{% endblock %}
+{% block content %}
+<h2 class="text-2xl font-bold text-white mb-6">🔍 股票筛选器 Stock Screener</h2>
+
+<!-- Filter Panel -->
+<div class="card mb-6">
+  <p class="text-xs text-gray-400 mb-4">按技术指标筛选全部跟踪股票。使用 Mock 数据可离线测试筛选逻辑。</p>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+    <div>
+      <label class="block text-xs text-gray-400 mb-1">RSI 最小值</label>
+      <input type="number" id="sc-rsi-min" value="0" min="0" max="100" step="1" class="w-full">
+    </div>
+    <div>
+      <label class="block text-xs text-gray-400 mb-1">RSI 最大值</label>
+      <input type="number" id="sc-rsi-max" value="100" min="0" max="100" step="1" class="w-full">
+    </div>
+    <div>
+      <label class="block text-xs text-gray-400 mb-1">成交量比最小值</label>
+      <input type="number" id="sc-vol-ratio" value="0" min="0" max="10" step="0.1" class="w-full">
+      <p class="text-xs text-gray-500 mt-0.5">当前量 / 均量，>1.5 为放量</p>
+    </div>
+    <div>
+      <label class="block text-xs text-gray-400 mb-1">返回条数 Limit</label>
+      <input type="number" id="sc-limit" value="50" min="1" max="200" class="w-full">
+    </div>
+  </div>
+
+  <div class="flex flex-wrap gap-4 mb-4">
+    <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer px-3 py-1.5 bg-dark-bg rounded-lg hover:bg-dark-hover">
+      <input type="checkbox" id="sc-ma-golden" class="accent-indigo-500">
+      均线金叉 (MA5 > MA20)
+    </label>
+    <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer px-3 py-1.5 bg-dark-bg rounded-lg hover:bg-dark-hover">
+      <input type="checkbox" id="sc-ma-death" class="accent-indigo-500">
+      均线死叉 (MA5 < MA20)
+    </label>
+    <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer px-3 py-1.5 bg-dark-bg rounded-lg hover:bg-dark-hover">
+      <input type="checkbox" id="sc-macd-golden" class="accent-indigo-500">
+      MACD 金叉
+    </label>
+    <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer px-3 py-1.5 bg-dark-bg rounded-lg hover:bg-dark-hover">
+      <input type="checkbox" id="sc-macd-death" class="accent-indigo-500">
+      MACD 死叉
+    </label>
+    <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer px-3 py-1.5 bg-dark-bg rounded-lg hover:bg-dark-hover">
+      <input type="checkbox" id="sc-mock" class="accent-indigo-500" checked>
+      使用 Mock 数据
+    </label>
+  </div>
+
+  <button onclick="runScreener()" class="btn btn-primary">🔍 开始筛选 Scan</button>
+  <span id="sc-status" class="text-xs text-gray-400 ml-3"></span>
+</div>
+
+<!-- Results -->
+<div id="sc-results" class="hidden">
+  <div class="card mb-6">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-lg font-semibold text-white">📋 筛选结果 Results</h3>
+      <span id="sc-count" class="text-xs text-gray-400"></span>
+    </div>
+    <div id="sc-table" class="overflow-x-auto"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function runScreener() {
+  const status = document.getElementById('sc-status');
+  status.textContent = '⏳ 扫描中...';
+  document.getElementById('sc-results').classList.add('hidden');
+
+  try {
+    const params = new URLSearchParams({
+      rsi_min: document.getElementById('sc-rsi-min').value || '0',
+      rsi_max: document.getElementById('sc-rsi-max').value || '100',
+      volume_ratio_min: document.getElementById('sc-vol-ratio').value || '0',
+      limit: document.getElementById('sc-limit').value || '50',
+      ma_golden_cross: document.getElementById('sc-ma-golden').checked ? '1' : '0',
+      ma_death_cross: document.getElementById('sc-ma-death').checked ? '1' : '0',
+      macd_golden: document.getElementById('sc-macd-golden').checked ? '1' : '0',
+      macd_death: document.getElementById('sc-macd-death').checked ? '1' : '0',
+      mock: document.getElementById('sc-mock').checked ? '1' : '0',
+    });
+
+    const res = await fetch(`/api/v1/market/screener?${params}`);
+    const data = await res.json();
+
+    if (data.error) {
+      status.textContent = '❌ ' + data.error;
+      return;
+    }
+
+    const results = data.results || [];
+    document.getElementById('sc-count').textContent = `共 ${data.total} 条匹配，显示前 ${results.length} 条`;
+
+    if (results.length === 0) {
+      document.getElementById('sc-table').innerHTML = '<p class="text-gray-500">无匹配结果。</p>';
+    } else {
+      document.getElementById('sc-table').innerHTML = '<table><thead><tr>' +
+        '<th>#</th><th>代码</th><th class="text-right">价格</th><th class="text-right">RSI(14)</th>' +
+        '<th class="text-right">MA5</th><th class="text-right">MA20</th>' +
+        '<th class="text-center">均线</th><th class="text-center">MACD</th>' +
+        '<th class="text-right">量比</th><th class="text-right">评分</th>' +
+        '</tr></thead><tbody>' +
+        results.map((r, i) => {
+          const rsiColor = r.rsi_14 > 70 ? 'text-red-400' : r.rsi_14 < 30 ? 'text-emerald-400' : 'text-gray-300';
+          const maSignal = r.golden_cross ? '🟢 金叉' : r.death_cross ? '🔴 死叉' : '—';
+          const macdSignal = r.macd_golden ? '🟢 金叉' : r.macd_death ? '🔴 死叉' : '—';
+          const volColor = r.volume_ratio > 1.5 ? 'text-amber-400' : 'text-gray-300';
+          return `<tr>
+            <td class="text-center text-gray-400">${i + 1}</td>
+            <td class="font-medium text-gray-300">${r.symbol}</td>
+            <td class="text-right text-white">¥${r.price.toFixed(2)}</td>
+            <td class="text-right ${rsiColor}">${r.rsi_14.toFixed(1)}</td>
+            <td class="text-right text-gray-300">${r.ma5.toFixed(2)}</td>
+            <td class="text-right text-gray-300">${r.ma20.toFixed(2)}</td>
+            <td class="text-center text-xs">${maSignal}</td>
+            <td class="text-center text-xs">${macdSignal}</td>
+            <td class="text-right ${volColor}">${r.volume_ratio.toFixed(2)}x</td>
+            <td class="text-right font-bold ${r.score > 0.5 ? 'text-emerald-400' : r.score > 0 ? 'text-indigo-400' : 'text-gray-400'}">${r.score.toFixed(3)}</td>
+          </tr>`;
+        }).join('') + '</tbody></table>';
+    }
+
+    status.textContent = `✅ 完成 — ${results.length} 条结果`;
+    document.getElementById('sc-results').classList.remove('hidden');
+
+  } catch (e) {
+    status.textContent = '❌ ' + e.message;
+  }
+}
+
+// Auto-run on load with defaults
+runScreener();
+</script>
+{% endblock %}

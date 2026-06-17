@@ -76,6 +76,11 @@ def comparison() -> str:
     return render_template("comparison.html")
 
 
+@bp.route("/screener")
+def screener() -> str:
+    return render_template("screener.html")
+
+
 # ---------------------------------------------------------------------------
 # Export
 # ---------------------------------------------------------------------------

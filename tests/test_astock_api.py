@@ -452,6 +452,39 @@ class TestDashboardEndpoints:
 
 
 # ---------------------------------------------------------------------------
+# Test: stock screener
+# ---------------------------------------------------------------------------
+
+
+class TestScreenerEndpoints:
+    def test_screener_mock(self, app):
+        resp = app.get("/api/v1/market/screener?mock=1&limit=5")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert "results" in data
+        assert len(data["results"]) <= 5
+
+        if data["results"]:
+            r = data["results"][0]
+            assert "symbol" in r
+            assert "rsi_14" in r
+            assert "price" in r
+            assert "ma5" in r
+            assert "golden_cross" in r
+            assert "score" in r
+
+    def test_screener_with_filters(self, app):
+        resp = app.get(
+            "/api/v1/market/screener?mock=1&rsi_min=40&rsi_max=60&limit=3"
+        )
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert "filters" in data
+        assert data["filters"]["rsi_min"] == 40
+        assert data["filters"]["rsi_max"] == 60
+
+
+# ---------------------------------------------------------------------------
 # Test: error handling
 # ---------------------------------------------------------------------------
 

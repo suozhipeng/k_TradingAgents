@@ -60,6 +60,7 @@ PAGE_ROUTES = [
     ("/risk", "risk"),
     ("/reports", "reports"),
     ("/comparison", "comparison"),
+    ("/screener", "screener"),
     ("/settings", "settings"),
 ]
 
@@ -86,11 +87,12 @@ class TestWebBlueprintRegistration:
             "web.risk",
             "web.reports",
             "web.comparison",
+            "web.screener",
             "web.settings",
         }
         missing = expected - endpoints
         assert not missing, f"Missing web endpoints: {missing}"
-        assert len(endpoints) >= 10
+        assert len(endpoints) >= 12
 
 
 class TestWebPageRendering:
@@ -119,6 +121,7 @@ class TestWebPageRendering:
         assert "⚠️ 风控 Risk" in html
         assert "📄 报告 Reports" in html
         assert "🔀 对比 Comparison" in html
+        assert "🔍 筛选 Screener" in html
         assert "📊 绩效 Performance" in html
         assert "⚙️ 设置 Settings" in html
     @pytest.mark.parametrize("route,page_name", PAGE_ROUTES)
@@ -230,3 +233,16 @@ class TestWebSpecificPages:
         assert "cmp-mock" in html
         assert "chart-equity-overlay" in html
         assert "cmp-results" in html
+
+    def test_screener_has_filter_panel(self, client):
+        resp = client.get("/screener")
+        html = resp.data.decode("utf-8")
+        assert "sc-rsi-min" in html
+        assert "sc-rsi-max" in html
+        assert "sc-vol-ratio" in html
+        assert "sc-ma-golden" in html
+        assert "sc-ma-death" in html
+        assert "sc-macd-golden" in html
+        assert "sc-macd-death" in html
+        assert "sc-mock" in html
+        assert "sc-results" in html
