@@ -184,7 +184,13 @@ class TestWebSpecificPages:
     def test_paper_has_account_state(self, client):
         resp = client.get("/paper")
         html = resp.data.decode("utf-8")
-        assert "paper-state" in html
+        assert "p-total" in html
+        assert "p-cash" in html
+        assert "p-holdings" in html
+        assert "p-return" in html
+        assert "chart-paper-equity" in html
+        assert "chart-paper-cumulative" in html
+        assert "chart-position-pnl" in html
         assert "paper-positions" in html
         assert "paper-trades" in html
 

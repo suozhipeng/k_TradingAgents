@@ -133,6 +133,9 @@ def dashboard_overview() -> tuple[Response, int]:
         except Exception:
             pass
 
+        # Paper equity curve from stored trades
+        paper_equity_curve = _compute_paper_equity_curve(store)
+
         return jsonify(
             {
                 "statistics": {
@@ -146,10 +149,70 @@ def dashboard_overview() -> tuple[Response, int]:
                 "recent_backtests": _sanitize(recent_backtests),
                 "recent_trades": _sanitize(recent_trades),
                 "latest_equity_curve": latest_equity_curve,
+                "paper_equity_curve": paper_equity_curve,
             }
         ), 200
     except Exception as exc:
         return jsonify({"error": str(exc), "status": 500}), 500
+
+
+def _compute_paper_equity_curve(store: Any) -> list[dict]:
+    """Build an equity curve from stored paper trades.
+
+    Walks all trades chronologically, starting with 100 000 cash,
+    and computes total_value = cash + position_value at each trade date.
+    Position value is marked at the trade price of that date.
+    """
+    import pandas as pd
+
+    try:
+        df = store.get_paper_trades()
+        if df is None or df.empty:
+            return []
+        df = df.sort_values("trade_date").reset_index(drop=True)
+
+        initial_cash = 100000.0
+        cash = initial_cash
+        positions: dict[str, float] = {}
+        cost_basis: dict[str, float] = {}
+        curve = []
+
+        for _, row in df.iterrows():
+            symbol = row.get("symbol", "")
+            direction = str(row.get("direction", "")).lower()
+            price = float(row.get("price", 0))
+            volume = float(row.get("volume", 0))
+            fees = float(row.get("fees", 0))
+            date_str = str(row.get("trade_date", ""))[:10]
+
+            if direction == "buy":
+                cost = price * volume + fees
+                cash -= cost
+                positions[symbol] = positions.get(symbol, 0) + volume
+                old_basis = cost_basis.get(symbol, 0)
+                total_shares = positions[symbol]
+                cost_basis[symbol] = old_basis + cost
+            elif direction == "sell":
+                revenue = price * volume - fees
+                cash += revenue
+                current_shares = positions.get(symbol, 0)
+                sold = min(volume, current_shares)
+                positions[symbol] = current_shares - sold
+                if positions[symbol] <= 0:
+                    positions.pop(symbol, None)
+                    cost_basis.pop(symbol, None)
+
+            # Mark position value at current price
+            pos_value = sum(
+                positions[s] * price if s == symbol else positions[s] * price
+                for s in list(positions.keys())
+            )
+            total_value = cash + pos_value
+            curve.append({"period": date_str, "value": round(total_value, 2)})
+
+        return curve[-60:]  # last 60 points
+    except Exception:
+        return []
 
 
 def _sanitize(rows: list[dict]) -> list[dict]:

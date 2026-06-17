@@ -448,6 +448,7 @@ class TestDashboardEndpoints:
         assert "backtests_total" in stats
         assert "paper_positions" in stats
         assert "paper_return_pct" in stats
+        assert "paper_equity_curve" in data
 
 
 # ---------------------------------------------------------------------------
