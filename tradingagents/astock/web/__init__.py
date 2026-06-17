@@ -6,6 +6,8 @@ API at ``/api/v1/`` via client-side ``fetch()``.
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from flask import Blueprint, render_template
 
 bp = Blueprint(
@@ -79,6 +81,26 @@ def comparison() -> str:
 @bp.route("/screener")
 def screener() -> str:
     return render_template("screener.html")
+
+
+@bp.route("/dragon_tiger")
+def dragon_tiger() -> str:
+    return render_template("dragon_tiger.html", today=datetime.now().strftime("%Y-%m-%d"))
+
+
+@bp.route("/sectors")
+def sectors() -> str:
+    return render_template("sectors.html")
+
+
+@bp.route("/northbound")
+def northbound() -> str:
+    return render_template("northbound.html")
+
+
+@bp.route("/data_health")
+def data_health() -> str:
+    return render_template("data_health.html")
 
 
 # ---------------------------------------------------------------------------

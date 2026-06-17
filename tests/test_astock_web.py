@@ -61,6 +61,10 @@ PAGE_ROUTES = [
     ("/reports", "reports"),
     ("/comparison", "comparison"),
     ("/screener", "screener"),
+    ("/dragon_tiger", "dragon_tiger"),
+    ("/sectors", "sectors"),
+    ("/northbound", "northbound"),
+    ("/data_health", "data_health"),
     ("/settings", "settings"),
 ]
 
@@ -88,11 +92,15 @@ class TestWebBlueprintRegistration:
             "web.reports",
             "web.comparison",
             "web.screener",
+            "web.dragon_tiger",
+            "web.sectors",
+            "web.northbound",
+            "web.data_health",
             "web.settings",
         }
         missing = expected - endpoints
         assert not missing, f"Missing web endpoints: {missing}"
-        assert len(endpoints) >= 12
+        assert len(endpoints) >= 16
 
 
 class TestWebPageRendering:
@@ -122,6 +130,10 @@ class TestWebPageRendering:
         assert "📄 报告 Reports" in html
         assert "🔀 对比 Comparison" in html
         assert "🔍 筛选 Screener" in html
+        assert "🐉 龙虎榜 D&T" in html
+        assert "🔄 板块 Sectors" in html
+        assert "🧭 北向 North" in html
+        assert "🔌 数据源 Sources" in html
         assert "📊 绩效 Performance" in html
         assert "⚙️ 设置 Settings" in html
     @pytest.mark.parametrize("route,page_name", PAGE_ROUTES)
@@ -248,3 +260,40 @@ class TestWebSpecificPages:
         assert "sc-macd-death" in html
         assert "sc-mock" in html
         assert "sc-results" in html
+
+    def test_dragon_tiger_has_inputs(self, client):
+        resp = client.get("/dragon_tiger")
+        html = resp.data.decode("utf-8")
+        assert "dt-date" in html
+        assert "dt-min-buy" in html
+        assert "dt-mock" in html
+        assert "chart-dt-top" in html
+        assert "chart-dt-reason" in html
+
+    def test_sectors_has_heatmap(self, client):
+        resp = client.get("/sectors")
+        html = resp.data.decode("utf-8")
+        assert "sec-heatmap" in html
+        assert "sec-topn" in html
+        assert "sec-mock" in html
+        assert "chart-sector-bars" in html
+        assert "sec-top-table" in html
+        assert "sec-bottom-table" in html
+
+    def test_northbound_has_flow_chart(self, client):
+        resp = client.get("/northbound")
+        html = resp.data.decode("utf-8")
+        assert "nb-hgt" in html
+        assert "nb-sgt" in html
+        assert "nb-total" in html
+        assert "chart-nb-flow" in html
+        assert "nb-table" in html
+
+    def test_data_health_has_summary(self, client):
+        resp = client.get("/data_health")
+        html = resp.data.decode("utf-8")
+        assert "h-total" in html
+        assert "h-available" in html
+        assert "h-degraded" in html
+        assert "h-rate" in html
+        assert "h-table" in html

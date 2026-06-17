@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}Data Sources — AStock WebUI{% endblock %}
+{% block content %}
+<h2 class="text-2xl font-bold text-white mb-6">🔌 数据源健康 Data Source Health</h2>
+
+<div class="card mb-6">
+  <div class="flex items-center justify-between mb-4">
+    <p class="text-xs text-gray-400">各数据源适配器实时可用性、延迟和配置信息。</p>
+    <button onclick="loadHealth()" class="btn btn-primary">🔄 刷新 Refresh</button>
+  </div>
+
+  <!-- Summary Cards -->
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6" id="health-summary">
+    <div class="card"><div class="stat-label">数据源总数</div><div class="stat-value" id="h-total">--</div></div>
+    <div class="card"><div class="stat-label">可用</div><div class="stat-value text-emerald-400" id="h-available">--</div></div>
+    <div class="card"><div class="stat-label">异常</div><div class="stat-value text-red-400" id="h-degraded">--</div></div>
+    <div class="card"><div class="stat-label">健康率</div><div class="stat-value" id="h-rate">--</div></div>
+  </div>
+
+  <span id="h-status" class="text-xs text-gray-400"></span>
+</div>
+
+<div id="h-results" class="hidden">
+  <div class="card">
+    <h3 class="text-lg font-semibold text-white mb-4">📋 数据源明细</h3>
+    <div id="h-table" class="overflow-x-auto"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadHealth() {
+  const status = document.getElementById('h-status');
+  status.textContent = '⏳ 探测中...';
+  document.getElementById('h-results').classList.add('hidden');
+
+  try {
+    const res = await fetch('/api/v1/data/health');
+    const data = await res.json();
+
+    if (data.error) { status.textContent = '❌ ' + data.error; return; }
+
+    const summary = data.summary || {};
+    document.getElementById('h-total').textContent = summary.total ?? '--';
+    document.getElementById('h-available').textContent = summary.available ?? '--';
+    document.getElementById('h-degraded').textContent = summary.degraded ?? '--';
+    const rate = summary.total > 0 ? ((summary.available / summary.total) * 100).toFixed(0) + '%' : '--';
+    document.getElementById('h-rate').textContent = rate;
+    document.getElementById('h-rate').className = 'stat-value ' +
+      (summary.available === summary.total ? 'text-emerald-400' : summary.degraded > 0 ? 'text-amber-400' : 'text-red-400');
+
+    // Table
+    const sources = data.sources || [];
+    document.getElementById('h-table').innerHTML = '<table><thead><tr>' +
+      '<th>数据源</th><th class="text-center">状态</th><th class="text-right">延迟</th>' +
+      '<th class="text-center">Mock</th><th>备注</th>' +
+      '</tr></thead><tbody>' +
+      sources.map(s => {
+        const available = s.available;
+        const latency = s.latency_ms;
+        const mock = s.mock;
+        const error = s.error;
+        const rateLimit = s.rate_limit_interval;
+
+        const statusIcon = available ? '✅' : '❌';
+        const statusColor = available ? 'text-emerald-400' : 'text-red-400';
+
+        let notes = '';
+        if (rateLimit) notes = `限流间隔: ${rateLimit}s`;
+        else if (error) notes = error;
+        else if (s.tables !== undefined) notes = `${s.tables} 张表`;
+        else if (available && !latency) notes = '可用 (无延迟数据)';
+
+        return `<tr>
+          <td class="text-gray-300 font-medium">${s.name}</td>
+          <td class="text-center ${statusColor}"><span class="text-lg">${statusIcon}</span></td>
+          <td class="text-right text-gray-400">${latency !== null && latency !== undefined ? latency + 'ms' : '--'}</td>
+          <td class="text-center">${mock ? '<span class="badge badge-warning">🟡 Mock</span>' : '<span class="badge badge-success">🟢 Live</span>'}</td>
+          <td class="text-xs text-gray-400 max-w-xs truncate">${notes}</td>
+        </tr>`;
+      }).join('') + '</tbody></table>';
+
+    status.textContent = `✅ 探测完成 — ${sources.length} 个数据源`;
+    document.getElementById('h-results').classList.remove('hidden');
+
+  } catch (e) {
+    status.textContent = '❌ ' + e.message;
+  }
+}
+
+loadHealth();
+</script>
+{% endblock %}

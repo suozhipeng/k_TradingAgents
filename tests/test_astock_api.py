@@ -485,6 +485,44 @@ class TestScreenerEndpoints:
 
 
 # ---------------------------------------------------------------------------
+# Test: market data endpoints (dragon tiger, sectors, northbound)
+# ---------------------------------------------------------------------------
+
+
+class TestMarketDataEndpoints:
+    def test_dragon_tiger_mock(self, app):
+        resp = app.get("/api/v1/market/dragon-tiger?mock=1")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert "stocks" in data
+        assert data["total_records"] > 0
+
+    def test_sectors_mock(self, app):
+        resp = app.get("/api/v1/market/sectors?mock=1&top_n=5")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert "top" in data
+        assert len(data["top"]) > 0
+        assert "name" in data["top"][0]
+        assert "change_pct" in data["top"][0]
+
+    def test_northbound_mock(self, app):
+        resp = app.get("/api/v1/market/northbound?mock=1")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert "flow" in data
+        assert len(data["flow"]) > 0
+
+    def test_data_health_endpoint(self, app):
+        resp = app.get("/api/v1/data/health")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert "sources" in data
+        assert "summary" in data
+        assert data["summary"]["total"] > 0
+
+
+# ---------------------------------------------------------------------------
 # Test: error handling
 # ---------------------------------------------------------------------------
 
