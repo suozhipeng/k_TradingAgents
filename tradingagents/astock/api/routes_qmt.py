@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from flask import Blueprint, Response, jsonify
+from flask import Blueprint, Response, jsonify, request
 
 bp = Blueprint("qmt", __name__)
 
@@ -33,16 +33,36 @@ def _get_bridge() -> Any:
 
 @bp.route("/qmt/health")
 def qmt_health() -> tuple[Response, int]:
-    """QMT bridge health check."""
+    """QMT bridge health check.
+
+    Query params:
+        real (bool) — if ``1``, attempt a real (non-mock) connection check.
+    """
     try:
+        force_real = request.args.get("real", "0") == "1"
         bridge = _get_bridge()
         ok = bridge.health_check()
+
+        # Real connection attempt
+        real_healthy = None
+        real_error = None
+        if force_real:
+            try:
+                from tradingagents.astock.execution.qmt_bridge import QmtBridge
+                real_bridge = QmtBridge(use_mock=False)
+                real_healthy = real_bridge.health_check()
+            except Exception as exc:
+                real_healthy = False
+                real_error = str(exc)
+
         return jsonify(
             {
                 "healthy": ok,
                 "mock_mode": bridge.is_mock,
                 "host": bridge.config.host,
                 "port": bridge.config.port,
+                "real_healthy": real_healthy,
+                "real_error": real_error,
             }
         ), 200
     except Exception as exc:

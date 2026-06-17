@@ -203,6 +203,8 @@ class TestWebSpecificPages:
         assert "qmt-status" in html
         assert "qmt-positions" in html
         assert "qmt-orders" in html
+        assert "testRealConnection" in html
+        assert "实盘连通性测试" in html
 
     def test_risk_has_rules_and_alerts(self, client):
         resp = client.get("/risk")
