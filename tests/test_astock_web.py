@@ -59,6 +59,7 @@ PAGE_ROUTES = [
     ("/qmt", "qmt"),
     ("/risk", "risk"),
     ("/reports", "reports"),
+    ("/comparison", "comparison"),
     ("/settings", "settings"),
 ]
 
@@ -72,7 +73,7 @@ class TestWebBlueprintRegistration:
     """Verify the web blueprint is registered correctly."""
 
     def test_blueprint_registered(self, app):
-        """All 9 page routes should be registered on the web blueprint."""
+        """All page routes should be registered on the web blueprint."""
         rules = [r for r in app.url_map.iter_rules() if "web." in r.endpoint]
         endpoints = {r.endpoint for r in rules}
         expected = {
@@ -84,11 +85,12 @@ class TestWebBlueprintRegistration:
             "web.qmt",
             "web.risk",
             "web.reports",
+            "web.comparison",
             "web.settings",
         }
         missing = expected - endpoints
         assert not missing, f"Missing web endpoints: {missing}"
-        assert len(endpoints) >= 9
+        assert len(endpoints) >= 10
 
 
 class TestWebPageRendering:
@@ -116,8 +118,9 @@ class TestWebPageRendering:
         assert "🔗 QMT 桥接" in html
         assert "⚠️ 风控 Risk" in html
         assert "📄 报告 Reports" in html
+        assert "🔀 对比 Comparison" in html
+        assert "📊 绩效 Performance" in html
         assert "⚙️ 设置 Settings" in html
-
     @pytest.mark.parametrize("route,page_name", PAGE_ROUTES)
     def test_page_has_tailwind_cdn(self, client, route, page_name):
         """Each page should include the Tailwind CSS CDN."""
@@ -206,3 +209,14 @@ class TestWebSpecificPages:
         assert "system-info" in html
         assert "sys-version" in html
         assert "saveSettings" in html
+
+    def test_comparison_has_strategy_selection(self, client):
+        resp = client.get("/comparison")
+        html = resp.data.decode("utf-8")
+        assert "cmp-strategies" in html
+        assert "cmp-symbol" in html
+        assert "cmp-start" in html
+        assert "cmp-end" in html
+        assert "cmp-mock" in html
+        assert "chart-equity-overlay" in html
+        assert "cmp-results" in html

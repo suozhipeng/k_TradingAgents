@@ -44,6 +44,7 @@ checkpoint.
 | 17 | Flask Jinja2 WebUI 9 pages + PPT reporting — 54 tests | Complete | commit `8f2423e` |
 | 18 | Strategy expansion + optimizer — MACD, Bollinger, Grid + grid-search optimizer | Complete | commit `88b57a4`, `a1520d4`, `2c37feb` |
 | 19 | Performance analysis + data refresh/cache + test refactor — Chart.js, 739/739 | Complete | commit `91c13b7`, `02aab36`, `957d159` |
+| 20 | Strategy comparison WebUI — compare API enhanced (equity_curve, rank), multi-strategy Chart.js overlay | Complete | commit `pending` |
 
 ## Naming
 

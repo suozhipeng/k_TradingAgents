@@ -1,6 +1,6 @@
 # A 股二次定制开发基线
 
-|更新时间：2026-06-16 (All 17 phases complete + Phase 18-19: 10 策略 + 优化器 + 绩效分析 + 数据刷新/缓存 WebUI + 测试全回归 739/739) |
+|更新时间：2026-06-17 (All 20 phases: 10 策略 + 优化器 + 绩效分析 + 数据刷新/缓存 + 策略对比 WebUI + 测试全回归) |
 
 本文档是 A 股二次定制开发的当前事实基线。后续 Hermes 调度、ECC
 验收和阶段推进优先以本文档为准。
@@ -88,6 +88,7 @@ Phase 11 执行层增加了额外的安全边界：
 | 17 | Flask Jinja2 WebUI 10 页面 + PPT 报告（54 项测试） | 完成 |
 | 18 | 策略扩展 + 参数优化器（3 新策略 + grid search + API + WebUI） | 完成 |
 | 19 | 绩效分析 + 数据刷新/缓存 + 测试重构（Chart.js + 全回归 739/739） | 完成 |
+| 20 | 策略对比 WebUI — compare API 增强（equity_curve/rank），多策略 Chart.js 叠加 | 完成 |
 
 ## 4. 已完成能力
 
@@ -119,6 +120,7 @@ Phase 11 执行层增加了额外的安全边界：
 - **valuation 路由优化**：tencent 优先（~0.3s vs akshare ~26s），PB/market_cap 非空
 - **测试重构**：11 个测试文件消除 `__path__=[]` 假包污染，全仓回归 739/739
 - **运行脚本**：`run_webui.py`（`PORT=8080 python run_webui.py`）
+- **策略对比 WebUI**：多选策略同参数运行，排名表格 + Chart.js 净值曲线叠加 + 指标对比图（Phase 20）
 
 ## 5. 当前缺口
 

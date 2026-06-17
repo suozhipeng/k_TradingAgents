@@ -311,6 +311,19 @@ class TestBacktestEndpoints:
         assert "comparison" in data
         assert len(data["comparison"]) == 2
 
+        # Verify enhanced compare fields
+        for r in data["comparison"]:
+            assert "equity_curve" in r, f"Missing equity_curve in {r['strategy_name']}"
+            assert "returns" in r, f"Missing returns in {r['strategy_name']}"
+            assert "rank" in r, f"Missing rank in {r['strategy_name']}"
+            assert isinstance(r["equity_curve"], list)
+            assert isinstance(r["returns"], list)
+            assert r["rank"] in (1, 2)
+
+        # Rankings should be ordered (rank 1 has highest composite score)
+        assert data["comparison"][0]["rank"] == 1
+        assert data["comparison"][1]["rank"] == 2
+
 
 # ---------------------------------------------------------------------------
 # Test: paper trading endpoints

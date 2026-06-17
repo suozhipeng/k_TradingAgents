@@ -71,6 +71,11 @@ def performance() -> str:
     return render_template("performance.html")
 
 
+@bp.route("/comparison")
+def comparison() -> str:
+    return render_template("comparison.html")
+
+
 # ---------------------------------------------------------------------------
 # Export
 # ---------------------------------------------------------------------------

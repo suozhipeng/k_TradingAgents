@@ -224,6 +224,22 @@ def compare_backtests() -> tuple[Response, int]:
         for name in names:
             strategy = registry[name]()
             result = engine.run(symbol, start_date, end_date, strategy)
+
+            # Extract equity curve and returns from periods (same as analyze)
+            periods = result.periods or []
+            equity_curve = [
+                {"period": p["period"], "value": p["end_value"]}
+                for p in periods
+            ]
+            returns = []
+            prev_val = None
+            for p in periods:
+                val = p["end_value"]
+                if prev_val is not None and prev_val > 0:
+                    ret = (val - prev_val) / prev_val
+                    returns.append({"period": p["period"], "return": round(ret, 6)})
+                prev_val = val
+
             results.append(
                 {
                     "strategy_name": name,
@@ -234,8 +250,22 @@ def compare_backtests() -> tuple[Response, int]:
                     "win_rate": result.win_rate,
                     "total_trades": result.total_trades,
                     "periods": result.periods,
+                    "equity_curve": equity_curve,
+                    "returns": returns,
                 }
             )
+
+        # Sort by composite score (50% Sharpe + 30% return - 20% drawdown)
+        def _composite(r: dict) -> float:
+            s = r.get("sharpe_ratio", 0) or 0
+            tr = r.get("total_return", 0) or 0
+            dd = r.get("max_drawdown", 0) or 0
+            return 0.5 * s + 0.3 * tr - 0.2 * dd
+
+        results.sort(key=_composite, reverse=True)
+        for i, r in enumerate(results, start=1):
+            r["rank"] = i
+
         return jsonify({"comparison": results}), 200
     except Exception as exc:
         return jsonify({"error": str(exc), "status": 500}), 500
