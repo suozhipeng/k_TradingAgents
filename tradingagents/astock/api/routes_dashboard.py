@@ -1,0 +1,180 @@
+"""Dashboard overview API — aggregated data for the home page.
+
+Provides a single ``GET /api/v1/dashboard/overview`` endpoint that returns
+all the data the dashboard page needs: statistics, paper trading state,
+recent backtests, recent trades, and a mini equity curve for the P&L chart.
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+from flask import Blueprint, Response, current_app, jsonify
+
+bp = Blueprint("dashboard", __name__)
+
+
+def _store() -> Any:
+    return current_app.config["STORE"]
+
+
+def _get_paper_trader() -> Any:
+    """Lazy import + instantiate PaperTraderState."""
+    from tradingagents.astock.execution.paper_trader import PaperTraderState
+
+    if not hasattr(current_app, "_paper_state"):
+        store = _store()
+        current_app._paper_state = PaperTraderState(store=store)  # type: ignore[attr-defined]
+    return current_app._paper_state  # type: ignore[attr-defined]
+
+
+# ---------------------------------------------------------------------------
+# GET /api/v1/dashboard/overview
+# ---------------------------------------------------------------------------
+
+
+@bp.route("/dashboard/overview")
+def dashboard_overview() -> tuple[Response, int]:
+    """Aggregated dashboard data.
+
+    Returns JSON with:
+        statistics (dict) — counts & summary numbers
+        paper_state (dict) — paper trading account snapshot
+        recent_backtests (list) — latest 5 backtest results
+        recent_trades (list) — latest 10 paper trades
+        latest_equity_curve (list) — equity curve of the most recent backtest
+    """
+    try:
+        store = _store()
+        stats = store.get_table_stats() if hasattr(store, "get_table_stats") else {}
+
+        # Count unique symbols across kline, valuation tables
+        symbols_tracked = 0
+        for table in ("klines", "valuations"):
+            t_stats = stats.get(table, {})
+            if t_stats.get("rows", 0) > 0:
+                try:
+                    df = store.query_sql(f'SELECT count(DISTINCT symbol) as cnt FROM "{table}"')
+                    symbols_tracked += int(df.iloc[0]["cnt"]) if not df.empty else 0
+                except Exception:
+                    symbols_tracked += 1 if t_stats.get("rows", 0) > 0 else 0
+
+        backtests_total = stats.get("backtest_results", {}).get("rows", 0) if stats else 0
+
+        # Paper state
+        paper_positions = 0
+        paper_return_pct = 0.0
+        paper_total_value = 0.0
+        try:
+            trader = _get_paper_trader()
+            state = trader.get_state()
+            paper_positions = len(getattr(state, "positions", []) or [])
+            paper_return_pct = getattr(state, "pnl", {}).get("return_pct", 0)
+            paper_total_value = getattr(state, "total_value", 0)
+        except Exception:
+            pass
+
+        # Recent backtests (latest 5)
+        recent_backtests = []
+        try:
+            bt_df = store.get_backtest_results()
+            if bt_df is not None and not bt_df.empty:
+                bt_list = bt_df.sort_values("end_date", ascending=False).head(5)
+                recent_backtests = bt_list.to_dict(orient="records")
+        except Exception:
+            pass
+
+        # Latest equity curve from most recent backtest
+        latest_equity_curve = []
+        if recent_backtests:
+            # If the first result has a periods_json or periods col
+            latest = recent_backtests[0]
+            periods = latest.get("periods") or latest.get("periods_json") or []
+            if isinstance(periods, str):
+                import json
+
+                try:
+                    periods = json.loads(periods)
+                except (json.JSONDecodeError, TypeError):
+                    periods = []
+            latest_equity_curve = [
+                {"period": p["period"], "value": p["end_value"]}
+                for p in (periods or [])
+            ][-30:]  # last 30 periods for mini chart
+
+        # Recent paper trades
+        recent_trades = []
+        try:
+            trades_df = store.get_paper_trades()
+            if trades_df is not None and not trades_df.empty:
+                trades_list = trades_df.sort_values(
+                    "trade_date", ascending=False
+                ).head(10)
+                recent_trades = trades_list.to_dict(orient="records")
+        except Exception:
+            pass
+
+        # Paper positions (for pie chart)
+        paper_positions_detail = []
+        try:
+            trader = _get_paper_trader()
+            state = trader.get_state()
+            positions = getattr(state, "positions", []) or []
+            paper_positions_detail = [
+                {
+                    "symbol": p.get("symbol", "?"),
+                    "value": abs(p.get("quantity", 0) * p.get("current_price", 0)),
+                    "pnl": p.get("pnl", 0),
+                    "quantity": p.get("quantity", 0),
+                }
+                for p in positions
+                if p.get("quantity", 0) > 0
+            ]
+        except Exception:
+            pass
+
+        return jsonify(
+            {
+                "statistics": {
+                    "symbols_tracked": symbols_tracked,
+                    "backtests_total": backtests_total,
+                    "paper_positions": paper_positions,
+                    "paper_return_pct": paper_return_pct,
+                    "paper_total_value": paper_total_value,
+                },
+                "paper_positions": paper_positions_detail,
+                "recent_backtests": _sanitize(recent_backtests),
+                "recent_trades": _sanitize(recent_trades),
+                "latest_equity_curve": latest_equity_curve,
+            }
+        ), 200
+    except Exception as exc:
+        return jsonify({"error": str(exc), "status": 500}), 500
+
+
+def _sanitize(rows: list[dict]) -> list[dict]:
+    """Convert non-serializable objects in a list of dicts."""
+    import datetime
+    import decimal
+
+    clean: list[dict] = []
+    for row in rows:
+        safe = {}
+        for k, v in row.items():
+            if isinstance(v, (datetime.datetime, datetime.date)):
+                safe[k] = v.isoformat()
+            elif isinstance(v, decimal.Decimal):
+                safe[k] = float(v)
+            elif isinstance(v, bytes):
+                safe[k] = v.decode("utf-8", errors="replace")
+            else:
+                try:
+                    # Test serializability
+                    import json
+
+                    json.dumps({k: v})
+                    safe[k] = v
+                except (TypeError, OverflowError):
+                    safe[k] = str(v)
+        clean.append(safe)
+    return clean

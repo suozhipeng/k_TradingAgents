@@ -430,6 +430,27 @@ class TestQmtEndpoints:
 
 
 # ---------------------------------------------------------------------------
+# Test: dashboard overview
+# ---------------------------------------------------------------------------
+
+
+class TestDashboardEndpoints:
+    def test_dashboard_overview(self, app):
+        resp = app.get("/api/v1/dashboard/overview")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert "statistics" in data
+        assert "paper_positions" in data
+        assert "recent_backtests" in data
+        assert "recent_trades" in data
+        stats = data["statistics"]
+        assert "symbols_tracked" in stats
+        assert "backtests_total" in stats
+        assert "paper_positions" in stats
+        assert "paper_return_pct" in stats
+
+
+# ---------------------------------------------------------------------------
 # Test: error handling
 # ---------------------------------------------------------------------------
 

@@ -1,77 +1,336 @@
 {% extends "base.html" %}
 {% block title %}Dashboard — AStock WebUI{% endblock %}
+{% block head_extra %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+{% endblock %}
 {% block content %}
 <h2 class="text-2xl font-bold text-white mb-6">📊 总览 Dashboard</h2>
 
 <!-- Stats Cards -->
 <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6" id="stats-cards">
-  <div class="card"><div class="stat-label">股票跟踪</div><div class="stat-value" id="stat-symbols">--</div></div>
-  <div class="card"><div class="stat-label">回测已完成</div><div class="stat-value" id="stat-backtests">--</div></div>
-  <div class="card"><div class="stat-label">模拟持仓</div><div class="stat-value" id="stat-positions">--</div></div>
-  <div class="card"><div class="stat-label">风控告警</div><div class="stat-value" id="stat-risks">--</div></div>
-</div>
-
-<!-- Market Summary -->
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
   <div class="card">
-    <h3 class="text-lg font-semibold text-white mb-4">📈 市场概要 Market Summary</h3>
-    <div id="market-summary-content" class="text-gray-400 text-sm">Loading...</div>
+    <div class="stat-label">📈 股票跟踪 Tracked</div>
+    <div class="stat-value" id="stat-symbols">--</div>
   </div>
   <div class="card">
-    <h3 class="text-lg font-semibold text-white mb-4">⚡ 最近回测 Recent Backtests</h3>
-    <div id="recent-backtests" class="text-gray-400 text-sm">Loading...</div>
+    <div class="stat-label">🔄 回测 Backtests</div>
+    <div class="stat-value" id="stat-backtests">--</div>
+  </div>
+  <div class="card">
+    <div class="stat-label">💼 持仓 Positions</div>
+    <div class="stat-value" id="stat-positions">--</div>
+  </div>
+  <div class="card">
+    <div class="stat-label">📊 模拟收益 Return</div>
+    <div class="stat-value" id="stat-return">--</div>
   </div>
 </div>
 
-<!-- Recent Activity -->
-<div class="card mt-6">
-  <h3 class="text-lg font-semibold text-white mb-4">📋 最近活动 Recent Activity</h3>
-  <div id="recent-activity" class="text-gray-400 text-sm">Loading...</div>
+<!-- Row 1: Mini P&L Trend + Portfolio Pie -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+  <div class="card lg:col-span-2">
+    <h3 class="text-lg font-semibold text-white mb-4">📈 P&L 趋势 P&L Trend</h3>
+    <canvas id="chart-pnl-trend" height="180"></canvas>
+    <p id="pnl-trend-empty" class="text-xs text-gray-500 mt-2 hidden">暂无回测数据，运行回测后自动显示。</p>
+  </div>
+  <div class="card">
+    <h3 class="text-lg font-semibold text-white mb-4">🧩 持仓分布 Portfolio</h3>
+    <canvas id="chart-portfolio-pie" height="220"></canvas>
+    <p id="portfolio-pie-empty" class="text-xs text-gray-500 mt-2 hidden">暂无持仓。</p>
+  </div>
+</div>
+
+<!-- Row 2: Market Heatmap + Recent Activity -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+  <div class="card">
+    <h3 class="text-lg font-semibold text-white mb-4">🔥 策略表现矩阵 Strategy Heatmap</h3>
+    <div id="heatmap-content" class="text-gray-400 text-sm">加载中...</div>
+  </div>
+  <div class="card">
+    <h3 class="text-lg font-semibold text-white mb-4">📋 近期活动 Recent Activity</h3>
+    <div id="activity-feed" class="text-gray-400 text-sm">加载中...</div>
+  </div>
+</div>
+
+<!-- Row 3: Recent Backtests -->
+<div class="card mb-6">
+  <h3 class="text-lg font-semibold text-white mb-4">⚡ 最近回测 Recent Backtests</h3>
+  <div id="recent-backtests" class="text-gray-400 text-sm">加载中...</div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
+const PIE_COLORS = ['#818cf8','#34d399','#fbbf24','#f87171','#60a5fa','#c084fc','#fb923c','#2dd4bf','#a78bfa','#e879f9'];
+let chartInstances = {};
+
 async function loadDashboard() {
   try {
-    const [marketRes, btRes] = await Promise.all([
-      fetch('/api/v1/market/summary'),
-      fetch('/api/v1/backtest/results?limit=5'),
-    ]);
-    const market = await marketRes.json();
-    const btData = await btRes.json();
+    const res = await fetch('/api/v1/dashboard/overview');
+    const data = await res.json();
 
-    document.getElementById('stat-symbols').textContent = market?.symbols_tracked ?? '--';
-    document.getElementById('stat-backtests').textContent = btData?.total ?? '--';
-    document.getElementById('stat-positions').textContent = market?.positions ?? '--';
-    document.getElementById('stat-risks').textContent = market?.risk_alerts ?? '--';
-
-    const mc = document.getElementById('market-summary-content');
-    if (market?.summary) {
-      mc.innerHTML = `<p class="text-gray-300">${market.summary}</p>`;
-    } else {
-      mc.innerHTML = '<p class="text-gray-500">No market data available.</p>';
+    if (data.error) {
+      document.querySelectorAll('#stats-cards .stat-value').forEach(el => el.textContent = 'ERR');
+      return;
     }
 
-    const rb = document.getElementById('recent-backtests');
-    if (btData?.backtests?.length) {
-      rb.innerHTML = '<div class="space-y-2">' + btData.backtests.map(bt =>
-        `<div class="flex justify-between items-center py-1 border-b border-dark-border last:border-0">
-          <span class="text-gray-300">${bt.symbol || bt.id}</span>
-          <span class="badge ${bt.status === 'completed' ? 'badge-success' : 'badge-warning'}">${bt.status}</span>
-        </div>`
-      ).join('') + '</div>';
-    } else {
-      rb.innerHTML = '<p class="text-gray-500">No backtests yet.</p>';
-    }
+    const stats = data.statistics || {};
+    document.getElementById('stat-symbols').textContent = stats.symbols_tracked ?? '--';
+    document.getElementById('stat-backtests').textContent = stats.backtests_total ?? '--';
+    document.getElementById('stat-positions').textContent = stats.paper_positions ?? '--';
 
-    document.getElementById('recent-activity').innerHTML =
-      '<p class="text-gray-500">实时活动流即将推出。</p>';
+    const retPct = stats.paper_return_pct ?? 0;
+    const retEl = document.getElementById('stat-return');
+    retEl.textContent = (retPct * 100).toFixed(2) + '%';
+    retEl.className = 'stat-value ' + (retPct >= 0 ? 'text-emerald-400' : 'text-red-400');
+
+    // P&L Trend Chart
+    renderPnlTrend(data.latest_equity_curve || []);
+
+    // Portfolio Pie Chart
+    renderPortfolioPie(data.paper_positions || []);
+
+    // Strategy / Sector Heatmap
+    renderHeatmap(data.recent_backtests || []);
+
+    // Activity Feed
+    renderActivity(data.recent_trades || [], data.recent_backtests || []);
+
+    // Recent Backtests Table
+    renderRecentBacktests(data.recent_backtests || []);
+
   } catch (e) {
     document.querySelectorAll('#stats-cards .stat-value').forEach(el => el.textContent = 'ERR');
-    document.getElementById('market-summary-content').innerHTML = '<p class="text-red-400">Failed to load dashboard data.</p>';
+    document.getElementById('heatmap-content').innerHTML = '<p class="text-red-400">加载失败</p>';
+    document.getElementById('activity-feed').innerHTML = '<p class="text-red-400">加载失败</p>';
+    document.getElementById('recent-backtests').innerHTML = '<p class="text-red-400">加载失败</p>';
   }
 }
+
+function renderPnlTrend(equityCurve) {
+  if (!equityCurve || equityCurve.length < 2) {
+    document.getElementById('pnl-trend-empty').classList.remove('hidden');
+    return;
+  }
+  const labels = equityCurve.map(p => p.period?.substring(0, 7) || '');
+  const values = equityCurve.map(p => p.value);
+  const startVal = values[0] || 1;
+  const pctChange = values.map(v => ((v - startVal) / startVal * 100));
+
+  const ctx = document.getElementById('chart-pnl-trend').getContext('2d');
+  chartInstances.pnl = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: '收益 %',
+        data: pctChange,
+        borderColor: '#818cf8',
+        backgroundColor: (ctx) => {
+          const g = ctx.chart.ctx.createLinearGradient(0, 0, 0, 180);
+          g.addColorStop(0, 'rgba(129,140,248,0.3)');
+          g.addColorStop(1, 'rgba(129,140,248,0.02)');
+          return g;
+        },
+        fill: true,
+        tension: 0.3,
+        pointRadius: 0,
+        borderWidth: 2,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1e293b', titleColor: '#fff',
+          bodyColor: '#d1d5db', callbacks: {
+            label: ctx => ctx.parsed.y.toFixed(2) + '%'
+          }
+        },
+      },
+      scales: {
+        x: { ticks: { color: '#6b7280', maxTicksLimit: 8, maxRotation: 0 }, grid: { display: false } },
+        y: {
+          ticks: { color: '#6b7280', callback: v => v.toFixed(1) + '%' },
+          grid: { color: '#1e293b' },
+        },
+      },
+    },
+  });
+}
+
+function renderPortfolioPie(positions) {
+  if (!positions || positions.length === 0) {
+    document.getElementById('portfolio-pie-empty').classList.remove('hidden');
+    return;
+  }
+  const labels = positions.map(p => p.symbol);
+  const values = positions.map(p => Math.abs(p.value || 0));
+  const colors = positions.map((_, i) => PIE_COLORS[i % PIE_COLORS.length]);
+
+  const ctx = document.getElementById('chart-portfolio-pie').getContext('2d');
+  chartInstances.pie = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{
+        data: values,
+        backgroundColor: colors,
+        borderColor: colors.map(c => c),
+        borderWidth: 2,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: { color: '#9ca3af', boxWidth: 10, padding: 8, font: { size: 11 } },
+        },
+        tooltip: {
+          backgroundColor: '#1e293b', titleColor: '#fff', bodyColor: '#d1d5db',
+          callbacks: {
+            label: ctx => ` ${ctx.label}: ¥${ctx.parsed.toLocaleString()}`
+          }
+        },
+      },
+    },
+  });
+}
+
+async function renderHeatmap(backtests) {
+  const el = document.getElementById('heatmap-content');
+  try {
+    // Fetch all strategies with their latest performance
+    const stratRes = await fetch('/api/v1/market/strategies');
+    const stratData = await stratRes.json();
+    const strategies = stratData?.strategies || [];
+
+    if (!strategies.length && !backtests.length) {
+      el.innerHTML = '<p class="text-gray-500">运行回测后自动生成策略表现矩阵。</p>';
+      return;
+    }
+
+    // Build a performance map from recent backtests
+    const perfMap = {};
+    backtests.forEach(bt => {
+      const name = bt.strategy_name || bt.strategy || '';
+      if (name && bt.total_return !== undefined) {
+        if (!perfMap[name] || bt.total_return > perfMap[name].return) {
+          perfMap[name] = { return: bt.total_return, date: bt.end_date || '' };
+        }
+      }
+    });
+
+    // Build heatmap grid
+    let html = '<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">';
+    strategies.forEach(s => {
+      const perf = perfMap[s.name];
+      const ret = perf ? perf.return : null;
+      let bg, label;
+      if (ret === null) {
+        bg = 'bg-dark-bg';
+        label = '--';
+      } else {
+        const pct = ret * 100;
+        if (pct > 10) { bg = 'bg-emerald-800/60 text-emerald-300'; label = pct.toFixed(1) + '%'; }
+        else if (pct > 5) { bg = 'bg-emerald-700/40 text-emerald-300'; label = pct.toFixed(1) + '%'; }
+        else if (pct > 0) { bg = 'bg-emerald-600/30 text-emerald-200'; label = pct.toFixed(1) + '%'; }
+        else if (pct > -5) { bg = 'bg-red-600/30 text-red-200'; label = pct.toFixed(1) + '%'; }
+        else { bg = 'bg-red-700/40 text-red-300'; label = pct.toFixed(1) + '%'; }
+      }
+      html += `<div class="${bg} rounded-lg p-2 text-center">
+        <div class="text-xs font-medium truncate">${s.name}</div>
+        <div class="text-sm font-bold mt-0.5">${label}</div>
+      </div>`;
+    });
+    html += '</div>';
+    el.innerHTML = html;
+  } catch (e) {
+    el.innerHTML = '<p class="text-red-400">加载失败</p>';
+  }
+}
+
+function renderActivity(trades, backtests) {
+  const el = document.getElementById('activity-feed');
+  const items = [];
+
+  // Backtests as activity
+  (backtests || []).forEach(bt => {
+    const name = bt.strategy_name || bt.strategy || '?';
+    const ret = bt.total_return;
+    const date = bt.end_date || '';
+    items.push({
+      time: date,
+      icon: ret >= 0 ? '📈' : '📉',
+      text: `<span class="text-gray-300">回测</span> <span class="text-indigo-300 font-medium">${name}</span> <span class="${ret >= 0 ? 'text-emerald-400' : 'text-red-400'}">${ret !== undefined ? (ret*100).toFixed(2)+'%' : ''}</span>`,
+    });
+  });
+
+  // Paper trades as activity
+  (trades || []).forEach(t => {
+    const side = t.side || t.direction || '';
+    const symbol = t.symbol || '';
+    const price = t.price || 0;
+    const qty = t.quantity || t.shares || 0;
+    const date = t.trade_date || t.time || '';
+    items.push({
+      time: date,
+      icon: side === 'buy' ? '🟢' : '🔴',
+      text: `<span class="${side === 'buy' ? 'text-emerald-400' : 'text-red-400'}">${side.toUpperCase()}</span> <span class="text-gray-300">${symbol}</span> <span class="text-gray-400">${qty} @ ¥${price.toFixed(2)}</span>`,
+    });
+  });
+
+  // Sort by time descending
+  items.sort((a, b) => (b.time || '').localeCompare(a.time || ''));
+
+  if (items.length === 0) {
+    el.innerHTML = '<p class="text-gray-500">暂无活动。运行回测或模拟盘后自动显示。</p>';
+    return;
+  }
+
+  el.innerHTML = '<div class="space-y-2 max-h-64 overflow-y-auto">' +
+    items.slice(0, 15).map(item =>
+      `<div class="flex items-start gap-3 py-2 px-3 bg-dark-bg rounded-lg">
+        <span class="mt-0.5">${item.icon}</span>
+        <div class="flex-1 min-w-0">
+          <div class="text-xs text-gray-300">${item.text}</div>
+          <div class="text-xs text-gray-500 mt-0.5">${item.time || ''}</div>
+        </div>
+      </div>`
+    ).join('') + '</div>';
+}
+
+function renderRecentBacktests(backtests) {
+  const el = document.getElementById('recent-backtests');
+  if (!backtests || backtests.length === 0) {
+    el.innerHTML = '<p class="text-gray-500">暂无回测结果。</p>';
+    return;
+  }
+
+  el.innerHTML = '<table><thead><tr><th>策略</th><th>标的</th><th>区间</th><th class="text-right">收益</th><th class="text-right">Sharpe</th><th class="text-right">回撤</th><th class="text-right">交易</th></tr></thead><tbody>' +
+    backtests.map(bt => {
+      const ret = bt.total_return || 0;
+      const sh = bt.sharpe_ratio || 0;
+      const dd = bt.max_drawdown || 0;
+      return `<tr>
+        <td class="text-gray-300 font-medium">${bt.strategy_name || bt.strategy || '--'}</td>
+        <td class="text-gray-300">${bt.symbol || '--'}</td>
+        <td class="text-xs text-gray-400">${(bt.start_date || '')?.substring(0, 10)} → ${(bt.end_date || '')?.substring(0, 10)}</td>
+        <td class="text-right ${ret >= 0 ? 'text-emerald-400' : 'text-red-400'}">${(ret * 100).toFixed(2)}%</td>
+        <td class="text-right ${sh > 1 ? 'text-emerald-400' : sh > 0 ? 'text-amber-400' : 'text-red-400'}">${sh.toFixed(2)}</td>
+        <td class="text-right text-red-400">${(dd * 100).toFixed(2)}%</td>
+        <td class="text-right text-white">${bt.total_trades || 0}</td>
+      </tr>`;
+    }).join('') + '</tbody></table>';
+}
+
+function destroyCharts() {
+  Object.values(chartInstances).forEach(c => { try { c.destroy(); } catch(e) {} });
+  chartInstances = {};
+}
+
 loadDashboard();
 </script>
 {% endblock %}

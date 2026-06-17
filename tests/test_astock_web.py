@@ -154,7 +154,11 @@ class TestWebSpecificPages:
         assert "stat-symbols" in html
         assert "stat-backtests" in html
         assert "stat-positions" in html
-        assert "stat-risks" in html
+        assert "stat-return" in html
+        assert "chart-pnl-trend" in html
+        assert "chart-portfolio-pie" in html
+        assert "heatmap-content" in html
+        assert "activity-feed" in html
 
     def test_research_has_symbol_input(self, client):
         resp = client.get("/research")
