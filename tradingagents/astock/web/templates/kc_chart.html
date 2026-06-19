@@ -33,9 +33,10 @@
   <button class="kc-btn" data-period="60m" onclick="setPeriod('60m')">60m</button>
   <button class="kc-btn" data-period="1d" onclick="setPeriod('1d')">日线</button>
   <button class="kc-btn" data-period="1w" onclick="setPeriod('1w')">周线</button>
+  <button class="kc-btn" data-period="1M" onclick="setPeriod('1M')">月线</button>
   <div class="sep"></div>
   <span class="label">指标</span>
-  <button class="kc-btn" onclick="toggleIndicator('MA')">MA(5/20/60)</button>
+  <button class="kc-btn" onclick="toggleIndicator('MA')">MA(5/10/20/30/60)</button>
   <button class="kc-btn" onclick="toggleIndicator('EMA')">EMA</button>
   <button class="kc-btn" onclick="toggleIndicator('BOLL')">BOLL</button>
   <button class="kc-btn" onclick="toggleIndicator('MACD')">MACD</button>
@@ -215,11 +216,14 @@ function loadKC() {
   chart.setMaxOffsetLeftDistance(0);
   chart.setMaxOffsetRightDistance(0);
 
-  // Default MA5/MA20/MA60 on K-line
+  // Default MA5/10/20/30/60 on K-line
   indicators = {};
   setTimeout(() => {
-    chart.createIndicator({ name: 'MA', calcParams: [5, 20, 60] });
+    chart.createIndicator({ name: 'MA', calcParams: [5, 10, 20, 30, 60] });
     indicators['MA'] = true;
+    // Highlight MA button
+    const maBtn = document.querySelector(`.kc-btn[onclick*="toggleIndicator('MA')"]`);
+    if (maBtn) maBtn.classList.add('active');
   }, 500);
 
   document.getElementById('kc-status').textContent = `✅ ${symbol}`;
@@ -237,25 +241,38 @@ function setPeriod(period) {
 // ── Indicators ──
 function toggleIndicator(name) {
   if (!chart) return;
+  const btn = document.querySelector(`.kc-btn[onclick*="toggleIndicator('${name}')"]`);
   if (indicators[name]) {
     chart.removeIndicator({ name });
     delete indicators[name];
+    if (btn) btn.classList.remove('active');
   } else {
-    // MA defaults to MA5/MA20/MA60 instead of the library default
     if (name === 'MA') {
-      chart.createIndicator({ name: 'MA', calcParams: [5, 20, 60] });
+      chart.createIndicator({ name: 'MA', calcParams: [5, 10, 20, 30, 60] });
     } else {
       chart.createIndicator(name);
     }
     indicators[name] = true;
+    if (btn) btn.classList.add('active');
   }
 }
 
 // ── Drawing Tools ──
+let currentDrawTool = '';
 function setDrawTool(tool) {
   if (!chart) return;
-  // Enters drawing mode (tool creates one shape per click, exits after)
-  // Pass '' to exit drawing mode (cursor)
+  // Clear all draw tool active states
+  document.querySelectorAll('.kc-btn').forEach(el => {
+    if (el.getAttribute('onclick') && el.getAttribute('onclick').startsWith("setDrawTool(")) {
+      el.classList.remove('active');
+    }
+  });
+  // Highlight current tool
+  if (tool) {
+    const btn = document.querySelector(`.kc-btn[onclick*="setDrawTool('${tool}')"]`);
+    if (btn) btn.classList.add('active');
+  }
+  currentDrawTool = tool;
   chart.executeAction('onDrawingTool', tool || '');
 }
 
