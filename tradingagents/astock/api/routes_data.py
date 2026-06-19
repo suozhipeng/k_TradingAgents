@@ -125,14 +125,16 @@ def get_news() -> tuple[Response, int]:
 
 @bp.route("/news/live")
 def get_news_live() -> tuple[Response, int]:
-    """GET /api/v1/news/live?symbol=600519.SH&limit=20&type=flash
-    type: flash (快讯, 默认) | global (全球新闻)
+    """GET /api/v1/news/live?symbol=600519.SH&limit=20&type=flash&source=em
+    type:   flash (快讯, 默认) | global (全球新闻)
+    source: em (东方财富, 默认) | sina (新浪) | futu (富途) | ths (同花顺)
     """
     symbol = request.args.get("symbol", "")
     if not symbol:
         return jsonify({"error": "symbol is required", "status": 400}), 400
     limit = _int_param("limit", 20)
     news_type = request.args.get("type", "flash")
+    news_source = request.args.get("source", "em")
     try:
         router = _router()
         if not router:
@@ -140,9 +142,15 @@ def get_news_live() -> tuple[Response, int]:
         if news_type == "global":
             resp = router.get_global_news(symbol, limit=limit)
         else:
-            resp = router.get_flash_news(symbol, limit=limit)
+            resp = router.get_flash_news(symbol, limit=limit, extras={"news_source": news_source})
         if resp.status == "ok" and resp.data:
-            return jsonify({"symbol": symbol, "type": news_type, "items": resp.data.get("items", []), "count": resp.data.get("count", 0)}), 200
+            return jsonify({
+                "symbol": symbol,
+                "type": news_type,
+                "source": resp.data.get("source", news_source),
+                "items": resp.data.get("items", []),
+                "count": resp.data.get("count", 0),
+            }), 200
         return jsonify({"symbol": symbol, "type": news_type, "items": [], "count": 0, "note": resp.error_message or "no data"}), 200
     except Exception as exc:
         logger.warning("news live failed for %s: %s", symbol, exc)
