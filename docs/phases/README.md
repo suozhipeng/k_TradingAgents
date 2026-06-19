@@ -45,6 +45,7 @@ checkpoint.
 | 18 | Strategy expansion + optimizer — MACD, Bollinger, Grid + grid-search optimizer | Complete | commit `88b57a4`, `a1520d4`, `2c37feb` |
 | 19 | Performance analysis + data refresh/cache + test refactor — Chart.js, 739/739 | Complete | commit `91c13b7`, `02aab36`, `957d159` |
 | 20 | Strategy comparison WebUI — compare API enhanced (equity_curve, rank), multi-strategy Chart.js overlay | Complete | commit `d128dc9` |
+| 21 | Test stabilization — 786/795 passed, 0 failed, 0 errors, 4× consistent runs | Complete | [Phase 21](phase-21-test-stabilization.md) |
 
 ## Naming
 

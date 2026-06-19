@@ -1,6 +1,6 @@
 # A 股二次定制开发基线
 
-|更新时间：2026-06-17 (All 20 phases: 10 策略 + 优化器 + 绩效分析 + 数据刷新/缓存 + 策略对比 WebUI + 测试全回归) |
+|更新时间：2026-06-19 (All 21 phases: 10 策略 + 优化器 + 绩效分析 + 数据刷新/缓存 + 策略对比 WebUI + 测试清噪全回归稳定化) |
 
 本文档是 A 股二次定制开发的当前事实基线。后续 Hermes 调度、ECC
 验收和阶段推进优先以本文档为准。
@@ -89,6 +89,7 @@ Phase 11 执行层增加了额外的安全边界：
 | 18 | 策略扩展 + 参数优化器（3 新策略 + grid search + API + WebUI） | 完成 |
 | 19 | 绩效分析 + 数据刷新/缓存 + 测试重构（Chart.js + 全回归 739/739） | 完成 |
 | 20 | 策略对比 WebUI — compare API 增强（equity_curve/rank），多策略 Chart.js 叠加 | 完成 |
+| 21 | 测试清噪与全仓回归稳定化 — 786 passed, 9 skipped, 0 failed, 0 errors | 完成 |
 
 ## 4. 已完成能力
 
@@ -121,6 +122,7 @@ Phase 11 执行层增加了额外的安全边界：
 - **测试重构**：11 个测试文件消除 `__path__=[]` 假包污染，全仓回归 739/739
 - **运行脚本**：`run_webui.py`（`PORT=8080 python run_webui.py`）
 - **策略对比 WebUI**：多选策略同参数运行，排名表格 + Chart.js 净值曲线叠加 + 指标对比图（Phase 20）
+- **全仓回归稳定化**：4 次连续全仓 pytest 一致通过 786/795（9 skipped），0 failed，0 errors（Phase 21）
 
 ## 5. 当前缺口
 
@@ -198,60 +200,35 @@ Delivery Phase 10 实现开始前必须满足：
 
 ## 7. 验收基线
 
-2026-06-15 环境升级验收（Python 3.10.19, 虚拟环境 `.venv`）：
-
-```bash
-source .venv/bin/activate
-python -m pytest -q
-```
-
-结果：`636 passed, 9 skipped, 2 failed, 76 errors`。
-- 2 failed 和 76 errors 均为测试排序/模块导入状态冲突（独立运行或分组运行时全部通过），非生产代码缺陷。
-- 138 个子测试通过（subtests passed）。
-- 跳过项为未启用 live provider/API key 的测试。
-
-核心依赖变更：
-- **Python 3.9 → 3.10.19**（项目要求 >=3.10）
-- 新增 `.venv/` 虚拟环境（已激活核心 + 可选依赖）
-- 修复 2 个 mock 测试以兼容 live_research profile 的额外 kwargs
-- 缺失依赖（之前 Python 3.9 环境）：typer, streamlit, duckdb, flask, python-pptx, akshare, mootdx, pywencai — 全部已安装
-
-2026-06-12 A 股扩展回归：
-
-```bash
-python3 -m pytest -q \
-  tests/test_astock_graph_runtime.py \
-  tests/test_astock_graph_bridge.py \
-  tests/test_astock_interface_analyst.py \
-  tests/test_astock_blueprint.py \
-  tests/test_astock_data_sources.py \
-  tests/test_astock_provider_fixtures.py \
-  tests/test_astock_cli_report.py \
-  tests/test_astock_ui_views.py
-```
-
-结果：`50 passed`。
-
-全仓回归（Python 3.10 环境）：
+2026-06-19 Phase 21 测试清噪与全仓回归稳定化验收：
 
 ```bash
 source .venv/bin/activate && python -m pytest -q
 ```
 
-结果：`636 passed, 9 skipped`。跳过项为未启用的 live provider/API 测试。
+结果：**786 passed, 9 skipped, 0 failed, 0 errors**（共 795 用例）。
 
-### 2026-06-16 最终验收
+稳定性验证：连续 4 次全仓运行结果完全一致（含 `--cache-clear` 后无变化）。
+A 股主链切片（25 文件）：**472 passed, 1 skipped, 0 failed**。
+
+跳过项详情：
+- 7 跳过：`test_astock_live_providers.py` — 需要 `ASTOCK_RUN_LIVE_TESTS=1` 环境变量
+- 1 跳过：`test_astock_store.py:650` — 需要 `TEST_PYDANTIC_BT=1`
+- 1 跳过：A 股切片中 `test_astock_store.py:650` 同上
+
+0 failed / 0 errors。原始 baseline（2026-06-15: 636 passed, 2 failed, 76 errors）已完全收敛。
+
+核心测试基础设施：
+- `tests/conftest.py`：`ASTOCK_TESTING=1` 跳过反爬延迟 + `_dummy_api_keys` autouse fixture 注入 13 个 API key placeholder
+- 无 `__path__=[]` 假包污染（Phase 19 已消除）
+- 无需外部 API key、网络连接或特殊系统配置即可全仓运行
 
 | 验收项 | 结果 |
 |--------|------|
-| 全仓回归 | **739 passed, 9 skipped, 0 failed, 0 errors** |
-| 测试假包污染修复 | 11 个测试文件重构，消除 `__path__=[]` 注入 |
-| WebUI 10 页面 | 全部 200 OK |
-| API 30 端点 | 全部注册并响应 |
-| 10 策略 | MovingAverageTrend, BullTrend, ValueAverage, MeanReversion, RSIRange, DefensiveMomentum, PutWrite, **MACDTrend**, **BollingerBands**, **GridTrading** |
-| 策略优化器 | `POST /backtest/optimize` + WebUI 面板 |
-| 绩效分析 | `POST /backtest/analyze` + Chart.js 图表 |
-| 数据刷新 | `POST /data/refresh/kline|valuation|all` |
-| 缓存管理 | `GET /cache/status` + `POST /cache/clear` |
-| valuation 路由 | tencent 优先（~0.3s，PB 非空） |
-| Python 环境 | 3.10.19, `.venv` 虚拟环境 |
+| 全仓回归第 1 次 | **786 passed, 9 skipped, 0 failed, 0 errors** |
+| 全仓回归第 2 次（重复性） | **786 passed, 9 skipped, 0 failed, 0 errors** |
+| 全仓回归第 3 次（`--cache-clear`） | **786 passed, 9 skipped, 0 failed, 0 errors** |
+| 全仓回归第 4 次（最终验证） | **786 passed, 9 skipped, 0 failed, 0 errors** |
+| A 股主链切片 | **472 passed, 1 skipped, 0 failed** |
+| 失败分桶 | 无 — 0 failed |
+| 污染类缺陷 | 无（已消除 `__path__=[]` 假包、API key placeholder、`ASTOCK_TESTING=1`） |
