@@ -736,6 +736,37 @@ class AkshareAdapter(AStockAdapterBase):
     def get_fundamentals(self, request: AStockRequest):
         return self.get_quarterly_financials(request)
 
+    # ------------------------------------------------------------------
+    # 快讯 & 全球新闻 — 通过 stock_info_global_em 实现
+    # ------------------------------------------------------------------
+
+    def _parse_flash_news(self, request: AStockRequest, payload: Any) -> Dict[str, Any]:
+        """Parse 东方财富-全球财经快讯 into standardized news items."""
+        records = _ensure_records(
+            _records_from_payload(payload), request, self.name,
+            "akshare stock_info_global_em returned no rows",
+        )
+        items: List[Dict[str, Any]] = []
+        limit = request.limit
+        for i, row in enumerate(records):
+            if limit is not None and i >= limit:
+                break
+            items.append({
+                "title": _first_non_null(row, ("标题", "title")),
+                "content": _first_non_null(row, ("摘要", "content", "summary"), ""),
+                "published_at": _format_timestamp(_first_non_null(row, ("发布时间", "date", "time"))),
+                "url": _first_non_null(row, ("链接", "url")),
+            })
+        return {"items": items, "count": len(items)}
+
+    def get_flash_news(self, request: AStockRequest):
+        payload = self._call(request, "stock_info_global_em")
+        return self._parse_flash_news(request, payload)
+
+    def get_global_news(self, request: AStockRequest):
+        payload = self._call(request, "stock_info_global_em")
+        return self._parse_flash_news(request, payload)
+
 
 class TencentFinanceAdapter(AStockAdapterBase):
     name = "tencent"
