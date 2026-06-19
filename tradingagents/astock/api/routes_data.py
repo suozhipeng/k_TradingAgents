@@ -37,6 +37,15 @@ def _df_to_json(df: Any) -> list[dict[str, Any]]:
     return list(df)
 
 
+def _int_param(name: str, default: int) -> int:
+    """Parse an int query param with safe fallback."""
+    raw = request.args.get(name, str(default))
+    try:
+        return int(raw)
+    except (ValueError, TypeError):
+        return default
+
+
 # ---------------------------------------------------------------------------
 # Kline bars
 # ---------------------------------------------------------------------------
@@ -105,11 +114,7 @@ def get_news() -> tuple[Response, int]:
     symbol = request.args.get("symbol", "")
     if not symbol:
         return jsonify({"error": "symbol is required", "status": 400}), 400
-    limit_str = request.args.get("limit", "20")
-    try:
-        limit = int(limit_str)
-    except ValueError:
-        limit = 20
+    limit = _int_param("limit", 20)
     try:
         df = _store().query_news_items(symbol)
         items = _df_to_json(df)
@@ -118,8 +123,73 @@ def get_news() -> tuple[Response, int]:
         return jsonify({"error": str(exc), "status": 500}), 500
 
 
+@bp.route("/news/flash")
+def get_flash_news() -> tuple[Response, int]:
+    """GET /api/v1/news/flash?symbol=600519.SH&limit=20"""
+    symbol = request.args.get("symbol", "")
+    if not symbol:
+        return jsonify({"error": "symbol is required", "status": 400}), 400
+    limit = _int_param("limit", 20)
+    try:
+        router = _router()
+        if not router:
+            return jsonify({"error": "data router not available", "status": 503}), 503
+        resp = router.get_flash_news(symbol, limit=limit)
+        if resp.status == "ok" and resp.data:
+            return jsonify({"symbol": symbol, "items": resp.data.get("items", []), "count": resp.data.get("count", 0)}), 200
+        return jsonify({"symbol": symbol, "items": [], "count": 0, "note": resp.error_message or "no data"}), 200
+    except Exception as exc:
+        logger.warning("flash_news failed for %s: %s", symbol, exc)
+        return jsonify({"error": str(exc), "status": 500}), 500
+
+
+@bp.route("/news/global")
+def get_global_news() -> tuple[Response, int]:
+    """GET /api/v1/news/global?symbol=600519.SH&limit=20"""
+    symbol = request.args.get("symbol", "")
+    if not symbol:
+        return jsonify({"error": "symbol is required", "status": 400}), 400
+    limit = _int_param("limit", 20)
+    try:
+        router = _router()
+        if not router:
+            return jsonify({"error": "data router not available", "status": 503}), 503
+        resp = router.get_global_news(symbol, limit=limit)
+        if resp.status == "ok" and resp.data:
+            return jsonify({"symbol": symbol, "items": resp.data.get("items", []), "count": resp.data.get("count", 0)}), 200
+        return jsonify({"symbol": symbol, "items": [], "count": 0, "note": resp.error_message or "no data"}), 200
+    except Exception as exc:
+        logger.warning("global_news failed for %s: %s", symbol, exc)
+        return jsonify({"error": str(exc), "status": 500}), 500
+
+
 # ---------------------------------------------------------------------------
-# Research reports
+# Trade tape (逐笔成交)
+# ---------------------------------------------------------------------------
+
+
+@bp.route("/trade_tape")
+def get_trade_tape() -> tuple[Response, int]:
+    """GET /api/v1/trade_tape?symbol=600519.SH&limit=50"""
+    symbol = request.args.get("symbol", "")
+    if not symbol:
+        return jsonify({"error": "symbol is required", "status": 400}), 400
+    limit = _int_param("limit", 50)
+    try:
+        router = _router()
+        if not router:
+            return jsonify({"error": "data router not available", "status": 503}), 503
+        resp = router.get_trade_tape(symbol, limit=limit)
+        if resp.status == "ok" and resp.data:
+            return jsonify({"symbol": symbol, "ticks": resp.data.get("items", []), "count": resp.data.get("count", 0)}), 200
+        return jsonify({"symbol": symbol, "ticks": [], "count": 0, "note": resp.error_message or "no data"}), 200
+    except Exception as exc:
+        logger.warning("trade_tape failed for %s: %s", symbol, exc)
+        return jsonify({"error": str(exc), "status": 500}), 500
+
+
+# ---------------------------------------------------------------------------
+# Research — PDF download, institution expectation, search
 # ---------------------------------------------------------------------------
 
 
@@ -129,16 +199,121 @@ def get_research() -> tuple[Response, int]:
     symbol = request.args.get("symbol", "")
     if not symbol:
         return jsonify({"error": "symbol is required", "status": 400}), 400
-    limit_str = request.args.get("limit", "20")
-    try:
-        limit = int(limit_str)
-    except ValueError:
-        limit = 20
+    limit = _int_param("limit", 20)
     try:
         df = _store().query_research_reports(symbol)
         items = _df_to_json(df)
         return jsonify({"symbol": symbol, "reports": items[:limit]}), 200
     except Exception as exc:
+        return jsonify({"error": str(exc), "status": 500}), 500
+
+
+@bp.route("/research/pdf")
+def get_research_pdf() -> tuple[Response, int]:
+    """GET /api/v1/research/pdf?symbol=600519.SH&title=2025年报"""
+    symbol = request.args.get("symbol", "")
+    if not symbol:
+        return jsonify({"error": "symbol is required", "status": 400}), 400
+    title = request.args.get("title", "")
+    try:
+        router = _router()
+        if not router:
+            return jsonify({"error": "data router not available", "status": 503}), 503
+        kwargs = {"title": title} if title else {}
+        resp = router.download_research_pdf(symbol, **kwargs)
+        if resp.status == "ok" and resp.data:
+            return jsonify(resp.data), 200
+        return jsonify({"error": resp.error_message or "no research pdf"}), 404
+    except Exception as exc:
+        logger.warning("research pdf failed for %s: %s", symbol, exc)
+        return jsonify({"error": str(exc), "status": 500}), 500
+
+
+@bp.route("/research/expectation")
+def get_research_expectation() -> tuple[Response, int]:
+    """GET /api/v1/research/expectation?symbol=600519.SH&limit=10"""
+    symbol = request.args.get("symbol", "")
+    if not symbol:
+        return jsonify({"error": "symbol is required", "status": 400}), 400
+    limit = _int_param("limit", 10)
+    try:
+        router = _router()
+        if not router:
+            return jsonify({"error": "data router not available", "status": 503}), 503
+        resp = router.get_institution_expectation(symbol, limit=limit)
+        if resp.status == "ok" and resp.data:
+            return jsonify({"symbol": symbol, "items": resp.data.get("items", []), "count": resp.data.get("count", 0)}), 200
+        return jsonify({"symbol": symbol, "items": [], "count": 0, "note": resp.error_message or "no data"}), 200
+    except Exception as exc:
+        logger.warning("research expectation failed for %s: %s", symbol, exc)
+        return jsonify({"error": str(exc), "status": 500}), 500
+
+
+@bp.route("/research/search")
+def get_research_search() -> tuple[Response, int]:
+    """GET /api/v1/research/search?symbol=600519.SH&query=%E8%8C%85%E5%8F%B0&limit=10"""
+    symbol = request.args.get("symbol", "")
+    query = request.args.get("query", "")
+    if not symbol:
+        return jsonify({"error": "symbol is required", "status": 400}), 400
+    if not query:
+        return jsonify({"error": "query is required", "status": 400}), 400
+    limit = _int_param("limit", 10)
+    try:
+        router = _router()
+        if not router:
+            return jsonify({"error": "data router not available", "status": 503}), 503
+        resp = router.search_research(symbol, query=query, limit=limit)
+        if resp.status == "ok" and resp.data:
+            return jsonify({"symbol": symbol, "query": query, "items": resp.data.get("items", []), "count": resp.data.get("count", 0)}), 200
+        return jsonify({"symbol": symbol, "query": query, "items": [], "count": 0, "note": resp.error_message or "no data"}), 200
+    except Exception as exc:
+        logger.warning("research search failed for %s: %s", symbol, exc)
+        return jsonify({"error": str(exc), "status": 500}), 500
+
+
+# ---------------------------------------------------------------------------
+# Fundamentals (财务指标 + F10)
+# ---------------------------------------------------------------------------
+
+
+@bp.route("/fundamentals")
+def get_fundamentals() -> tuple[Response, int]:
+    """GET /api/v1/fundamentals?symbol=600519.SH&limit=10"""
+    symbol = request.args.get("symbol", "")
+    if not symbol:
+        return jsonify({"error": "symbol is required", "status": 400}), 400
+    limit = _int_param("limit", 10)
+    try:
+        router = _router()
+        if not router:
+            return jsonify({"error": "data router not available", "status": 503}), 503
+        resp = router.get_fundamentals(symbol, limit=limit)
+        if resp.status == "ok" and resp.data:
+            items = resp.data.get("items", [])
+            return jsonify({"symbol": symbol, "items": items, "count": len(items)}), 200
+        return jsonify({"symbol": symbol, "items": [], "count": 0, "note": resp.error_message or "no data"}), 200
+    except Exception as exc:
+        logger.warning("fundamentals failed for %s: %s", symbol, exc)
+        return jsonify({"error": str(exc), "status": 500}), 500
+
+
+@bp.route("/f10")
+def get_f10() -> tuple[Response, int]:
+    """GET /api/v1/f10?symbol=600519.SH"""
+    symbol = request.args.get("symbol", "")
+    if not symbol:
+        return jsonify({"error": "symbol is required", "status": 400}), 400
+    try:
+        router = _router()
+        if not router:
+            return jsonify({"error": "data router not available", "status": 503}), 503
+        resp = router.get_f10(symbol)
+        if resp.status == "ok" and resp.data:
+            return jsonify({"symbol": symbol, "f10": resp.data}), 200
+        return jsonify({"error": resp.error_message or "no f10 data"}), 404
+    except Exception as exc:
+        logger.warning("f10 failed for %s: %s", symbol, exc)
         return jsonify({"error": str(exc), "status": 500}), 500
 
 
@@ -153,11 +328,7 @@ def get_announcements() -> tuple[Response, int]:
     symbol = request.args.get("symbol", "")
     if not symbol:
         return jsonify({"error": "symbol is required", "status": 400}), 400
-    limit_str = request.args.get("limit", "20")
-    try:
-        limit = int(limit_str)
-    except ValueError:
-        limit = 20
+    limit = _int_param("limit", 20)
     try:
         df = _store().query_announcements(symbol)
         items = _df_to_json(df)
