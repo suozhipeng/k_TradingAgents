@@ -29,13 +29,18 @@ def _probe_adapter(adapter_name: str, adapter_cls: Any) -> dict[str, Any]:
         start = time.time()
         if hasattr(instance, "health_check") and callable(instance.health_check):
             ok = instance.health_check()
-        else:
-            # Fallback: try kline query with mock
-            if hasattr(instance, "get_kline"):
-                data = instance.get_kline("600519.SH", limit=1)
-                ok = data is not None
+        elif hasattr(instance, "get_kline") and callable(instance.get_kline):
+            import inspect
+
+            sig = inspect.signature(instance.get_kline)
+            if "symbol" in sig.parameters:
+                try:
+                    data = instance.get_kline("600519.SH")
+                    ok = data is not None
+                except Exception:
+                    ok = False
             else:
-                ok = True  # Assume available if no health method
+                ok = True
 
         elapsed = time.time() - start
         result["available"] = bool(ok)

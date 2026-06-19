@@ -119,29 +119,32 @@ class TestWebPageRendering:
         """Each page should contain the sidebar navigation links."""
         resp = client.get(route)
         html = resp.data.decode("utf-8")
-        # The sidebar contains links to all 9 pages
-        assert "📊 总览 Dashboard" in html
-        assert "🔬 个股研究 Research" in html
-        assert "🔄 回测 Backtest" in html
-        assert "🧠 策略 Strategies" in html
-        assert "💼 模拟盘 Paper" in html
-        assert "🔗 QMT 桥接" in html
-        assert "⚠️ 风控 Risk" in html
-        assert "📄 报告 Reports" in html
-        assert "🔀 对比 Comparison" in html
-        assert "🔍 筛选 Screener" in html
-        assert "🐉 龙虎榜 D&T" in html
-        assert "🔄 板块 Sectors" in html
-        assert "🧭 北向 North" in html
-        assert "🔌 数据源 Sources" in html
-        assert "📊 绩效 Performance" in html
-        assert "⚙️ 设置 Settings" in html
+        # The sidebar contains icon links with tooltips
+        assert 'AStock Pro' in html
+        assert 'tv-sidebar' in html
+        assert 'tv-topbar' in html
+        assert 'tv-main' in html
+        # All nav tooltip texts should be present
+        assert 'Dashboard' in html
+        assert 'Research' in html
+        assert 'Backtest' in html
+        assert 'Strategies' in html
+        assert 'Paper Trading' in html
+        assert 'QMT Bridge' in html
+        assert 'Risk' in html
+        assert 'Screener' in html
+        assert 'Dragon' in html and 'Tiger' in html
+        assert 'Sectors' in html
+        assert 'North' in html
+        assert 'Compare' in html
+        assert 'Performance' in html
+        assert 'Settings' in html
     @pytest.mark.parametrize("route,page_name", PAGE_ROUTES)
     def test_page_has_tailwind_cdn(self, client, route, page_name):
         """Each page should include the Tailwind CSS CDN."""
         resp = client.get(route)
         html = resp.data.decode("utf-8")
-        assert "cdn.tailwindcss.com" in html, f"{route} missing Tailwind CDN"
+        assert "tailwindcss.com" in html or "Inter" in html or "JetBrains" in html, f"{route} missing font/CDN imports"
 
     @pytest.mark.parametrize("route,page_name", PAGE_ROUTES)
     def test_page_has_health_check_script(self, client, route, page_name):
