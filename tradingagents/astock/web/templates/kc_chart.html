@@ -153,12 +153,6 @@ const dataLoader = {
         }
         // Update cache
         _barCache[cacheKey] = Array.from(seen).sort((a, b) => a - b);
-        // Merge with existing cached bars if this is a backward/forward fetch
-        const allBars = [...newBars];
-        // Check if we already have bars in this time range
-        if (type === 'backward' || type === 'forward') {
-          // The callback should only include the newly fetched bars; KLineChart merges them internally
-        }
         const hasMore = data.t.length > 0;
         callback(newBars, hasMore);
       } else {
@@ -243,8 +237,14 @@ function loadKC() {
   chart.setMaxOffsetLeftDistance(0);
   chart.setMaxOffsetRightDistance(0);
 
-  document.getElementById('kc-status').textContent = `✅ ${symbol}`;
+  // Default indicators: MA5, MA20, MA60 on the K-line
   indicators = {};
+  setTimeout(() => {
+    chart.createIndicator({ name: 'MA', calcParams: [5, 20, 60] });
+    indicators['MA'] = true;
+  }, 500);
+
+  document.getElementById('kc-status').textContent = `✅ ${symbol}`;
 }
 
 // ── Period ──
@@ -271,11 +271,9 @@ function toggleIndicator(name) {
 // ── Drawing Tools ──
 function setDrawTool(tool) {
   if (!chart) return;
-  if (!tool) {
-    chart.executeAction('onDrawingTool', '');
-    return;
-  }
-  chart.createOverlay(tool);
+  // Enters drawing mode (tool creates one shape per click, exits after)
+  // Pass '' to exit drawing mode (cursor)
+  chart.executeAction('onDrawingTool', tool || '');
 }
 
 // ── Init ──

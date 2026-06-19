@@ -456,7 +456,7 @@ async function loadKline(interval = '1d') {
     interval === '1d' ? '日线' : interval === '1w' ? '周线' : '月线';
 
   try {
-    const res = await fetch('/api/v1/kline?symbol=' + encodeURIComponent(symbol) + '&interval=' + interval + '&limit=120');
+    const res = await fetch('/api/v1/kline?symbol=' + encodeURIComponent(symbol) + '&interval=' + interval + '&limit=30');
     const data = await res.json();
     const bars = data.bars || [];
 
