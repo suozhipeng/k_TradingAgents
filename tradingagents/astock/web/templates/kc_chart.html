@@ -216,10 +216,12 @@ function loadKC() {
   chart.setMaxOffsetLeftDistance(0);
   chart.setMaxOffsetRightDistance(0);
 
-  // Default MA5/10/20/30/60 on K-line
+  // Default MA5/10/20/30/60 on K-line (overlaid on candles)
   indicators = {};
   setTimeout(() => {
-    chart.createIndicator({ name: 'MA', calcParams: [5, 10, 20, 30, 60] });
+    // Create MA on the main price pane, then update calcParams
+    chart.createIndicator('MA');
+    chart.overrideIndicator({ name: 'MA', calcParams: [5, 10, 20, 30, 60] });
     indicators['MA'] = true;
     // Highlight MA button
     const maBtn = document.querySelector(`.kc-btn[onclick*="toggleIndicator('MA')"]`);
@@ -248,7 +250,8 @@ function toggleIndicator(name) {
     if (btn) btn.classList.remove('active');
   } else {
     if (name === 'MA') {
-      chart.createIndicator({ name: 'MA', calcParams: [5, 10, 20, 30, 60] });
+      chart.createIndicator('MA');
+      chart.overrideIndicator({ name: 'MA', calcParams: [5, 10, 20, 30, 60] });
     } else {
       chart.createIndicator(name);
     }
