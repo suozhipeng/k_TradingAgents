@@ -24,6 +24,11 @@ bp = Blueprint(
 
 
 @bp.route("/")
+def trading() -> str:
+    return render_template("trading.html")
+
+
+@bp.route("/dashboard")
 def dashboard() -> str:
     return render_template("dashboard.html")
 

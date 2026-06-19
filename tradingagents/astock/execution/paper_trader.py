@@ -304,6 +304,152 @@ class PaperTrader:
         """Return a copy of the current portfolio state."""
         return self._state.model_copy(deep=True)
 
+    # -- Individual order placement (WebUI trading page) --------------------
+
+    def place_order(
+        self,
+        symbol: str,
+        side: str,
+        price: float,
+        quantity: int,
+    ) -> dict[str, Any]:
+        """Place an individual order with specified quantity.
+
+        Parameters
+        ----------
+        symbol : str
+            Stock symbol (e.g. ``"600519.SH"``).
+        side : str
+            ``"buy"`` or ``"sell"``.
+        price : float
+            Limit / market price per share.
+        quantity : int
+            Number of shares to buy or sell.
+
+        Returns
+        -------
+        dict
+            Order result with keys: ``filled``, ``symbol``, ``side``,
+            ``price``, ``quantity``, ``total``, ``fees``, ``message``.
+
+        Raises
+        ------
+        ValueError
+            Invalid side or insufficient cash/position.
+        """
+        side = side.lower().strip()
+        if side not in ("buy", "sell"):
+            raise ValueError(f"Invalid side: {side!r}; expected 'buy' or 'sell'")
+        if quantity <= 0:
+            raise ValueError("quantity must be positive")
+        if price <= 0:
+            raise ValueError("price must be positive")
+
+        if side == "buy":
+            return self._place_buy_order(symbol, price, quantity)
+        else:
+            return self._place_sell_order(symbol, price, quantity)
+
+    def _place_buy_order(self, symbol: str, price: float, quantity: int) -> dict[str, Any]:
+        fees = calculate_fees(price, quantity, is_buy=True, config=self._fee_config)
+        total_cost = quantity * price + fees["total"]
+
+        if total_cost > self._state.cash:
+            raise ValueError(
+                f"Insufficient cash: need ¥{total_cost:,.2f} but have ¥{self._state.cash:,.2f}"
+            )
+
+        self._state.cash = round(self._state.cash - total_cost, 2)
+        self._state.positions[symbol] = round(
+            self._state.positions.get(symbol, 0.0) + quantity, 4
+        )
+
+        old_basis = self._cost_basis.get(symbol, 0.0)
+        old_shares = self._state.positions.get(symbol, 0.0) - quantity
+        if old_shares > 0:
+            self._cost_basis[symbol] = old_basis + total_cost
+        else:
+            self._cost_basis[symbol] = total_cost
+
+        trade = {
+            "symbol": symbol,
+            "type": "buy",
+            "price": price,
+            "shares": quantity,
+            "fees": fees["total"],
+            "actionable": False,
+            "decision_scope": "paper_trading_only",
+            "timestamp": datetime.utcnow().isoformat(),
+        }
+        self._state.trades.append(trade)
+        self._state.total_value = round(self._state.cash + quantity * price, 2)
+        self._state.last_updated = datetime.utcnow().isoformat()
+
+        return {
+            "filled": True,
+            "symbol": symbol,
+            "side": "buy",
+            "price": price,
+            "quantity": quantity,
+            "total": round(total_cost, 2),
+            "fees": round(fees["total"], 2),
+            "cash_remaining": round(self._state.cash, 2),
+            "message": f"Bought {quantity} shares of {symbol} @ ¥{price:,.2f}",
+        }
+
+    def _place_sell_order(self, symbol: str, price: float, quantity: int) -> dict[str, Any]:
+        current_shares = self._state.positions.get(symbol, 0.0)
+        if current_shares < quantity:
+            raise ValueError(
+                f"Insufficient shares: have {current_shares:.0f} but trying to sell {quantity}"
+            )
+
+        fees = calculate_fees(price, quantity, is_buy=False, config=self._fee_config)
+        proceeds = quantity * price - fees["total"]
+
+        # Proportional cost basis
+        total_basis = self._cost_basis.get(symbol, 0.0)
+        sold_basis = total_basis * (quantity / current_shares) if current_shares > 0 else 0
+        trade_pnl = proceeds - sold_basis
+
+        self._state.cash = round(self._state.cash + proceeds, 2)
+        self._state.pnl = round(self._state.pnl + trade_pnl, 2)
+
+        remaining = current_shares - quantity
+        if remaining <= 0.0001:
+            del self._state.positions[symbol]
+            self._cost_basis.pop(symbol, None)
+        else:
+            self._state.positions[symbol] = round(remaining, 4)
+            self._cost_basis[symbol] = round(total_basis - sold_basis, 2)
+
+        trade = {
+            "symbol": symbol,
+            "type": "sell",
+            "price": price,
+            "shares": quantity,
+            "fees": fees["total"],
+            "pnl": round(trade_pnl, 2),
+            "actionable": False,
+            "decision_scope": "paper_trading_only",
+            "timestamp": datetime.utcnow().isoformat(),
+        }
+        self._state.trades.append(trade)
+        self._state.last_updated = datetime.utcnow().isoformat()
+
+        return {
+            "filled": True,
+            "symbol": symbol,
+            "side": "sell",
+            "price": price,
+            "quantity": quantity,
+            "total": round(proceeds, 2),
+            "fees": round(fees["total"], 2),
+            "pnl": round(trade_pnl, 2),
+            "cash_remaining": round(self._state.cash, 2),
+            "message": f"Sold {quantity} shares of {symbol} @ ¥{price:,.2f} (P&L: ¥{trade_pnl:+,.2f})",
+        }
+
 
 __all__ = [
     "PaperTradeState",

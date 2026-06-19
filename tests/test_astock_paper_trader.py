@@ -185,5 +185,83 @@ class TestPaperTraderExecuteCycle(unittest.TestCase):
         self.assertEqual(state.positions, {})
 
 
+class TestPaperTraderPlaceOrder(unittest.TestCase):
+    """Tests for the individual order placement (WebUI trading page)."""
+
+    def setUp(self):
+        self.trader = PaperTrader(initial_cash=100000.0)
+        cfg = AStockFeeConfig(commission_rate=0.0, stamp_tax_rate=0.0, slippage_rate=0.0, min_commission=0.0)
+        self.trader._fee_config = cfg
+
+    def test_place_buy_order(self) -> None:
+        result = self.trader.place_order("600519.SH", "buy", 500.0, 100)
+        self.assertTrue(result["filled"])
+        self.assertEqual(result["symbol"], "600519.SH")
+        self.assertEqual(result["side"], "buy")
+        self.assertEqual(result["price"], 500.0)
+        self.assertEqual(result["quantity"], 100)
+        self.assertAlmostEqual(result["total"], 50000.0)
+
+    def test_place_buy_order_updates_cash(self) -> None:
+        initial_cash = self.trader._state.cash
+        self.trader.place_order("600519.SH", "buy", 100.0, 100)
+        self.assertAlmostEqual(self.trader._state.cash, initial_cash - 10000.0)
+        self.assertIn("600519.SH", self.trader._state.positions)
+        self.assertEqual(self.trader._state.positions["600519.SH"], 100)
+
+    def test_place_sell_order(self) -> None:
+        # Buy first
+        self.trader.place_order("600519.SH", "buy", 100.0, 200)
+        result = self.trader.place_order("600519.SH", "sell", 120.0, 100)
+        self.assertTrue(result["filled"])
+        self.assertEqual(result["side"], "sell")
+        self.assertEqual(result["quantity"], 100)
+        # Position should be reduced
+        self.assertAlmostEqual(self.trader._state.positions["600519.SH"], 100)
+
+    def test_place_sell_order_updates_pnl(self) -> None:
+        self.trader.place_order("A", "buy", 100.0, 200)
+        self.trader.place_order("A", "sell", 120.0, 200)
+        # P&L should be ~ (120*200 - 100*200) = 4000 (no fees)
+        self.assertGreater(self.trader._state.pnl, 3999.0)
+
+    def test_place_order_insufficient_cash_raises(self) -> None:
+        with self.assertRaises(ValueError):
+            self.trader.place_order("600519.SH", "buy", 999999.0, 100)
+
+    def test_place_order_insufficient_shares_raises(self) -> None:
+        with self.assertRaises(ValueError):
+            self.trader.place_order("600519.SH", "sell", 100.0, 100)
+
+    def test_place_order_invalid_side_raises(self) -> None:
+        with self.assertRaises(ValueError):
+            self.trader.place_order("600519.SH", "hold", 100.0, 100)
+
+    def test_place_order_zero_quantity_raises(self) -> None:
+        with self.assertRaises(ValueError):
+            self.trader.place_order("600519.SH", "buy", 100.0, 0)
+
+    def test_place_order_trade_record(self) -> None:
+        self.trader.place_order("600519.SH", "buy", 100.0, 200)
+        self.assertEqual(len(self.trader._state.trades), 1)
+        trade = self.trader._state.trades[0]
+        self.assertEqual(trade["type"], "buy")
+        self.assertEqual(trade["symbol"], "600519.SH")
+        self.assertEqual(trade["shares"], 200)
+        self.assertFalse(trade["actionable"])
+
+    def test_place_order_partial_sell_keeps_cost_basis(self) -> None:
+        self.trader.place_order("A", "buy", 100.0, 200)
+        self.trader.place_order("A", "sell", 120.0, 100)
+        # Remaining 100 shares should still be tracked
+        self.assertIn("A", self.trader._state.positions)
+        self.assertAlmostEqual(self.trader._state.positions["A"], 100)
+
+    def test_place_order_full_sell_removes_position(self) -> None:
+        self.trader.place_order("A", "buy", 100.0, 200)
+        self.trader.place_order("A", "sell", 120.0, 200)
+        self.assertNotIn("A", self.trader._state.positions)
+
+
 if __name__ == "__main__":
     unittest.main()

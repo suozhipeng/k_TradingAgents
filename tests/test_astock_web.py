@@ -51,7 +51,8 @@ def client(app):
 # ---------------------------------------------------------------------------
 
 PAGE_ROUTES = [
-    ("/", "dashboard"),
+    ("/", "trading"),
+    ("/dashboard", "dashboard"),
     ("/research", "research"),
     ("/backtest", "backtest"),
     ("/strategies", "strategies"),
@@ -82,6 +83,7 @@ class TestWebBlueprintRegistration:
         rules = [r for r in app.url_map.iter_rules() if "web." in r.endpoint]
         endpoints = {r.endpoint for r in rules}
         expected = {
+            "web.trading",
             "web.dashboard",
             "web.research",
             "web.backtest",
@@ -100,7 +102,7 @@ class TestWebBlueprintRegistration:
         }
         missing = expected - endpoints
         assert not missing, f"Missing web endpoints: {missing}"
-        assert len(endpoints) >= 16
+        assert len(endpoints) >= 17
 
 
 class TestWebPageRendering:
@@ -125,6 +127,7 @@ class TestWebPageRendering:
         assert 'tv-topbar' in html
         assert 'tv-main' in html
         # All nav tooltip texts should be present
+        assert 'Trading' in html
         assert 'Dashboard' in html
         assert 'Research' in html
         assert 'Backtest' in html
@@ -167,7 +170,7 @@ class TestWebSpecificPages:
     """Tests specific to individual page content."""
 
     def test_dashboard_has_stats_cards(self, client):
-        resp = client.get("/")
+        resp = client.get("/dashboard")
         html = resp.data.decode("utf-8")
         assert "stat-symbols" in html
         assert "stat-backtests" in html
@@ -300,3 +303,15 @@ class TestWebSpecificPages:
         assert "h-degraded" in html
         assert "h-rate" in html
         assert "h-table" in html
+
+    def test_trading_has_order_panel(self, client):
+        resp = client.get("/")
+        html = resp.data.decode("utf-8")
+        assert "order-submit" in html
+        assert "order-price" in html
+        assert "order-qty" in html
+        assert "trade-toast" in html
+        assert "symbol-input" in html
+        assert "chart-kline" in html
+        assert "positions-table" in html
+        assert "trades-table" in html

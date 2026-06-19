@@ -1,0 +1,667 @@
+{% extends "base.html" %}
+{% block title %}交易 Trading — AStock WebUI{% endblock %}
+{% block head_extra %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<style>
+/* ── Trading page specific styles ── */
+.trade-layout {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: 12px;
+  align-items: start;
+}
+.trade-chart-col { min-width: 0; }
+.trade-order-col { min-width: 0; }
+
+/* Symbol header bar */
+.symbol-header {
+  background: #1e222d;
+  border: 1px solid #2a2e39;
+  border-radius: 6px;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.symbol-header-main {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+.symbol-name {
+  font-size: 18px;
+  font-weight: 700;
+  color: #d1d4dc;
+}
+.symbol-exchange {
+  font-size: 11px;
+  color: #787b86;
+  font-weight: 500;
+}
+.symbol-price { font-size: 28px; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
+.symbol-change { font-size: 14px; font-weight: 600; font-family: 'JetBrains Mono', monospace; }
+.symbol-details {
+  display: flex;
+  gap: 20px;
+  font-size: 12px;
+  color: #787b86;
+}
+.symbol-details span { display: flex; align-items: center; gap: 4px; }
+.symbol-details strong { color: #d1d4dc; font-weight: 600; }
+
+/* Symbol search */
+.symbol-search-box {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.symbol-search-box .tv-input { width: 180px; }
+
+/* Order panel */
+.order-panel { position: sticky; top: 12px; }
+.order-tabs { display: flex; margin-bottom: 12px; border-radius: 4px; overflow: hidden; }
+.order-tab {
+  flex: 1; text-align: center; padding: 8px; font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: all .15s; border: 1px solid #2a2e39;
+  background: #1e222d; color: #787b86;
+}
+.order-tab:first-child { border-radius: 4px 0 0 4px; }
+.order-tab:last-child { border-radius: 0 4px 4px 0; }
+.order-tab.active { background: #2a2e39; }
+.order-tab.buy-tab.active { border-color: #089981; color: #089981; }
+.order-tab.sell-tab.active { border-color: #f23645; color: #f23645; }
+.order-tab:hover { background: #2a2e39; }
+
+.order-form { display: flex; flex-direction: column; gap: 10px; }
+.order-form .tv-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+.order-form .tv-input { width: 100%; font-family: 'JetBrains Mono', monospace; font-size: 14px; }
+.order-form-row { display: flex; gap: 8px; }
+.order-form-row > * { flex: 1; }
+
+.order-btn {
+  width: 100%; padding: 12px; border: none; border-radius: 4px;
+  font-size: 14px; font-weight: 700; cursor: pointer; transition: all .15s;
+  font-family: inherit; letter-spacing: 0.5px; margin-top: 4px;
+}
+.order-btn.buy { background: #089981; color: #fff; }
+.order-btn.buy:hover { background: #06a38d; }
+.order-btn.sell { background: #f23645; color: #fff; }
+.order-btn.sell:hover { background: #d42d3c; }
+.order-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Account mini summary */
+.account-mini {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px;
+}
+.account-mini .tv-card { padding: 10px; }
+.account-mini .tv-stat-value { font-size: 15px; }
+.account-mini .tv-stat-label { font-size: 10px; margin-bottom: 2px; }
+
+/* Positions & Trades tables */
+.section-card {
+  background: #1e222d; border: 1px solid #2a2e39; border-radius: 6px;
+  padding: 16px; margin-top: 12px;
+}
+.section-card-title {
+  font-size: 14px; font-weight: 600; color: #d1d4dc; margin-bottom: 12px;
+  display: flex; align-items: center; gap: 8px;
+}
+
+/* Order toast notification */
+.trade-toast {
+  position: fixed; top: 60px; right: 20px;
+  padding: 12px 20px; border-radius: 6px; font-size: 13px; font-weight: 500;
+  z-index: 9999; max-width: 400px;
+  transition: opacity 0.3s, transform 0.3s;
+}
+.trade-toast.success { background: rgba(8,153,129,0.9); color: #fff; border: 1px solid #089981; }
+.trade-toast.error { background: rgba(242,54,69,0.9); color: #fff; border: 1px solid #f23645; }
+.trade-toast.info { background: rgba(41,98,255,0.9); color: #fff; border: 1px solid #2962FF; }
+.trade-toast.hidden { opacity: 0; transform: translateY(-10px); pointer-events: none; }
+
+@media (max-width: 900px) {
+  .trade-layout { grid-template-columns: 1fr; }
+  .order-panel { position: static; }
+}
+
+/* Quick quantity buttons */
+.quick-qty { display: flex; gap: 4px; margin-top: 2px; }
+.quick-qty-btn {
+  flex: 1; padding: 4px; border: 1px solid #2a2e39; border-radius: 3px;
+  background: transparent; color: #787b86; font-size: 10px; cursor: pointer;
+  font-family: inherit; font-weight: 500; transition: all .1s;
+}
+.quick-qty-btn:hover { background: #2a2e39; color: #d1d4dc; }
+
+/* Kline chart container */
+.chart-container {
+  width: 100%; position: relative;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Trade Toast Notification -->
+<div id="trade-toast" class="trade-toast hidden"></div>
+
+<!-- Symbol Header Bar -->
+<div class="symbol-header">
+  <div class="symbol-header-main">
+    <div>
+      <span class="symbol-name" id="sym-name">600519.SH</span>
+      <span class="symbol-exchange">上交所</span>
+    </div>
+    <div class="symbol-price" id="sym-price">--</div>
+    <div class="symbol-change" id="sym-change">--</div>
+  </div>
+  <div class="symbol-details">
+    <span>开 <strong id="sym-open">--</strong></span>
+    <span>高 <strong id="sym-high">--</strong></span>
+    <span>低 <strong id="sym-low">--</strong></span>
+    <span>量 <strong id="sym-vol">--</strong></span>
+    <span>买 <strong id="sym-bid">--</strong></span>
+    <span>卖 <strong id="sym-ask">--</strong></span>
+  </div>
+  <div class="symbol-search-box">
+    <input class="tv-input" id="symbol-input" placeholder="输入代码 600519.SH" value="600519.SH" spellcheck="false">
+    <button class="tv-btn tv-btn-primary tv-btn-sm" onclick="changeSymbol()">🔍</button>
+  </div>
+</div>
+
+<!-- Account Mini Summary -->
+<div class="account-mini">
+  <div class="tv-card">
+    <div class="tv-stat-label">总资产 Total</div>
+    <div class="tv-stat-value tv-up" id="acc-total">¥--</div>
+  </div>
+  <div class="tv-card">
+    <div class="tv-stat-label">可用现金 Cash</div>
+    <div class="tv-stat-value" id="acc-cash">¥--</div>
+  </div>
+  <div class="tv-card">
+    <div class="tv-stat-label">已实现盈亏 P&L</div>
+    <div class="tv-stat-value" id="acc-pnl">¥--</div>
+  </div>
+</div>
+
+<!-- Main Trading Layout -->
+<div class="trade-layout">
+  <!-- LEFT: Kline Chart -->
+  <div class="trade-chart-col">
+    <div class="tv-card chart-container">
+      <h3 class="tv-card-title">📈 K线图 Kline <span class="tv-card-subtitle" id="chart-interval-label">日线</span></h3>
+      <canvas id="chart-kline" height="320"></canvas>
+      <p id="kline-empty" class="text-xs tv-muted mt-2 hidden">暂无K线数据。输入代码后点击搜索或从数据源拉取。</p>
+      <div style="margin-top:10px; display:flex; gap:6px; flex-wrap:wrap;">
+        <button class="tv-btn tv-btn-secondary tv-btn-sm" onclick="loadKline('1d')">日线</button>
+        <button class="tv-btn tv-btn-secondary tv-btn-sm" onclick="loadKline('1w')">周线</button>
+        <button class="tv-btn tv-btn-secondary tv-btn-sm" onclick="loadKline('1m')">月线</button>
+        <span style="flex:1"></span>
+        <button class="tv-btn tv-btn-primary tv-btn-sm" onclick="refreshData()">🔄 拉取数据</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: Order Panel -->
+  <div class="trade-order-col">
+    <div class="order-panel">
+      <div class="tv-card">
+        <h3 class="tv-card-title">📝 快捷交易 Quick Order</h3>
+
+        <!-- Buy / Sell Tabs -->
+        <div class="order-tabs">
+          <div class="order-tab buy-tab active" id="tab-buy" onclick="setOrderSide('buy')">买入 BUY</div>
+          <div class="order-tab sell-tab" id="tab-sell" onclick="setOrderSide('sell')">卖出 SELL</div>
+        </div>
+
+        <!-- Order Form -->
+        <div class="order-form">
+          <div>
+            <label class="tv-label">价格 Price (¥)</label>
+            <input class="tv-input" id="order-price" type="number" step="0.01" placeholder="输入价格" spellcheck="false">
+          </div>
+          <div>
+            <label class="tv-label">数量 Quantity</label>
+            <input class="tv-input" id="order-qty" type="number" min="100" step="100" value="100" placeholder="股数" spellcheck="false">
+            <div class="quick-qty">
+              <button class="quick-qty-btn" onclick="setQty(100)">100</button>
+              <button class="quick-qty-btn" onclick="setQty(500)">500</button>
+              <button class="quick-qty-btn" onclick="setQty(1000)">1K</button>
+              <button class="quick-qty-btn" onclick="setQty(5000)">5K</button>
+              <button class="quick-qty-btn" onclick="setQty(10000)">10K</button>
+              <button class="quick-qty-btn" onclick="setQtyMax()">Max</button>
+            </div>
+          </div>
+          <div>
+            <label class="tv-label" id="order-estimate">预计金额 ¥0.00</label>
+            <button class="order-btn buy" id="order-submit" onclick="submitOrder()">买入 600519.SH</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Open Positions -->
+<div class="section-card">
+  <h3 class="section-card-title">📋 持仓 Positions</h3>
+  <div class="tv-table-wrap">
+    <table class="tv-table" id="positions-table">
+      <thead>
+        <tr>
+          <th>Symbol</th>
+          <th class="text-right">持仓</th>
+          <th class="text-right">均价</th>
+          <th class="text-right">现价</th>
+          <th class="text-right">市值</th>
+          <th class="text-right">盈亏</th>
+          <th class="text-right">盈亏%</th>
+          <th class="text-center">操作</th>
+        </tr>
+      </thead>
+      <tbody id="positions-body">
+        <tr><td colspan="8" class="text-center tv-muted">暂无持仓</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Order History -->
+<div class="section-card">
+  <h3 class="section-card-title">📋 成交记录 Trade History</h3>
+  <div class="tv-table-wrap">
+    <table class="tv-table" id="trades-table">
+      <thead>
+        <tr>
+          <th>时间</th>
+          <th>Symbol</th>
+          <th>方向</th>
+          <th class="text-right">价格</th>
+          <th class="text-right">数量</th>
+          <th class="text-right">金额</th>
+          <th class="text-right">费用</th>
+          <th class="text-right">盈亏</th>
+        </tr>
+      </thead>
+      <tbody id="trades-body">
+        <tr><td colspan="8" class="text-center tv-muted">暂无成交记录</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ── State ──
+let currentSymbol = '600519.SH';
+let currentSide = 'buy';
+let chartInstances = {};
+let currentQuote = {};
+
+// ── Toast ──
+function showToast(msg, type = 'info') {
+  const el = document.getElementById('trade-toast');
+  el.textContent = msg;
+  el.className = 'trade-toast ' + type;
+  el.classList.remove('hidden');
+  setTimeout(() => el.classList.add('hidden'), 4000);
+}
+
+// ── Symbol ──
+function changeSymbol() {
+  const input = document.getElementById('symbol-input');
+  const sym = input.value.trim();
+  if (!sym) { showToast('请输入股票代码', 'error'); return; }
+  currentSymbol = sym;
+  loadQuote();
+  loadKline('1d');
+  loadTradingState();
+  // Update symbol in order button
+  updateOrderButton();
+}
+
+document.getElementById('symbol-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') changeSymbol();
+});
+
+// ── Quote ──
+async function loadQuote() {
+  try {
+    const res = await fetch('/api/v1/trade/quote?symbol=' + encodeURIComponent(currentSymbol));
+    const q = await res.json();
+    if (q.error) { showToast(q.error, 'error'); return; }
+    currentQuote = q;
+
+    document.getElementById('sym-name').textContent = q.symbol;
+    document.getElementById('sym-price').textContent = '¥' + q.last_price.toLocaleString();
+    document.getElementById('sym-open').textContent = '¥' + q.open.toLocaleString();
+    document.getElementById('sym-high').textContent = '¥' + q.high.toLocaleString();
+    document.getElementById('sym-low').textContent = '¥' + q.low.toLocaleString();
+    document.getElementById('sym-vol').textContent = q.volume.toLocaleString();
+    document.getElementById('sym-bid').textContent = '¥' + q.bid.toLocaleString();
+    document.getElementById('sym-ask').textContent = '¥' + q.ask.toLocaleString();
+
+    const changeEl = document.getElementById('sym-change');
+    const changePct = q.change_pct || 0;
+    const changeVal = q.change || 0;
+    changeEl.textContent = (changeVal >= 0 ? '+' : '') + changeVal.toFixed(2) + ' (' + (changePct >= 0 ? '+' : '') + changePct.toFixed(2) + '%)';
+    changeEl.className = 'symbol-change ' + (changePct >= 0 ? 'tv-up' : 'tv-down');
+
+    // Set order price from quote
+    document.getElementById('order-price').value = q.last_price.toFixed(2);
+    updateEstimate();
+
+  } catch (e) {
+    console.error('loadQuote failed', e);
+  }
+}
+
+// ── Order Side ──
+function setOrderSide(side) {
+  currentSide = side;
+  document.getElementById('tab-buy').className = 'order-tab buy-tab' + (side === 'buy' ? ' active' : '');
+  document.getElementById('tab-sell').className = 'order-tab sell-tab' + (side === 'sell' ? ' active' : '');
+  updateOrderButton();
+}
+
+function updateOrderButton() {
+  const btn = document.getElementById('order-submit');
+  const label = currentSide === 'buy' ? '买入' : '卖出';
+  btn.textContent = label + ' ' + currentSymbol;
+  btn.className = 'order-btn ' + currentSide;
+}
+
+// ── Quantity ──
+function setQty(qty) {
+  document.getElementById('order-qty').value = qty;
+  updateEstimate();
+}
+
+function setQtyMax() {
+  // Estimate max affordable shares based on cash
+  const price = parseFloat(document.getElementById('order-price').value) || 0;
+  const cashEl = document.getElementById('acc-cash');
+  const cash = parseFloat(cashEl.textContent.replace(/[¥,]/g, '')) || 0;
+  if (price > 0 && cash > 0) {
+    const maxQty = Math.floor(cash / price / 100) * 100;
+    document.getElementById('order-qty').value = Math.max(100, maxQty);
+    updateEstimate();
+  }
+}
+
+function updateEstimate() {
+  const price = parseFloat(document.getElementById('order-price').value) || 0;
+  const qty = parseInt(document.getElementById('order-qty').value) || 0;
+  const total = price * qty;
+  const estEl = document.getElementById('order-estimate');
+  if (total > 0) {
+    estEl.textContent = '预计金额 ¥' + total.toLocaleString(undefined, {minimumFractionDigits: 2});
+  } else {
+    estEl.textContent = '预计金额 ¥0.00';
+  }
+}
+
+document.getElementById('order-price').addEventListener('input', updateEstimate);
+document.getElementById('order-qty').addEventListener('input', updateEstimate);
+
+// ── Submit Order ──
+async function submitOrder() {
+  const price = parseFloat(document.getElementById('order-price').value);
+  const qty = parseInt(document.getElementById('order-qty').value);
+  if (!price || price <= 0) { showToast('请输入有效价格', 'error'); return; }
+  if (!qty || qty <= 0) { showToast('请输入有效数量（手）', 'error'); return; }
+
+  // A-share round lot: 100 shares
+  if (qty % 100 !== 0) { showToast('A股需以整手（100股）为单位', 'error'); return; }
+
+  const btn = document.getElementById('order-submit');
+  btn.disabled = true;
+  btn.textContent = '提交中...';
+
+  try {
+    const res = await fetch('/api/v1/trade/order', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        symbol: currentSymbol,
+        side: currentSide === 'buy' ? 'buy' : 'sell',
+        price: price,
+        quantity: qty,
+      }),
+    });
+    const data = await res.json();
+
+    if (data.error) {
+      showToast('❌ ' + data.error, 'error');
+    } else {
+      const order = data.order;
+      showToast('✅ ' + order.message, 'success');
+      // Refresh state and positions
+      loadTradingState();
+    }
+  } catch (e) {
+    showToast('❌ 下单失败: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    updateOrderButton();
+  }
+}
+
+// ── Kline Chart ──
+async function loadKline(interval = '1d') {
+  const symbol = currentSymbol;
+  document.getElementById('chart-interval-label').textContent =
+    interval === '1d' ? '日线' : interval === '1w' ? '周线' : '月线';
+
+  try {
+    const res = await fetch('/api/v1/kline?symbol=' + encodeURIComponent(symbol) + '&interval=' + interval + '&limit=120');
+    const data = await res.json();
+    const bars = data.bars || [];
+
+    if (!bars || bars.length === 0) {
+      document.getElementById('kline-empty').classList.remove('hidden');
+      return;
+    }
+    document.getElementById('kline-empty').classList.add('hidden');
+
+    const labels = bars.map(b => (b.date || b.trade_date || '').substring(0, 10));
+    const closes = bars.map(b => parseFloat(b.close || b.close_price || 0));
+
+    if (chartInstances.kline) {
+      try { chartInstances.kline.destroy(); } catch(e) {}
+    }
+
+    const startPrice = closes[0] || 1;
+    const pctChanges = closes.map(v => ((v - startPrice) / startPrice * 100));
+
+    const ctx = document.getElementById('chart-kline').getContext('2d');
+    chartInstances.kline = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: symbol + ' 走势 %',
+          data: pctChanges,
+          borderColor: pctChanges[pctChanges.length - 1] >= 0 ? '#089981' : '#f23645',
+          backgroundColor: (ctx) => {
+            const g = ctx.chart.ctx.createLinearGradient(0, 0, 0, 320);
+            g.addColorStop(0, 'rgba(8,153,129,0.15)');
+            g.addColorStop(1, 'rgba(8,153,129,0.01)');
+            return g;
+          },
+          fill: true,
+          tension: 0.2,
+          pointRadius: 0,
+          borderWidth: 2,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#1e293b',
+            titleColor: '#fff',
+            bodyColor: '#d1d5db',
+            callbacks: {
+              label: ctx => symbol + ': ' + ctx.parsed.y.toFixed(2) + '%'
+            }
+          },
+        },
+        scales: {
+          x: {
+            ticks: { color: '#6b7280', maxTicksLimit: 10, maxRotation: 0 },
+            grid: { display: false },
+          },
+          y: {
+            ticks: { color: '#6b7280', callback: v => v.toFixed(1) + '%' },
+            grid: { color: '#1e293b' },
+          },
+        },
+      },
+    });
+  } catch (e) {
+    console.error('loadKline failed', e);
+    document.getElementById('kline-empty').classList.remove('hidden');
+  }
+}
+
+// ── Trading State (positions, account, trades) ──
+async function loadTradingState() {
+  try {
+    const res = await fetch('/api/v1/trade/state');
+    const state = await res.json();
+    if (state.error) return;
+
+    // Account summary
+    document.getElementById('acc-total').textContent = '¥' + (state.total_value || 0).toLocaleString(undefined, {minimumFractionDigits: 2});
+    document.getElementById('acc-cash').textContent = '¥' + (state.cash || 0).toLocaleString(undefined, {minimumFractionDigits: 2});
+    const pnlEl = document.getElementById('acc-pnl');
+    const pnl = state.pnl || 0;
+    pnlEl.textContent = (pnl >= 0 ? '+' : '') + '¥' + pnl.toLocaleString(undefined, {minimumFractionDigits: 2});
+    pnlEl.className = 'tv-stat-value ' + (pnl >= 0 ? 'tv-up' : 'tv-down');
+
+    // Positions table
+    renderPositions(state.positions || []);
+
+    // Trades
+    renderTrades(state);
+  } catch (e) {
+    console.error('loadTradingState failed', e);
+  }
+}
+
+function renderPositions(positions) {
+  const body = document.getElementById('positions-body');
+  if (!positions || positions.length === 0) {
+    body.innerHTML = '<tr><td colspan="8" class="text-center tv-muted">暂无持仓</td></tr>';
+    return;
+  }
+  body.innerHTML = positions.map(p => {
+    const pnlClass = p.pnl >= 0 ? 'tv-up' : 'tv-down';
+    return `<tr>
+      <td class="tv-text font-medium">${p.symbol}</td>
+      <td class="text-right">${p.shares.toFixed(0)}</td>
+      <td class="text-right">¥${p.avg_cost.toFixed(2)}</td>
+      <td class="text-right">¥${p.current_price.toFixed(2)}</td>
+      <td class="text-right">¥${p.market_value.toLocaleString()}</td>
+      <td class="text-right ${pnlClass}">${p.pnl >= 0 ? '+' : ''}¥${p.pnl.toLocaleString()}</td>
+      <td class="text-right ${pnlClass}">${p.pnl_pct >= 0 ? '+' : ''}${p.pnl_pct.toFixed(2)}%</td>
+      <td class="text-center">
+        <button class="tv-btn tv-btn-outline tv-btn-sm" onclick="quickSell('${p.symbol}', ${p.current_price})">卖出</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function quickSell(symbol, price) {
+  setOrderSide('sell');
+  document.getElementById('symbol-input').value = symbol;
+  changeSymbol();
+}
+
+function renderTrades(state) {
+  // We need to get the full trade list from paper/state endpoint
+  // The trade/state doesn't include full history, so let's fetch from paper/trades
+}
+
+// Also load paper trades
+async function loadTradeHistory() {
+  try {
+    const res = await fetch('/api/v1/paper/trades');
+    const data = await res.json();
+    const trades = data.trades || [];
+    const body = document.getElementById('trades-body');
+    if (trades.length === 0) {
+      body.innerHTML = '<tr><td colspan="8" class="text-center tv-muted">暂无成交记录</td></tr>';
+      return;
+    }
+    body.innerHTML = trades.slice().reverse().slice(0, 50).map(t => {
+      const side = (t.type || t.side || '').toLowerCase();
+      const sideLabel = side === 'buy' ? '买入' : '卖出';
+      const sideClass = side === 'buy' ? 'tv-badge-green' : 'tv-badge-red';
+      const price = t.price || 0;
+      const qty = t.shares || t.quantity || 0;
+      const total = price * qty;
+      const fees = t.fees || 0;
+      const pnl = t.pnl;
+      return `<tr>
+        <td class="tv-muted text-xs">${(t.timestamp || t.trade_date || '').substring(0, 19)}</td>
+        <td class="tv-text">${t.symbol}</td>
+        <td><span class="tv-badge ${sideClass}">${sideLabel}</span></td>
+        <td class="text-right">¥${price.toFixed(2)}</td>
+        <td class="text-right">${qty.toFixed(0)}</td>
+        <td class="text-right tv-text">¥${total.toLocaleString()}</td>
+        <td class="text-right tv-muted">¥${fees.toFixed(2)}</td>
+        <td class="text-right ${pnl !== undefined ? (pnl >= 0 ? 'tv-up' : 'tv-down') : 'tv-muted'}">${pnl !== undefined ? (pnl >= 0 ? '+' : '') + '¥' + pnl.toFixed(2) : '--'}</td>
+      </tr>`;
+    }).join('');
+  } catch (e) {
+    console.error('loadTradeHistory failed', e);
+  }
+}
+
+// ── Data Refresh ──
+async function refreshData() {
+  try {
+    const res = await fetch('/api/v1/data/refresh/kline', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        symbol: currentSymbol,
+        start: new Date(Date.now() - 90 * 86400000).toISOString().substring(0, 10),
+        end: new Date().toISOString().substring(0, 10),
+      }),
+    });
+    const data = await res.json();
+    if (data.status === 'ok') {
+      showToast('✅ K线数据已拉取 (' + (data.rows_inserted || 0) + ' 条)', 'success');
+      loadKline('1d');
+    } else {
+      showToast('❌ 拉取失败: ' + (data.error || 'unknown error'), 'error');
+    }
+  } catch (e) {
+    showToast('❌ 拉取失败: ' + e.message, 'error');
+  }
+}
+
+// ── Init ──
+function init() {
+  loadQuote();
+  loadKline('1d');
+  loadTradingState();
+  loadTradeHistory();
+  updateOrderButton();
+  // Auto-refresh every 30s
+  setInterval(() => {
+    loadQuote();
+    loadTradingState();
+  }, 30000);
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+{% endblock %}

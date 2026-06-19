@@ -485,6 +485,72 @@ class TestScreenerEndpoints:
 
 
 # ---------------------------------------------------------------------------
+# Test: trade API
+# ---------------------------------------------------------------------------
+
+
+class TestTradeEndpoints:
+    def test_place_buy_order(self, app):
+        resp = app.post(
+            "/api/v1/trade/order",
+            json={"symbol": "600519.SH", "side": "buy", "price": 100.0, "quantity": 100},
+        )
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["status"] == "ok"
+        assert data["order"]["filled"] is True
+        assert data["order"]["symbol"] == "600519.SH"
+        assert data["order"]["side"] == "buy"
+        assert data["order"]["quantity"] == 100
+
+    def test_place_sell_order(self, app):
+        app.post(
+            "/api/v1/trade/order",
+            json={"symbol": "600519.SH", "side": "buy", "price": 100.0, "quantity": 200},
+        )
+        resp = app.post(
+            "/api/v1/trade/order",
+            json={"symbol": "600519.SH", "side": "sell", "price": 120.0, "quantity": 100},
+        )
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["status"] == "ok"
+        assert data["order"]["filled"] is True
+
+    def test_place_order_missing_symbol(self, app):
+        resp = app.post("/api/v1/trade/order", json={"side": "buy", "price": 100.0, "quantity": 100})
+        assert resp.status_code == 400
+
+    def test_place_order_invalid_side(self, app):
+        resp = app.post(
+            "/api/v1/trade/order",
+            json={"symbol": "600519.SH", "side": "hold", "price": 100.0, "quantity": 100},
+        )
+        assert resp.status_code == 400
+
+    def test_trade_quote(self, app):
+        resp = app.get("/api/v1/trade/quote?symbol=600519.SH")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert "last_price" in data
+        assert "symbol" in data
+        assert data["symbol"] == "600519.SH"
+        assert data["last_price"] > 0
+
+    def test_trade_quote_missing_symbol(self, app):
+        resp = app.get("/api/v1/trade/quote")
+        assert resp.status_code == 400
+
+    def test_trade_state(self, app):
+        resp = app.get("/api/v1/trade/state")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert "cash" in data
+        assert "total_value" in data
+        assert "positions" in data
+
+
+# ---------------------------------------------------------------------------
 # Test: market data endpoints (dragon tiger, sectors, northbound)
 # ---------------------------------------------------------------------------
 
