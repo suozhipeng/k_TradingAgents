@@ -80,7 +80,7 @@ async function loadPaper() {
     const totalVal = state?.total_value ?? 0;
     const cash = state?.cash ?? 0;
     const posValue = state?.position_value ?? (totalVal - cash);
-    const retPct = state?.pnl?.return_pct ?? 0;
+    const retPct = state?.pnl?.return_pct || 0;
 
     document.getElementById('p-total').textContent = '¥' + totalVal.toFixed(2);
     document.getElementById('p-cash').textContent = '¥' + cash.toFixed(2);

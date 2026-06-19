@@ -70,6 +70,21 @@ def _get_backtest_engine(use_mock_data: bool = False) -> Any:
     return BacktestEngine(use_mock_data=use_mock_data)
 
 
+def _sanitize_nan(records: list[dict]) -> None:
+    """Replace NaN/Inf with None in-place for valid JSON."""
+    import math
+    from datetime import datetime
+
+    for record in records:
+        for k, v in record.items():
+            if isinstance(v, float) and (math.isnan(v) or math.isinf(v)):
+                record[k] = None
+            elif isinstance(v, datetime):
+                record[k] = v.strftime("%Y-%m-%d")
+            elif hasattr(v, "isoformat"):
+                record[k] = v.isoformat()
+
+
 def _store() -> Any:
     return current_app.config["STORE"]
 
@@ -162,6 +177,7 @@ def get_backtest_results() -> tuple[Response, int]:
         df = _store().get_backtest_results(strategy_name=strategy_name)
         if df is not None and not df.empty and "params_json" in df.columns:
             results = df.to_dict(orient="records")
+            _sanitize_nan(results)
             for r in results:
                 if isinstance(r.get("params_json"), str):
                     try:
@@ -171,6 +187,7 @@ def get_backtest_results() -> tuple[Response, int]:
                     del r["params_json"]
             return jsonify({"results": results}), 200
         rows = df.to_dict(orient="records") if df is not None and not df.empty else []
+        _sanitize_nan(rows)
         return jsonify({"results": rows}), 200
     except Exception as exc:
         return jsonify({"error": str(exc), "status": 500}), 500

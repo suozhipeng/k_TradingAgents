@@ -13,6 +13,11 @@ from typing import Any
 
 from flask import Blueprint, Response, current_app, jsonify, request
 
+from ._helpers import df_to_json
+
+# Backward-compatible alias
+_df_to_json = df_to_json
+
 bp = Blueprint("data", __name__)
 
 logger = logging.getLogger(__name__)
@@ -26,15 +31,6 @@ def _store() -> Any:
 def _router() -> Any:
     """Grab the AStockDataFacade/router from app config (lazy)."""
     return current_app.config.get("DATA_FACADE")
-
-
-def _df_to_json(df: Any) -> list[dict[str, Any]]:
-    """Convert a pandas DataFrame to a list of plain dicts."""
-    if df is None or (hasattr(df, "empty") and df.empty):
-        return []
-    if hasattr(df, "to_dict"):
-        return df.to_dict(orient="records")
-    return list(df)
 
 
 def _int_param(name: str, default: int) -> int:
@@ -53,16 +49,51 @@ def _int_param(name: str, default: int) -> int:
 
 @bp.route("/kline")
 def get_kline() -> tuple[Response, int]:
-    """GET /api/v1/kline?symbol=600519.SH&start=2024-01-01&end=2024-06-01&interval=1d"""
+    """GET /api/v1/kline?symbol=600519.SH&start=2024-01-01&end=2024-06-01&interval=1d&limit=5
+
+    For non-daily intervals (5m, 30m, 60m, etc.), if the store has no data,
+    falls back to live fetch via the data router and caches the result.
+    """
     symbol = request.args.get("symbol", "")
     if not symbol:
         return jsonify({"error": "symbol is required", "status": 400}), 400
     start = request.args.get("start")
     end = request.args.get("end")
     interval = request.args.get("interval", "1d")
+    limit = _int_param("limit", 0)
     try:
-        df = _store().query_kline(symbol, start=start, end=end, interval=interval)
-        return jsonify({"symbol": symbol, "interval": interval, "bars": _df_to_json(df)}), 200
+        store = _store()
+        df = store.query_kline(symbol, start=start, end=end, interval=interval)
+        bars = _df_to_json(df)
+
+        # If no data in store for intraday intervals, try live fetch via mootdx
+        if not bars and interval not in ("1d", "daily", "day"):
+            router = _router()
+            if router is not None:
+                try:
+                    # Mootdx for intraday data (baostock only does daily)
+                    resp = router.get_kline(symbol, interval=interval, source="mootdx", limit=limit or 400)
+                    if resp.status == "ok" and resp.data:
+                        data = resp.data
+                        items = data.get("items") or data.get("bars", [])
+                        if isinstance(items, list) and len(items) > 0:
+                            # Check first bar has time info (real intraday data)
+                            first_date = items[0].get("date") or items[0].get("trade_date") or ""
+                            if " " in str(first_date):
+                                # Return intraday data directly (not cached in store — DATE column can't hold time)
+                                if limit > 0:
+                                    items = items[-limit:]
+                                # Rename 'date' key to 'trade_date' for frontend compatibility
+                                for item in items:
+                                    if "date" in item and "trade_date" not in item:
+                                        item["trade_date"] = item.pop("date")
+                                return jsonify({"symbol": symbol, "interval": interval, "bars": items}), 200
+                except Exception:
+                    logger.warning("live intraday kline fetch failed for %s interval=%s", symbol, interval, exc_info=True)
+
+        if limit > 0:
+            bars = bars[-limit:]
+        return jsonify({"symbol": symbol, "interval": interval, "bars": bars}), 200
     except Exception as exc:
         return jsonify({"error": str(exc), "status": 500}), 500
 
@@ -74,13 +105,17 @@ def get_kline() -> tuple[Response, int]:
 
 @bp.route("/valuation")
 def get_valuation() -> tuple[Response, int]:
-    """GET /api/v1/valuation?symbol=600519.SH"""
+    """GET /api/v1/valuation?symbol=600519.SH&limit=5"""
     symbol = request.args.get("symbol", "")
     if not symbol:
         return jsonify({"error": "symbol is required", "status": 400}), 400
+    limit = _int_param("limit", 0)
     try:
         df = _store().query_valuations(symbol)
-        return jsonify({"symbol": symbol, "valuations": _df_to_json(df)}), 200
+        valuations = _df_to_json(df)
+        if limit > 0:
+            valuations = valuations[-limit:]
+        return jsonify({"symbol": symbol, "valuations": valuations}), 200
     except Exception as exc:
         return jsonify({"error": str(exc), "status": 500}), 500
 
@@ -118,7 +153,7 @@ def get_news() -> tuple[Response, int]:
     try:
         df = _store().query_news_items(symbol)
         items = _df_to_json(df)
-        return jsonify({"symbol": symbol, "news": items[:limit]}), 200
+        return jsonify({"symbol": symbol, "news": items[-limit:] if limit > 0 else items}), 200
     except Exception as exc:
         return jsonify({"error": str(exc), "status": 500}), 500
 
@@ -197,7 +232,7 @@ def get_research() -> tuple[Response, int]:
     try:
         df = _store().query_research_reports(symbol)
         items = _df_to_json(df)
-        return jsonify({"symbol": symbol, "reports": items[:limit]}), 200
+        return jsonify({"symbol": symbol, "reports": items[-limit:] if limit > 0 else items}), 200
     except Exception as exc:
         return jsonify({"error": str(exc), "status": 500}), 500
 

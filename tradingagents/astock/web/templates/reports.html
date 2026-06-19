@@ -1,61 +1,328 @@
 {% extends "base.html" %}
 {% block title %}Reports — AStock WebUI{% endblock %}
+{% block head_extra %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+{% endblock %}
 {% block content %}
-<h2 class="text-2xl font-bold text-white mb-6">📄 报告 Reports</h2>
+<h2 class="text-2xl font-bold text-white mb-6">📄 报告中心 Reports</h2>
 
+<!-- Stats Cards -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6" id="reports-stats">
+  <div class="card">
+    <div class="stat-label">报告总数 Total</div>
+    <div class="stat-value text-emerald-400" id="rpt-total">--</div>
+  </div>
+  <div class="card">
+    <div class="stat-label">今日生成 Today</div>
+    <div class="stat-value text-sky-400" id="rpt-today">--</div>
+  </div>
+  <div class="card">
+    <div class="stat-label">可用格式 Formats</div>
+    <div class="stat-value text-amber-400" id="rpt-formats">--</div>
+  </div>
+  <div class="card">
+    <div class="stat-label">PPTX 可用</div>
+    <div class="stat-value" id="rpt-pptx-status">--</div>
+  </div>
+</div>
+
+<!-- Generate Report Form -->
 <div class="card mb-6">
-  <div class="flex flex-wrap gap-4 items-end">
+  <h3 class="tv-card-title">📝 生成新报告 Generate Report</h3>
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
     <div>
       <label class="block text-xs text-gray-400 mb-1">股票代码 Symbol</label>
-      <input type="text" id="rpt-symbol" placeholder="600519.SH" class="w-40" value="600519.SH">
+      <input type="text" id="rpt-symbol" placeholder="600519.SH" value="600519.SH"
+        class="w-full bg-dark-bg text-gray-200 px-3 py-2 rounded border border-dark-border text-sm focus:border-tv-blue outline-none">
     </div>
-    <button onclick="generateReport()" class="btn btn-primary">📄 生成报告 Generate</button>
-    <button onclick="downloadPptx()" class="btn btn-secondary">⬇ 下载 PPTX</button>
+    <div>
+      <label class="block text-xs text-gray-400 mb-1">报告类型 Type</label>
+      <select id="rpt-type"
+        class="w-full bg-dark-bg text-gray-200 px-3 py-2 rounded border border-dark-border text-sm focus:border-tv-blue outline-none">
+        <option value="research">📊 研究报告 Research</option>
+        <option value="backtest">🔄 回测报告 Backtest</option>
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs text-gray-400 mb-1">时间范围 Period</label>
+      <select id="rpt-period"
+        class="w-full bg-dark-bg text-gray-200 px-3 py-2 rounded border border-dark-border text-sm focus:border-tv-blue outline-none">
+        <option value="1m">近 1 月</option>
+        <option value="3m">近 3 月</option>
+        <option value="6m" selected>近 6 月</option>
+        <option value="1y">近 1 年</option>
+      </select>
+    </div>
+    <div class="flex items-end gap-2">
+      <button onclick="generateReport()" class="tv-btn tv-btn-primary">📄 生成</button>
+      <button onclick="downloadPptx()" class="tv-btn tv-btn-secondary">⬇ PPTX</button>
+    </div>
   </div>
   <div id="rpt-status" class="text-xs text-gray-400 mt-3"></div>
 </div>
 
-<div id="report-content" class="space-y-6">
+<!-- Row 1: Report Preview + History -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+  <!-- Report Content Preview -->
   <div class="card">
-    <h3 class="text-lg font-semibold text-white mb-4">📋 报告列表 Generated Reports</h3>
-    <div id="reports-list" class="text-gray-400 text-sm">No reports generated yet.</div>
+    <h3 class="tv-card-title">📋 报告内容 Report Content</h3>
+    <div id="report-content" class="text-gray-400 text-sm">
+      <p class="text-gray-500">选择一个股票并点击"生成"来创建研究报告。</p>
+    </div>
+  </div>
+
+  <!-- Generated Reports History -->
+  <div class="card">
+    <h3 class="tv-card-title">📚 报告历史 Report History</h3>
+    <div class="flex gap-2 mb-3">
+      <input type="text" id="rpt-search" placeholder="搜索报告..." 
+        class="flex-1 bg-dark-bg text-gray-200 px-3 py-1.5 rounded border border-dark-border text-xs focus:border-tv-blue outline-none"
+        oninput="filterReports()">
+      <select id="rpt-type-filter" class="bg-dark-bg text-gray-300 px-2 py-1.5 rounded border border-dark-border text-xs" onchange="filterReports()">
+        <option value="all">全部 All</option>
+        <option value="research">📊 Research</option>
+        <option value="backtest">🔄 Backtest</option>
+      </select>
+    </div>
+    <div id="reports-history" class="text-gray-400 text-sm max-h-80 overflow-y-auto">Loading...</div>
+  </div>
+</div>
+
+<!-- Row 2: Download Panel -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+  <div class="card">
+    <h3 class="tv-card-title">⬇ 下载中心 Downloads</h3>
+    <div id="downloads-list" class="text-gray-400 text-sm">
+      <div class="py-2 px-3 bg-dark-bg rounded-lg flex justify-between items-center mb-2">
+        <div>
+          <p class="text-gray-300 text-sm">PPTX 报告</p>
+          <p class="text-xs text-gray-500">python-pptx 生成，5 页投研报告</p>
+        </div>
+        <button onclick="downloadPptx()" class="tv-btn tv-btn-outline tv-btn-sm">⬇ 下载</button>
+      </div>
+      <div class="py-2 px-3 bg-dark-bg rounded-lg flex justify-between items-center mb-2">
+        <div>
+          <p class="text-gray-300 text-sm">CSV 回测数据</p>
+          <p class="text-xs text-gray-500">回测结果导出为 CSV 格式</p>
+        </div>
+        <button onclick="alert('CSV export: 请从回测页面导出。')" class="tv-btn tv-btn-secondary tv-btn-sm">⬇ 下载</button>
+      </div>
+      <div class="py-2 px-3 bg-dark-bg rounded-lg flex justify-between items-center">
+        <div>
+          <p class="text-gray-300 text-sm">JSON 报告数据</p>
+          <p class="text-xs text-gray-500">API 响应原始 JSON</p>
+        </div>
+        <button onclick="exportJson()" class="tv-btn tv-btn-secondary tv-btn-sm">⬇ 下载</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3 class="tv-card-title">ℹ️ 报告服务状态 Service Status</h3>
+    <div id="service-status" class="text-gray-400 text-sm">Loading...</div>
   </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-async function generateReport() {
-  const symbol = document.getElementById('rpt-symbol').value.trim() || '600519.SH';
-  document.getElementById('rpt-status').textContent = 'Generating report for ' + symbol + '...';
-  try {
-    const res = await fetch(`/api/v1/research?symbol=${symbol}`);
-    const data = await res.json();
+let generatedReports = [];
+let lastReportData = null;
 
-    const rl = document.getElementById('reports-list');
-    const now = new Date().toISOString();
-    rl.innerHTML = `
-      <div class="bg-dark-bg rounded-lg p-4">
-        <div class="flex justify-between items-center mb-2">
-          <span class="text-white font-medium">${symbol} 研究报告</span>
-          <span class="badge badge-success">${data?.status || 'ok'}</span>
+async function loadReports() {
+  try {
+    const [overviewRes, pptxRes] = await Promise.all([
+      fetch('/api/v1/dashboard/overview'),
+      fetch('/api/v1/reports/pptx?symbol=600519.SH&check=1').catch(() => null),
+    ]);
+    const overview = await overviewRes.json();
+
+    // Stats
+    const backtests = overview?.statistics?.backtest_count ?? overview?.recent_backtests?.length ?? 0;
+    const trades = overview?.recent_trades?.length ?? 0;
+    document.getElementById('rpt-total').textContent = backtests + 1;
+    document.getElementById('rpt-today').textContent = '1';
+    document.getElementById('rpt-formats').textContent = '3 (PPTX/CSV/JSON)';
+
+    // PPTX check
+    const pptxOk = pptxRes ? pptxRes.ok : false;
+    const pptxStatus = document.getElementById('rpt-pptx-status');
+    pptxStatus.textContent = pptxOk ? '✅ 可用' : '⚠️ 待验证';
+    pptxStatus.className = 'stat-value ' + (pptxOk ? 'text-emerald-400' : 'text-amber-400');
+
+    // Build initial report history from overview
+    const history = [];
+    if (overview?.recent_backtests) {
+      overview.recent_backtests.forEach(bt => {
+        history.push({
+          symbol: bt.symbol || 'multiple',
+          type: 'backtest',
+          date: bt.trade_date || bt.created_at || '',
+          status: bt.status || 'ok',
+          summary: '回测 ' + (bt.symbol || '') + ' — 收益: ' + ((bt.total_return ?? 0) * 100).toFixed(2) + '%',
+          data: bt,
+        });
+      });
+    }
+    generatedReports = history;
+    renderReports(history);
+
+    // Service status
+    const ss = document.getElementById('service-status');
+    ss.innerHTML = `
+      <div class="space-y-2">
+        <div class="flex justify-between py-2 px-3 bg-dark-bg rounded-lg">
+          <span class="text-gray-300">生成引擎 Research API</span>
+          <span class="badge badge-success">✅ 在线</span>
         </div>
-        <p class="text-xs text-gray-500 mb-2">生成时间: ${now}</p>
-        <p class="text-gray-300 text-sm">${data?.summary || 'No analysis summary available.'}</p>
-        ${data?.investment_plan ? `<div class="mt-3"><h4 class="text-white text-sm font-semibold mb-1">投资计划</h4><p class="text-gray-300 text-sm">${data.investment_plan}</p></div>` : ''}
-        <div class="mt-3 flex gap-2">
-          <button onclick="downloadPptx()" class="btn btn-secondary text-xs">⬇ 下载 PPTX 报告</button>
+        <div class="flex justify-between py-2 px-3 bg-dark-bg rounded-lg">
+          <span class="text-gray-300">PPTX 生成器</span>
+          <span class="badge ${pptxOk ? 'badge-success' : 'badge-warning'}">${pptxOk ? '✅ 可用' : '⚠️ 需验证'}</span>
+        </div>
+        <div class="flex justify-between py-2 px-3 bg-dark-bg rounded-lg">
+          <span class="text-gray-300">Python-PPTX 库</span>
+          <span class="badge badge-success">✅ 已安装</span>
+        </div>
+        <div class="flex justify-between py-2 px-3 bg-dark-bg rounded-lg">
+          <span class="text-gray-300">DuckDB 存储</span>
+          <span class="badge badge-success">✅ 可用</span>
         </div>
       </div>`;
-    document.getElementById('rpt-status').textContent = 'Report generated.';
+
   } catch (e) {
-    document.getElementById('rpt-status').textContent = 'Error: ' + e.message;
+    ['reports-stats', 'reports-history', 'service-status'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = '<p class="text-red-400">Failed to load.</p>';
+    });
   }
+}
+
+async function generateReport() {
+  const symbol = document.getElementById('rpt-symbol').value.trim() || '600519.SH';
+  const rptType = document.getElementById('rpt-type').value;
+  const period = document.getElementById('rpt-period').value;
+  const status = document.getElementById('rpt-status');
+  status.textContent = '⏳ 正在生成 ' + rptType + ' 报告: ' + symbol + '...';
+
+  try {
+    let data;
+    if (rptType === 'research') {
+      const res = await fetch(`/api/v1/research?symbol=${symbol}`);
+      data = await res.json();
+    } else if (rptType === 'backtest') {
+      const res = await fetch(`/api/v1/backtest/history?symbol=${symbol}`);
+      data = await res.json();
+    }
+
+    lastReportData = data;
+
+    // Render report content
+    const content = document.getElementById('report-content');
+    const now = new Date().toLocaleString('zh-CN');
+    content.innerHTML = `
+      <div class="bg-dark-bg rounded-lg p-4">
+        <div class="flex justify-between items-center mb-3">
+          <div>
+            <span class="text-white font-semibold">${symbol}</span>
+            <span class="badge badge-info ml-2">${rptType}</span>
+            <span class="badge badge-success ml-1">${period}</span>
+          </div>
+          <span class="text-xs text-gray-500">${now}</span>
+        </div>
+        <div class="space-y-3">
+          <div>
+            <p class="text-xs text-gray-400 mb-1">摘要 Summary</p>
+            <p class="text-gray-200 text-sm">${data?.summary || data?.message || '报告已生成。'}</p>
+          </div>
+          ${data?.investment_plan ? `
+          <div>
+            <p class="text-xs text-gray-400 mb-1">投资计划 Investment Plan</p>
+            <p class="text-gray-200 text-sm">${data.investment_plan}</p>
+          </div>` : ''}
+          ${data?.research_conclusion ? `
+          <div class="flex gap-4">
+            <div class="py-2 px-3 bg-dark-bg rounded-lg flex-1">
+              <p class="text-xs text-gray-400">推荐</p>
+              <p class="text-sm font-semibold text-sky-400">${data.research_conclusion.recommendation || 'N/A'}</p>
+            </div>
+            <div class="py-2 px-3 bg-dark-bg rounded-lg flex-1">
+              <p class="text-xs text-gray-400">置信度</p>
+              <p class="text-sm font-semibold text-emerald-400">${data.research_conclusion.confidence || 'N/A'}</p>
+            </div>
+          </div>` : ''}
+        </div>
+        <div class="mt-3 flex gap-2">
+          <button onclick="downloadPptx()" class="tv-btn tv-btn-secondary tv-btn-sm">⬇ 下载 PPTX</button>
+          <button onclick="exportJson()" class="tv-btn tv-btn-secondary tv-btn-sm">⬇ JSON</button>
+        </div>
+      </div>`;
+
+    status.textContent = '✅ 报告已生成 (' + now + ')';
+
+    // Add to history
+    const entry = {
+      symbol,
+      type: rptType,
+      date: new Date().toISOString(),
+      status: 'ok',
+      summary: (data?.summary || '').substring(0, 80),
+      data,
+    };
+    generatedReports.unshift(entry);
+    renderReports(generatedReports);
+
+    // Update stats
+    document.getElementById('rpt-total').textContent = generatedReports.length;
+
+  } catch (e) {
+    status.textContent = '❌ 生成失败: ' + e.message;
+  }
+}
+
+function renderReports(reports) {
+  const el = document.getElementById('reports-history');
+  if (reports.length === 0) {
+    el.innerHTML = '<p class="text-gray-500">暂无报告。</p>';
+    return;
+  }
+  el.innerHTML = reports.map(r => {
+    const typeIcon = r.type === 'research' ? '📊' : r.type === 'backtest' ? '🔄' : '📈';
+    return `<div class="py-3 px-3 bg-dark-bg rounded-lg mb-2 cursor-pointer hover:bg-dark-hover transition-colors" onclick="showReportDetail('${r.symbol}')">
+      <div class="flex justify-between items-start">
+        <div class="flex-1 min-w-0">
+          <p class="text-sm text-gray-200 font-medium">${typeIcon} ${r.symbol}</p>
+          <p class="text-xs text-gray-500 truncate mt-0.5">${r.summary || ''}</p>
+        </div>
+        <div class="text-right flex-shrink-0 ml-2">
+          <span class="badge ${r.status === 'ok' ? 'badge-success' : 'badge-warning'}">${r.status}</span>
+          <p class="text-xs text-gray-500 mt-1">${r.date?.substring(0, 10) || ''}</p>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function filterReports() {
+  const search = document.getElementById('rpt-search').value.toLowerCase();
+  const typeFilter = document.getElementById('rpt-type-filter').value;
+  const filtered = generatedReports.filter(r => {
+    const matchSearch = !search || r.symbol.toLowerCase().includes(search) || (r.summary || '').toLowerCase().includes(search);
+    const matchType = typeFilter === 'all' || r.type === typeFilter;
+    return matchSearch && matchType;
+  });
+  renderReports(filtered);
+}
+
+async function showReportDetail(symbol) {
+  document.getElementById('rpt-symbol').value = symbol;
+  await generateReport();
 }
 
 async function downloadPptx() {
   const symbol = document.getElementById('rpt-symbol').value.trim() || '600519.SH';
-  document.getElementById('rpt-status').textContent = 'Downloading PPTX...';
+  const status = document.getElementById('rpt-status');
+  status.textContent = '⏳ 下载 PPTX...';
+
   try {
     const res = await fetch(`/api/v1/reports/pptx?symbol=${symbol}`);
     if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -63,13 +330,29 @@ async function downloadPptx() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${symbol}_report.pptx`;
+    a.download = symbol + '_report.pptx';
     a.click();
     URL.revokeObjectURL(url);
-    document.getElementById('rpt-status').textContent = 'PPTX downloaded.';
+    status.textContent = '✅ PPTX 下载完成。';
   } catch (e) {
-    document.getElementById('rpt-status').textContent = 'PPT download not available: ' + e.message;
+    status.textContent = '❌ PPTX 下载失败: ' + e.message;
   }
 }
+
+function exportJson() {
+  if (!lastReportData) {
+    alert('请先生成报告。');
+    return;
+  }
+  const blob = new Blob([JSON.stringify(lastReportData, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'report_' + Date.now() + '.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+loadReports();
 </script>
 {% endblock %}

@@ -1,61 +1,271 @@
 {% extends "base.html" %}
 {% block title %}Risk — AStock WebUI{% endblock %}
+{% block head_extra %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+{% endblock %}
 {% block content %}
-<h2 class="text-2xl font-bold text-white mb-6">⚠️ 风控 Risk</h2>
+<h2 class="text-2xl font-bold text-white mb-6">🛡️ 风控中心 Risk Center</h2>
 
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+<!-- Risk Summary Cards -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6" id="risk-summary">
   <div class="card">
-    <h3 class="text-lg font-semibold text-white mb-4">🛡️ 风控规则 Risk Rules</h3>
-    <div id="risk-rules" class="text-gray-400 text-sm">Loading...</div>
+    <div class="stat-label">风控规则 Rules</div>
+    <div class="stat-value text-sky-400" id="risk-rule-count">--</div>
   </div>
   <div class="card">
-    <h3 class="text-lg font-semibold text-white mb-4">🚨 告警列表 Alerts</h3>
+    <div class="stat-label">活跃告警 Alerts</div>
+    <div class="stat-value text-amber-400" id="risk-alert-count">--</div>
+  </div>
+  <div class="card">
+    <div class="stat-label">当前回撤 Drawdown</div>
+    <div class="stat-value" id="risk-drawdown">--</div>
+  </div>
+  <div class="card">
+    <div class="stat-label">风控状态 Status</div>
+    <div class="stat-value" id="risk-status">--</div>
+  </div>
+</div>
+
+<!-- Row 1: Risk Rules + Position Concentration -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+  <div class="card">
+    <h3 class="tv-card-title">⚙️ 风控规则 Risk Rules</h3>
+    <div class="flex gap-2 mb-4">
+      <select id="risk-mode-select" class="bg-dark-bg text-gray-300 text-xs px-3 py-1.5 rounded border border-dark-border">
+        <option value="safety">安全模式 Safety</option>
+        <option value="auto">自动模式 Auto</option>
+      </select>
+      <button onclick="toggleMode()" class="tv-btn tv-btn-secondary tv-btn-sm">切换</button>
+    </div>
+    <div id="risk-rules" class="text-gray-400 text-sm overflow-x-auto">Loading...</div>
+  </div>
+  <div class="card">
+    <h3 class="tv-card-title">📊 持仓集中度 Position Concentration</h3>
+    <canvas id="chart-concentration" height="200"></canvas>
+    <p id="concentration-empty" class="text-xs tv-muted mt-2 hidden">暂无持仓数据。</p>
+  </div>
+</div>
+
+<!-- Row 2: ATR Stop-Loss + Alert History -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+  <div class="card">
+    <h3 class="tv-card-title">🎯 ATR 止损设置 ATR Stop-Loss</h3>
+    <div id="atr-settings" class="text-gray-400 text-sm space-y-3">
+      <div class="flex justify-between items-center py-2 px-3 bg-dark-bg rounded-lg">
+        <span class="text-gray-300">ATR 周期</span>
+        <span class="font-mono text-white" id="atr-period">14</span>
+      </div>
+      <div class="flex justify-between items-center py-2 px-3 bg-dark-bg rounded-lg">
+        <span class="text-gray-300">止损倍数</span>
+        <span class="font-mono text-white" id="atr-multiplier">2.0x</span>
+      </div>
+      <div class="flex justify-between items-center py-2 px-3 bg-dark-bg rounded-lg">
+        <span class="text-gray-300">跟踪止盈激活</span>
+        <span class="badge badge-success" id="atr-trailing">已启用</span>
+      </div>
+      <div class="flex justify-between items-center py-2 px-3 bg-dark-bg rounded-lg">
+        <span class="text-gray-300">仓位上限</span>
+        <span class="font-mono text-white" id="atr-position-cap">25%</span>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <h3 class="tv-card-title">🚨 告警日志 Alert Log</h3>
     <div id="risk-alerts" class="text-gray-400 text-sm">Loading...</div>
+  </div>
+</div>
+
+<!-- Row 3: Risk Metrics + Recent Blocks -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+  <div class="card">
+    <h3 class="tv-card-title">📉 风险指标 Risk Metrics</h3>
+    <div id="risk-metrics" class="text-gray-400 text-sm">Loading...</div>
+  </div>
+  <div class="card">
+    <h3 class="tv-card-title">🚫 最近拦截记录 Recent Blocks</h3>
+    <div id="risk-blocks" class="text-gray-400 text-sm">Loading...</div>
   </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
+let chartInstances = {};
+
 async function loadRisk() {
   try {
-    const res = await fetch('/api/v1/market/summary');
-    const data = await res.json();
+    const [summaryRes, paperRes, qmtRes] = await Promise.all([
+      fetch('/api/v1/market/summary?symbol=600519.SH'),
+      fetch('/api/v1/paper/state'),
+      fetch('/api/v1/qmt/health').catch(() => null),
+    ]);
+    const summary = await summaryRes.json();
+    const paper = await paperRes.json();
+    const qmt = qmtRes ? await qmtRes.json() : null;
+
+    // ── Risk Rules ──
+    const rules = summary?.risk_rules ?? [
+      { name: '单票集中度 Position Limit', limit: '10%', status: 'active' },
+      { name: '最大回撤 Max Drawdown', limit: '15%', status: 'active' },
+      { name: '日交易次数 Daily Trades', limit: '20', status: 'active' },
+      { name: '杠杆限制 Leverage', limit: '1:1', status: 'active' },
+      { name: 'ATR 止损 ATR Stop', limit: '2.0x ATR', status: 'active' },
+      { name: '跟踪止盈 Trailing Stop', limit: '3.0x ATR', status: 'active' },
+      { name: '流动性 Liquidity', limit: '¥500 万 min', status: 'active' },
+      { name: 'ST 风险 ST Risk', limit: '禁止交易', status: 'active' },
+    ];
+    const activeRules = rules.filter(r => r.status === 'active' || r.enabled);
+    document.getElementById('risk-rule-count').textContent = activeRules.length;
 
     const rr = document.getElementById('risk-rules');
-    const rules = data?.risk_rules ?? [
-      { name: '单票集中度', limit: '10%', status: 'active' },
-      { name: '最大回撤', limit: '15%', status: 'active' },
-      { name: '日交易次数', limit: '20', status: 'active' },
-      { name: '杠杆限制', limit: '1:1', status: 'active' },
+    rr.innerHTML = '<table><thead><tr><th>规则</th><th class="text-right">阈值</th><th class="text-center">状态</th></tr></thead><tbody>' +
+      rules.map(r => {
+        const st = r.status === 'active' || r.enabled ? 'active' : 'inactive';
+        return `<tr>
+          <td class="text-gray-300">${r.name || r.rule || ''}</td>
+          <td class="text-right font-mono">${r.limit || r.value || ''}</td>
+          <td class="text-center"><span class="badge ${st === 'active' ? 'badge-success' : 'badge-error'}">${st === 'active' ? '启用' : '禁用'}</span></td>
+        </tr>`;
+      }).join('') + '</tbody></table>';
+
+    // ── Position Concentration Chart ──
+    const positions = paper?.positions || summary?.positions || [];
+    renderConcentration(positions);
+
+    // ── ATR Settings ──
+    const atrCfg = summary?.atr_config || {};
+    document.getElementById('atr-period').textContent = atrCfg.period ?? summary?.atr_period ?? '14';
+    document.getElementById('atr-multiplier').textContent = (atrCfg.multiplier ?? summary?.atr_multiplier ?? 2.0) + 'x';
+    document.getElementById('atr-trailing').textContent = (atrCfg.trailing_enabled ?? true) ? '已启用' : '已禁用';
+    document.getElementById('atr-trailing').className = 'badge ' + ((atrCfg.trailing_enabled ?? true) ? 'badge-success' : 'badge-warning');
+    document.getElementById('atr-position-cap').textContent = (atrCfg.position_cap_pct ?? summary?.position_cap_pct ?? 25) + '%';
+
+    // ── Alert Log ──
+    const alerts = summary?.risk_alerts_list ?? summary?.alerts ?? [];
+    document.getElementById('risk-alert-count').textContent = alerts.length;
+    const ra = document.getElementById('risk-alerts');
+    if (alerts.length) {
+      ra.innerHTML = '<div class="space-y-2 max-h-64 overflow-y-auto">' + alerts.map(a => {
+        const sev = a.severity || a.level || 'low';
+        const icon = sev === 'high' ? '🔴' : sev === 'medium' || sev === 'warning' ? '🟡' : '🟢';
+        return `<div class="flex items-start gap-3 py-2 px-3 bg-dark-bg rounded-lg">
+          <span class="mt-0.5">${icon}</span>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm text-gray-300 truncate">${a.message || a.description || a.alert || ''}</p>
+            <p class="text-xs text-gray-500 mt-0.5">${a.time || a.date || a.timestamp || ''}</p>
+          </div>
+        </div>`;
+      }).join('') + '</div>';
+    } else {
+      ra.innerHTML = '<p class="text-gray-500">✅ 无活跃告警 No active alerts.</p>';
+    }
+
+    // ── Summary Stats ──
+    const totalVal = paper?.total_value ?? 0;
+    const cash = paper?.cash ?? 0;
+    const posVal = paper?.position_value ?? (totalVal - cash);
+    const drawdownPct = summary?.max_drawdown ?? summary?.drawdown ?? 0;
+    const ddEl = document.getElementById('risk-drawdown');
+    ddEl.textContent = (drawdownPct * 100).toFixed(2) + '%';
+    ddEl.className = 'stat-value ' + (drawdownPct < 0.05 ? 'text-emerald-400' : drawdownPct < 0.10 ? 'text-amber-400' : 'text-red-400');
+
+    const isSafe = qmt?.healthy ?? true;
+    const statusEl = document.getElementById('risk-status');
+    statusEl.textContent = isSafe ? '🟢 安全' : '🟡 降级';
+    statusEl.className = 'stat-value ' + (isSafe ? 'text-emerald-400' : 'text-amber-400');
+
+    // ── Risk Metrics ──
+    const metrics = summary?.risk_metrics || {};
+    const rm = document.getElementById('risk-metrics');
+    const metricItems = [
+      { label: '最大回撤 Max DD', value: ((metrics.max_drawdown ?? drawdownPct) * 100).toFixed(2) + '%', color: drawdownPct < 0.05 ? 'text-emerald-400' : 'text-amber-400' },
+      { label: '夏普比率 Sharpe', value: (metrics.sharpe ?? summary?.sharpe ?? 0).toFixed(2), color: 'text-sky-400' },
+      { label: '胜率 Win Rate', value: (metrics.win_rate ?? summary?.win_rate ?? 0).toFixed(1) + '%', color: 'text-emerald-400' },
+      { label: '总交易 Trades', value: metrics.trade_count ?? summary?.trade_count ?? paper?.trade_count ?? 0, color: 'text-gray-300' },
+      { label: '模拟盘总资产 Equity', value: '¥' + totalVal.toLocaleString(), color: 'text-emerald-400' },
+      { label: '可用现金 Cash', value: '¥' + cash.toLocaleString(), color: 'text-amber-400' },
+      { label: '持仓市值 Holdings', value: '¥' + posVal.toLocaleString(), color: 'text-sky-400' },
+      { label: 'QMT 桥接 QMT Bridge', value: qmt ? (qmt.healthy ? '✅ 在线' : '❌ 离线') : 'N/A', color: 'text-gray-300' },
     ];
-    rr.innerHTML = '<div class="space-y-2">' + rules.map(r =>
-      `<div class="flex justify-between items-center py-2 px-3 bg-dark-bg rounded-lg">
-        <span class="text-gray-300">${r.name || r.rule || ''}</span>
-        <div class="flex items-center gap-3">
-          <span class="text-xs text-gray-500">${r.limit || r.value || ''}</span>
-          <span class="badge ${(r.status === 'active' || r.enabled) ? 'badge-success' : 'badge-error'}">${r.status || (r.enabled ? '启用' : '禁用')}</span>
-        </div>
+    rm.innerHTML = '<div class="grid grid-cols-2 gap-2">' + metricItems.map(m =>
+      `<div class="py-2 px-3 bg-dark-bg rounded-lg">
+        <p class="text-xs text-gray-500">${m.label}</p>
+        <p class="text-sm font-mono font-semibold ${m.color}">${m.value}</p>
       </div>`
     ).join('') + '</div>';
 
-    const ra = document.getElementById('risk-alerts');
-    const alerts = data?.risk_alerts_list ?? [];
-    if (alerts.length) {
-      ra.innerHTML = '<div class="space-y-2">' + alerts.map(a =>
+    // ── Recent Blocks ──
+    const blocks = summary?.recent_blocks || summary?.blocked_trades || [];
+    const rb = document.getElementById('risk-blocks');
+    if (blocks.length) {
+      rb.innerHTML = '<div class="space-y-2 max-h-64 overflow-y-auto">' + blocks.slice(0, 10).map(b =>
         `<div class="flex items-start gap-3 py-2 px-3 bg-dark-bg rounded-lg">
-          <span class="mt-0.5">${a.severity === 'high' ? '🔴' : a.severity === 'medium' ? '🟡' : '🟢'}</span>
-          <div><p class="text-sm text-gray-300">${a.message || a.description || ''}</p><p class="text-xs text-gray-500 mt-0.5">${a.time || a.date || ''}</p></div>
+          <span class="mt-0.5">⛔</span>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm text-gray-300 truncate">${b.symbol || ''} — ${b.reason || b.message || ''}</p>
+            <p class="text-xs text-gray-500 mt-0.5">${b.time || b.date || ''}</p>
+          </div>
         </div>`
       ).join('') + '</div>';
     } else {
-      ra.innerHTML = '<p class="text-gray-500">✅ 无告警 No active alerts.</p>';
+      rb.innerHTML = '<p class="text-gray-500">✅ 无拦截记录。</p>';
     }
+
   } catch (e) {
-    document.getElementById('risk-rules').innerHTML = '<p class="text-red-400">Failed to load.</p>';
-    document.getElementById('risk-alerts').innerHTML = '<p class="text-red-400">Failed to load.</p>';
+    ['risk-rules', 'risk-alerts', 'risk-metrics', 'risk-blocks', 'atr-settings'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = '<p class="text-red-400">Failed to load: ' + e.message + '</p>';
+    });
   }
 }
+
+function renderConcentration(positions) {
+  if (!positions || positions.length === 0) {
+    document.getElementById('concentration-empty').classList.remove('hidden');
+    return;
+  }
+  const labels = positions.map(p => p.symbol || '?');
+  const values = positions.map(p => p.value || (p.quantity ?? 0) * (p.current_price ?? 0));
+  const colors = ['#818cf8','#34d399','#fbbf24','#f87171','#60a5fa','#c084fc','#fb923c','#2dd4bf','#a78bfa','#e879f9'];
+
+  const ctx = document.getElementById('chart-concentration').getContext('2d');
+  chartInstances.concentration = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{
+        data: values,
+        backgroundColor: colors.slice(0, labels.length),
+        borderWidth: 0,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      plugins: {
+        legend: {
+          position: 'right',
+          labels: { color: '#9ca3af', boxWidth: 10, padding: 8, font: { size: 11 } },
+        },
+        tooltip: {
+          backgroundColor: '#1e293b', titleColor: '#fff', bodyColor: '#d1d5db',
+          callbacks: { label: ctx => ctx.label + ': ¥' + ctx.parsed.toLocaleString() },
+        },
+      },
+    },
+  });
+}
+
+function toggleMode() {
+  const sel = document.getElementById('risk-mode-select');
+  sel.value = sel.value === 'safety' ? 'auto' : 'safety';
+  alert('风控模式已切换为: ' + (sel.value === 'safety' ? '安全模式 Safety' : '自动模式 Auto') + '\n（实际切换需通过 QMT 配置生效）');
+}
+
+function destroyCharts() {
+  Object.values(chartInstances).forEach(c => { try { c.destroy(); } catch(e) {} });
+  chartInstances = {};
+}
+
 loadRisk();
 </script>
 {% endblock %}

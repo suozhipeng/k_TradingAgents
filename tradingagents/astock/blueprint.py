@@ -154,9 +154,11 @@ class AStockBlueprint:
                     "fixture-based provider parser tests and opt-in live integration tests",
                     "formal AStockGraphRuntime entry for the minimal A-share research bridge",
                 ],
+                "adapter_status": {
+                    "mootdx": "✅ verified — mootdx 0.11.7 installed, TDX connectivity confirmed (2026-06-19), live kline/quotes work for sh.600519",
+                    "iwencai": "⚠️ pywencai 0.13.1 installed, but ASTOCK_IWENCAI_COOKIE not set — run 'hermes skills' or see docs/ASTOCK_LIVE_RESEARCH_SETUP.md for cookie setup instructions",
+                },
                 "todo": [
-                    "TODO: install/configure mootdx locally to verify TDX connectivity and richer F10 coverage",
-                    "TODO: provide ASTOCK_IWENCAI_COOKIE (and optional UA) to enable live iwencai semantic search / institution expectation checks",
                     "TODO: keep QMT read-only bridge separate from any future execution adapter",
                 ],
             },

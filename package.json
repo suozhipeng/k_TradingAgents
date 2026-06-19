@@ -1,0 +1,7 @@
+{
+  "dependencies": {
+    "charting_library": "^1.0.2",
+    "klinecharts": "^10.0.0-beta3",
+    "lightweight-charts": "^5.2.0"
+  }
+}

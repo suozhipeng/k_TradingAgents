@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from flask import Blueprint, render_template
+from flask import Blueprint, render_template, request
 
 bp = Blueprint(
     "web",
@@ -106,6 +106,18 @@ def northbound() -> str:
 @bp.route("/data_health")
 def data_health() -> str:
     return render_template("data_health.html")
+
+
+@bp.route("/tv_chart")
+def tv_chart() -> str:
+    symbol = request.args.get("symbol", "600519.SH")
+    return render_template("tv_chart.html", symbol=symbol)
+
+
+@bp.route("/kc_chart")
+def kc_chart() -> str:
+    symbol = request.args.get("symbol", "600519.SH")
+    return render_template("kc_chart.html", symbol=symbol)
 
 
 # ---------------------------------------------------------------------------

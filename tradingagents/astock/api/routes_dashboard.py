@@ -14,6 +14,21 @@ from flask import Blueprint, Response, current_app, jsonify
 bp = Blueprint("dashboard", __name__)
 
 
+def _sanitize_nan(records: list[dict]) -> None:
+    """Replace NaN/Inf with None in-place for valid JSON."""
+    import math
+    from datetime import datetime
+
+    for record in records:
+        for k, v in record.items():
+            if isinstance(v, float) and (math.isnan(v) or math.isinf(v)):
+                record[k] = None
+            elif isinstance(v, datetime):
+                record[k] = v.strftime("%Y-%m-%d")
+            elif hasattr(v, "isoformat"):
+                record[k] = v.isoformat()
+
+
 def _store() -> Any:
     return current_app.config["STORE"]
 
@@ -81,6 +96,7 @@ def dashboard_overview() -> tuple[Response, int]:
             if bt_df is not None and not bt_df.empty:
                 bt_list = bt_df.sort_values("end_date", ascending=False).head(5)
                 recent_backtests = bt_list.to_dict(orient="records")
+                _sanitize_nan(recent_backtests)
         except Exception:
             pass
 
@@ -111,6 +127,7 @@ def dashboard_overview() -> tuple[Response, int]:
                     "trade_date", ascending=False
                 ).head(10)
                 recent_trades = trades_list.to_dict(orient="records")
+                _sanitize_nan(recent_trades)
         except Exception:
             pass
 
@@ -175,6 +192,7 @@ def _compute_paper_equity_curve(store: Any) -> list[dict]:
         cash = initial_cash
         positions: dict[str, float] = {}
         cost_basis: dict[str, float] = {}
+        latest_prices: dict[str, float] = {}
         curve = []
 
         for _, row in df.iterrows():
@@ -184,6 +202,9 @@ def _compute_paper_equity_curve(store: Any) -> list[dict]:
             volume = float(row.get("volume", 0))
             fees = float(row.get("fees", 0))
             date_str = str(row.get("trade_date", ""))[:10]
+
+            # Update latest known price for this symbol
+            latest_prices[symbol] = price
 
             if direction == "buy":
                 cost = price * volume + fees
@@ -202,9 +223,9 @@ def _compute_paper_equity_curve(store: Any) -> list[dict]:
                     positions.pop(symbol, None)
                     cost_basis.pop(symbol, None)
 
-            # Mark position value at current price
+            # Mark position value using each symbol's latest price
             pos_value = sum(
-                positions[s] * price if s == symbol else positions[s] * price
+                positions[s] * latest_prices.get(s, 0)
                 for s in list(positions.keys())
             )
             total_value = cash + pos_value
@@ -237,7 +258,7 @@ def _sanitize(rows: list[dict]) -> list[dict]:
 
                     json.dumps({k: v})
                     safe[k] = v
-                except (TypeError, OverflowError):
+                except (TypeError, OverflowError, ValueError):
                     safe[k] = str(v)
         clean.append(safe)
     return clean

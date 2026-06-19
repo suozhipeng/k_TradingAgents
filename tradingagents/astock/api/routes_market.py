@@ -11,6 +11,8 @@ from typing import Any
 
 from flask import Blueprint, Response, current_app, jsonify, request
 
+from ._helpers import df_to_json
+
 bp = Blueprint("market", __name__)
 
 AVAILABLE_STRATEGIES = [
@@ -31,12 +33,7 @@ def _store() -> Any:
     return current_app.config["STORE"]
 
 
-def _df_to_json(df: Any) -> list[dict[str, Any]]:
-    if df is None or (hasattr(df, "empty") and df.empty):
-        return []
-    if hasattr(df, "to_dict"):
-        return df.to_dict(orient="records")
-    return list(df)
+# df_to_json imported from ._helpers
 
 
 # ---------------------------------------------------------------------------
@@ -61,9 +58,9 @@ def market_summary() -> tuple[Response, int]:
         val_df = store.query_valuations(symbol)
         indicators_df = store.query_market_indicators(symbol)
 
-        kline_bars = _df_to_json(kline_df)
-        valuations = _df_to_json(val_df)
-        indicators = _df_to_json(indicators_df)
+        kline_bars = df_to_json(kline_df)
+        valuations = df_to_json(val_df)
+        indicators = df_to_json(indicators_df)
 
         # Latest close price & basic stats
         latest_bar = kline_bars[-1] if kline_bars else {}

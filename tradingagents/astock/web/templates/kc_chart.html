@@ -1,0 +1,249 @@
+{% extends "base.html" %}
+{% block title %}KC Chart — {{ symbol }}{% endblock %}
+{% block head_extra %}
+<script src="{{ url_for('web.static', filename='tv/klinecharts/klinecharts.min.js') }}"></script>
+<style>
+#kc-chart { width: 100%; height: calc(100vh - 120px); min-height: 500px; }
+.kc-topbar { display: flex; align-items: center; gap: 8px; padding: 6px 14px; background: #1e222d; border-bottom: 1px solid #2a2e39; flex-wrap: wrap; }
+.kc-topbar input { background: #131722; border: 1px solid #2a2e39; border-radius: 4px; padding: 4px 10px; font-size: 12px; color: #d1d4dc; outline: none; width: 130px; }
+.kc-topbar input:focus { border-color: #2962FF; }
+.kc-topbar .kc-btn { padding: 3px 10px; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer; border: none; font-family: inherit; background: #2a2e39; color: #d1d4dc; transition: all .15s; }
+.kc-topbar .kc-btn:hover { background: #363a45; }
+.kc-topbar .kc-btn.primary { background: #2962FF; color: #fff; }
+.kc-topbar .kc-btn.primary:hover { background: #1a4fd0; }
+.kc-topbar .kc-btn.active { background: rgba(41,98,255,0.15); color: #2962FF; }
+.kc-topbar .sep { width: 1px; height: 18px; background: #2a2e39; }
+.kc-topbar .label { font-size: 11px; color: #787b86; }
+.kc-topbar a { font-size: 11px; color: #2962FF; text-decoration: none; }
+#kc-status { font-size: 11px; color: #787b86; margin-left: auto; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="kc-topbar">
+  <span class="label" style="font-weight:600;color:#d1d4dc">📊 KLineChart</span>
+  <div class="sep"></div>
+  <input type="text" id="kc-symbol" value="{{ symbol }}" placeholder="600519.SH">
+  <button class="kc-btn primary" onclick="loadKC()">🔍 加载</button>
+  <div class="sep"></div>
+  <span class="label">周期</span>
+  <button class="kc-btn active" data-period="5m" onclick="setPeriod('5m')">5m</button>
+  <button class="kc-btn" data-period="15m" onclick="setPeriod('15m')">15m</button>
+  <button class="kc-btn" data-period="30m" onclick="setPeriod('30m')">30m</button>
+  <button class="kc-btn" data-period="60m" onclick="setPeriod('60m')">60m</button>
+  <button class="kc-btn" data-period="1d" onclick="setPeriod('1d')">日线</button>
+  <button class="kc-btn" data-period="1w" onclick="setPeriod('1w')">周线</button>
+  <div class="sep"></div>
+  <span class="label">指标</span>
+  <button class="kc-btn" onclick="toggleIndicator('MA')">MA</button>
+  <button class="kc-btn" onclick="toggleIndicator('EMA')">EMA</button>
+  <button class="kc-btn" onclick="toggleIndicator('SMA')">SMA</button>
+  <button class="kc-btn" onclick="toggleIndicator('BOLL')">BOLL</button>
+  <button class="kc-btn" onclick="toggleIndicator('MACD')">MACD</button>
+  <button class="kc-btn" onclick="toggleIndicator('RSI')">RSI</button>
+  <button class="kc-btn" onclick="toggleIndicator('KDJ')">KDJ</button>
+  <button class="kc-btn" onclick="toggleIndicator('WR')">WR</button>
+  <button class="kc-btn" onclick="toggleIndicator('DMI')">DMI</button>
+  <button class="kc-btn" onclick="toggleIndicator('BIAS')">BIAS</button>
+  <button class="kc-btn" onclick="toggleIndicator('CCI')">CCI</button>
+  <button class="kc-btn" onclick="toggleIndicator('SAR')">SAR</button>
+  <button class="kc-btn" onclick="toggleIndicator('TRIX')">TRIX</button>
+  <button class="kc-btn" onclick="toggleIndicator('OBV')">OBV</button>
+  <button class="kc-btn" onclick="toggleIndicator('VR')">VR</button>
+  <button class="kc-btn" onclick="toggleIndicator('ROC')">ROC</button>
+  <button class="kc-btn" onclick="toggleIndicator('MTM')">MTM</button>
+  <button class="kc-btn" onclick="toggleIndicator('PSY')">PSY</button>
+  <button class="kc-btn" onclick="toggleIndicator('BRAR')">BRAR</button>
+  <button class="kc-btn" onclick="toggleIndicator('AO')">AO</button>
+  <button class="kc-btn" onclick="toggleIndicator('VOL')">VOL</button>
+  <button class="kc-btn" onclick="toggleIndicator('AVP')">AVP</button>
+  <button class="kc-btn" onclick="toggleIndicator('BBI')">BBI</button>
+  <button class="kc-btn" onclick="toggleIndicator('CR')">CR</button>
+  <button class="kc-btn" onclick="toggleIndicator('DMA')">DMA</button>
+  <button class="kc-btn" onclick="toggleIndicator('EMV')">EMV</button>
+  <button class="kc-btn" onclick="toggleIndicator('PVT')">PVT</button>
+  <div class="sep"></div>
+  <span class="label">画线</span>
+  <button class="kc-btn" onclick="setDrawTool('')">光标</button>
+  <button class="kc-btn" onclick="setDrawTool('straightLine')">直线</button>
+  <button class="kc-btn" onclick="setDrawTool('segment')">线段</button>
+  <button class="kc-btn" onclick="setDrawTool('horizontalStraightLine')">水平线</button>
+  <button class="kc-btn" onclick="setDrawTool('verticalStraightLine')">垂直线</button>
+  <button class="kc-btn" onclick="setDrawTool('horizontalRayLine')">水平射线</button>
+  <button class="kc-btn" onclick="setDrawTool('verticalRayLine')">垂直射线</button>
+  <button class="kc-btn" onclick="setDrawTool('rayLine')">射线</button>
+  <button class="kc-btn" onclick="setDrawTool('horizontalSegment')">水平线段</button>
+  <button class="kc-btn" onclick="setDrawTool('verticalSegment')">垂直线段</button>
+  <button class="kc-btn" onclick="setDrawTool('parallelStraightLine')">平行线</button>
+  <button class="kc-btn" onclick="setDrawTool('priceLine')">价格线</button>
+  <button class="kc-btn" onclick="setDrawTool('priceChannelLine')">价格通道</button>
+  <button class="kc-btn" onclick="setDrawTool('fibonacciLine')">斐波那契</button>
+  <button class="kc-btn" onclick="setDrawTool('simpleAnnotation')">标注</button>
+  <button class="kc-btn" onclick="setDrawTool('simpleTag')">标签</button>
+  <button class="kc-btn" onclick="setDrawTool('brush')">笔刷</button>
+  <span id="kc-status">就绪</span>
+</div>
+<div id="kc-chart"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const API_BASE = '/api/v1/tv';
+let chart = null;
+let indicators = {};
+
+function getSymbol() {
+  return document.getElementById('kc-symbol').value.trim() || '600519.SH';
+}
+
+function periodToKC(period) {
+  const map = {'1m':1,'5m':5,'15m':15,'30m':30,'60m':60,'1d':1440,'1w':10080,'1M':43200};
+  return map[period] || 1440;
+}
+
+function periodToTV(period) {
+  return String(period);
+}
+
+// ── Data Loader ──
+const dataLoader = {
+  async getBars(params) {
+    const { symbol, period, timestamp, callback } = params;
+    const tvPeriod = String(period);
+    const from = timestamp ? Math.floor(timestamp / 1000) - 86400 * 365 : 0;
+    const to = Math.floor(Date.now() / 1000);
+    try {
+      const res = await fetch(`${API_BASE}/history?symbol=${symbol.symbol}&resolution=${tvPeriod}&from=${from}&to=${to}`);
+      const data = await res.json();
+      if (data.s === 'ok' && data.t) {
+        const bars = data.t.map((t, i) => ({
+          timestamp: t * 1000,
+          open: data.o[i],
+          high: data.h[i],
+          low: data.l[i],
+          close: data.c[i],
+          volume: data.v[i],
+        }));
+        callback(bars, true);
+      } else {
+        callback([], true);
+      }
+    } catch (e) {
+      callback([], true);
+    }
+  },
+  subscribeBar(params) {
+    // Real-time: poll every 30s
+    params._interval = setInterval(async () => {
+      const now = Math.floor(Date.now() / 1000);
+      try {
+        const res = await fetch(`${API_BASE}/history?symbol=${params.symbol.symbol}&resolution=1&from=${now - 7200}&to=${now}`);
+        const data = await res.json();
+        if (data.s === 'ok' && data.t && data.t.length > 0) {
+          const i = data.t.length - 1;
+          params.callback({
+            timestamp: data.t[i] * 1000,
+            open: data.o[i],
+            high: data.h[i],
+            low: data.l[i],
+            close: data.c[i],
+            volume: data.v[i],
+          });
+        }
+      } catch (_) {}
+    }, 30000);
+  },
+  unsubscribeBar(params) {
+    if (params._interval) {
+      clearInterval(params._interval);
+      params._interval = null;
+    }
+  },
+};
+
+// ── Chart Init ──
+function loadKC() {
+  const symbol = getSymbol();
+  const container = document.getElementById('kc-chart');
+  container.innerHTML = '';
+  document.getElementById('kc-status').textContent = '⏳ 加载中...';
+
+  if (chart) {
+    klinecharts.dispose(chart);
+    chart = null;
+  }
+
+  chart = klinecharts.init('kc-chart', {
+    styles: {
+      grid: { horizontal: { color: '#1e222d' }, vertical: { color: '#1e222d' } },
+      candle: {
+        bar: { upColor: '#089981', downColor: '#f23645', noChangeColor: '#787b86' },
+        priceMark: { highLow: { color: '#d1d4dc' } },
+      },
+      xAxis: { axisLine: { color: '#2a2e39' }, tickLine: { color: '#2a2e39' }, tickText: { color: '#787b86' } },
+      yAxis: { axisLine: { color: '#2a2e39' }, tickLine: { color: '#2a2e39' }, tickText: { color: '#787b86' } },
+      crosshair: {
+        horizontal: { line: { color: '#363a45' }, text: { color: '#d1d4dc' } },
+        vertical: { line: { color: '#363a45' }, text: { color: '#d1d4dc' } },
+      },
+      separator: { color: '#2a2e39' },
+    },
+    locale: 'zh-CN',
+    timezone: 'Asia/Shanghai',
+  });
+
+  // Load data
+  chart.setDataLoader(dataLoader);
+
+  // Set symbol and period
+  chart.setSymbol({
+    symbol: symbol,
+    pricePrecision: 2,
+    volumePrecision: 0,
+  });
+  chart.setPeriod(1440); // Default 1d
+
+  document.getElementById('kc-status').textContent = `✅ ${symbol}`;
+  indicators = {};
+}
+
+// ── Period ──
+function setPeriod(period) {
+  if (!chart) return;
+  const minutes = periodToKC(period);
+  chart.setPeriod(minutes);
+  document.querySelectorAll('[data-period]').forEach(el => el.classList.toggle('active', el.dataset.period === period));
+  document.getElementById('kc-status').textContent = period;
+}
+
+// ── Indicators ──
+function toggleIndicator(name) {
+  if (!chart) return;
+  if (indicators[name]) {
+    chart.removeIndicator({ name });
+    delete indicators[name];
+  } else {
+    chart.createIndicator(name);
+    indicators[name] = true;
+  }
+}
+
+// ── Drawing Tools ──
+function setDrawTool(tool) {
+  if (!chart) return;
+  if (!tool) {
+    chart.executeAction('onDrawingTool', '');
+    return;
+  }
+  chart.createOverlay(tool);
+}
+
+// ── Init ──
+(function() {
+  const params = new URLSearchParams(window.location.search);
+  const sym = params.get('symbol');
+  if (sym) document.getElementById('kc-symbol').value = sym;
+  setTimeout(loadKC, 100);
+})();
+</script>
+{% endblock %}

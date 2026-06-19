@@ -171,6 +171,12 @@ class TestDataEndpoints:
         assert data["symbol"] == "600519.SH"
         assert len(data["bars"]) == 2
 
+    def test_get_kline_with_limit(self, app):
+        resp = app.get("/api/v1/kline?symbol=600519.SH&limit=1")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert len(data["bars"]) == 1
+
     def test_get_kline_missing_symbol(self, app):
         resp = app.get("/api/v1/kline")
         assert resp.status_code == 400
@@ -190,6 +196,12 @@ class TestDataEndpoints:
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["symbol"] == "600519.SH"
+        assert len(data["valuations"]) == 1
+
+    def test_get_valuation_with_limit(self, app):
+        resp = app.get("/api/v1/valuation?symbol=600519.SH&limit=1")
+        assert resp.status_code == 200
+        data = resp.get_json()
         assert len(data["valuations"]) == 1
 
     def test_get_valuation_missing_symbol(self, app):
@@ -214,6 +226,14 @@ class TestDataEndpoints:
         assert resp.status_code == 200
         data = resp.get_json()
         assert len(data["reports"]) == 1
+
+    def test_market_blocks_mock(self, app):
+        resp = app.get("/api/v1/market/blocks?symbol=600519.SH&mock=1&limit=1")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["symbol"] == "600519.SH"
+        assert data["count"] == 1
+        assert data["items"][0]["name"] == "白酒"
 
     def test_get_announcements(self, app):
         resp = app.get("/api/v1/announcements?symbol=600519.SH&limit=10")

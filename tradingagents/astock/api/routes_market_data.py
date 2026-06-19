@@ -11,6 +11,7 @@ from typing import Any
 from flask import Blueprint, Response, jsonify, request
 
 from tradingagents.astock.data_sources.eastmoney import (
+    concept_blocks,
     daily_dragon_tiger,
     hsgt_realtime,
     industry_comparison,
@@ -94,6 +95,33 @@ def northbound() -> tuple[Response, int]:
 
 
 # ---------------------------------------------------------------------------
+# GET /api/v1/market/blocks — 个股所属概念/行业/地域板块
+# ---------------------------------------------------------------------------
+
+
+@bp.route("/market/blocks")
+def stock_blocks() -> tuple[Response, int]:
+    """Concept / industry / region blocks a stock belongs to."""
+    symbol = request.args.get("symbol", "")
+    if not symbol:
+        return jsonify({"error": "symbol is required", "status": 400}), 400
+
+    if request.args.get("mock", "0") == "1":
+        limit = int(request.args.get("limit", 10))
+        data = _mock_stock_blocks(symbol)
+        data["items"] = data["items"][:limit]
+        data["count"] = len(data["items"])
+        return jsonify(data), 200
+
+    limit = int(request.args.get("limit", 10))
+    try:
+        items = concept_blocks(symbol)
+        return jsonify({"symbol": symbol, "items": items[:limit], "count": min(len(items), limit)}), 200
+    except Exception as exc:
+        return jsonify({"error": str(exc), "status": 500}), 500
+
+
+# ---------------------------------------------------------------------------
 # Mock data helpers (for testing / offline demo)
 # ---------------------------------------------------------------------------
 
@@ -171,3 +199,15 @@ def _mock_northbound() -> dict[str, Any]:
             }
         )
     return {"flow": flow, "total_points": len(flow)}
+
+
+def _mock_stock_blocks(symbol: str) -> dict[str, Any]:
+    return {
+        "symbol": symbol,
+        "count": 3,
+        "items": [
+            {"name": "白酒", "code": "BK0477", "change_pct": 0.8, "lead_stock": "贵州茅台"},
+            {"name": "消费", "code": "BK0480", "change_pct": 1.2, "lead_stock": "五粮液"},
+            {"name": "沪深300", "code": "BK0500", "change_pct": 0.4, "lead_stock": "贵州茅台"},
+        ],
+    }

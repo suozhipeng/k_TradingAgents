@@ -67,6 +67,8 @@ PAGE_ROUTES = [
     ("/northbound", "northbound"),
     ("/data_health", "data_health"),
     ("/settings", "settings"),
+    ("/tv_chart", "tv_chart"),
+    ("/kc_chart", "kc_chart"),
 ]
 
 
@@ -185,7 +187,10 @@ class TestWebSpecificPages:
         resp = client.get("/research")
         html = resp.data.decode("utf-8")
         assert "symbol-input" in html
-        assert "kline-content" in html
+        assert "kline-chart" in html
+        assert "news-live-btn" in html
+        assert "analysis-live-btn" in html
+        assert "research-query" in html
 
     def test_backtest_has_run_button(self, client):
         resp = client.get("/backtest")

@@ -73,6 +73,32 @@ live runtime mode.
   API keys cause startup failure before the run begins.
 - No `live_research` run may fall back to `BridgeLLM`.
 
+## Data source notes
+
+### mootdx（通达信）
+
+mootdx 0.11.7 已安装并在本地验证通过 —— 可直接连接通达信行情服务器获取实时 K 线和报价。无需额外配置。支持的 symbol 格式为不带后缀的数字代码（如 `600519`），`AStockDataRouter` 会自动转换。
+
+### iwencai（问财）
+
+pywencai 0.13.1 已安装，但需要设置 `ASTOCK_IWENCAI_COOKIE` 环境变量才能启用。
+
+**如何获取 iwencai cookie：**
+1. 用浏览器打开 https://iwencai.com 并登录你的账号
+2. 打开浏览器开发者工具（F12）→ "Application" / "Storage" 标签
+3. 在 Cookies → iwencai.com 下找到名为 `v` 或 `other_` 开头的 cookie 值
+4. 复制完整 cookie 字符串
+5. 设置到环境变量：
+   ```bash
+   export ASTOCK_IWENCAI_COOKIE="your_cookie_value_here"
+   ```
+   或者写入 `.env` 文件：
+   ```
+   ASTOCK_IWENCI_COOKIE=your_cookie_value_here
+   ```
+
+配置后即可启用语义搜索和机构预期查询能力。
+
 ## Current host note
 
 This repo now has the `live_research` code path wired through config, CLI, and
