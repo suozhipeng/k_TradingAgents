@@ -219,9 +219,8 @@ function loadKC() {
   // Default MA5/10/20/30/60 on K-line (overlaid on candles)
   indicators = {};
   setTimeout(() => {
-    // Create MA on the main price pane, then update calcParams
-    chart.createIndicator('MA');
-    chart.overrideIndicator({ name: 'MA', calcParams: [5, 10, 20, 30, 60] });
+    // Create MA on the main price pane, explicitly set series: 'price'
+    chart.createIndicator({ name: 'MA', calcParams: [5, 10, 20, 30, 60], series: 'price' });
     indicators['MA'] = true;
     // Highlight MA button
     const maBtn = document.querySelector(`.kc-btn[onclick*="toggleIndicator('MA')"]`);
@@ -246,8 +245,7 @@ function setPeriod(period) {
   if (_isDailyPeriod(period)) {
     // Daily/weekly/monthly: show MA if not active
     if (!indicators['MA']) {
-      chart.createIndicator('MA');
-      chart.overrideIndicator({ name: 'MA', calcParams: [5, 10, 20, 30, 60] });
+      chart.createIndicator({ name: 'MA', calcParams: [5, 10, 20, 30, 60], series: 'price' });
       indicators['MA'] = true;
       const maBtn = document.querySelector(`.kc-btn[onclick*="toggleIndicator('MA')"]`);
       if (maBtn) maBtn.classList.add('active');
@@ -273,8 +271,7 @@ function toggleIndicator(name) {
     if (btn) btn.classList.remove('active');
   } else {
     if (name === 'MA') {
-      chart.createIndicator('MA');
-      chart.overrideIndicator({ name: 'MA', calcParams: [5, 10, 20, 30, 60] });
+      chart.createIndicator({ name: 'MA', calcParams: [5, 10, 20, 30, 60], series: 'price' });
     } else {
       chart.createIndicator(name);
     }
