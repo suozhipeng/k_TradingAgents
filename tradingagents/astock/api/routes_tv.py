@@ -24,6 +24,9 @@ logger = logging.getLogger(__name__)
 
 from ._helpers import df_to_json  # noqa: E402
 
+# Backward-compatible alias
+_df_to_json = df_to_json
+
 RESOLUTION_MAP: dict[str, str] = {
     "1": "1m", "5": "5m", "15": "15m", "30": "30m", "60": "60m",
     "240": "1d", "D": "1d", "1D": "1d", "1d": "1d",
