@@ -123,43 +123,29 @@ def get_news() -> tuple[Response, int]:
         return jsonify({"error": str(exc), "status": 500}), 500
 
 
-@bp.route("/news/flash")
-def get_flash_news() -> tuple[Response, int]:
-    """GET /api/v1/news/flash?symbol=600519.SH&limit=20"""
+@bp.route("/news/live")
+def get_news_live() -> tuple[Response, int]:
+    """GET /api/v1/news/live?symbol=600519.SH&limit=20&type=flash
+    type: flash (快讯, 默认) | global (全球新闻)
+    """
     symbol = request.args.get("symbol", "")
     if not symbol:
         return jsonify({"error": "symbol is required", "status": 400}), 400
     limit = _int_param("limit", 20)
+    news_type = request.args.get("type", "flash")
     try:
         router = _router()
         if not router:
             return jsonify({"error": "data router not available", "status": 503}), 503
-        resp = router.get_flash_news(symbol, limit=limit)
+        if news_type == "global":
+            resp = router.get_global_news(symbol, limit=limit)
+        else:
+            resp = router.get_flash_news(symbol, limit=limit)
         if resp.status == "ok" and resp.data:
-            return jsonify({"symbol": symbol, "items": resp.data.get("items", []), "count": resp.data.get("count", 0)}), 200
-        return jsonify({"symbol": symbol, "items": [], "count": 0, "note": resp.error_message or "no data"}), 200
+            return jsonify({"symbol": symbol, "type": news_type, "items": resp.data.get("items", []), "count": resp.data.get("count", 0)}), 200
+        return jsonify({"symbol": symbol, "type": news_type, "items": [], "count": 0, "note": resp.error_message or "no data"}), 200
     except Exception as exc:
-        logger.warning("flash_news failed for %s: %s", symbol, exc)
-        return jsonify({"error": str(exc), "status": 500}), 500
-
-
-@bp.route("/news/global")
-def get_global_news() -> tuple[Response, int]:
-    """GET /api/v1/news/global?symbol=600519.SH&limit=20"""
-    symbol = request.args.get("symbol", "")
-    if not symbol:
-        return jsonify({"error": "symbol is required", "status": 400}), 400
-    limit = _int_param("limit", 20)
-    try:
-        router = _router()
-        if not router:
-            return jsonify({"error": "data router not available", "status": 503}), 503
-        resp = router.get_global_news(symbol, limit=limit)
-        if resp.status == "ok" and resp.data:
-            return jsonify({"symbol": symbol, "items": resp.data.get("items", []), "count": resp.data.get("count", 0)}), 200
-        return jsonify({"symbol": symbol, "items": [], "count": 0, "note": resp.error_message or "no data"}), 200
-    except Exception as exc:
-        logger.warning("global_news failed for %s: %s", symbol, exc)
+        logger.warning("news live failed for %s: %s", symbol, exc)
         return jsonify({"error": str(exc), "status": 500}), 500
 
 
