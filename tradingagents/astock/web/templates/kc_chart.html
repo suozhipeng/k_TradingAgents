@@ -106,30 +106,66 @@ function periodToTV(period) {
 }
 
 // ── Data Loader ──
+const _barCache = {}; // key: `${symbol}_${period}`
 const dataLoader = {
   async getBars(params) {
-    const { symbol, period, timestamp, callback } = params;
+    const { symbol, period, timestamp, callback, type } = params;
+    const cacheKey = `${symbol.symbol}_${period}`;
     const tvPeriod = String(period);
-    const from = timestamp ? Math.floor(timestamp / 1000) - 86400 * 365 : 0;
-    const to = Math.floor(Date.now() / 1000);
+    const now = Math.floor(Date.now() / 1000);
+
+    // Only fetch what we need based on load type
+    let from, to;
+    if (type === 'backward' && timestamp) {
+      // Scrolling left → fetch data before the oldest visible bar
+      from = 0;
+      to = Math.floor(timestamp / 1000);
+    } else if (type === 'forward' && timestamp) {
+      // Scrolling right → fetch data after the newest visible bar
+      from = Math.floor(timestamp / 1000);
+      to = now;
+    } else {
+      // init or unknown: get all from last 2 years
+      from = 0;
+      to = now;
+    }
+
     try {
       const res = await fetch(`${API_BASE}/history?symbol=${symbol.symbol}&resolution=${tvPeriod}&from=${from}&to=${to}`);
       const data = await res.json();
       if (data.s === 'ok' && data.t) {
-        const bars = data.t.map((t, i) => ({
-          timestamp: t * 1000,
-          open: data.o[i],
-          high: data.h[i],
-          low: data.l[i],
-          close: data.c[i],
-          volume: data.v[i],
-        }));
-        callback(bars, true);
+        // Build bars and deduplicate against cache
+        const seen = new Set(_barCache[cacheKey] || []);
+        const newBars = [];
+        for (let i = 0; i < data.t.length; i++) {
+          const ts = data.t[i] * 1000;
+          if (!seen.has(ts)) {
+            seen.add(ts);
+            newBars.push({
+              timestamp: ts,
+              open: data.o[i],
+              high: data.h[i],
+              low: data.l[i],
+              close: data.c[i],
+              volume: data.v[i],
+            });
+          }
+        }
+        // Update cache
+        _barCache[cacheKey] = Array.from(seen).sort((a, b) => a - b);
+        // Merge with existing cached bars if this is a backward/forward fetch
+        const allBars = [...newBars];
+        // Check if we already have bars in this time range
+        if (type === 'backward' || type === 'forward') {
+          // The callback should only include the newly fetched bars; KLineChart merges them internally
+        }
+        const hasMore = data.t.length > 0;
+        callback(newBars, hasMore);
       } else {
-        callback([], true);
+        callback([], false);
       }
     } catch (e) {
-      callback([], true);
+      callback([], false);
     }
   },
   subscribeBar(params) {
@@ -202,6 +238,10 @@ function loadKC() {
     volumePrecision: 0,
   });
   chart.setPeriod(1440); // Default 1d
+
+  // Disable empty-space scrolling: cannot scroll beyond data edges
+  chart.setMaxOffsetLeftDistance(0);
+  chart.setMaxOffsetRightDistance(0);
 
   document.getElementById('kc-status').textContent = `✅ ${symbol}`;
   indicators = {};

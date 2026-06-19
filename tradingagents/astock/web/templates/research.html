@@ -230,7 +230,7 @@ const _kcDataLoader = {
         open: b.open, high: b.high, low: b.low, close: b.close, volume: b.volume || 0,
       }));
       _kcDataList = bars;
-      callback(bars, true);
+      callback(bars, false);
       // Stats & table
       currentKlineBars = data.bars || [];
       showPeriodStats();
@@ -269,6 +269,9 @@ function initChart() {
   chart.setDataLoader(_kcDataLoader);
   chart.setSymbol({ symbol: getSymbol(), pricePrecision: 2, volumePrecision: 0 });
   chart.setPeriod(1440);
+  // Bound: no empty space scrolling
+  chart.setMaxOffsetLeftDistance(0);
+  chart.setMaxOffsetRightDistance(0);
 
   // Subscribe crosshair → stats
   chart.subscribeAction('crosshair', (data) => {
