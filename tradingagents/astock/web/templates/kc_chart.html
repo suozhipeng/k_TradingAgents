@@ -35,9 +35,8 @@
   <button class="kc-btn" data-period="1w" onclick="setPeriod('1w')">周线</button>
   <div class="sep"></div>
   <span class="label">指标</span>
-  <button class="kc-btn" onclick="toggleIndicator('MA')">MA</button>
+  <button class="kc-btn" onclick="toggleIndicator('MA')">MA(5/20/60)</button>
   <button class="kc-btn" onclick="toggleIndicator('EMA')">EMA</button>
-  <button class="kc-btn" onclick="toggleIndicator('SMA')">SMA</button>
   <button class="kc-btn" onclick="toggleIndicator('BOLL')">BOLL</button>
   <button class="kc-btn" onclick="toggleIndicator('MACD')">MACD</button>
   <button class="kc-btn" onclick="toggleIndicator('RSI')">RSI</button>
@@ -46,22 +45,7 @@
   <button class="kc-btn" onclick="toggleIndicator('DMI')">DMI</button>
   <button class="kc-btn" onclick="toggleIndicator('BIAS')">BIAS</button>
   <button class="kc-btn" onclick="toggleIndicator('CCI')">CCI</button>
-  <button class="kc-btn" onclick="toggleIndicator('SAR')">SAR</button>
-  <button class="kc-btn" onclick="toggleIndicator('TRIX')">TRIX</button>
   <button class="kc-btn" onclick="toggleIndicator('OBV')">OBV</button>
-  <button class="kc-btn" onclick="toggleIndicator('VR')">VR</button>
-  <button class="kc-btn" onclick="toggleIndicator('ROC')">ROC</button>
-  <button class="kc-btn" onclick="toggleIndicator('MTM')">MTM</button>
-  <button class="kc-btn" onclick="toggleIndicator('PSY')">PSY</button>
-  <button class="kc-btn" onclick="toggleIndicator('BRAR')">BRAR</button>
-  <button class="kc-btn" onclick="toggleIndicator('AO')">AO</button>
-  <button class="kc-btn" onclick="toggleIndicator('VOL')">VOL</button>
-  <button class="kc-btn" onclick="toggleIndicator('AVP')">AVP</button>
-  <button class="kc-btn" onclick="toggleIndicator('BBI')">BBI</button>
-  <button class="kc-btn" onclick="toggleIndicator('CR')">CR</button>
-  <button class="kc-btn" onclick="toggleIndicator('DMA')">DMA</button>
-  <button class="kc-btn" onclick="toggleIndicator('EMV')">EMV</button>
-  <button class="kc-btn" onclick="toggleIndicator('PVT')">PVT</button>
   <div class="sep"></div>
   <span class="label">画线</span>
   <button class="kc-btn" onclick="setDrawTool('')">光标</button>
@@ -69,18 +53,12 @@
   <button class="kc-btn" onclick="setDrawTool('segment')">线段</button>
   <button class="kc-btn" onclick="setDrawTool('horizontalStraightLine')">水平线</button>
   <button class="kc-btn" onclick="setDrawTool('verticalStraightLine')">垂直线</button>
-  <button class="kc-btn" onclick="setDrawTool('horizontalRayLine')">水平射线</button>
-  <button class="kc-btn" onclick="setDrawTool('verticalRayLine')">垂直射线</button>
-  <button class="kc-btn" onclick="setDrawTool('rayLine')">射线</button>
-  <button class="kc-btn" onclick="setDrawTool('horizontalSegment')">水平线段</button>
-  <button class="kc-btn" onclick="setDrawTool('verticalSegment')">垂直线段</button>
   <button class="kc-btn" onclick="setDrawTool('parallelStraightLine')">平行线</button>
   <button class="kc-btn" onclick="setDrawTool('priceLine')">价格线</button>
   <button class="kc-btn" onclick="setDrawTool('priceChannelLine')">价格通道</button>
   <button class="kc-btn" onclick="setDrawTool('fibonacciLine')">斐波那契</button>
   <button class="kc-btn" onclick="setDrawTool('simpleAnnotation')">标注</button>
   <button class="kc-btn" onclick="setDrawTool('simpleTag')">标签</button>
-  <button class="kc-btn" onclick="setDrawTool('brush')">笔刷</button>
   <span id="kc-status">就绪</span>
 </div>
 <div id="kc-chart"></div>
@@ -237,7 +215,7 @@ function loadKC() {
   chart.setMaxOffsetLeftDistance(0);
   chart.setMaxOffsetRightDistance(0);
 
-  // Default indicators: MA5, MA20, MA60 on the K-line
+  // Default MA5/MA20/MA60 on K-line
   indicators = {};
   setTimeout(() => {
     chart.createIndicator({ name: 'MA', calcParams: [5, 20, 60] });
@@ -263,7 +241,12 @@ function toggleIndicator(name) {
     chart.removeIndicator({ name });
     delete indicators[name];
   } else {
-    chart.createIndicator(name);
+    // MA defaults to MA5/MA20/MA60 instead of the library default
+    if (name === 'MA') {
+      chart.createIndicator({ name: 'MA', calcParams: [5, 20, 60] });
+    } else {
+      chart.createIndicator(name);
+    }
     indicators[name] = true;
   }
 }
