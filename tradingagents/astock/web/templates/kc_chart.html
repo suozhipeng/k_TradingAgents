@@ -232,12 +232,35 @@ function loadKC() {
 }
 
 // ── Period ──
+const _dailyPeriods = ['1d', '1w', '1M'];
+function _isDailyPeriod(period) {
+  return ['1d', '1w', '1M'].includes(period);
+}
 function setPeriod(period) {
   if (!chart) return;
   const minutes = periodToKC(period);
   chart.setPeriod(minutes);
   document.querySelectorAll('[data-period]').forEach(el => el.classList.toggle('active', el.dataset.period === period));
   document.getElementById('kc-status').textContent = period;
+  // Auto-show/hide MA based on period type
+  if (_isDailyPeriod(period)) {
+    // Daily/weekly/monthly: show MA if not active
+    if (!indicators['MA']) {
+      chart.createIndicator('MA');
+      chart.overrideIndicator({ name: 'MA', calcParams: [5, 10, 20, 30, 60] });
+      indicators['MA'] = true;
+      const maBtn = document.querySelector(`.kc-btn[onclick*="toggleIndicator('MA')"]`);
+      if (maBtn) maBtn.classList.add('active');
+    }
+  } else {
+    // Minute periods: hide MA if active (MA makes no sense on 5m data)
+    if (indicators['MA']) {
+      chart.removeIndicator({ name: 'MA' });
+      delete indicators['MA'];
+      const maBtn = document.querySelector(`.kc-btn[onclick*="toggleIndicator('MA')"]`);
+      if (maBtn) maBtn.classList.remove('active');
+    }
+  }
 }
 
 // ── Indicators ──
