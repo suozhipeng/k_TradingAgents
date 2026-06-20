@@ -1,34 +1,83 @@
 {% extends "base.html" %}
 {% block title %}Sector Rotation — AStock WebUI{% endblock %}
+{% block head_extra %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<style>
+.sector-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.sector-widget {
+  background: #1e222d;
+  border: 1px solid #2a2e39;
+  border-radius: 6px;
+  padding: 12px;
+  min-height: 420px;
+}
+.sector-widget h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: #d1d4dc;
+  margin-bottom: 10px;
+}
+.sector-full {
+  grid-column: 1 / -1;
+}
+@media (max-width: 900px) {
+  .sector-layout { grid-template-columns: 1fr; }
+}
+</style>
+{% endblock %}
 {% block content %}
 <h2 class="text-2xl font-bold text-white mb-6">🔄 板块轮动 Sector Rotation</h2>
 
+<!-- Controls -->
 <div class="card mb-6">
-  <p class="text-xs text-gray-400 mb-4">全行业板块涨跌幅排名 — 跟踪市场热点轮动。数据来源：东方财富。</p>
-
-  <div class="flex flex-wrap gap-4 items-end mb-4">
+  <p class="text-xs text-gray-400 mb-4">A股行业板块涨跌幅排名与轮动分析。数据源：东方财富 + TradingView。</p>
+  <div class="flex flex-wrap gap-4 items-end">
     <div>
       <label class="block text-xs text-gray-400 mb-1">返回条数</label>
       <input type="number" id="sec-topn" value="30" min="5" max="100" class="w-20">
     </div>
-    <div class="flex items-end gap-2">
-      <label class="flex items-center gap-2 text-sm text-gray-400 cursor-pointer px-3 py-1.5 bg-dark-bg rounded-lg">
-        <input type="checkbox" id="sec-mock" class="accent-indigo-500" checked>
-        使用 Mock 数据
-      </label>
-      <button onclick="loadSectors()" class="btn btn-primary">🔄 刷新 Refresh</button>
-    </div>
+    <button onclick="loadSectors()" class="btn btn-primary">🔄 刷新 Refresh</button>
   </div>
-  <span id="sec-status" class="text-xs text-gray-400"></span>
+  <span id="sec-status" class="text-xs text-gray-400 mt-2 block"></span>
 </div>
 
-<div id="sec-results" class="hidden">
-  <!-- Heatmap Grid -->
-  <div class="card mb-6">
-    <h3 class="text-lg font-semibold text-white mb-4">🔥 板块热力图 Sector Heatmap</h3>
-    <div id="sec-heatmap" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-6 gap-2"></div>
+<!-- TradingView Widgets -->
+<div class="sector-layout">
+  <div class="sector-widget">
+    <h3>📊 市场概览 Market Overview</h3>
+    <!-- TradingView Widget BEGIN -->
+    <div class="tradingview-widget-container" style="height:380px;">
+      <div id="tv-market-overview" style="height:100%;"></div>
+      <div class="tradingview-widget-copyright">
+        <a href="https://www.tradingview.com/" rel="noopener nofollow" target="_blank">
+          <span class="text-[10px] text-gray-500">Track all markets on TradingView</span>
+        </a>
+      </div>
+    </div>
+    <!-- TradingView Widget END -->
   </div>
+  <div class="sector-widget">
+    <h3>🔥 板块热力图 Sector Heatmap</h3>
+    <!-- TradingView Widget BEGIN -->
+    <div class="tradingview-widget-container" style="height:380px;">
+      <div id="tv-heatmap" style="height:100%;"></div>
+      <div class="tradingview-widget-copyright">
+        <a href="https://www.tradingview.com/" rel="noopener nofollow" target="_blank">
+          <span class="text-[10px] text-gray-500">Track all markets on TradingView</span>
+        </a>
+      </div>
+    </div>
+    <!-- TradingView Widget END -->
+  </div>
+</div>
 
+<!-- Custom Data Results -->
+<div id="sec-results" class="hidden">
   <!-- Top / Bottom Table -->
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
     <div class="card">
@@ -49,54 +98,144 @@
 </div>
 {% endblock %}
 
-{% block head_extra %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
-{% endblock %}
-
 {% block scripts %}
 <script>
 let secChart = null;
 
+// ── TradingView Widgets ──
+function loadTradingViewWidgets() {
+  // Market Overview — Chinese A-share key sectors
+  const overviewConfig = {
+    "colorTheme": "dark",
+    "dateRange": "12M",
+    "showChart": true,
+    "locale": "zh_CN",
+    "largeChartUrl": "",
+    "isTransparent": true,
+    "showFloatingTooltip": true,
+    "width": "100%",
+    "height": "100%",
+    "plotLineColorGrowing": "rgba(8,153,129,1)",
+    "plotLineColorFalling": "rgba(242,54,69,1)",
+    "gridLineColor": "rgba(42,46,57,0)",
+    "scaleFontColor": "rgba(120,123,134,1)",
+    "belowLineFillColorGrowing": "rgba(8,153,129,0.12)",
+    "belowLineFillColorFalling": "rgba(242,54,69,0.12)",
+    "belowLineFillColorGrowingBottom": "rgba(8,153,129,0)",
+    "belowLineFillColorFallingBottom": "rgba(242,54,69,0)",
+    "symbolActiveColor": "rgba(41,98,255,0.12)",
+    "tabs": [
+      {
+        "title": "金融",
+        "symbols": [
+          { "s": "SSE:601398", "d": "工商银行" }, { "s": "SSE:601288", "d": "农业银行" },
+          { "s": "SSE:601939", "d": "建设银行" }, { "s": "SSE:600036", "d": "招商银行" },
+          { "s": "SZSE:000001", "d": "平安银行" }, { "s": "SSE:601318", "d": "中国平安" },
+        ]
+      },
+      {
+        "title": "白酒",
+        "symbols": [
+          { "s": "SSE:600519", "d": "贵州茅台" }, { "s": "SZSE:000858", "d": "五粮液" },
+          { "s": "SSE:600809", "d": "山西汾酒" }, { "s": "SZSE:000568", "d": "泸州老窖" },
+          { "s": "SSE:603369", "d": "今世缘" }, { "s": "SZSE:000596", "d": "古井贡酒" },
+        ]
+      },
+      {
+        "title": "科技",
+        "symbols": [
+          { "s": "SZSE:300750", "d": "宁德时代" }, { "s": "SZSE:000063", "d": "中兴通讯" },
+          { "s": "SSE:688981", "d": "中芯国际" }, { "s": "SZSE:002415", "d": "海康威视" },
+          { "s": "SZSE:300059", "d": "东方财富" }, { "s": "SZSE:002230", "d": "科大讯飞" },
+        ]
+      },
+      {
+        "title": "医药",
+        "symbols": [
+          { "s": "SZSE:300760", "d": "迈瑞医疗" }, { "s": "SSE:600276", "d": "恒瑞医药" },
+          { "s": "SZSE:000538", "d": "云南白药" }, { "s": "SSE:603259", "d": "药明康德" },
+          { "s": "SZSE:300122", "d": "智飞生物" }, { "s": "SZSE:002007", "d": "华兰生物" },
+        ]
+      },
+      {
+        "title": "新能源",
+        "symbols": [
+          { "s": "SZSE:300750", "d": "宁德时代" }, { "s": "SSE:601012", "d": "隆基绿能" },
+          { "s": "SZSE:002459", "d": "晶澳科技" }, { "s": "SSE:600438", "d": "通威股份" },
+          { "s": "SZSE:300274", "d": "阳光电源" }, { "s": "SSE:601615", "d": "明阳智能" },
+        ]
+      },
+    ],
+  };
+
+  // Heatmap — industry sector grouping for A-shares
+  const heatmapConfig = {
+    "dataSource": "SSE",
+    "blockSize": "market_cap_basic",
+    "blockColor": "change",
+    "grouping": "sector",
+    "isTransparent": true,
+    "locale": "zh_CN",
+    "symbolUrl": "",
+    "colorTheme": "dark",
+    "hasTopBar": false,
+    "isDataSetEnabled": false,
+    "isZoomEnabled": true,
+    "hasSymbolTooltip": true,
+    "isMonoSize": false,
+    "width": "100%",
+    "height": "100%",
+  };
+
+  // Load TradingView widgets
+  if (typeof TradingView !== 'undefined') {
+    try {
+      new TradingView.widget({
+        ...overviewConfig,
+        "container_id": "tv-market-overview",
+        "autosize": true,
+      });
+    } catch(e) { console.error('TV market overview failed', e); }
+    try {
+      new TradingView.widget({
+        ...heatmapConfig,
+        "container_id": "tv-heatmap",
+        "autosize": true,
+      });
+    } catch(e) { console.error('TV heatmap failed', e); }
+  } else {
+    // Load TradingView library then init
+    const script = document.createElement('script');
+    script.src = 'https://s3.tradingview.com/tv.js';
+    script.async = true;
+    script.onload = () => {
+      try {
+        new TradingView.widget({ ...overviewConfig, "container_id": "tv-market-overview", "autosize": true });
+      } catch(e) { console.error('TV market overview failed', e); }
+      try {
+        new TradingView.widget({ ...heatmapConfig, "container_id": "tv-heatmap", "autosize": true });
+      } catch(e) { console.error('TV heatmap failed', e); }
+    };
+    document.head.appendChild(script);
+  }
+}
+
+// ── Sector Data ──
 async function loadSectors() {
   const topN = document.getElementById('sec-topn').value || '30';
-  const useMock = document.getElementById('sec-mock').checked;
   const status = document.getElementById('sec-status');
-
   status.textContent = '⏳ 加载中...';
   document.getElementById('sec-results').classList.add('hidden');
   if (secChart) { try { secChart.destroy(); } catch(e) {} secChart = null; }
 
   try {
-    const params = new URLSearchParams({ top_n: topN, mock: useMock ? '1' : '0' });
-    const res = await fetch(`/api/v1/market/sectors?${params}`);
+    const res = await fetch(`/api/v1/market/sectors?top_n=${topN}&mock=0`);
     const data = await res.json();
-
     if (data.error) { status.textContent = '❌ ' + data.error; return; }
 
     const top = data.top || [];
     const bottom = data.bottom || [];
-
-    if (top.length === 0) {
-      status.textContent = '⚠️ 暂无板块数据';
-      return;
-    }
-
-    // Heatmap
-    const heatmap = document.getElementById('sec-heatmap');
-    heatmap.innerHTML = top.map(s => {
-      const pct = s.change_pct || 0;
-      let bg;
-      if (pct > 4) bg = 'bg-emerald-700/60 text-emerald-200';
-      else if (pct > 2) bg = 'bg-emerald-600/40 text-emerald-200';
-      else if (pct > 0) bg = 'bg-emerald-500/25 text-emerald-100';
-      else if (pct > -2) bg = 'bg-red-500/25 text-red-100';
-      else bg = 'bg-red-600/40 text-red-200';
-      return `<div class="${bg} rounded-lg p-2.5 text-center transition hover:scale-105">
-        <div class="text-xs font-medium truncate">${s.name}</div>
-        <div class="text-sm font-bold mt-0.5">${pct >= 0 ? '+' : ''}${pct}%</div>
-        ${s.leader ? `<div class="text-[10px] text-gray-400 truncate mt-0.5">${s.leader}</div>` : ''}
-      </div>`;
-    }).join('');
+    if (top.length === 0) { status.textContent = '⚠️ 暂无板块数据'; return; }
 
     // Top table
     document.getElementById('sec-top-table').innerHTML = '<table><thead><tr>' +
@@ -159,12 +298,13 @@ async function loadSectors() {
 
     status.textContent = `✅ ${data.total} 个行业板块`;
     document.getElementById('sec-results').classList.remove('hidden');
-
   } catch (e) {
     status.textContent = '❌ ' + e.message;
   }
 }
 
+// Init
+loadTradingViewWidgets();
 loadSectors();
 </script>
 {% endblock %}
