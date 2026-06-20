@@ -1,7 +1,8 @@
 {% extends "base.html" %}
 {% block title %}交易 Trading — AStock WebUI{% endblock %}
 {% block head_extra %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script src="{{ url_for('web.static', filename='tv/klinecharts/klinecharts.min.js') }}"></script>
+<script src="{{ url_for('web.static', filename='js/kc-data-loader.js') }}"></script>
 <style>
 /* ── Trading page specific styles ── */
 .trade-layout {
@@ -134,10 +135,13 @@
 }
 .quick-qty-btn:hover { background: #2a2e39; color: #d1d4dc; }
 
-/* Kline chart container */
-.chart-container {
-  width: 100%; position: relative;
-}
+/* ── KLineChart Container ── */
+#kc-trade-chart { width: 100%; height: 440px; min-height: 360px; }
+.kc-period-bar { display: flex; gap: 4px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
+.kc-period-bar .kc-btn { padding: 2px 10px; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer; border: none; font-family: inherit; background: #2a2e39; color: #d1d4dc; transition: all .15s; white-space: nowrap; }
+.kc-period-bar .kc-btn:hover { background: #363a45; }
+.kc-period-bar .kc-btn.active { background: rgba(41,98,255,0.2); color: #2962FF; }
+.kc-period-bar .kc-label { font-size: 11px; color: #787b86; margin-right: 4px; }
 </style>
 {% endblock %}
 
@@ -187,19 +191,23 @@
 
 <!-- Main Trading Layout -->
 <div class="trade-layout">
-  <!-- LEFT: Kline Chart -->
+  <!-- LEFT: KLineChart -->
   <div class="trade-chart-col">
-    <div class="tv-card chart-container">
-      <h3 class="tv-card-title">📈 K线图 Kline <span class="tv-card-subtitle" id="chart-interval-label">日线</span></h3>
-      <canvas id="chart-kline" height="320"></canvas>
-      <p id="kline-empty" class="text-xs tv-muted mt-2 hidden">暂无K线数据。输入代码后点击搜索或从数据源拉取。</p>
-      <div style="margin-top:10px; display:flex; gap:6px; flex-wrap:wrap;">
-        <button class="tv-btn tv-btn-secondary tv-btn-sm" onclick="loadKline('1d')">日线</button>
-        <button class="tv-btn tv-btn-secondary tv-btn-sm" onclick="loadKline('1w')">周线</button>
-        <button class="tv-btn tv-btn-secondary tv-btn-sm" onclick="loadKline('1m')">月线</button>
+    <div class="tv-card">
+      <div class="kc-period-bar">
+        <span class="kc-label">📈 周期</span>
+        <button class="kc-btn" data-period="5m" onclick="setTradePeriod('5m')">5m</button>
+        <button class="kc-btn" data-period="15m" onclick="setTradePeriod('15m')">15m</button>
+        <button class="kc-btn" data-period="30m" onclick="setTradePeriod('30m')">30m</button>
+        <button class="kc-btn" data-period="60m" onclick="setTradePeriod('60m')">60m</button>
+        <button class="kc-btn active" data-period="1d" onclick="setTradePeriod('1d')">日线</button>
+        <button class="kc-btn" data-period="1w" onclick="setTradePeriod('1w')">周线</button>
+        <button class="kc-btn" data-period="1M" onclick="setTradePeriod('1M')">月线</button>
         <span style="flex:1"></span>
-        <button class="tv-btn tv-btn-primary tv-btn-sm" onclick="refreshData()">🔄 拉取数据</button>
+        <button class="tv-btn tv-btn-primary tv-btn-sm" onclick="refreshTradeKline()">🔄 拉取数据</button>
       </div>
+      <div id="kc-trade-chart"></div>
+      <span id="trade-kc-status" style="font-size:11px;color:#787b86;display:inline-block;margin-top:4px;">就绪</span>
     </div>
   </div>
 
@@ -294,11 +302,95 @@
 
 {% block scripts %}
 <script>
-// ── State ──
+const API_BASE = '/api/v1/tv';
 let currentSymbol = '600519.SH';
 let currentSide = 'buy';
-let chartInstances = {};
 let currentQuote = {};
+
+// ── KLineChart State ──
+let tradeChart = null;
+const { dataLoader: tradeDataLoader, state: tdState } = KCDataLoader.create(API_BASE, {
+  onRefresh() {
+    const el = document.querySelector('.kc-period-bar .active');
+    const p = el ? el.dataset.period : '1d';
+    initTradeChart(p);
+  },
+});
+
+function periodToKC(period) {
+  const map = {'1m':1,'5m':5,'15m':15,'30m':30,'60m':60,'1d':1440,'1w':10080,'1M':43200};
+  return map[period] || 1440;
+}
+
+// ── KLineChart Init / Period ──
+function initTradeChart(initialPeriod) {
+  const symbol = currentSymbol;
+  tdState.loadGeneration++;
+  tdState.fetchControllers.forEach(c => c.abort());
+  tdState.fetchControllers.clear();
+  if (tradeChart) { klinecharts.dispose(tradeChart); tradeChart = null; }
+
+  const container = document.getElementById('kc-trade-chart');
+  container.innerHTML = '';
+  document.getElementById('trade-kc-status').textContent = '⏳ 加载中...';
+
+  tradeChart = klinecharts.init('kc-trade-chart', {
+    styles: {
+      grid: { horizontal: { color: '#1e222d' }, vertical: { color: '#1e222d' } },
+      candle: {
+        bar: { upColor: '#089981', downColor: '#f23645', noChangeColor: '#787b86' },
+        priceMark: { highLow: { color: '#d1d4dc' } },
+      },
+      xAxis: { axisLine: { color: '#2a2e39' }, tickLine: { color: '#2a2e39' }, tickText: { color: '#787b86' } },
+      yAxis: { axisLine: { color: '#2a2e39' }, tickLine: { color: '#2a2e39' }, tickText: { color: '#787b86' } },
+      crosshair: {
+        horizontal: { line: { color: '#363a45' }, text: { color: '#d1d4dc' } },
+        vertical: { line: { color: '#363a45' }, text: { color: '#d1d4dc' } },
+      },
+      separator: { color: '#2a2e39' },
+      tooltip: {
+        title: { template: symbol + ' · {period}' },
+      },
+    },
+    locale: 'zh-CN',
+    timezone: 'Asia/Shanghai',
+  });
+
+  tradeChart.setDataLoader(tradeDataLoader);
+  tradeChart.setSymbol({ symbol: symbol, pricePrecision: 2, volumePrecision: 0 });
+  tradeChart.setPeriod(initialPeriod ? periodToKC(initialPeriod) : 1440);
+
+  tradeChart.setMaxOffsetLeftDistance(0);
+  tradeChart.setMaxOffsetRightDistance(0);
+  tradeChart.setOffsetRightDistance(0, true);
+  tradeChart.scrollToRealTime();
+
+  // MA overlay
+  tradeChart.createIndicator('MA', { isStack: true, pane: { id: 'candle_pane' } });
+  tradeChart.overrideIndicator({ name: 'MA', calcParams: [5, 10, 20, 30, 60] });
+
+  document.getElementById('trade-kc-status').textContent = '✅ ' + symbol;
+  setTimeout(() => { if (tradeChart) tradeChart.scrollToRealTime(); }, 200);
+}
+
+function setTradePeriod(period) {
+  if (!tradeChart) return;
+  document.querySelectorAll('.kc-period-bar [data-period]').forEach(
+    el => el.classList.toggle('active', el.dataset.period === period)
+  );
+  document.getElementById('trade-kc-status').textContent = '⏳ ' + period;
+  initTradeChart(period);
+}
+
+function refreshTradeKline() {
+  // Clear all caches so next fetch gets fresh data
+  tdState.barCache = {};
+  tdState.barDataCache = {};
+  // Re-init with current period, force refresh via cache clear
+  const currentPeriod = document.querySelector('.kc-period-bar .active');
+  const period = currentPeriod ? currentPeriod.dataset.period : '1d';
+  initTradeChart(period);
+}
 
 // ── Toast ──
 function showToast(msg, type = 'info') {
@@ -312,13 +404,13 @@ function showToast(msg, type = 'info') {
 // ── Symbol ──
 function changeSymbol() {
   const input = document.getElementById('symbol-input');
-  const sym = input.value.trim();
+  let sym = input.value.trim();
+  if (!sym.includes('.')) sym += '.SH';
   if (!sym) { showToast('请输入股票代码', 'error'); return; }
   currentSymbol = sym;
   loadQuote();
-  loadKline('1d');
   loadTradingState();
-  // Update symbol in order button
+  initTradeChart('1d');
   updateOrderButton();
 }
 
@@ -349,10 +441,8 @@ async function loadQuote() {
     changeEl.textContent = (changeVal >= 0 ? '+' : '') + changeVal.toFixed(2) + ' (' + (changePct >= 0 ? '+' : '') + changePct.toFixed(2) + '%)';
     changeEl.className = 'symbol-change ' + (changePct >= 0 ? 'tv-up' : 'tv-down');
 
-    // Set order price from quote
     document.getElementById('order-price').value = q.last_price.toFixed(2);
     updateEstimate();
-
   } catch (e) {
     console.error('loadQuote failed', e);
   }
@@ -380,7 +470,6 @@ function setQty(qty) {
 }
 
 function setQtyMax() {
-  // Estimate max affordable shares based on cash
   const price = parseFloat(document.getElementById('order-price').value) || 0;
   const cashEl = document.getElementById('acc-cash');
   const cash = parseFloat(cashEl.textContent.replace(/[¥,]/g, '')) || 0;
@@ -412,8 +501,6 @@ async function submitOrder() {
   const qty = parseInt(document.getElementById('order-qty').value);
   if (!price || price <= 0) { showToast('请输入有效价格', 'error'); return; }
   if (!qty || qty <= 0) { showToast('请输入有效数量（手）', 'error'); return; }
-
-  // A-share round lot: 100 shares
   if (qty % 100 !== 0) { showToast('A股需以整手（100股）为单位', 'error'); return; }
 
   const btn = document.getElementById('order-submit');
@@ -438,7 +525,6 @@ async function submitOrder() {
     } else {
       const order = data.order;
       showToast('✅ ' + order.message, 'success');
-      // Refresh state and positions
       loadTradingState();
     }
   } catch (e) {
@@ -449,86 +535,6 @@ async function submitOrder() {
   }
 }
 
-// ── Kline Chart ──
-async function loadKline(interval = '1d') {
-  const symbol = currentSymbol;
-  document.getElementById('chart-interval-label').textContent =
-    interval === '1d' ? '日线' : interval === '1w' ? '周线' : '月线';
-
-  try {
-    const res = await fetch('/api/v1/kline?symbol=' + encodeURIComponent(symbol) + '&interval=' + interval + '&limit=30');
-    const data = await res.json();
-    const bars = data.bars || [];
-
-    if (!bars || bars.length === 0) {
-      document.getElementById('kline-empty').classList.remove('hidden');
-      return;
-    }
-    document.getElementById('kline-empty').classList.add('hidden');
-
-    const labels = bars.map(b => (b.date || b.trade_date || '').substring(0, 10));
-    const closes = bars.map(b => parseFloat(b.close || b.close_price || 0));
-
-    if (chartInstances.kline) {
-      try { chartInstances.kline.destroy(); } catch(e) {}
-    }
-
-    const startPrice = closes[0] || 1;
-    const pctChanges = closes.map(v => ((v - startPrice) / startPrice * 100));
-
-    const ctx = document.getElementById('chart-kline').getContext('2d');
-    chartInstances.kline = new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels,
-        datasets: [{
-          label: symbol + ' 走势 %',
-          data: pctChanges,
-          borderColor: pctChanges[pctChanges.length - 1] >= 0 ? '#089981' : '#f23645',
-          backgroundColor: (ctx) => {
-            const g = ctx.chart.ctx.createLinearGradient(0, 0, 0, 320);
-            g.addColorStop(0, 'rgba(8,153,129,0.15)');
-            g.addColorStop(1, 'rgba(8,153,129,0.01)');
-            return g;
-          },
-          fill: true,
-          tension: 0.2,
-          pointRadius: 0,
-          borderWidth: 2,
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            backgroundColor: '#1e293b',
-            titleColor: '#fff',
-            bodyColor: '#d1d5db',
-            callbacks: {
-              label: ctx => symbol + ': ' + ctx.parsed.y.toFixed(2) + '%'
-            }
-          },
-        },
-        scales: {
-          x: {
-            ticks: { color: '#6b7280', maxTicksLimit: 10, maxRotation: 0 },
-            grid: { display: false },
-          },
-          y: {
-            ticks: { color: '#6b7280', callback: v => v.toFixed(1) + '%' },
-            grid: { color: '#1e293b' },
-          },
-        },
-      },
-    });
-  } catch (e) {
-    console.error('loadKline failed', e);
-    document.getElementById('kline-empty').classList.remove('hidden');
-  }
-}
-
 // ── Trading State (positions, account, trades) ──
 async function loadTradingState() {
   try {
@@ -536,7 +542,6 @@ async function loadTradingState() {
     const state = await res.json();
     if (state.error) return;
 
-    // Account summary
     document.getElementById('acc-total').textContent = '¥' + (state.total_value || 0).toLocaleString(undefined, {minimumFractionDigits: 2});
     document.getElementById('acc-cash').textContent = '¥' + (state.cash || 0).toLocaleString(undefined, {minimumFractionDigits: 2});
     const pnlEl = document.getElementById('acc-pnl');
@@ -544,10 +549,7 @@ async function loadTradingState() {
     pnlEl.textContent = (pnl >= 0 ? '+' : '') + '¥' + pnl.toLocaleString(undefined, {minimumFractionDigits: 2});
     pnlEl.className = 'tv-stat-value ' + (pnl >= 0 ? 'tv-up' : 'tv-down');
 
-    // Positions table
     renderPositions(state.positions || []);
-
-    // Trades
     renderTrades(state);
   } catch (e) {
     console.error('loadTradingState failed', e);
@@ -584,11 +586,8 @@ function quickSell(symbol, price) {
 }
 
 function renderTrades(state) {
-  // We need to get the full trade list from paper/state endpoint
-  // The trade/state doesn't include full history, so let's fetch from paper/trades
 }
 
-// Also load paper trades
 async function loadTradeHistory() {
   try {
     const res = await fetch('/api/v1/paper/trades');
@@ -624,38 +623,13 @@ async function loadTradeHistory() {
   }
 }
 
-// ── Data Refresh ──
-async function refreshData() {
-  try {
-    const res = await fetch('/api/v1/data/refresh/kline', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        symbol: currentSymbol,
-        start: new Date(Date.now() - 90 * 86400000).toISOString().substring(0, 10),
-        end: new Date().toISOString().substring(0, 10),
-      }),
-    });
-    const data = await res.json();
-    if (data.status === 'ok') {
-      showToast('✅ K线数据已拉取 (' + (data.rows_inserted || 0) + ' 条)', 'success');
-      loadKline('1d');
-    } else {
-      showToast('❌ 拉取失败: ' + (data.error || 'unknown error'), 'error');
-    }
-  } catch (e) {
-    showToast('❌ 拉取失败: ' + e.message, 'error');
-  }
-}
-
 // ── Init ──
 function init() {
   loadQuote();
-  loadKline('1d');
+  initTradeChart('1d');
   loadTradingState();
   loadTradeHistory();
   updateOrderButton();
-  // Auto-refresh every 30s
   setInterval(() => {
     loadQuote();
     loadTradingState();

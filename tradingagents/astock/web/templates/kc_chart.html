@@ -2,6 +2,7 @@
 {% block title %}KC Chart — {{ symbol }}{% endblock %}
 {% block head_extra %}
 <script src="{{ url_for('web.static', filename='tv/klinecharts/klinecharts.min.js') }}"></script>
+<script src="{{ url_for('web.static', filename='js/kc-data-loader.js') }}"></script>
 <style>
 #kc-chart { width: 100%; height: calc(100vh - 160px); min-height: 500px; }
 .kc-topbar { display: flex; flex-direction: column; gap: 5px; padding: 6px 14px; background: #1e222d; border-bottom: 1px solid #2a2e39; }
@@ -22,12 +23,13 @@
 
 {% block content %}
 <div class="kc-topbar">
-  <!-- Row 1: symbol -->
+  <!-- Row 1: symbol + ticker info -->
   <div class="kc-row">
     <span class="label" style="font-weight:600;color:#d1d4dc">📊 KLineChart</span>
     <div class="sep"></div>
-    <input type="text" id="kc-symbol" value="{{ symbol }}" placeholder="600519.SH">
-    <button class="kc-btn primary" onclick="loadKC()">🔍 加载</button>
+    <input type="text" id="kc-symbol" value="{{ symbol }}" placeholder="600519.SH" style="width:110px;">
+    <button class="kc-btn primary" onclick="loadKC(null, true)">🔍 加载</button>
+    <span id="kc-ticker-info" class="label" style="color:#d1d4dc;font-weight:500">--</span>
     <span id="kc-status">就绪</span>
   </div>
 
@@ -92,7 +94,9 @@ let indicators = {};
 let _overlayMode = true; // true=主图叠加, false=底部视图
 
 function getSymbol() {
-  return document.getElementById('kc-symbol').value.trim() || '600519.SH';
+  let s = document.getElementById('kc-symbol').value.trim() || '600519.SH';
+  if (!s.includes('.')) s += '.SH';
+  return s;
 }
 
 function periodToKC(period) {
@@ -104,143 +108,37 @@ function periodToTV(period) {
   return String(period);
 }
 
-// ── Data Loader ──
-let _loadTimer = null;
-let _loadGeneration = 0;
-let _subscribeInterval = null; // single subscription timer, properly cleaned
-const _barCache = {}; // key: `${symbol}_${period}` → array of timestamps (ms), for dedup
-const _barDataCache = {}; // key: `${symbol}_${period}` → array of bar objects, for fast reload
-const _fetchControllers = new Set(); // Track in-flight requests across loader callbacks
-const dataLoader = {
-  async getBars(params) {
-    const { symbol, period, timestamp, callback, type } = params;
-    const cacheKey = `${symbol.symbol}_${period}`;
-    const tvPeriod = String(period);
-    const now = Math.floor(Date.now() / 1000);
-    const requestGeneration = _loadGeneration;
-
-    // ── Fast path: init load from cache ──
-    if (type === 'init' && !timestamp) {
-      const cached = _barDataCache[cacheKey];
-      if (cached && cached.length > 0) {
-        callback(cached, true);
-        return;
-      }
-    }
-
-    // Only fetch what we need based on load type
-    let from, to;
-    if (type === 'backward' && timestamp) {
-      from = 0;
-      to = Math.floor(timestamp / 1000);
-    } else if (type === 'forward' && timestamp) {
-      from = Math.floor(timestamp / 1000);
-      to = now;
-    } else {
-      from = 0;
-      to = now;
-    }
-
-    const controller = new AbortController();
-    _fetchControllers.add(controller);
-    const signal = controller.signal;
-
-    try {
-      const url = `${API_BASE}/history?symbol=${symbol.symbol}&resolution=${tvPeriod}&from=${from}&to=${to}`;
-      const res = await fetch(url, { signal });
-      const data = await res.json();
-      if (requestGeneration !== _loadGeneration || signal.aborted) {
-        return;
-      }
-      if (data.s === 'ok' && data.t) {
-        // Deduplicate against timestamp cache
-        const seen = new Set(_barCache[cacheKey] || []);
-        const newBars = [];
-        for (let i = 0; i < data.t.length; i++) {
-          const ts = data.t[i] * 1000;
-          if (!seen.has(ts)) {
-            seen.add(ts);
-            newBars.push({
-              timestamp: ts,
-              open: data.o[i],
-              high: data.h[i],
-              low: data.l[i],
-              close: data.c[i],
-              volume: data.v[i],
-            });
-          }
-        }
-        // Update timestamp cache for dedup
-        const sorted = Array.from(seen).sort((a, b) => a - b);
-        _barCache[cacheKey] = sorted.length > 50000 ? sorted.slice(-50000) : sorted;
-
-        // Store init data in bar cache for fast reload
-        if (type === 'init' && newBars.length > 0) {
-          // Merge with existing cached bars, keep sorted
-          const existing = _barDataCache[cacheKey] || [];
-          const merged = existing.concat(newBars);
-          merged.sort((a, b) => a.timestamp - b.timestamp);
-          _barDataCache[cacheKey] = merged;
-        }
-
-        callback(newBars, data.t.length > 0);
-      } else {
-        callback([], false);
-      }
-    } catch (e) {
-      if (e.name !== 'AbortError' && requestGeneration === _loadGeneration) callback([], false);
-    } finally {
-      _fetchControllers.delete(controller);
-    }
+// ── Data Loader (shared) ──
+const { dataLoader, state: dlState } = KCDataLoader.create(API_BASE, {
+  onRefresh(_, { symbol, period }) {
+    // Cache already updated with fresh data → rebuild from cache (no force)
+    const periodEl = document.querySelector('[data-period].active');
+    loadKC(periodEl ? periodEl.dataset.period : undefined);
   },
-  subscribeBar(params) {
-    // Real-time: poll every 30s — use global timer so cleanup always works
-    if (_subscribeInterval) clearInterval(_subscribeInterval);
-    _subscribeInterval = setInterval(async () => {
-      if (!chart) { clearInterval(_subscribeInterval); _subscribeInterval = null; return; }
-      const now = Math.floor(Date.now() / 1000);
-      const resolution = String(params.period || 1);
-      try {
-        const res = await fetch(`${API_BASE}/history?symbol=${params.symbol.symbol}&resolution=${resolution}&from=${now - 7200}&to=${now}`);
-        const data = await res.json();
-        if (data.s === 'ok' && data.t && data.t.length > 0) {
-          const i = data.t.length - 1;
-          const newBar = { timestamp: data.t[i] * 1000, open: data.o[i], high: data.h[i], low: data.l[i], close: data.c[i], volume: data.v[i] };
-          params.callback(newBar);
-          // Also update bar data cache for this period
-          const cacheKey = `${params.symbol.symbol}_${resolution}`;
-          const existing = _barDataCache[cacheKey] || [];
-          existing.push(newBar);
-          existing.sort((a, b) => a.timestamp - b.timestamp);
-          _barDataCache[cacheKey] = existing;
-        }
-      } catch (_) {}
-    }, 30000);
-  },
-  unsubscribeBar(_params) {
-    if (_subscribeInterval) {
-      clearInterval(_subscribeInterval);
-      _subscribeInterval = null;
-    }
-  },
-};
+});
 
 // ── Chart Init ──
-function loadKC(initialPeriod) {
+let _loadTimer = null; // legacy
+function loadKC(initialPeriod, forceRefresh) {
   const symbol = getSymbol();
-  _loadGeneration++;
+  dlState.loadGeneration++;
 
   // ══ Resource cleanup before reinit ══
   // 1. Kill pending period check timer (legacy, kept for safety)
   if (_loadTimer) { clearTimeout(_loadTimer); _loadTimer = null; }
   // 2. Kill real-time subscription from previous chart
-  if (_subscribeInterval) { clearInterval(_subscribeInterval); _subscribeInterval = null; }
-  // 3. Clear data caches for OTHER symbols (keep current symbol for fast period switch)
-  Object.keys(_barCache).forEach(k => { if (!k.startsWith(symbol)) delete _barCache[k]; });
-  Object.keys(_barDataCache).forEach(k => { if (!k.startsWith(symbol)) delete _barDataCache[k]; });
+  if (dlState.subscribeInterval) { clearInterval(dlState.subscribeInterval); dlState.subscribeInterval = null; }
+  // 3. Clear data caches (force=清除当前symbol缓存，否则只清其他symbol)
+  if (forceRefresh) {
+    Object.keys(dlState.barCache).forEach(k => delete dlState.barCache[k]);
+    Object.keys(dlState.barDataCache).forEach(k => delete dlState.barDataCache[k]);
+  } else {
+    Object.keys(dlState.barCache).forEach(k => { if (!k.startsWith(symbol)) delete dlState.barCache[k]; });
+    Object.keys(dlState.barDataCache).forEach(k => { if (!k.startsWith(symbol)) delete dlState.barDataCache[k]; });
+  }
   // 4. Abort old in-flight fetches so stale callbacks do not target the new chart
-  _fetchControllers.forEach(controller => controller.abort());
-  _fetchControllers.clear();
+  dlState.fetchControllers.forEach(controller => controller.abort());
+  dlState.fetchControllers.clear();
   // 5. Dispose old chart (KLineChart cleans up its own internals)
   if (chart) { klinecharts.dispose(chart); chart = null; }
 
@@ -262,6 +160,9 @@ function loadKC(initialPeriod) {
         vertical: { line: { color: '#363a45' }, text: { color: '#d1d4dc' } },
       },
       separator: { color: '#2a2e39' },
+      tooltip: {
+        title: { template: symbol + ' · {period}' },
+      },
     },
     locale: 'zh-CN',
     timezone: 'Asia/Shanghai',
@@ -281,6 +182,8 @@ function loadKC(initialPeriod) {
   // Disable empty-space scrolling: cannot scroll beyond data edges
   chart.setMaxOffsetLeftDistance(0);
   chart.setMaxOffsetRightDistance(0);
+  chart.setOffsetRightDistance(0, true);
+  chart.scrollToRealTime();
 
   // Default MA5/10/20/30/60 on K-line
   _overlayMode = true;
@@ -294,6 +197,9 @@ function loadKC(initialPeriod) {
   if (maBtn) maBtn.classList.add('active');
 
   document.getElementById('kc-status').textContent = `✅ ${symbol}`;
+  fetchStockInfo(symbol);
+  // Re-align to latest bar after data loads (MA lines clip to data edge)
+  setTimeout(() => { if (chart) chart.scrollToRealTime(); }, 200);
 }
 
 // ── Period ──
@@ -398,6 +304,26 @@ function addCustomMA() {
     indicators[key] = true;
   });
   input.value = '';
+}
+
+// ── Stock Info ──
+async function fetchStockInfo(symbol) {
+  const el = document.getElementById('kc-ticker-info');
+  if (!symbol) { el.textContent = '--'; return; }
+  el.textContent = '⏳ 加载中...';
+  try {
+    const res = await fetch(`/api/v1/tv/stock-info?symbol=${encodeURIComponent(symbol)}`);
+    const info = await res.json();
+    if (info.name) {
+      const parts = [info.industry, ...(info.indices || [])].filter(Boolean);
+      const suffix = parts.length > 0 ? '/' + parts.join('/') : '';
+      el.textContent = `${info.name} (${info.code}) ${info.exchange}/${info.board}${suffix}`;
+    } else {
+      el.textContent = `${symbol} ${info.exchange}/${info.board}`;
+    }
+  } catch {
+    el.textContent = symbol;
+  }
 }
 
 // ── Init ──

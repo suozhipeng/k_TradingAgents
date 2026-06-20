@@ -48,6 +48,100 @@ def _tv_resolution(resolution: str) -> str:
     return RESOLUTION_MAP.get(resolution, "1d")
 
 
+# A-share code → exchange + board labels
+_BOARD_MAP: dict[str, tuple[str, str]] = {
+    # prefix: (exchange_label, board_label)
+    "6":   ("沪", "主板"),
+    "68":  ("沪", "科创板"),
+    "00":  ("深", "主板"),
+    "001": ("深", "主板"),
+    "002": ("深", "中小板"),
+    "003": ("深", "主板"),
+    "30":  ("深", "创业板"),
+    "4":   ("京", "北交所"),
+    "8":   ("京", "北交所"),
+    "92":  ("京", "北交所"),
+}
+
+
+def _stock_board(symbol: str) -> dict[str, str]:
+    """Derive exchange & board labels from A-share stock code."""
+    code = symbol.upper().split(".")[0]
+    exchange_suffix = symbol.upper().split(".")[1] if "." in symbol else ""
+    exchange_map = {"SH": "沪", "SZ": "深", "BJ": "京"}
+    ex_label = exchange_map.get(exchange_suffix, exchange_suffix)
+    board = "其他"
+    for prefix, (_, board_label) in sorted(_BOARD_MAP.items(), key=lambda x: -len(x[0])):
+        if code.startswith(prefix):
+            board = board_label
+            break
+    return {"exchange": ex_label, "board": board, "code": code}
+
+
+# TDX industry code → name (通达信行业分类)
+_TDX_INDUSTRY: dict[int, str] = {
+    1: "银行", 2: "保险", 3: "证券", 4: "多元金融",
+    5: "房地产", 6: "建筑", 7: "建材", 8: "钢铁",
+    9: "有色", 10: "煤炭", 11: "石油", 12: "化工",
+    13: "化纤", 14: "塑料", 15: "橡胶", 16: "造纸",
+    17: "农林牧渔", 18: "食品", 19: "纺织服饰", 20: "日用化工",
+    21: "医药", 22: "商业连锁", 23: "酒店餐饮", 24: "旅游",
+    25: "家电", 26: "汽车", 27: "机械", 28: "电气设备",
+    29: "航天军工", 30: "船舶", 31: "运输设备", 32: "交通设施",
+    33: "运输服务", 34: "仓储物流", 35: "半导体", 36: "元器件",
+    37: "酿酒", 38: "软件服务", 39: "互联网", 40: "传媒娱乐",
+    41: "通信设备", 42: "电信运营", 43: "电源设备", 44: "水务",
+    45: "供气供热", 46: "环境保护", 47: "电力", 48: "商贸代理",
+}  # fmt: skip
+
+# Index constituent caches (lazy-loaded)
+_index_constituents: dict[str, set[str]] = {}
+_index_labels: dict[str, str] = {
+    "000300": "沪深300", "000016": "上证50",
+    "000905": "中证500", "399006": "创业板指",
+}
+
+
+def _code_to_astock(code: str) -> str:
+    """Convert bare code like '600118' to '600118.SH'."""
+    code = code.strip()
+    if "." in code:
+        return code.upper()
+    if code.startswith("6") or code.startswith("9"):
+        return code + ".SH"
+    if code.startswith("0") or code.startswith("3") or code.startswith("2"):
+        return code + ".SZ"
+    return code + ".SH"
+
+
+def _load_index_constituents() -> dict[str, set[str]]:
+    """Lazy-load index constituent sets from akshare."""
+    if _index_constituents:
+        return _index_constituents
+    try:
+        import akshare as ak
+        for idx_code, label in _index_labels.items():
+            try:
+                df = ak.index_stock_cons(symbol=idx_code)
+                codes = {_code_to_astock(c) for c in df.iloc[:, 0].astype(str).tolist()}
+                _index_constituents[idx_code] = codes
+            except Exception:
+                pass
+    except Exception:
+        pass
+    return _index_constituents
+
+
+def _check_index_membership(symbol: str) -> list[str]:
+    """Return labels of indices this stock belongs to."""
+    constituents = _load_index_constituents()
+    members = []
+    for idx_code, codes in constituents.items():
+        if symbol.upper() in codes:
+            members.append(_index_labels.get(idx_code, idx_code))
+    return members
+
+
 def _aggregate_bars(daily_bars: list[dict[str, Any]], interval: str) -> list[dict[str, Any]]:
     """Aggregate daily bars into weekly (1w) or monthly (1mo) bars."""
     from datetime import datetime
@@ -84,6 +178,44 @@ def _aggregate_bars(daily_bars: list[dict[str, Any]], interval: str) -> list[dic
             g["trade_date"] = td[:10]  # keep last date as the bar date
 
     return sorted(grouped.values(), key=lambda b: b["trade_date"])
+
+
+@bp.route("/tv/stock-info")
+def tv_stock_info() -> tuple[Response, int]:
+    """Return A-share stock info: name, exchange, board."""
+    symbol = request.args.get("symbol", "")
+    if not symbol:
+        return jsonify({"error": "symbol required"}), 400
+    info = _stock_board(symbol)
+    router = _router()
+    name = ""
+    industry = ""
+    if router is not None:
+        try:
+            resp = router.get_valuation(symbol, source="tencent")
+            if resp.status == "ok" and resp.data:
+                name = resp.data.get("name", "")
+        except Exception:
+            pass
+        try:
+            from tradingagents.astock.data_sources.adapters import build_default_adapters
+            adapters = build_default_adapters()
+            mootdx_adapter = adapters.get("mootdx")
+            if mootdx_adapter:
+                from tradingagents.astock.data_sources.schema import AStockRequest
+                req = AStockRequest(raw_symbol=symbol, symbol=symbol, capability="f10")
+                resp2 = mootdx_adapter.get_f10(req)
+                if resp2:
+                    ind_code = resp2.get("industry")
+                    if isinstance(ind_code, int) and ind_code in _TDX_INDUSTRY:
+                        industry = _TDX_INDUSTRY[ind_code]
+        except Exception:
+            pass
+    info["name"] = name
+    info["industry"] = industry
+    info["indices"] = _check_index_membership(symbol)
+    info["symbol"] = symbol
+    return jsonify(info), 200
 
 
 # ---------------------------------------------------------------------------
@@ -144,37 +276,6 @@ def tv_symbols() -> tuple[Response, int]:
 # ---------------------------------------------------------------------------
 
 
-@bp.route("/tv/debug_mootdx")
-def tv_debug_mootdx() -> tuple[Response, int]:
-    """Debug endpoint to check mootdx fallback."""
-    symbol = request.args.get("symbol", "600519.SH")
-    interval = "5m"
-    router = _router()
-    result = {
-        "router_type": type(router).__name__ if router else None,
-        "symbol": symbol,
-        "interval": interval,
-    }
-    if router is None:
-        result["error"] = "router is None"
-    else:
-        try:
-            resp = router.get_kline(symbol, interval=interval, source="mootdx", limit=5)
-            result["resp_status"] = resp.status
-            result["has_data"] = resp.data is not None
-            if resp.data:
-                items = resp.data.get("bars") or resp.data.get("items", [])
-                result["items_type"] = type(items).__name__
-                result["items_count"] = len(items)
-                if items:
-                    result["sample"] = items[0]
-        except Exception as exc:
-            result["exception"] = str(exc)
-            import traceback
-            result["traceback"] = traceback.format_exc()
-    return jsonify(result), 200
-
-
 @bp.route("/tv/history")
 def tv_history() -> tuple[Response, int]:
     """Return OHLCV bars for TradingView.
@@ -208,7 +309,7 @@ def tv_history() -> tuple[Response, int]:
             daily_bars = _df_to_json(df_daily)
             if daily_bars:
                 bars = _aggregate_bars(daily_bars, interval)
-        elif not bars and interval not in ("1d", "daily", "day"):
+        if not bars:
             router = _router()
             if router is not None:
                 try:

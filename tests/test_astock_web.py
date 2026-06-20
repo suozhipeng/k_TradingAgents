@@ -195,9 +195,9 @@ class TestWebSpecificPages:
     def test_kc_chart_has_loader_race_guards(self, client):
         resp = client.get("/kc_chart")
         html = resp.data.decode("utf-8")
-        assert "_loadGeneration" in html
-        assert "_fetchControllers" in html
-        assert "resolution=${resolution}" in html
+        assert "KCDataLoader" in html
+        assert "kc-data-loader.js" in html
+        assert "scrollToRealTime" in html
 
     def test_backtest_has_run_button(self, client):
         resp = client.get("/backtest")
@@ -324,6 +324,6 @@ class TestWebSpecificPages:
         assert "order-qty" in html
         assert "trade-toast" in html
         assert "symbol-input" in html
-        assert "chart-kline" in html
+        assert "kc-trade-chart" in html
         assert "positions-table" in html
         assert "trades-table" in html
