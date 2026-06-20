@@ -1,73 +1,103 @@
 {% extends "base.html" %}
 {% block title %}Stock Screener — AStock WebUI{% endblock %}
 {% block content %}
-<h2 class="text-2xl font-bold text-white mb-6">🔍 股票筛选器 Stock Screener</h2>
+<h2 class="tv-section-title">🔍 股票筛选器 Stock Screener</h2>
 
 <!-- Filter Panel -->
-<div class="card mb-6">
-  <p class="text-xs text-gray-400 mb-4">按技术指标筛选全部跟踪股票。使用 Mock 数据可离线测试筛选逻辑。</p>
-
-  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+<div class="tv-card mb-6">
+  <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-4">
     <div>
-      <label class="block text-xs text-gray-400 mb-1">RSI 最小值</label>
-      <input type="number" id="sc-rsi-min" value="0" min="0" max="100" step="1" class="w-full">
+      <label class="tv-label">RSI 最小值</label>
+      <input type="number" id="sc-rsi-min" value="0" min="0" max="100" class="tv-input w-full">
     </div>
     <div>
-      <label class="block text-xs text-gray-400 mb-1">RSI 最大值</label>
-      <input type="number" id="sc-rsi-max" value="100" min="0" max="100" step="1" class="w-full">
+      <label class="tv-label">RSI 最大值</label>
+      <input type="number" id="sc-rsi-max" value="100" min="0" max="100" class="tv-input w-full">
     </div>
     <div>
-      <label class="block text-xs text-gray-400 mb-1">成交量比最小值</label>
-      <input type="number" id="sc-vol-ratio" value="0" min="0" max="10" step="0.1" class="w-full">
-      <p class="text-xs text-gray-500 mt-0.5">当前量 / 均量，>1.5 为放量</p>
+      <label class="tv-label">量比 ≥</label>
+      <input type="number" id="sc-vol-ratio" value="0" min="0" max="10" step="0.1" class="tv-input w-full">
     </div>
     <div>
-      <label class="block text-xs text-gray-400 mb-1">返回条数 Limit</label>
-      <input type="number" id="sc-limit" value="50" min="1" max="200" class="w-full">
+      <label class="tv-label">返回条数</label>
+      <input type="number" id="sc-limit" value="50" min="1" max="200" class="tv-input w-full">
     </div>
   </div>
 
-  <div class="flex flex-wrap gap-4 mb-4">
-    <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer px-3 py-1.5 bg-dark-bg rounded-lg hover:bg-dark-hover">
-      <input type="checkbox" id="sc-ma-golden" class="accent-indigo-500">
-      均线金叉 (MA5 > MA20)
+  <div class="flex flex-wrap items-center gap-2 mb-4">
+    <label class="tv-checkbox-label" style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border:1px solid #2a2e39;border-radius:4px;cursor:pointer;font-size:12px;color:#d1d4dc;">
+      <input type="checkbox" id="sc-ma-golden" class="tv-checkbox">
+      MA 金叉
     </label>
-    <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer px-3 py-1.5 bg-dark-bg rounded-lg hover:bg-dark-hover">
-      <input type="checkbox" id="sc-ma-death" class="accent-indigo-500">
-      均线死叉 (MA5 < MA20)
+    <label class="tv-checkbox-label" style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border:1px solid #2a2e39;border-radius:4px;cursor:pointer;font-size:12px;color:#d1d4dc;">
+      <input type="checkbox" id="sc-ma-death" class="tv-checkbox">
+      MA 死叉
     </label>
-    <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer px-3 py-1.5 bg-dark-bg rounded-lg hover:bg-dark-hover">
-      <input type="checkbox" id="sc-macd-golden" class="accent-indigo-500">
+    <label class="tv-checkbox-label" style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border:1px solid #2a2e39;border-radius:4px;cursor:pointer;font-size:12px;color:#d1d4dc;">
+      <input type="checkbox" id="sc-macd-golden" class="tv-checkbox">
       MACD 金叉
     </label>
-    <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer px-3 py-1.5 bg-dark-bg rounded-lg hover:bg-dark-hover">
-      <input type="checkbox" id="sc-macd-death" class="accent-indigo-500">
+    <label class="tv-checkbox-label" style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border:1px solid #2a2e39;border-radius:4px;cursor:pointer;font-size:12px;color:#d1d4dc;">
+      <input type="checkbox" id="sc-macd-death" class="tv-checkbox">
       MACD 死叉
     </label>
-    <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer px-3 py-1.5 bg-dark-bg rounded-lg hover:bg-dark-hover">
-      <input type="checkbox" id="sc-mock" class="accent-indigo-500" checked>
-      使用 Mock 数据
-    </label>
+    <div style="flex:1;"></div>
+    <button onclick="runScreener()" class="tv-btn tv-btn-primary">🔍 扫描 Scan</button>
   </div>
 
-  <button onclick="runScreener()" class="btn btn-primary">🔍 开始筛选 Scan</button>
-  <span id="sc-status" class="text-xs text-gray-400 ml-3"></span>
+  <div id="sc-status" class="text-xs tv-muted"></div>
 </div>
 
 <!-- Results -->
 <div id="sc-results" class="hidden">
-  <div class="card mb-6">
+  <div class="tv-card mb-6">
     <div class="flex items-center justify-between mb-4">
-      <h3 class="text-lg font-semibold text-white">📋 筛选结果 Results</h3>
-      <span id="sc-count" class="text-xs text-gray-400"></span>
+      <h3 class="tv-card-title" style="font-size:15px;margin:0;">📋 筛选结果</h3>
+      <span id="sc-count" class="text-xs tv-muted"></span>
     </div>
-    <div id="sc-table" class="overflow-x-auto"></div>
+    <div id="sc-table-wrap" class="overflow-x-auto">
+      <table class="tv-table" id="sc-table">
+        <thead>
+          <tr>
+            <th class="text-center" style="width:40px;">#</th>
+            <th>代码 Symbol</th>
+            <th class="text-right">价格</th>
+            <th class="text-right">RSI(14)</th>
+            <th class="text-right">MA5</th>
+            <th class="text-right">MA20</th>
+            <th class="text-center">均线</th>
+            <th class="text-center">MACD</th>
+            <th class="text-right">量比</th>
+            <th class="text-right">评分</th>
+          </tr>
+        </thead>
+        <tbody id="sc-tbody"></tbody>
+      </table>
+    </div>
+    <p id="sc-empty" class="tv-muted hidden" style="text-align:center;padding:24px 0;">无匹配结果。调整筛选条件后重试。</p>
   </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
+// Stock name cache
+const nameCache = {};
+
+async function resolveName(symbol) {
+  if (nameCache[symbol]) return nameCache[symbol];
+  try {
+    const res = await fetch(`/api/v1/tv/stock-info?symbol=${encodeURIComponent(symbol)}`);
+    if (!res.ok) return symbol;
+    const info = await res.json();
+    if (info && info.name) {
+      nameCache[symbol] = `${info.name} (${info.code})`;
+      return nameCache[symbol];
+    }
+    return symbol;
+  } catch { return symbol; }
+}
+
 async function runScreener() {
   const status = document.getElementById('sc-status');
   status.textContent = '⏳ 扫描中...';
@@ -83,7 +113,7 @@ async function runScreener() {
       ma_death_cross: document.getElementById('sc-ma-death').checked ? '1' : '0',
       macd_golden: document.getElementById('sc-macd-golden').checked ? '1' : '0',
       macd_death: document.getElementById('sc-macd-death').checked ? '1' : '0',
-      mock: document.getElementById('sc-mock').checked ? '1' : '0',
+      mock: '0',
     });
 
     const res = await fetch(`/api/v1/market/screener?${params}`);
@@ -97,33 +127,46 @@ async function runScreener() {
     const results = data.results || [];
     document.getElementById('sc-count').textContent = `共 ${data.total} 条匹配，显示前 ${results.length} 条`;
 
+    const tbody = document.getElementById('sc-tbody');
+    const empty = document.getElementById('sc-empty');
+
     if (results.length === 0) {
-      document.getElementById('sc-table').innerHTML = '<p class="text-gray-500">无匹配结果。</p>';
+      tbody.innerHTML = '';
+      empty.classList.remove('hidden');
     } else {
-      document.getElementById('sc-table').innerHTML = '<table><thead><tr>' +
-        '<th>#</th><th>代码</th><th class="text-right">价格</th><th class="text-right">RSI(14)</th>' +
-        '<th class="text-right">MA5</th><th class="text-right">MA20</th>' +
-        '<th class="text-center">均线</th><th class="text-center">MACD</th>' +
-        '<th class="text-right">量比</th><th class="text-right">评分</th>' +
-        '</tr></thead><tbody>' +
-        results.map((r, i) => {
-          const rsiColor = r.rsi_14 > 70 ? 'text-red-400' : r.rsi_14 < 30 ? 'text-emerald-400' : 'text-gray-300';
-          const maSignal = r.golden_cross ? '🟢 金叉' : r.death_cross ? '🔴 死叉' : '—';
-          const macdSignal = r.macd_golden ? '🟢 金叉' : r.macd_death ? '🔴 死叉' : '—';
-          const volColor = r.volume_ratio > 1.5 ? 'text-amber-400' : 'text-gray-300';
-          return `<tr>
-            <td class="text-center text-gray-400">${i + 1}</td>
-            <td class="font-medium text-gray-300">${r.symbol}</td>
-            <td class="text-right text-white">¥${r.price.toFixed(2)}</td>
-            <td class="text-right ${rsiColor}">${r.rsi_14.toFixed(1)}</td>
-            <td class="text-right text-gray-300">${r.ma5.toFixed(2)}</td>
-            <td class="text-right text-gray-300">${r.ma20.toFixed(2)}</td>
-            <td class="text-center text-xs">${maSignal}</td>
-            <td class="text-center text-xs">${macdSignal}</td>
-            <td class="text-right ${volColor}">${r.volume_ratio.toFixed(2)}x</td>
-            <td class="text-right font-bold ${r.score > 0.5 ? 'text-emerald-400' : r.score > 0 ? 'text-indigo-400' : 'text-gray-400'}">${r.score.toFixed(3)}</td>
-          </tr>`;
-        }).join('') + '</tbody></table>';
+      empty.classList.add('hidden');
+
+      // Resolve names in batch
+      const namePromises = results.map(r => resolveName(r.symbol));
+      const names = await Promise.all(namePromises);
+
+      tbody.innerHTML = results.map((r, i) => {
+        const rsiColor = r.rsi_14 > 70 ? 'tv-down' : r.rsi_14 < 30 ? 'tv-up' : '';
+        const maSignal = r.golden_cross ? '<span class="tv-up">▲ 金叉</span>' : r.death_cross ? '<span class="tv-down">▼ 死叉</span>' : '<span class="tv-muted">—</span>';
+        const macdSignal = r.macd_golden ? '<span class="tv-up">▲ 金叉</span>' : r.macd_death ? '<span class="tv-down">▼ 死叉</span>' : '<span class="tv-muted">—</span>';
+        const volColor = r.volume_ratio > 1.5 ? '' : 'tv-muted';
+        const scoreColor = r.score > 0.5 ? 'tv-up' : r.score > 0 ? '' : 'tv-muted';
+        return `<tr class="tv-screener-row" data-symbol="${r.symbol}" style="cursor:pointer;">
+          <td class="text-center tv-muted">${i + 1}</td>
+          <td><span class="tv-text font-medium">${names[i]}</span></td>
+          <td class="text-right font-mono">${r.price.toFixed(2)}</td>
+          <td class="text-right font-mono ${rsiColor}">${r.rsi_14.toFixed(1)}</td>
+          <td class="text-right font-mono">${r.ma5.toFixed(2)}</td>
+          <td class="text-right font-mono">${r.ma20.toFixed(2)}</td>
+          <td class="text-center text-xs">${maSignal}</td>
+          <td class="text-center text-xs">${macdSignal}</td>
+          <td class="text-right font-mono ${volColor}">${r.volume_ratio.toFixed(2)}x</td>
+          <td class="text-right font-mono font-bold ${scoreColor}">${r.score.toFixed(3)}</td>
+        </tr>`;
+      }).join('');
+
+      // Click row → navigate to kc_chart
+      tbody.querySelectorAll('.tv-screener-row').forEach(row => {
+        row.addEventListener('click', () => {
+          const sym = row.dataset.symbol;
+          if (sym) window.location.href = `/kc_chart?symbol=${sym}`;
+        });
+      });
     }
 
     status.textContent = `✅ 完成 — ${results.length} 条结果`;
@@ -134,7 +177,7 @@ async function runScreener() {
   }
 }
 
-// Auto-run on load with defaults
+// Auto-run on load
 runScreener();
 </script>
 {% endblock %}
