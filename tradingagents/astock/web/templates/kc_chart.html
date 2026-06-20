@@ -239,14 +239,17 @@ function setPeriod(period) {
   chart.setPeriod(minutes);
   document.querySelectorAll('[data-period]').forEach(el => el.classList.toggle('active', el.dataset.period === period));
   document.getElementById('kc-status').textContent = period;
-  // Period change resets data; remove indicator tracking (re-add MA if needed)
+  // Wait for data to load, then re-create MA on candle_pane
   const hadMA = indicators['MA'];
   indicators = {};
   if (hadMA) {
-    chart.createIndicator('MA', { pane: { id: 'candle_pane' } });
-    indicators['MA'] = true;
-    const maBtn = document.querySelector(`.kc-btn[onclick*="toggleIndicator('MA')"]`);
-    if (maBtn) maBtn.classList.add('active');
+    setTimeout(() => {
+      chart.createIndicator('MA', { pane: { id: 'candle_pane' } });
+      chart.overrideIndicator({ name: 'MA', calcParams: [5, 10, 20, 30, 60] });
+      indicators['MA'] = true;
+      const maBtn = document.querySelector(`.kc-btn[onclick*="toggleIndicator('MA')"]`);
+      if (maBtn) maBtn.classList.add('active');
+    }, 300);
   }
 }
 
