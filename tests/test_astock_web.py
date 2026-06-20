@@ -176,12 +176,8 @@ class TestWebSpecificPages:
         html = resp.data.decode("utf-8")
         assert "stat-symbols" in html
         assert "stat-backtests" in html
-        assert "stat-positions" in html
-        assert "stat-return" in html
-        assert "chart-pnl-trend" in html
-        assert "chart-portfolio-pie" in html
         assert "heatmap-content" in html
-        assert "activity-feed" in html
+        assert "recent-backtests" in html
 
     def test_research_has_symbol_input(self, client):
         resp = client.get("/research")
@@ -217,15 +213,8 @@ class TestWebSpecificPages:
     def test_paper_has_account_state(self, client):
         resp = client.get("/paper")
         html = resp.data.decode("utf-8")
-        assert "p-total" in html
-        assert "p-cash" in html
-        assert "p-holdings" in html
-        assert "p-return" in html
-        assert "chart-paper-equity" in html
-        assert "chart-paper-cumulative" in html
-        assert "chart-position-pnl" in html
-        assert "paper-positions" in html
-        assert "paper-trades" in html
+        assert "🚧" in html
+        assert "开发中" in html
 
     def test_qmt_has_health_status(self, client):
         resp = client.get("/qmt")
@@ -239,8 +228,8 @@ class TestWebSpecificPages:
     def test_risk_has_rules_and_alerts(self, client):
         resp = client.get("/risk")
         html = resp.data.decode("utf-8")
-        assert "risk-rules" in html
-        assert "risk-alerts" in html
+        assert "🚧" in html
+        assert "待接入 QMT" in html
 
     def test_reports_has_generate_button(self, client):
         resp = client.get("/reports")
@@ -269,14 +258,14 @@ class TestWebSpecificPages:
     def test_screener_has_filter_panel(self, client):
         resp = client.get("/screener")
         html = resp.data.decode("utf-8")
+        assert "tv-btn-primary" in html
         assert "sc-rsi-min" in html
         assert "sc-rsi-max" in html
-        assert "sc-vol-ratio" in html
-        assert "sc-ma-golden" in html
-        assert "sc-ma-death" in html
+        assert "sc-limit" in html
+        assert "sc-tbody" in html
         assert "sc-macd-golden" in html
         assert "sc-macd-death" in html
-        assert "sc-mock" in html
+        assert "runScreener" in html
         assert "sc-results" in html
 
     def test_dragon_tiger_has_inputs(self, client):

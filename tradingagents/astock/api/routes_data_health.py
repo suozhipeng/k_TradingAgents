@@ -141,6 +141,11 @@ def data_health() -> tuple[Response, int]:
     available = sum(1 for a in adapters if a.get("available"))
     degraded = total - available
 
+    # Cleaning stats
+    from tradingagents.astock.api._helpers import get_clean_stats
+
+    clean_stats = get_clean_stats()
+
     return jsonify(
         {
             "sources": adapters,
@@ -149,5 +154,6 @@ def data_health() -> tuple[Response, int]:
                 "available": available,
                 "degraded": degraded,
             },
+            "cleaning": clean_stats,
         }
     ), 200

@@ -1,10 +1,22 @@
-"""Shared helpers for AStock API route files — NaN sanitisation and JSON conversion."""
+"""Shared helpers for AStock API route files — NaN sanitisation and JSON conversion.
+
+Every ``df_to_json`` call now passes through the :mod:`DataCleaner
+<tradingagents.astock.data_sources.cleaner>` for automatic quality checks.
+"""
 
 from __future__ import annotations
 
 import math
 from datetime import datetime
 from typing import Any
+
+from tradingagents.astock.data_sources.cleaner import (
+    clean_records,
+    summary_text,
+)
+
+# Global cleaning stats accumulated across all queries (reset on server restart)
+_global_clean_stats: dict[str, int] = {}
 
 
 def sanitise_records(records: list[dict[str, Any]]) -> None:
@@ -22,12 +34,34 @@ def sanitise_records(records: list[dict[str, Any]]) -> None:
                 record[k] = v.isoformat()
 
 
-def df_to_json(df: Any) -> list[dict[str, Any]]:
-    """Convert a pandas DataFrame to a list of plain dicts, sanitising NaN/Inf for valid JSON."""
+def df_to_json(
+    df: Any,
+    symbol: str = "",
+) -> list[dict[str, Any]]:
+    """Convert a pandas DataFrame to a list of plain dicts.
+
+    Sanitises NaN/Inf for valid JSON **and** runs :func:`clean_records`
+    for data quality checks (zero prices, outlier changes, date ordering, …).
+    """
     if df is None or (hasattr(df, "empty") and df.empty):
         return []
     if hasattr(df, "to_dict"):
         records = df.to_dict(orient="records")
         sanitise_records(records)
-        return records
+
+        # ── Data cleaning pass ──
+        cleaned, report = clean_records(records, symbol=symbol)
+
+        # Accumulate global stats
+        if report.has_issues():
+            _global_clean_stats["total"] = _global_clean_stats.get("total", 0) + 1
+            for k, v in report.to_dict().items():
+                _global_clean_stats[k] = _global_clean_stats.get(k, 0) + v
+
+        return cleaned
     return list(df)
+
+
+def get_clean_stats() -> dict[str, int]:
+    """Return accumulated cleaning statistics since server start."""
+    return dict(_global_clean_stats)
