@@ -19,6 +19,9 @@ from tradingagents.astock.data_sources.eastmoney import (
 from tradingagents.astock.data_sources.sina_sectors import (
     industry_comparison as sina_industry_comparison,
 )
+from tradingagents.astock.execution.momentum_rotation import (
+    run_momentum_rotation,
+)
 
 bp = Blueprint("market_data", __name__)
 
@@ -132,6 +135,42 @@ def stock_blocks() -> tuple[Response, int]:
     try:
         items = concept_blocks(symbol)
         return jsonify({"symbol": symbol, "items": items[:limit], "count": min(len(items), limit)}), 200
+    except Exception as exc:
+        return jsonify({"error": str(exc), "status": 500}), 500
+
+
+# ---------------------------------------------------------------------------
+# POST /api/v1/market/momentum-rotation — 龙头股动量轮动
+# ---------------------------------------------------------------------------
+
+
+@bp.route("/market/momentum-rotation", methods=["POST"])
+def momentum_rotation() -> tuple[Response, int]:
+    """Run leading stock momentum rotation backtest."""
+    body = request.get_json(silent=True) or {}
+    try:
+        result = run_momentum_rotation(
+            start_date=body.get("start_date", "2024-01-01"),
+            end_date=body.get("end_date"),
+            n=int(body.get("n", 20)),
+            k=int(body.get("k", 5)),
+            l=int(body.get("l", 5)),
+        )
+        return jsonify({
+            "total_return": result.total_return,
+            "annualized_return": result.annualized_return,
+            "sharpe_ratio": result.sharpe_ratio,
+            "max_drawdown": result.max_drawdown,
+            "win_rate": result.win_rate,
+            "total_trades": result.total_trades,
+            "benchmark_return": result.benchmark_return,
+            "equal_weight_return": result.equal_weight_return,
+            "periods": result.periods,
+            "trades": result.trades,
+            "stock_selection_freq": result.stock_selection_freq,
+            "dates": result.dates,
+            "params": result.params,
+        }), 200
     except Exception as exc:
         return jsonify({"error": str(exc), "status": 500}), 500
 

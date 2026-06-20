@@ -120,6 +120,11 @@ def kc_chart() -> str:
     return render_template("kc_chart.html", symbol=symbol)
 
 
+@bp.route("/momentum_rotation")
+def momentum_rotation() -> str:
+    return render_template("momentum_rotation.html")
+
+
 # ---------------------------------------------------------------------------
 # Export
 # ---------------------------------------------------------------------------
