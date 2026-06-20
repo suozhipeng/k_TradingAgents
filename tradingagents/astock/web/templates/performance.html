@@ -15,7 +15,9 @@
     </div>
     <div>
       <label class="block text-xs text-gray-400 mb-1">股票代码 Symbol</label>
-      <input type="text" id="pa-symbol" value="600519.SH" class="w-full">
+      <div class="search-wrap">
+        <input type="text" id="pa-symbol" value="600519.SH" class="w-full">
+      </div>
     </div>
     <div>
       <label class="block text-xs text-gray-400 mb-1">开始日期</label>
@@ -256,5 +258,6 @@ function destroyCharts() {
 }
 
 loadStrategies();
+KCDataLoader.setupSearch('pa-symbol', symbol => { loadPerformance() });
 </script>
 {% endblock %}

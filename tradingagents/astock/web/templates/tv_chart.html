@@ -17,7 +17,7 @@
 <div class="tv-topbar">
   <span class="label">📊 TradingView</span>
   <div class="sep"></div>
-  <input type="text" id="tv-symbol-input" value="{{ symbol }}" placeholder="600519.SH">
+  <div class="search-wrap"><input type="text" id="tv-symbol-input" value="{{ symbol }}" placeholder="600519.SH"></div>
   <button onclick="loadTVChart()">加载</button>
   <div class="sep"></div>
   <a href="/research?symbol={{ symbol }}">← 返回 Research</a>
@@ -118,6 +118,9 @@ function loadScript(src) {
     document.head.appendChild(script);
   });
 }
+
+// ── Search Suggestions ──
+KCDataLoader.setupSearch('tv-symbol-input', symbol => { loadTVChart(); });
 
 // Auto-load on page entry
 loadTVChart();

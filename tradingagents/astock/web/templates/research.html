@@ -40,7 +40,7 @@
   <div class="flex flex-wrap gap-3 items-end">
     <div>
       <label class="tv-label">股票代码 Symbol</label>
-      <input type="text" id="symbol-input" placeholder="600519.SH" class="tv-input w-36" value="600519.SH">
+      <div class="search-wrap"><input type="text" id="symbol-input" placeholder="600519.SH" class="tv-input w-36" value="600519.SH"></div>
     </div>
     <button onclick="loadResearch()" class="tv-btn tv-btn-primary">🔍 查询 Research</button>
     <button onclick="refreshKlineForResearch()" class="tv-btn tv-btn-secondary">📥 刷新 K线</button>
@@ -181,6 +181,9 @@ let candlestickSeries = null;
 let volumeSeries = null;
 let currentKlineDays = 5;
 let currentKlineBars = [];
+
+// ── Search Suggestions ──
+KCDataLoader.setupSearch('symbol-input', symbol => { loadResearch(); });
 
 // ── Helpers ──
 function getSymbol() {

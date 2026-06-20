@@ -168,7 +168,9 @@
     <span>卖 <strong id="sym-ask">--</strong></span>
   </div>
   <div class="symbol-search-box">
-    <input class="tv-input" id="symbol-input" placeholder="输入代码 600519.SH" value="600519.SH" spellcheck="false">
+    <div class="search-wrap">
+      <input class="tv-input" id="symbol-input" placeholder="输入代码 600519.SH" value="600519.SH" spellcheck="false">
+    </div>
     <button class="tv-btn tv-btn-primary tv-btn-sm" onclick="changeSymbol()">🔍</button>
   </div>
 </div>
@@ -316,6 +318,9 @@ const { dataLoader: tradeDataLoader, state: tdState } = KCDataLoader.create(API_
     initTradeChart(p);
   },
 });
+
+// ── Search Suggestions ──
+KCDataLoader.setupSearch('symbol-input', symbol => { changeSymbol(); });
 
 function periodToKC(period) {
   const map = {'1m':1,'5m':5,'15m':15,'30m':30,'60m':60,'1d':1440,'1w':10080,'1M':43200};

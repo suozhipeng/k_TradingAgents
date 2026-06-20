@@ -180,6 +180,116 @@ def _aggregate_bars(daily_bars: list[dict[str, Any]], interval: str) -> list[dic
     return sorted(grouped.values(), key=lambda b: b["trade_date"])
 
 
+# ── Stock list (lazy-loaded from mootdx) ──
+_stock_list_cache: list[dict[str, str | tuple[str, str]]] | None = None
+_stock_list_loaded = False
+
+
+def _load_stock_list() -> list[dict[str, str | tuple[str, str]]]:
+    global _stock_list_cache, _stock_list_loaded
+    if _stock_list_loaded:
+        return _stock_list_cache or []
+    try:
+        from mootdx.quotes import Quotes
+        client = Quotes.factory(market="std")
+        df = client.stocks()
+        if df is not None and not df.empty:
+            from pypinyin import lazy_pinyin, Style
+            rows: list[dict[str, str | tuple[str, str]]] = []
+            for _, row in df.iterrows():
+                code = str(row.get("code", "")).strip()
+                name = str(row.get("name", "")).strip()
+                if not code or not name or len(code) > 6:
+                    continue
+                symbol = _code_to_astock(code)
+                nm = name.lower()
+                py = "".join(lazy_pinyin(name, style=Style.NORMAL)).lower()
+                init = "".join(lazy_pinyin(name, style=Style.FIRST_LETTER)).lower()
+                rows.append({"code": code, "name": name, "symbol": symbol,
+                             "pinyin": (py, init)})
+            _stock_list_cache = rows
+            _stock_list_loaded = True
+    except Exception:
+        pass
+    return _stock_list_cache or []
+
+
+@bp.route("/tv/stock-search")
+def tv_stock_search() -> tuple[Response, int]:
+    """Search stocks by code, name, or pinyin."""
+    q = request.args.get("q", "").strip().lower()
+    if not q or len(q) < 1:
+        return jsonify({"items": []}), 200
+    limit = int(request.args.get("limit", 10))
+
+    stocks = _load_stock_list()
+    if not stocks:
+        return jsonify({"items": []}), 200
+
+    # Pinyin conversion for name search
+    try:
+        from pypinyin import lazy_pinyin, Style
+        q_pinyin = "".join(lazy_pinyin(q, style=Style.NORMAL)).lower()
+        q_initials = "".join(lazy_pinyin(q, style=Style.FIRST_LETTER)).lower()
+    except Exception:
+        q_pinyin = ""
+        q_initials = ""
+
+    scored: list[tuple[int, dict]] = []
+    seen_symbols: set[str] = set()
+
+    for s in stocks:
+        sym = s["symbol"]
+        if sym in seen_symbols:
+            continue
+        code = s["code"]
+        name = s["name"]
+        score = 0
+
+        # Exact code match
+        if code == q:
+            score = 100
+        elif code.startswith(q):
+            score = 80
+        # Name exact or prefix
+        elif name.lower() == q:
+            score = 90
+        elif name.lower().startswith(q):
+            score = 70
+        elif q in name.lower():
+            score = 50
+        # Pinyin full match
+        elif q_pinyin:
+            py, init = s["pinyin"]  # pre-computed in _load_stock_list
+            if py == q_pinyin:
+                score = 85
+            elif py.startswith(q_pinyin):
+                score = 65
+            elif q_pinyin in py:
+                score = 45
+            elif init == q_initials:
+                score = 60
+            elif init.startswith(q_initials):
+                score = 40
+            elif q_initials in init:
+                score = 20
+
+        if score >= 20:
+            board_info = _stock_board(sym)
+            scored.append((score, {
+                "symbol": sym,
+                "code": code,
+                "name": name,
+                "exchange": board_info["exchange"],
+                "board": board_info["board"],
+            }))
+            seen_symbols.add(sym)
+
+    scored.sort(key=lambda x: -x[0])
+    items = [item for _, item in scored[:limit]]
+    return jsonify({"items": items}), 200
+
+
 @bp.route("/tv/stock-info")
 def tv_stock_info() -> tuple[Response, int]:
     """Return A-share stock info: name, exchange, board."""

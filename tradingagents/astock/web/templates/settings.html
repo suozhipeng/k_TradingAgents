@@ -52,7 +52,9 @@
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
       <div class="space-y-2">
         <label class="block text-xs text-gray-400">股票代码 Symbol</label>
-        <input type="text" id="refresh-symbol" value="600519.SH" class="w-full" placeholder="600519.SH">
+        <div class="search-wrap">
+          <input type="text" id="refresh-symbol" value="600519.SH" class="w-full" placeholder="600519.SH">
+        </div>
       </div>
       <div class="space-y-2">
         <label class="block text-xs text-gray-400">开始日期 Start</label>
@@ -185,5 +187,6 @@ async function refreshValuation() {
 // Auto-load on page load
 loadSettings();
 refreshCacheStatus();
+KCDataLoader.setupSearch('refresh-symbol', symbol => { refreshData() });
 </script>
 {% endblock %}

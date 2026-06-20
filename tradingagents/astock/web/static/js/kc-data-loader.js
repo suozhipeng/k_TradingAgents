@@ -203,4 +203,75 @@ const KCDataLoader = {
 
     return { dataLoader, state };
   },
+
+  /**
+   * Wire up search suggestions on a stock input field.
+   * @param {string} inputId - The input element id
+   * @param {function} onSelect - Called with (symbol) when user selects a suggestion
+   */
+  setupSearch(inputId, onSelect) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    const wrap = document.createElement('div');
+    wrap.className = 'search-wrap';
+    input.parentNode.insertBefore(wrap, input);
+    wrap.appendChild(input);
+    const dropdown = document.createElement('div');
+    dropdown.className = 'search-suggestions';
+    wrap.appendChild(dropdown);
+
+    let timer = null;
+    let activeIdx = -1;
+
+    input.addEventListener('input', () => {
+      clearTimeout(timer);
+      const q = input.value.trim();
+      if (q.length < 1) { dropdown.style.display = 'none'; return; }
+      timer = setTimeout(async () => {
+        try {
+          const res = await fetch(`/api/v1/tv/stock-search?q=${encodeURIComponent(q)}&limit=8`);
+          const data = await res.json();
+          const items = data.items || [];
+          if (items.length === 0) { dropdown.style.display = 'none'; return; }
+          dropdown.innerHTML = items.map((item, i) =>
+            `<div class="item" data-symbol="${item.symbol}">
+              <span class="name">${item.name}</span>
+              <span class="code">${item.code}</span>
+              <span class="meta">${item.exchange}/${item.board}</span>
+            </div>`
+          ).join('');
+          dropdown.style.display = 'block';
+          activeIdx = -1;
+        } catch { dropdown.style.display = 'none'; }
+      }, 200);
+    });
+
+    input.addEventListener('keydown', e => {
+      const items = dropdown.querySelectorAll('.item');
+      if (e.key === 'ArrowDown') {
+        e.preventDefault(); activeIdx = Math.min(activeIdx + 1, items.length - 1);
+        items.forEach((el, i) => el.classList.toggle('active', i === activeIdx));
+        if (items[activeIdx]) items[activeIdx].scrollIntoView({ block: 'nearest' });
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault(); activeIdx = Math.max(activeIdx - 1, 0);
+        items.forEach((el, i) => el.classList.toggle('active', i === activeIdx));
+        if (items[activeIdx]) items[activeIdx].scrollIntoView({ block: 'nearest' });
+      } else if (e.key === 'Enter' && activeIdx >= 0 && items[activeIdx]) {
+        e.preventDefault(); items[activeIdx].click();
+      }
+    });
+
+    dropdown.addEventListener('click', e => {
+      const item = e.target.closest('.item');
+      if (!item) return;
+      const symbol = item.dataset.symbol;
+      input.value = symbol;
+      dropdown.style.display = 'none';
+      if (onSelect) onSelect(symbol);
+    });
+
+    document.addEventListener('click', e => {
+      if (!e.target.closest('.search-wrap')) dropdown.style.display = 'none';
+    });
+  },
 };

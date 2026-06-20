@@ -32,8 +32,10 @@
   <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
     <div>
       <label class="block text-xs text-gray-400 mb-1">股票代码 Symbol</label>
-      <input type="text" id="rpt-symbol" placeholder="600519.SH" value="600519.SH"
-        class="w-full bg-dark-bg text-gray-200 px-3 py-2 rounded border border-dark-border text-sm focus:border-tv-blue outline-none">
+      <div class="search-wrap">
+        <input type="text" id="rpt-symbol" placeholder="600519.SH" value="600519.SH"
+          class="w-full bg-dark-bg text-gray-200 px-3 py-2 rounded border border-dark-border text-sm focus:border-tv-blue outline-none">
+      </div>
     </div>
     <div>
       <label class="block text-xs text-gray-400 mb-1">报告类型 Type</label>
@@ -354,5 +356,6 @@ function exportJson() {
 }
 
 loadReports();
+KCDataLoader.setupSearch('rpt-symbol', symbol => { loadReport() });
 </script>
 {% endblock %}
