@@ -125,6 +125,11 @@ def momentum_rotation() -> str:
     return render_template("momentum_rotation.html")
 
 
+@bp.route("/ai_agent")
+def ai_agent() -> str:
+    return render_template("ai_agent.html")
+
+
 # ---------------------------------------------------------------------------
 # Export
 # ---------------------------------------------------------------------------

@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+{% block title %}AI Agent — AStock WebUI{% endblock %}
+{% block content %}
+<h2 class="tv-section-title">🤖 AI 模型分析 AI Agent Analysis</h2>
+
+<div class="tv-grid-2 mb-6">
+  <!-- Input Panel -->
+  <div class="tv-card">
+    <h3 class="tv-card-title">⚙️ 分析设置</h3>
+    <div class="space-y-3">
+      <div>
+        <label class="tv-label">股票代码 Symbol</label>
+        <div class="search-wrap">
+          <input type="text" id="ai-symbol" value="600519.SH" class="tv-input w-full" placeholder="600519.SH">
+        </div>
+        <div id="ai-stock-info" class="text-xs tv-muted mt-1" style="min-height:1.2em;"></div>
+      </div>
+      <div>
+        <label class="tv-label">分析类型</label>
+        <select id="ai-type" class="tv-select w-full">
+          <option value="full">全面分析 Full</option>
+          <option value="technical">技术面 Technical</option>
+          <option value="fundamental">基本面 Fundamental</option>
+          <option value="news">新闻情绪 News</option>
+        </select>
+      </div>
+      <button onclick="runAIAnalysis()" class="tv-btn tv-btn-primary w-full">🤖 运行 AI 分析</button>
+      <div id="ai-status" class="text-xs tv-muted mt-2"></div>
+    </div>
+
+    <div class="tv-divider"></div>
+
+    <div class="tv-card p-3" style="background:#131722;">
+      <h4 class="tv-label" style="font-size:12px;margin-bottom:6px;">💡 说明</h4>
+      <ul class="text-xs tv-muted space-y-1" style="list-style:disc;padding-left:14px;">
+        <li>AI 分析需要配置 LLM 提供商（设置环境变量）</li>
+        <li>支持: OpenAI / Anthropic / Google / DeepSeek 等</li>
+        <li>未配置时仅展示基础市场数据上下文</li>
+        <li>环境变量: <code class="font-mono" style="color:#2962FF;">TRADINGAGENTS_LLM_PROVIDER</code></li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Context Data -->
+  <div class="tv-card">
+    <h3 class="tv-card-title">📊 市场数据上下文 Market Context</h3>
+    <div id="ai-context" class="tv-muted text-sm" style="min-height:200px;">
+      <p>输入股票代码后点击"运行 AI 分析"。</p>
+    </div>
+  </div>
+</div>
+
+<!-- LLM Analysis Result -->
+<div class="tv-card mb-6" id="ai-result-card" style="display:none;">
+  <div class="flex items-center justify-between mb-3">
+    <h3 class="tv-card-title" style="margin:0;">🧠 AI 分析结果</h3>
+    <button onclick="copyAnalysis()" class="tv-btn tv-btn-sm tv-btn-secondary">📋 复制</button>
+  </div>
+  <div id="ai-result" class="text-sm" style="color:#d1d4dc;white-space:pre-wrap;line-height:1.7;font-family:'JetBrains Mono',monospace;font-size:12px;"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ── Stock Info ──
+async function updateStockInfo(symbol) {
+  const el = document.getElementById('ai-stock-info');
+  if (!symbol) { el.textContent = ''; return; }
+  try {
+    const res = await fetch(`/api/v1/tv/stock-info?symbol=${encodeURIComponent(symbol)}`);
+    if (!res.ok) { el.textContent = ''; return; }
+    const info = await res.json();
+    if (!info || !info.name) { el.textContent = ''; return; }
+    const parts = [info.exchange, info.board, info.industry].filter(Boolean);
+    if (info.indices && info.indices.length) parts.push(info.indices.join('/'));
+    el.textContent = `${info.name} (${info.code}) ${parts.join('/')}`;
+  } catch (e) { el.textContent = ''; }
+}
+
+KCDataLoader.setupSearch('ai-symbol', symbol => updateStockInfo(symbol));
+document.getElementById('ai-symbol').addEventListener('input', (function() {
+  let timer;
+  return function() {
+    clearTimeout(timer);
+    timer = setTimeout(() => updateStockInfo(this.value.trim()), 300);
+  };
+})());
+updateStockInfo('600519.SH');
+
+// ── AI Analysis ──
+async function runAIAnalysis() {
+  let symbol = document.getElementById('ai-symbol').value.trim();
+  if (!symbol.includes('.')) symbol += '.SH';
+  const type = document.getElementById('ai-type').value;
+  const status = document.getElementById('ai-status');
+  const ctxEl = document.getElementById('ai-context');
+  const resultEl = document.getElementById('ai-result');
+  const cardEl = document.getElementById('ai-result-card');
+
+  status.textContent = '⏳ 分析中...';
+  ctxEl.innerHTML = '<p class="tv-muted">正在获取数据...</p>';
+  cardEl.style.display = 'none';
+
+  try {
+    const res = await fetch('/api/v1/ai/analyze', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ symbol, analysis_type: type }),
+    });
+    const data = await res.json();
+
+    if (data.error) {
+      status.textContent = '❌ ' + data.error;
+      return;
+    }
+
+    // ── Context Data ──
+    const ctx = data.context || {};
+    const info = ctx.stock_info || {};
+    const summary = ctx.market_summary || {};
+    const bars = (ctx.kline_latest || {}).bars || [];
+
+    let ctxHtml = '';
+    if (info.name) {
+      const p = [info.exchange, info.board, info.industry].filter(Boolean);
+      if (info.indices && info.indices.length) p.push(info.indices.join('/'));
+      ctxHtml += `<div class="mb-3"><strong class="tv-text">${info.name}</strong> <span class="tv-muted">(${info.code})</span>`;
+      ctxHtml += `<br><span class="tv-label">${p.join(' / ')}</span>`;
+      if (info.listing_date) ctxHtml += `<br><span class="tv-label">上市日期: ${info.listing_date}</span>`;
+      ctxHtml += '</div>';
+    }
+
+    if (bars.length) {
+      const last = bars[bars.length - 1];
+      ctxHtml += '<div class="mb-3"><table class="tv-table" style="font-size:11px;">' +
+        '<thead><tr><th>日期</th><th class="text-right">收盘</th><th class="text-right">涨跌幅</th><th class="text-right">成交量</th></tr></thead><tbody>' +
+        bars.slice(-5).reverse().map(b => {
+          const chg = b.change_pct || 0;
+          return `<tr><td>${b.trade_date || b.date || ''}</td>
+            <td class="text-right font-mono">${(b.close || 0).toFixed(2)}</td>
+            <td class="text-right font-mono ${chg >= 0 ? 'tv-up' : 'tv-down'}">${chg >= 0 ? '+' : ''}${chg.toFixed(2)}%</td>
+            <td class="text-right font-mono">${(b.volume || 0) > 10000 ? ((b.volume / 10000).toFixed(0) + '万') : (b.volume || 0)}</td></tr>`;
+        }).join('') + '</tbody></table></div>';
+    }
+
+    if (Object.keys(summary).length) {
+      ctxHtml += '<div class="tv-label">市场摘要</div>';
+      ctxHtml += '<div class="text-xs tv-muted">' + JSON.stringify(summary).substring(0, 300) + '</div>';
+    }
+
+    ctxEl.innerHTML = ctxHtml || '<p class="tv-muted">暂无数据</p>';
+
+    // ── LLM Analysis ──
+    if (data.llm_analysis) {
+      resultEl.textContent = data.llm_analysis;
+      cardEl.style.display = 'block';
+      status.textContent = '✅ 分析完成';
+    } else {
+      status.textContent = '⚠️ 无 AI 分析结果（LLM 未配置）';
+    }
+
+  } catch (e) {
+    status.textContent = '❌ ' + e.message;
+    ctxEl.innerHTML = `<p class="tv-down">请求失败: ${e.message}</p>`;
+  }
+}
+
+function copyAnalysis() {
+  const text = document.getElementById('ai-result').textContent;
+  if (!text) return;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = event.target;
+    btn.textContent = '✅ 已复制';
+    setTimeout(() => btn.textContent = '📋 复制', 2000);
+  });
+}
+</script>
+{% endblock %}
