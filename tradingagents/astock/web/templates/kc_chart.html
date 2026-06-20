@@ -36,6 +36,7 @@
   <button class="kc-btn" data-period="1M" onclick="setPeriod('1M')">月线</button>
   <div class="sep"></div>
   <span class="label">指标</span>
+  <button class="kc-btn active" id="ov-toggle" onclick="toggleOverlayMode()" title="叠加主图/底部视图">📌 主图</button>
   <button class="kc-btn" onclick="toggleIndicator('MA')">MA(5/10/20/30/60)</button>
   <button class="kc-btn" onclick="toggleIndicator('EMA')">EMA</button>
   <button class="kc-btn" onclick="toggleIndicator('BOLL')">BOLL</button>
@@ -70,6 +71,7 @@
 const API_BASE = '/api/v1/tv';
 let chart = null;
 let indicators = {};
+let _overlayMode = true; // true=主图叠加, false=底部视图
 
 function getSymbol() {
   return document.getElementById('kc-symbol').value.trim() || '600519.SH';
@@ -219,10 +221,10 @@ function loadKC() {
   // Default MA5/10/20/30/60 on K-line (overlaid on candles)
   indicators = {};
   setTimeout(() => {
-    // Create MA directly on the candle_pane (main chart pane)
+    // Create MA directly on candle chart (always stacked)
     chart.createIndicator(
       { name: 'MA', calcParams: [5, 10, 20, 30, 60] },
-      { pane: { id: 'candle_pane' } }
+      { isStack: true }
     );
     indicators['MA'] = true;
     // Highlight MA button
@@ -240,6 +242,26 @@ function setPeriod(period) {
   chart.setPeriod(minutes);
   document.querySelectorAll('[data-period]').forEach(el => el.classList.toggle('active', el.dataset.period === period));
   document.getElementById('kc-status').textContent = period;
+  // Remove all indicators except MA, then re-add MA if it was active
+  const hadMA = indicators['MA'];
+  Object.keys(indicators).forEach(name => {
+    if (name !== 'MA') {
+      chart.removeIndicator({ name });
+      delete indicators[name];
+      const btn = document.querySelector(`.kc-btn[onclick*="toggleIndicator('${name}')"]`);
+      if (btn) btn.classList.remove('active');
+    }
+  });
+  // Re-create MA if it was active (it may have been cleared by period change)
+  if (hadMA) {
+    const existing = chart.getIndicators().some(i => i.name === 'MA');
+    if (!existing) {
+      chart.createIndicator(
+        { name: 'MA', calcParams: [5, 10, 20, 30, 60] },
+        { isStack: true }
+      );
+    }
+  }
 }
 
 // ── Indicators ──
@@ -252,12 +274,15 @@ function toggleIndicator(name) {
     if (btn) btn.classList.remove('active');
   } else {
     if (name === 'MA') {
+      // MA always goes to main pane, stacked on candles
       chart.createIndicator(
         { name: 'MA', calcParams: [5, 10, 20, 30, 60] },
-        { pane: { id: 'candle_pane' } }
+        { isStack: true }
       );
     } else {
-      chart.createIndicator(name, { pane: { id: 'candle_pane' } });
+      // Other indicators: overlay mode controls placement
+      const opts = _overlayMode ? { isStack: true } : {};
+      chart.createIndicator(name, opts);
     }
     indicators[name] = true;
     if (btn) btn.classList.add('active');
@@ -266,6 +291,16 @@ function toggleIndicator(name) {
 
 // ── Drawing Tools ──
 let currentDrawTool = '';
+
+function toggleOverlayMode() {
+  _overlayMode = !_overlayMode;
+  const btn = document.getElementById('ov-toggle');
+  if (btn) {
+    btn.classList.toggle('active', _overlayMode);
+    btn.title = _overlayMode ? '叠加到主图' : '添加到底部视图';
+  }
+}
+
 function setDrawTool(tool) {
   if (!chart) return;
   // Clear all draw tool active states
