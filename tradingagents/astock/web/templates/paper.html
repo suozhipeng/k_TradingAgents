@@ -1,290 +1,75 @@
 {% extends "base.html" %}
 {% block title %}Paper Trading — AStock WebUI{% endblock %}
-{% block head_extra %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
-{% endblock %}
 {% block content %}
-<h2 class="text-2xl font-bold text-white mb-6">💼 模拟盘 Paper Trading</h2>
+<h2 class="tv-section-title">💼 模拟盘 Paper Trading</h2>
 
-<!-- Account State Cards -->
-<div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6" id="paper-stats">
-  <div class="card">
-    <div class="stat-label">总资产 Total</div>
-    <div class="stat-value text-emerald-400" id="p-total">--</div>
+<div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+  <div class="card flex items-center justify-center" style="min-height:100px;">
+    <div class="text-center">
+      <div class="text-2xl mb-1">🚧</div>
+      <div class="text-xs text-gray-500">开发中</div>
+    </div>
   </div>
-  <div class="card">
-    <div class="stat-label">现金 Cash</div>
-    <div class="stat-value" id="p-cash">--</div>
+  <div class="card flex items-center justify-center" style="min-height:100px;">
+    <div class="text-center">
+      <div class="text-2xl mb-1">🚧</div>
+      <div class="text-xs text-gray-500">开发中</div>
+    </div>
   </div>
-  <div class="card">
-    <div class="stat-label">持仓市值 Holdings</div>
-    <div class="stat-value text-sky-400" id="p-holdings">--</div>
+  <div class="card flex items-center justify-center" style="min-height:100px;">
+    <div class="text-center">
+      <div class="text-2xl mb-1">🚧</div>
+      <div class="text-xs text-gray-500">开发中</div>
+    </div>
   </div>
-  <div class="card">
-    <div class="stat-label">总收益 Return</div>
-    <div class="stat-value" id="p-return">--</div>
+  <div class="card flex items-center justify-center" style="min-height:100px;">
+    <div class="text-center">
+      <div class="text-2xl mb-1">🚧</div>
+      <div class="text-xs text-gray-500">开发中</div>
+    </div>
   </div>
 </div>
 
-<!-- Charts Row: P&L Curve + Cumulative Return -->
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-  <div class="card">
-    <h3 class="text-lg font-semibold text-white mb-4">📈 P&L 净值曲线 Equity Curve</h3>
-    <canvas id="chart-paper-equity" height="220"></canvas>
-    <p id="paper-equity-empty" class="text-xs text-gray-500 mt-2 hidden">暂无模拟盘交易记录。</p>
+<div class="tv-grid-2 mb-6">
+  <div class="card flex items-center justify-center" style="min-height:200px;">
+    <div class="text-center">
+      <div class="text-4xl mb-2">🚧</div>
+      <div class="text-sm text-gray-500">P&L 净值曲线 · 开发中</div>
+    </div>
   </div>
-  <div class="card">
-    <h3 class="text-lg font-semibold text-white mb-4">📊 累积收益 Cumulative Return</h3>
-    <canvas id="chart-paper-cumulative" height="220"></canvas>
-    <p id="paper-cum-empty" class="text-xs text-gray-500 mt-2 hidden">暂无数据。</p>
-  </div>
-</div>
-
-<!-- Position P&L Bar Chart + Positions Table -->
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-  <div class="card">
-    <h3 class="text-lg font-semibold text-white mb-4">📊 持仓收益 Position P&amp;L</h3>
-    <canvas id="chart-position-pnl" height="220"></canvas>
-    <p id="position-pnl-empty" class="text-xs text-gray-500 mt-2 hidden">暂无持仓。</p>
-  </div>
-  <div class="card">
-    <h3 class="text-lg font-semibold text-white mb-4">📋 持仓详情 Positions</h3>
-    <div id="paper-positions" class="text-gray-400 text-sm overflow-x-auto">Loading...</div>
+  <div class="card flex items-center justify-center" style="min-height:200px;">
+    <div class="text-center">
+      <div class="text-4xl mb-2">🚧</div>
+      <div class="text-sm text-gray-500">累积收益 · 开发中</div>
+    </div>
   </div>
 </div>
 
-<!-- Recent Trades -->
-<div class="card mb-6">
-  <h3 class="text-lg font-semibold text-white mb-4">📋 成交记录 Trades</h3>
-  <div id="paper-trades" class="text-gray-400 text-sm overflow-x-auto">Loading...</div>
+<div class="tv-grid-2 mb-6">
+  <div class="card flex items-center justify-center" style="min-height:200px;">
+    <div class="text-center">
+      <div class="text-4xl mb-2">🚧</div>
+      <div class="text-sm text-gray-500">持仓收益 · 开发中</div>
+    </div>
+  </div>
+  <div class="card flex items-center justify-center" style="min-height:200px;">
+    <div class="text-center">
+      <div class="text-4xl mb-2">🚧</div>
+      <div class="text-sm text-gray-500">持仓详情 · 开发中</div>
+    </div>
+  </div>
+</div>
+
+<div class="card mb-6 flex items-center justify-center" style="min-height:120px;">
+  <div class="text-center">
+    <div class="text-4xl mb-2">🚧</div>
+    <div class="text-sm text-gray-500">成交记录 · 开发中</div>
+  </div>
 </div>
 {% endblock %}
-
 {% block scripts %}
 <script>
-const PIE_COLORS = ['#818cf8','#34d399','#fbbf24','#f87171','#60a5fa','#c084fc','#fb923c','#2dd4bf','#a78bfa','#e879f9'];
-let chartInstances = {};
-
-async function loadPaper() {
-  try {
-    const [stateRes, tradesRes, overviewRes] = await Promise.all([
-      fetch('/api/v1/paper/state'),
-      fetch('/api/v1/paper/trades?limit=50'),
-      fetch('/api/v1/dashboard/overview'),
-    ]);
-    const state = await stateRes.json();
-    const trades = await tradesRes.json();
-    const overview = await overviewRes.json();
-
-    // Account State
-    const totalVal = state?.total_value ?? 0;
-    const cash = state?.cash ?? 0;
-    const posValue = state?.position_value ?? (totalVal - cash);
-    const retPct = state?.pnl?.return_pct || 0;
-
-    document.getElementById('p-total').textContent = '¥' + totalVal.toFixed(2);
-    document.getElementById('p-cash').textContent = '¥' + cash.toFixed(2);
-    document.getElementById('p-holdings').textContent = '¥' + posValue.toFixed(2);
-    const retEl = document.getElementById('p-return');
-    retEl.textContent = (retPct * 100).toFixed(2) + '%';
-    retEl.className = 'stat-value ' + (retPct >= 0 ? 'text-emerald-400' : 'text-red-400');
-
-    // P&L Equity Curve
-    const equityCurve = overview?.paper_equity_curve || [];
-    renderEquityCurve(equityCurve);
-
-    // Cumulative Return
-    renderCumulativeReturn(equityCurve);
-
-    // Position P&L Bar
-    renderPositionPnl(overview?.paper_positions || []);
-
-    // Positions Table
-    renderPositions(state);
-
-    // Trades Table
-    renderTrades(trades);
-
-  } catch (e) {
-    ['paper-stats', 'paper-positions', 'paper-trades'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.innerHTML = '<p class="text-red-400">Failed to load.</p>';
-    });
-  }
-}
-
-function renderEquityCurve(equityCurve) {
-  if (!equityCurve || equityCurve.length < 2) {
-    document.getElementById('paper-equity-empty').classList.remove('hidden');
-    return;
-  }
-  const labels = equityCurve.map(p => p.period?.substring(0, 7) || '');
-  const values = equityCurve.map(p => p.value);
-
-  const ctx = document.getElementById('chart-paper-equity').getContext('2d');
-  chartInstances.equity = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels,
-      datasets: [{
-        label: '净值',
-        data: values,
-        borderColor: '#818cf8',
-        backgroundColor: (ctx) => {
-          const g = ctx.chart.ctx.createLinearGradient(0, 0, 0, 220);
-          g.addColorStop(0, 'rgba(129,140,248,0.3)');
-          g.addColorStop(1, 'rgba(129,140,248,0.02)');
-          return g;
-        },
-        fill: true, tension: 0.3, pointRadius: 0, borderWidth: 2,
-      }]
-    },
-    options: chartOpts('净值 ¥'),
-  });
-}
-
-function renderCumulativeReturn(equityCurve) {
-  if (!equityCurve || equityCurve.length < 2) {
-    document.getElementById('paper-cum-empty').classList.remove('hidden');
-    return;
-  }
-  const startVal = equityCurve[0].value || 1;
-  const labels = equityCurve.map(p => p.period?.substring(0, 7) || '');
-  const pctChange = equityCurve.map(p => ((p.value - startVal) / startVal * 100));
-
-  const ctx = document.getElementById('chart-paper-cumulative').getContext('2d');
-  chartInstances.cumulative = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels,
-      datasets: [{
-        label: '累积收益 %',
-        data: pctChange,
-        borderColor: '#34d399',
-        backgroundColor: (ctx) => {
-          const g = ctx.chart.ctx.createLinearGradient(0, 0, 0, 220);
-          g.addColorStop(0, 'rgba(52,211,153,0.3)');
-          g.addColorStop(1, 'rgba(52,211,153,0.02)');
-          return g;
-        },
-        fill: true, tension: 0.3, pointRadius: 0, borderWidth: 2,
-      }]
-    },
-    options: chartOpts('收益 %'),
-  });
-}
-
-function renderPositionPnl(positions) {
-  if (!positions || positions.length === 0) {
-    document.getElementById('position-pnl-empty').classList.remove('hidden');
-    return;
-  }
-  const labels = positions.map(p => p.symbol || '?');
-  const pnlValues = positions.map(p => p.pnl || 0);
-  const colors = pnlValues.map(v => v >= 0 ? 'rgba(52,211,153,0.7)' : 'rgba(248,113,113,0.7)');
-  const borderColors = pnlValues.map(v => v >= 0 ? '#34d399' : '#f87171');
-
-  const ctx = document.getElementById('chart-position-pnl').getContext('2d');
-  chartInstances.positionPnl = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels,
-      datasets: [{
-        label: 'P&L',
-        data: pnlValues,
-        backgroundColor: colors,
-        borderColor: borderColors,
-        borderWidth: 1,
-      }]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: true,
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          backgroundColor: '#1e293b', titleColor: '#fff', bodyColor: '#d1d5db',
-          callbacks: { label: ctx => '¥' + ctx.parsed.y.toLocaleString() }
-        },
-      },
-      scales: {
-        x: { ticks: { color: '#6b7280' }, grid: { display: false } },
-        y: { ticks: { color: '#6b7280', callback: v => '¥' + v.toLocaleString() }, grid: { color: '#1e293b' } },
-      },
-    },
-  });
-}
-
-function renderPositions(state) {
-  const el = document.getElementById('paper-positions');
-  const positions = state?.positions || [];
-  if (positions.length === 0) {
-    el.innerHTML = '<p class="text-gray-500">No open positions.</p>';
-    return;
-  }
-  el.innerHTML = '<table><thead><tr><th>Symbol</th><th class="text-right">数量</th><th class="text-right">成本</th><th class="text-right">现价</th><th class="text-right">市值</th><th class="text-right">盈亏</th></tr></thead><tbody>' +
-    positions.map(p => {
-      const qty = p.quantity || p.shares || 0;
-      const cost = p.avg_cost || 0;
-      const price = p.current_price || 0;
-      const val = qty * price;
-      const pnl = p.pnl || 0;
-      return `<tr>
-        <td class="text-gray-300 font-medium">${p.symbol}</td>
-        <td class="text-right">${qty}</td>
-        <td class="text-right">¥${cost.toFixed(2)}</td>
-        <td class="text-right">¥${price.toFixed(2)}</td>
-        <td class="text-right">¥${val.toLocaleString()}</td>
-        <td class="text-right ${pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}">${pnl >= 0 ? '+' : ''}¥${pnl.toFixed(2)}</td>
-      </tr>`;
-    }).join('') + '</tbody></table>';
-}
-
-function renderTrades(trades) {
-  const el = document.getElementById('paper-trades');
-  const list = trades?.trades || [];
-  if (list.length === 0) {
-    el.innerHTML = '<p class="text-gray-500">No trades yet.</p>';
-    return;
-  }
-  el.innerHTML = '<table><thead><tr><th>时间</th><th>Symbol</th><th>方向</th><th class="text-right">价格</th><th class="text-right">数量</th><th class="text-right">金额</th></tr></thead><tbody>' +
-    list.slice(0, 50).map(t => {
-      const side = t.side || t.direction || '';
-      const price = t.price ?? 0;
-      const qty = t.quantity ?? t.shares ?? 0;
-      const amount = price * qty;
-      return `<tr>
-        <td class="text-gray-300 text-xs">${t.trade_date || t.time || ''}</td>
-        <td class="text-gray-300">${t.symbol}</td>
-        <td><span class="badge ${side === 'buy' ? 'badge-success' : 'badge-error'}">${side}</span></td>
-        <td class="text-right">¥${price.toFixed(2)}</td>
-        <td class="text-right">${qty}</td>
-        <td class="text-right text-gray-300">¥${amount.toLocaleString()}</td>
-      </tr>`;
-    }).join('') + '</tbody></table>';
-}
-
-function chartOpts(yLabel) {
-  return {
-    responsive: true, maintainAspectRatio: true,
-    plugins: {
-      legend: { labels: { color: '#9ca3af', boxWidth: 12, padding: 12 } },
-      tooltip: { backgroundColor: '#1e293b', titleColor: '#fff', bodyColor: '#d1d5db' },
-    },
-    scales: {
-      x: { ticks: { color: '#6b7280', maxTicksLimit: 10, maxRotation: 0 }, grid: { display: false } },
-      y: {
-        ticks: { color: '#6b7280', callback: v => yLabel === '收益 %' ? v.toFixed(1) + '%' : '¥' + v.toLocaleString() },
-        grid: { color: '#1e293b' },
-      },
-    },
-  };
-}
-
-function destroyCharts() {
-  Object.values(chartInstances).forEach(c => { try { c.destroy(); } catch(e) {} });
-  chartInstances = {};
-}
-
-loadPaper();
+// No-op — 模拟盘功能开发中
+console.log('Paper trading: under development');
 </script>
 {% endblock %}
