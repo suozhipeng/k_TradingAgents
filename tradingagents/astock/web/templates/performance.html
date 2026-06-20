@@ -93,7 +93,8 @@ async function loadStrategies() {
 
 async function runAnalysis() {
   const strategy = document.getElementById('pa-strategy').value;
-  const symbol = document.getElementById('pa-symbol').value.trim();
+  let symbol = document.getElementById('pa-symbol').value.trim();
+  if (!symbol.includes('.')) symbol += '.SH';
   const start = document.getElementById('pa-start').value.trim();
   const end = document.getElementById('pa-end').value.trim();
   const status = document.getElementById('pa-status');

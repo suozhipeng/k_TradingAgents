@@ -111,7 +111,8 @@ async function loadStrategies() {
 
 async function runOptimization() {
   const strategy = document.getElementById('opt-strategy').value;
-  const symbol = document.getElementById('opt-symbol').value.trim();
+  let symbol = document.getElementById('opt-symbol').value.trim();
+  if (!symbol.includes('.')) symbol += '.SH';
   const start = document.getElementById('opt-start').value.trim();
   const end = document.getElementById('opt-end').value.trim();
   const topN = parseInt(document.getElementById('opt-topn').value) || 5;

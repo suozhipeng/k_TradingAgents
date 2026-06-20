@@ -140,7 +140,8 @@ async function clearCache() {
 // --- Data Refresh ---
 async function refreshKline() {
   const el = document.getElementById('refresh-status');
-  const symbol = document.getElementById('refresh-symbol').value.trim();
+  let symbol = document.getElementById('refresh-symbol').value.trim();
+  if (!symbol.includes('.')) symbol += '.SH';
   const start = document.getElementById('refresh-start').value.trim() || undefined;
   const end = document.getElementById('refresh-end').value.trim() || undefined;
   if (!symbol) { el.textContent = '❌ 请输入股票代码'; return; }
@@ -164,7 +165,8 @@ async function refreshKline() {
 
 async function refreshValuation() {
   const el = document.getElementById('refresh-status');
-  const symbol = document.getElementById('refresh-symbol').value.trim();
+  let symbol = document.getElementById('refresh-symbol').value.trim();
+  if (!symbol.includes('.')) symbol += '.SH';
   if (!symbol) { el.textContent = '❌ 请输入股票代码'; return; }
   el.textContent = '⏳ 正在拉取估值数据...';
   try {

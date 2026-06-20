@@ -187,7 +187,9 @@ KCDataLoader.setupSearch('symbol-input', symbol => { loadResearch(); });
 
 // ── Helpers ──
 function getSymbol() {
-  return document.getElementById('symbol-input').value.trim() || '600519.SH';
+  let s = document.getElementById('symbol-input').value.trim() || '600519.SH';
+  if (!s.includes('.')) s += '.SH';
+  return s;
 }
 
 function markResearchQueryEdited() {

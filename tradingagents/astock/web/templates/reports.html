@@ -200,7 +200,8 @@ async function loadReports() {
 }
 
 async function generateReport() {
-  const symbol = document.getElementById('rpt-symbol').value.trim() || '600519.SH';
+  let symbol = document.getElementById('rpt-symbol').value.trim() || '600519.SH';
+  if (!symbol.includes('.')) symbol += '.SH';
   const rptType = document.getElementById('rpt-type').value;
   const period = document.getElementById('rpt-period').value;
   const status = document.getElementById('rpt-status');
@@ -321,7 +322,8 @@ async function showReportDetail(symbol) {
 }
 
 async function downloadPptx() {
-  const symbol = document.getElementById('rpt-symbol').value.trim() || '600519.SH';
+  let symbol = document.getElementById('rpt-symbol').value.trim() || '600519.SH';
+  if (!symbol.includes('.')) symbol += '.SH';
   const status = document.getElementById('rpt-status');
   status.textContent = '⏳ 下载 PPTX...';
 

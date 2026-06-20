@@ -33,7 +33,9 @@
 const TV_CHARTING_LIB_PATH = '{{ url_for("web.static", filename="tv/charting_library") }}';
 
 function getSymbol() {
-  return document.getElementById('tv-symbol-input').value.trim() || '600519.SH';
+  let s = document.getElementById('tv-symbol-input').value.trim() || '600519.SH';
+  if (!s.includes('.')) s += '.SH';
+  return s;
 }
 
 async function loadTVChart() {

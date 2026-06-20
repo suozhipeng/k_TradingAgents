@@ -56,7 +56,8 @@
 KCDataLoader.setupSearch('bt-symbol', symbol => { runBacktest(); });
 
 async function runBacktest() {
-  const symbol = document.getElementById('bt-symbol').value.trim();
+  let symbol = document.getElementById('bt-symbol').value.trim();
+  if (!symbol.includes('.')) symbol += '.SH';
   const strategy = document.getElementById('bt-strategy').value;
   const startDate = document.getElementById('bt-start').value.trim();
   const endDate = document.getElementById('bt-end').value.trim();

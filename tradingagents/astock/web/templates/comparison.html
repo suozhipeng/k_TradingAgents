@@ -124,7 +124,8 @@ function selectAll(checked) {
 }
 
 async function runComparison() {
-  const symbol = document.getElementById('cmp-symbol').value.trim();
+  let symbol = document.getElementById('cmp-symbol').value.trim();
+  if (!symbol.includes('.')) symbol += '.SH';
   const start = document.getElementById('cmp-start').value.trim();
   const end = document.getElementById('cmp-end').value.trim();
   const useMock = document.getElementById('cmp-mock').checked;
