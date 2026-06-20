@@ -89,7 +89,9 @@ function periodToTV(period) {
 }
 
 // ── Data Loader ──
+let _loadTimer = null;
 const _barCache = {}; // key: `${symbol}_${period}`
+let _fetchController = null; // AbortController for in-flight requests
 const dataLoader = {
   async getBars(params) {
     const { symbol, period, timestamp, callback, type } = params;
@@ -100,24 +102,28 @@ const dataLoader = {
     // Only fetch what we need based on load type
     let from, to;
     if (type === 'backward' && timestamp) {
-      // Scrolling left → fetch data before the oldest visible bar
       from = 0;
       to = Math.floor(timestamp / 1000);
     } else if (type === 'forward' && timestamp) {
-      // Scrolling right → fetch data after the newest visible bar
       from = Math.floor(timestamp / 1000);
       to = now;
     } else {
-      // init or unknown: get all from last 2 years
       from = 0;
       to = now;
     }
 
+    // Abort previous in-flight request for same cache key
+    if (_fetchController) {
+      _fetchController.abort();
+    }
+    _fetchController = new AbortController();
+    const signal = _fetchController.signal;
+
     try {
-      const res = await fetch(`${API_BASE}/history?symbol=${symbol.symbol}&resolution=${tvPeriod}&from=${from}&to=${to}`);
+      const res = await fetch(`${API_BASE}/history?symbol=${symbol.symbol}&resolution=${tvPeriod}&from=${from}&to=${to}`, { signal });
       const data = await res.json();
       if (data.s === 'ok' && data.t) {
-        // Build bars and deduplicate against cache
+        // Deduplicate against cache
         const seen = new Set(_barCache[cacheKey] || []);
         const newBars = [];
         for (let i = 0; i < data.t.length; i++) {
@@ -134,34 +140,29 @@ const dataLoader = {
             });
           }
         }
-        // Update cache
-        _barCache[cacheKey] = Array.from(seen).sort((a, b) => a - b);
-        const hasMore = data.t.length > 0;
-        callback(newBars, hasMore);
+        // Update cache; limit to 50k entries to prevent memory leak
+        const sorted = Array.from(seen).sort((a, b) => a - b);
+        _barCache[cacheKey] = sorted.length > 50000 ? sorted.slice(-50000) : sorted;
+        callback(newBars, data.t.length > 0);
       } else {
         callback([], false);
       }
     } catch (e) {
-      callback([], false);
+      if (e.name !== 'AbortError') callback([], false);
     }
   },
   subscribeBar(params) {
     // Real-time: poll every 30s
+    if (params._interval) clearInterval(params._interval);
     params._interval = setInterval(async () => {
+      if (!chart) { clearInterval(params._interval); params._interval = null; return; }
       const now = Math.floor(Date.now() / 1000);
       try {
         const res = await fetch(`${API_BASE}/history?symbol=${params.symbol.symbol}&resolution=1&from=${now - 7200}&to=${now}`);
         const data = await res.json();
         if (data.s === 'ok' && data.t && data.t.length > 0) {
           const i = data.t.length - 1;
-          params.callback({
-            timestamp: data.t[i] * 1000,
-            open: data.o[i],
-            high: data.h[i],
-            low: data.l[i],
-            close: data.c[i],
-            volume: data.v[i],
-          });
+          params.callback({ timestamp: data.t[i] * 1000, open: data.o[i], high: data.h[i], low: data.l[i], close: data.c[i], volume: data.v[i] });
         }
       } catch (_) {}
     }, 30000);
@@ -177,14 +178,20 @@ const dataLoader = {
 // ── Chart Init ──
 function loadKC(initialPeriod) {
   const symbol = getSymbol();
+
+  // ══ Resource cleanup before reinit ══
+  // 1. Kill pending period check timer
+  if (_loadTimer) { clearTimeout(_loadTimer); _loadTimer = null; }
+  // 2. Clear data cache for new symbol
+  Object.keys(_barCache).forEach(k => { if (!k.startsWith(symbol)) delete _barCache[k]; });
+  // 3. Abort any in-flight fetch
+  if (_fetchController) { _fetchController.abort(); _fetchController = null; }
+  // 4. Dispose old chart (KLineChart cleans up its own intervals)
+  if (chart) { klinecharts.dispose(chart); chart = null; }
+
   const container = document.getElementById('kc-chart');
   container.innerHTML = '';
   document.getElementById('kc-status').textContent = '⏳ 加载中...';
-
-  if (chart) {
-    klinecharts.dispose(chart);
-    chart = null;
-  }
 
   chart = klinecharts.init('kc-chart', {
     styles: {
@@ -221,6 +228,7 @@ function loadKC(initialPeriod) {
   chart.setMaxOffsetRightDistance(0);
 
   // Default MA5/10/20/30/60 on K-line
+  _overlayMode = true;
   indicators = {};
   chart.createIndicator('MA');
   chart.overrideIndicator({ name: 'MA', calcParams: [5, 10, 20, 30, 60] });
@@ -245,17 +253,17 @@ function setPeriod(period) {
   }
   document.querySelectorAll('[data-period]').forEach(el => el.classList.toggle('active', el.dataset.period === period));
   document.getElementById('kc-status').textContent = period;
-  // Verify data loaded; if empty, reinit
-  setTimeout(() => {
+  // Clear old check timer, set new one
+  if (_loadTimer) clearTimeout(_loadTimer);
+  _loadTimer = setTimeout(() => {
+    _loadTimer = null;
     try {
       const dl = chart.getDataList();
-      if (!dl || dl.length === 0) {
-        loadKC(period);
-      }
+      if (!dl || dl.length === 0) { loadKC(period); return; }
     } catch (e) {
       loadKC(period);
     }
-  }, 2000);
+  }, 3000);
 }
 
 // ── Indicators ──
