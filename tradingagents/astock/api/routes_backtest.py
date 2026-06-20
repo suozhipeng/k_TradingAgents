@@ -135,6 +135,7 @@ def run_backtest() -> tuple[Response, int]:
         strategy = strategy_cls()
         engine = _get_backtest_engine(use_mock_data=use_mock)
         result = engine.run(symbol, start_date, end_date, strategy, rebalance_freq)
+        result.strategy_name = strategy_name
 
         # Persist to store
         _store().store_backtest_result(result)
@@ -151,11 +152,42 @@ def run_backtest() -> tuple[Response, int]:
             "max_drawdown": result.max_drawdown,
             "win_rate": result.win_rate,
             "total_trades": result.total_trades,
+            "trades": result.trades,
             "periods": result.periods,
             "fee_config_used": result.fee_config_used,
             "execution_signal": result.execution_signal,
         }
         return jsonify(payload), 200
+    except Exception as exc:
+        return jsonify({"error": str(exc), "status": 500}), 500
+
+
+# ---------------------------------------------------------------------------
+# DELETE /api/v1/backtest/results — clear all backtest history
+# ---------------------------------------------------------------------------
+
+
+@bp.route("/backtest/results", methods=["DELETE"])
+def clear_backtest_results() -> tuple[Response, int]:
+    """Delete all stored backtest results."""
+    try:
+        deleted = _store().clear_backtest_results()
+        return jsonify({"status": "ok", "deleted": deleted}), 200
+    except Exception as exc:
+        return jsonify({"error": str(exc), "status": 500}), 500
+
+
+# ---------------------------------------------------------------------------
+# DELETE /api/v1/backtest/results/<run_id> — delete single record
+# ---------------------------------------------------------------------------
+
+
+@bp.route("/backtest/results/<run_id>", methods=["DELETE"])
+def delete_backtest_result(run_id: str) -> tuple[Response, int]:
+    """Delete a single backtest result by run_id."""
+    try:
+        deleted = _store().delete_backtest_result(run_id)
+        return jsonify({"status": "ok", "deleted": deleted}), 200
     except Exception as exc:
         return jsonify({"error": str(exc), "status": 500}), 500
 

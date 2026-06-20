@@ -222,11 +222,24 @@ async function generateReport() {
     // Render report content
     const content = document.getElementById('report-content');
     const now = new Date().toLocaleString('zh-CN');
+
+    // Fetch stock info for display header
+    let displaySymbol = symbol;
+    try {
+      const res = await fetch(`/api/v1/tv/stock-info?symbol=${encodeURIComponent(symbol)}`);
+      const info = await res.json();
+      if (info.name) {
+        const parts = [info.industry, ...(info.indices || [])].filter(Boolean);
+        const suffix = parts.length > 0 ? '/' + parts.join('/') : '';
+        displaySymbol = `${info.name} (${info.code}) ${info.exchange}/${info.board}${suffix}`;
+      }
+    } catch {}
+
     content.innerHTML = `
       <div class="bg-dark-bg rounded-lg p-4">
         <div class="flex justify-between items-center mb-3">
           <div>
-            <span class="text-white font-semibold">${symbol}</span>
+            <span class="text-white font-semibold">${displaySymbol}</span>
             <span class="badge badge-info ml-2">${rptType}</span>
             <span class="badge badge-success ml-1">${period}</span>
           </div>

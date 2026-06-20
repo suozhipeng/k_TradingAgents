@@ -592,6 +592,44 @@ class TestMarketDataEndpoints:
         assert "name" in data["top"][0]
         assert "change_pct" in data["top"][0]
 
+    def test_sectors_sina_fallback(self, app):
+        """Test that when EastMoney fails but Sina works, Sina data is returned."""
+        import tradingagents.astock.api.routes_market_data as rm
+        original_em = rm.em_industry_comparison
+        def _broken(*a, **kw):
+            raise ConnectionError("EM down")
+        rm.em_industry_comparison = _broken
+        try:
+            resp = app.get("/api/v1/market/sectors?top_n=5")
+            assert resp.status_code == 200
+            data = resp.get_json()
+            assert "_note" not in data  # real data, not mock
+            assert len(data["top"]) > 0
+            assert "name" in data["top"][0]
+            assert "change_pct" in data["top"][0]
+        finally:
+            rm.em_industry_comparison = original_em
+
+    def test_sectors_auto_fallback_returns_note(self, app):
+        """Test that when all real sources fail, mock data with _note is returned."""
+        import tradingagents.astock.api.routes_market_data as rm
+        original_em = rm.em_industry_comparison
+        original_sina = rm.sina_industry_comparison
+        def _broken(*a, **kw):
+            raise ConnectionError("Intentional test failure")
+        rm.em_industry_comparison = _broken
+        rm.sina_industry_comparison = _broken
+        try:
+            resp = app.get("/api/v1/market/sectors?top_n=5")
+            assert resp.status_code == 200
+            data = resp.get_json()
+            assert "_note" in data
+            assert "模拟数据" in data["_note"]
+            assert len(data["top"]) > 0
+        finally:
+            rm.em_industry_comparison = original_em
+            rm.sina_industry_comparison = original_sina
+
     def test_northbound_mock(self, app):
         resp = app.get("/api/v1/market/northbound?mock=1")
         assert resp.status_code == 200

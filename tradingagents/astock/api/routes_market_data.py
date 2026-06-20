@@ -14,7 +14,10 @@ from tradingagents.astock.data_sources.eastmoney import (
     concept_blocks,
     daily_dragon_tiger,
     hsgt_realtime,
-    industry_comparison,
+    industry_comparison as em_industry_comparison,
+)
+from tradingagents.astock.data_sources.sina_sectors import (
+    industry_comparison as sina_industry_comparison,
 )
 
 bp = Blueprint("market_data", __name__)
@@ -65,11 +68,23 @@ def sectors() -> tuple[Response, int]:
         return jsonify(_mock_sectors()), 200
 
     top_n = int(request.args.get("top_n", 20))
-    try:
-        data = industry_comparison(top_n=top_n)
-        return jsonify(data), 200
-    except Exception as exc:
-        return jsonify({"error": str(exc), "status": 500}), 500
+    # Try EastMoney first (live data during trading hours), fall back to
+    # Sina (works outside trading hours), then mock data as last resort.
+    for attempt, (name, fetcher) in enumerate([
+        ("EastMoney", em_industry_comparison),
+        ("Sina", sina_industry_comparison),
+    ]):
+        try:
+            data = fetcher(top_n=top_n)
+            if data.get("top"):
+                return jsonify(data), 200
+        except Exception:
+            if attempt == 0:
+                continue  # try next source
+    # All real sources failed — use mock data
+    mock = _mock_sectors()
+    mock["_note"] = "⚠️ 实时数据不可用，展示的是模拟数据（非交易时段或网络限制）"
+    return jsonify(mock), 200
 
 
 # ---------------------------------------------------------------------------
@@ -162,25 +177,35 @@ def _mock_dragon_tiger() -> dict[str, Any]:
 def _mock_sectors() -> dict[str, Any]:
     sectors_data = [
         {"rank": 1, "name": "半导体", "change_pct": 4.8, "code": "BK0912",
-         "up_count": 85, "down_count": 3, "leader": "中芯国际", "leader_change": 6.2},
+         "up_count": 85, "down_count": 3, "leader": "中芯国际", "leader_change": 6.2,
+         "market_cap": 3580000000000, "circulating_cap": 2850000000000},
         {"rank": 2, "name": "人工智能", "change_pct": 3.9, "code": "BK1130",
-         "up_count": 72, "down_count": 5, "leader": "科大讯飞", "leader_change": 5.5},
+         "up_count": 72, "down_count": 5, "leader": "科大讯飞", "leader_change": 5.5,
+         "market_cap": 4200000000000, "circulating_cap": 3100000000000},
         {"rank": 3, "name": "新能源汽车", "change_pct": 3.5, "code": "BK0927",
-         "up_count": 68, "down_count": 8, "leader": "比亚迪", "leader_change": 4.2},
+         "up_count": 68, "down_count": 8, "leader": "比亚迪", "leader_change": 4.2,
+         "market_cap": 5100000000000, "circulating_cap": 3800000000000},
         {"rank": 4, "name": "消费电子", "change_pct": 2.8, "code": "BK0913",
-         "up_count": 55, "down_count": 10, "leader": "立讯精密", "leader_change": 10.0},
+         "up_count": 55, "down_count": 10, "leader": "立讯精密", "leader_change": 10.0,
+         "market_cap": 2800000000000, "circulating_cap": 2100000000000},
         {"rank": 5, "name": "创新药", "change_pct": 2.5, "code": "BK0962",
-         "up_count": 42, "down_count": 6, "leader": "恒瑞医药", "leader_change": 3.8},
+         "up_count": 42, "down_count": 6, "leader": "恒瑞医药", "leader_change": 3.8,
+         "market_cap": 1900000000000, "circulating_cap": 1650000000000},
         {"rank": 6, "name": "军工", "change_pct": 2.2, "code": "BK0877",
-         "up_count": 48, "down_count": 12, "leader": "中航西飞", "leader_change": 4.0},
+         "up_count": 48, "down_count": 12, "leader": "中航西飞", "leader_change": 4.0,
+         "market_cap": 2200000000000, "circulating_cap": 1500000000000},
         {"rank": 7, "name": "光伏", "change_pct": 1.8, "code": "BK0985",
-         "up_count": 35, "down_count": 15, "leader": "隆基绿能", "leader_change": 2.5},
+         "up_count": 35, "down_count": 15, "leader": "隆基绿能", "leader_change": 2.5,
+         "market_cap": 1600000000000, "circulating_cap": 1350000000000},
         {"rank": 8, "name": "机器人", "change_pct": 1.5, "code": "BK1159",
-         "up_count": 30, "down_count": 8, "leader": "绿的谐波", "leader_change": 3.2},
+         "up_count": 30, "down_count": 8, "leader": "绿的谐波", "leader_change": 3.2,
+         "market_cap": 980000000000, "circulating_cap": 720000000000},
         {"rank": 9, "name": "券商", "change_pct": 1.2, "code": "BK0473",
-         "up_count": 38, "down_count": 12, "leader": "中信证券", "leader_change": 1.8},
+         "up_count": 38, "down_count": 12, "leader": "中信证券", "leader_change": 1.8,
+         "market_cap": 4500000000000, "circulating_cap": 3800000000000},
         {"rank": 10, "name": "白酒", "change_pct": 0.8, "code": "BK0477",
-         "up_count": 22, "down_count": 18, "leader": "贵州茅台", "leader_change": -3.2},
+         "up_count": 22, "down_count": 18, "leader": "贵州茅台", "leader_change": -3.2,
+         "market_cap": 3800000000000, "circulating_cap": 3500000000000},
     ]
     return {"top": sectors_data, "bottom": sectors_data[-3:], "total": len(sectors_data)}
 

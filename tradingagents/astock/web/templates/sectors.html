@@ -2,6 +2,7 @@
 {% block title %}Sector Rotation — AStock WebUI{% endblock %}
 {% block head_extra %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
 <style>
 .sector-layout {
   display: grid;
@@ -25,28 +26,33 @@
 .sector-full {
   grid-column: 1 / -1;
 }
+#chart-heatmap-treemap {
+  width: 100%;
+  height: calc(100% - 28px);
+  min-height: 380px;
+}
 @media (max-width: 900px) {
   .sector-layout { grid-template-columns: 1fr; }
 }
 </style>
 {% endblock %}
 {% block content %}
-<h2 class="text-2xl font-bold text-white mb-6">🔄 板块轮动 Sector Rotation</h2>
+<h2 class="tv-section-title">🔄 板块轮动 Sector Rotation</h2>
 
 <!-- Controls -->
 <div class="card mb-6">
-  <p class="text-xs text-gray-400 mb-4">A股行业板块涨跌幅排名与轮动分析。数据源：东方财富 + TradingView。</p>
+  <p class="text-xs text-gray-400 mb-4">A股行业板块涨跌幅排名、热力图与轮动分析。数据源：东方财富。</p>
   <div class="flex flex-wrap gap-4 items-end">
     <div>
       <label class="block text-xs text-gray-400 mb-1">返回条数</label>
-      <input type="number" id="sec-topn" value="30" min="5" max="100" class="w-20">
+      <input type="number" id="sec-topn" value="30" min="5" max="100" class="tv-input w-20">
     </div>
-    <button onclick="loadSectors()" class="btn btn-primary">🔄 刷新 Refresh</button>
+    <button onclick="loadSectors()" class="tv-btn tv-btn-primary">🔄 刷新 Refresh</button>
   </div>
   <span id="sec-status" class="text-xs text-gray-400 mt-2 block"></span>
 </div>
 
-<!-- TradingView Widgets -->
+<!-- Widgets Row: Market Overview + Sector Heatmap -->
 <div class="sector-layout">
   <div class="sector-widget">
     <h3>📊 市场概览 Market Overview</h3>
@@ -63,23 +69,14 @@
   </div>
   <div class="sector-widget">
     <h3>🔥 板块热力图 Sector Heatmap</h3>
-    <!-- TradingView Widget BEGIN -->
-    <div class="tradingview-widget-container" style="height:380px;">
-      <div id="tv-heatmap" style="height:100%;"></div>
-      <div class="tradingview-widget-copyright">
-        <a href="https://www.tradingview.com/" rel="noopener nofollow" target="_blank">
-          <span class="text-[10px] text-gray-500">Track all markets on TradingView</span>
-        </a>
-      </div>
-    </div>
-    <!-- TradingView Widget END -->
+    <div id="chart-heatmap-treemap"></div>
   </div>
 </div>
 
 <!-- Custom Data Results -->
 <div id="sec-results" class="hidden">
   <!-- Top / Bottom Table -->
-  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+  <div class="tv-grid-2 mb-6">
     <div class="card">
       <h3 class="text-lg font-semibold text-white mb-4">📈 涨幅 TOP</h3>
       <div id="sec-top-table" class="overflow-x-auto"></div>
@@ -101,10 +98,25 @@
 {% block scripts %}
 <script>
 let secChart = null;
+let heatmapChart = null;
 
-// ── TradingView Widgets ──
+// ── Helpers ──
+function formatMarketCap(cap) {
+  if (!cap || cap === 0) return '--';
+  const yi = cap / 1e8;
+  if (yi >= 10000) return (yi / 10000).toFixed(2) + '万亿';
+  if (yi >= 1000) return (yi / 1000).toFixed(2) + '千亿';
+  return yi.toFixed(0) + '亿';
+}
+
+function changeColor(pct) {
+  if (pct > 0) return '#089981';
+  if (pct < 0) return '#f23645';
+  return '#787b86';
+}
+
+// ── TradingView Market Overview ──
 function loadTradingViewWidgets() {
-  // Market Overview — Chinese A-share key sectors
   const overviewConfig = {
     "colorTheme": "dark",
     "dateRange": "12M",
@@ -168,56 +180,165 @@ function loadTradingViewWidgets() {
     ],
   };
 
-  // Heatmap — industry sector grouping for A-shares
-  const heatmapConfig = {
-    "dataSource": "SSE",
-    "blockSize": "market_cap_basic",
-    "blockColor": "change",
-    "grouping": "sector",
-    "isTransparent": true,
-    "locale": "zh_CN",
-    "symbolUrl": "",
-    "colorTheme": "dark",
-    "hasTopBar": false,
-    "isDataSetEnabled": false,
-    "isZoomEnabled": true,
-    "hasSymbolTooltip": true,
-    "isMonoSize": false,
-    "width": "100%",
-    "height": "100%",
-  };
-
-  // Load TradingView widgets
   if (typeof TradingView !== 'undefined') {
     try {
-      new TradingView.widget({
-        ...overviewConfig,
-        "container_id": "tv-market-overview",
-        "autosize": true,
-      });
+      new TradingView.widget({ ...overviewConfig, "container_id": "tv-market-overview", "autosize": true });
     } catch(e) { console.error('TV market overview failed', e); }
-    try {
-      new TradingView.widget({
-        ...heatmapConfig,
-        "container_id": "tv-heatmap",
-        "autosize": true,
-      });
-    } catch(e) { console.error('TV heatmap failed', e); }
   } else {
-    // Load TradingView library then init
     const script = document.createElement('script');
     script.src = 'https://s3.tradingview.com/tv.js';
     script.async = true;
     script.onload = () => {
-      try {
-        new TradingView.widget({ ...overviewConfig, "container_id": "tv-market-overview", "autosize": true });
-      } catch(e) { console.error('TV market overview failed', e); }
-      try {
-        new TradingView.widget({ ...heatmapConfig, "container_id": "tv-heatmap", "autosize": true });
-      } catch(e) { console.error('TV heatmap failed', e); }
+      try { new TradingView.widget({ ...overviewConfig, "container_id": "tv-market-overview", "autosize": true }); }
+      catch(e) { console.error('TV market overview failed', e); }
     };
     document.head.appendChild(script);
   }
+}
+
+// ── ECharts Sector Treemap ──
+function renderHeatmap(sectors) {
+  const dom = document.getElementById('chart-heatmap-treemap');
+  if (!dom) return;
+
+  if (heatmapChart) {
+    heatmapChart.dispose();
+    heatmapChart = null;
+  }
+
+  if (!sectors || sectors.length === 0) {
+    dom.innerHTML = '<div class="flex items-center justify-center h-full text-gray-400 text-sm">暂无板块数据</div>';
+    return;
+  }
+
+  heatmapChart = echarts.init(dom, 'dark');
+
+  // Build treemap data: sort by market_cap descending, take top for visual clarity
+  const sorted = [...sectors].sort((a, b) => (b.market_cap || 0) - (a.market_cap || 0));
+
+  const data = sorted.map(s => ({
+    name: s.name,
+    value: s.market_cap > 0 ? s.market_cap : (s.up_count + s.down_count) * 1e8,
+    change_pct: s.change_pct,
+    up_count: s.up_count,
+    down_count: s.down_count,
+    leader: s.leader,
+    leader_change: s.leader_change,
+    market_cap: s.market_cap || 0,
+    code: s.code,
+    rank: s.rank,
+  }));
+
+  // Color scale: map change_pct range to color
+  const pcts = data.map(d => d.change_pct);
+  const minPct = Math.min(...pcts, -2);
+  const maxPct = Math.max(...pcts, 2);
+  const absMax = Math.max(Math.abs(minPct), Math.abs(maxPct));
+
+  function getColor(pct) {
+    if (pct === 0) return '#4a4e5a';
+    const ratio = Math.abs(pct) / (absMax || 1);
+    if (pct > 0) {
+      // Green gradient: light -> intense
+      const g = Math.round(153 + (1 - ratio) * 40);
+      const b = Math.round(129 - ratio * 40);
+      return `rgb(8, ${Math.max(60, g)}, ${Math.max(40, b)})`;
+    } else {
+      // Red gradient: light -> intense
+      const r = Math.round(242 - ratio * 30);
+      const gr = Math.round(54 + ratio * 30);
+      return `rgb(${Math.min(242, r)}, ${Math.min(80, gr)}, ${Math.min(69, gr)})`;
+    }
+  }
+
+  data.forEach(d => d.itemStyle = { color: getColor(d.change_pct) });
+
+  const option = {
+    tooltip: {
+      backgroundColor: '#1e222d',
+      borderColor: '#2a2e39',
+      borderWidth: 1,
+      textStyle: { color: '#d1d4dc', fontSize: 12 },
+      formatter: function(params) {
+        const d = params.data;
+        const pct = d.change_pct;
+        const sign = pct > 0 ? '+' : '';
+        const cls = pct > 0 ? 'tv-up' : pct < 0 ? 'tv-down' : 'tv-muted';
+        return `<div style="font-size:13px;font-weight:600;margin-bottom:4px;">${d.name}</div>
+          <div style="margin:2px 0;">
+            <span style="color:#787b86;">涨跌幅</span>
+            <span class="${cls}" style="float:right;font-weight:600;">${sign}${pct.toFixed(2)}%</span>
+          </div>
+          <div style="margin:2px 0;">
+            <span style="color:#787b86;">总市值</span>
+            <span style="float:right;">${formatMarketCap(d.market_cap)}</span>
+          </div>
+          <div style="margin:2px 0;">
+            <span style="color:#787b86;">上涨/下跌</span>
+            <span style="float:right;"><span class="tv-up">${d.up_count}</span> / <span class="tv-down">${d.down_count}</span></span>
+          </div>
+          ${d.leader ? `<div style="margin:2px 0;">
+            <span style="color:#787b86;">领涨</span>
+            <span style="float:right;">${d.leader} ${d.leader_change >= 0 ? '+' : ''}${(d.leader_change || 0).toFixed(2)}%</span>
+          </div>` : ''}
+          <div style="margin:2px 0;font-size:10px;color:#4a4e5a;border-top:1px solid #2a2e39;padding-top:3px;">
+            排名 #${d.rank}  | 代码 ${d.code}
+          </div>`;
+      },
+    },
+    series: [{
+      type: 'treemap',
+      roam: true,
+      nodeClick: 'link',
+      width: '100%',
+      height: '100%',
+      breadcrumb: { show: false },
+      label: {
+        show: true,
+        formatter: function(params) {
+          const d = params.data;
+          const pct = d.change_pct;
+          const sign = pct > 0 ? '+' : '';
+          return `${d.name}\n${sign}${pct.toFixed(2)}%`;
+        },
+        color: '#d1d4dc',
+        fontSize: 11,
+        fontWeight: 500,
+        textShadowColor: 'rgba(0,0,0,0.6)',
+        textShadowBlur: 3,
+        lineHeight: 16,
+      },
+      upperLabel: {
+        show: true,
+        height: 0,
+      },
+      levels: [
+        { colorSaturation: [0.3, 0.6], colorMappingBy: 'value' },
+      ],
+      data: data,
+      animationDuration: 500,
+      animationEasing: 'cubicOut',
+      itemStyle: {
+        borderColor: '#131722',
+        borderWidth: 2,
+        borderRadius: 3,
+      },
+    }],
+    backgroundColor: 'transparent',
+  };
+
+  heatmapChart.setOption(option);
+  heatmapChart.on('click', function(params) {
+    if (params.data && params.data.code) {
+      // Click a sector to search
+      window.open(`/research?q=${params.data.code}`, '_blank');
+    }
+  });
+
+  // Resize with container
+  window.addEventListener('resize', function() {
+    if (heatmapChart) heatmapChart.resize();
+  });
 }
 
 // ── Sector Data ──
@@ -233,34 +354,44 @@ async function loadSectors() {
     const data = await res.json();
     if (data.error) { status.textContent = '❌ ' + data.error; return; }
 
+    // Display simulated-data warning when EastMoney API is unreachable
+    if (data._note) {
+      status.textContent = data._note;
+    }
+
     const top = data.top || [];
     const bottom = data.bottom || [];
-    if (top.length === 0) { status.textContent = '⚠️ 暂无板块数据'; return; }
+    if (top.length === 0) { status.textContent = '⚠️ 暂无板块数据'; renderHeatmap([]); return; }
 
-    // Top table
-    document.getElementById('sec-top-table').innerHTML = '<table><thead><tr>' +
-      '<th>#</th><th>板块</th><th class="text-right">涨幅</th><th class="text-right">涨/跌</th><th class="text-right">领涨股</th>' +
+    // ── Heatmap ──
+    renderHeatmap(top);
+
+    // ── Top table ──
+    document.getElementById('sec-top-table').innerHTML = '<table class="tv-table"><thead><tr>' +
+      '<th>#</th><th>板块</th><th class="text-right">涨幅</th><th class="text-right">总市值</th><th class="text-right">涨/跌</th><th class="text-right">领涨股</th>' +
       '</tr></thead><tbody>' +
       top.slice(0, 15).map(s =>
         `<tr>
           <td class="text-center text-gray-400">${s.rank}</td>
           <td class="text-gray-300 font-medium">${s.name}</td>
-          <td class="text-right text-emerald-400 font-medium">+${s.change_pct}%</td>
-          <td class="text-right"><span class="text-emerald-400">${s.up_count}</span>/<span class="text-red-400">${s.down_count}</span></td>
+          <td class="text-right ${s.change_pct >= 0 ? 'tv-up' : 'tv-down'} font-medium">${s.change_pct >= 0 ? '+' : ''}${s.change_pct}%</td>
+          <td class="text-right text-xs text-gray-400">${formatMarketCap(s.market_cap)}</td>
+          <td class="text-right"><span class="tv-up">${s.up_count}</span>/<span class="tv-down">${s.down_count}</span></td>
           <td class="text-right text-xs text-gray-400 truncate max-w-[120px]">${s.leader || '--'}</td>
         </tr>`
       ).join('') + '</tbody></table>';
 
     // Bottom table
-    document.getElementById('sec-bottom-table').innerHTML = '<table><thead><tr>' +
-      '<th>#</th><th>板块</th><th class="text-right">涨幅</th><th class="text-right">涨/跌</th><th class="text-right">领涨股</th>' +
+    document.getElementById('sec-bottom-table').innerHTML = '<table class="tv-table"><thead><tr>' +
+      '<th>#</th><th>板块</th><th class="text-right">涨幅</th><th class="text-right">总市值</th><th class="text-right">涨/跌</th><th class="text-right">领涨股</th>' +
       '</tr></thead><tbody>' +
       bottom.slice().reverse().slice(0, 10).map(s =>
         `<tr>
           <td class="text-center text-gray-400">${s.rank}</td>
           <td class="text-gray-300 font-medium">${s.name}</td>
-          <td class="text-right text-red-400 font-medium">${s.change_pct}%</td>
-          <td class="text-right"><span class="text-emerald-400">${s.up_count}</span>/<span class="text-red-400">${s.down_count}</span></td>
+          <td class="text-right ${s.change_pct >= 0 ? 'tv-up' : 'tv-down'} font-medium">${s.change_pct >= 0 ? '+' : ''}${s.change_pct}%</td>
+          <td class="text-right text-xs text-gray-400">${formatMarketCap(s.market_cap)}</td>
+          <td class="text-right"><span class="tv-up">${s.up_count}</span>/<span class="tv-down">${s.down_count}</span></td>
           <td class="text-right text-xs text-gray-400 truncate max-w-[120px]">${s.leader || '--'}</td>
         </tr>`
       ).join('') + '</tbody></table>';
@@ -296,10 +427,11 @@ async function loadSectors() {
       },
     });
 
-    status.textContent = `✅ ${data.total} 个行业板块`;
+    status.textContent = `✅ ${data.total} 个行业板块` + (data._note ? '  ⚠️ 模拟数据' : '');
     document.getElementById('sec-results').classList.remove('hidden');
   } catch (e) {
     status.textContent = '❌ ' + e.message;
+    renderHeatmap([]);
   }
 }
 

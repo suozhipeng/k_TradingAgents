@@ -658,6 +658,20 @@ class AStockStore:
             "SELECT * FROM backtest_results ORDER BY created_at"
         ).fetchdf()
 
+    def clear_backtest_results(self) -> int:
+        """Delete all stored backtest results. Returns number of rows deleted."""
+        result = self.conn.execute("DELETE FROM backtest_results")
+        row = result.fetchone()
+        return row[0] if row else 0
+
+    def delete_backtest_result(self, run_id: str) -> int:
+        """Delete a single backtest result by run_id. Returns 1 if deleted."""
+        result = self.conn.execute(
+            "DELETE FROM backtest_results WHERE run_id = ?", [run_id]
+        )
+        row = result.fetchone()
+        return row[0] if row else 0
+
     # ---- paper trades -----------------------------------------------------
 
     def store_paper_trade(self, trade: dict[str, Any]) -> int:

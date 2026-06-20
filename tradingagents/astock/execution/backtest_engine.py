@@ -30,6 +30,7 @@ class BacktestResult(BaseModel):
     Attributes
     ----------
     symbol : str
+    strategy_name : str
     start_date : str
     end_date : str
     total_return : float
@@ -48,6 +49,7 @@ class BacktestResult(BaseModel):
     """
 
     symbol: str
+    strategy_name: str = ""
     start_date: str
     end_date: str
     total_return: float = 0.0
@@ -56,6 +58,7 @@ class BacktestResult(BaseModel):
     max_drawdown: float = 0.0
     win_rate: float = 0.0
     total_trades: int = 0
+    trades: list[dict] = Field(default_factory=list)
     periods: list[dict] = Field(default_factory=list)
     fee_config_used: dict = Field(default_factory=dict)
     execution_signal: str = EXECUTION_SIGNAL
@@ -245,11 +248,19 @@ class BacktestEngine:
             period_start_val = cash + shares * close_at_end
 
             if signal == 1 and cash > 0:
-                # Buy: invest all cash
-                buy_shares = cash / close_at_end
-                fees = calculate_fees(close_at_end, buy_shares, is_buy=True, config=self.fee_config)
-                net_cost = buy_shares * close_at_end + fees["total"]
-                if net_cost <= cash:
+                # Buy: invest all cash minus fees
+                max_shares = cash / close_at_end
+                # Iteratively reduce shares until net_cost ≤ cash
+                buy_shares = max_shares
+                for _ in range(5):
+                    fees = calculate_fees(close_at_end, buy_shares, is_buy=True, config=self.fee_config)
+                    net_cost = buy_shares * close_at_end + fees["total"]
+                    if net_cost <= cash:
+                        break
+                    buy_shares = (cash - fees.get("total", 0)) / close_at_end
+                if buy_shares > 0.001:
+                    fees = calculate_fees(close_at_end, buy_shares, is_buy=True, config=self.fee_config)
+                    net_cost = buy_shares * close_at_end + fees["total"]
                     shares += buy_shares
                     cash -= net_cost
                     trades.append({
@@ -308,6 +319,7 @@ class BacktestEngine:
             max_drawdown=metrics["max_drawdown"],
             win_rate=metrics["win_rate"],
             total_trades=metrics["total_trades"],
+            trades=trades,
             periods=period_records,
             fee_config_used={
                 "commission_rate": self.fee_config.commission_rate,

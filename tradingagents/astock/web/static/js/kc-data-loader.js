@@ -235,8 +235,7 @@ const KCDataLoader = {
           if (items.length === 0) { dropdown.style.display = 'none'; return; }
           dropdown.innerHTML = items.map((item, i) =>
             `<div class="item" data-symbol="${item.symbol}">
-              <span class="name">${item.name}</span>
-              <span class="code">${item.code}</span>
+              <span class="name">${item.name} (${item.code})</span>
               <span class="meta">${item.exchange}/${item.board}</span>
             </div>`
           ).join('');

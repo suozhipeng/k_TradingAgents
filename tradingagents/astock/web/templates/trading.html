@@ -153,7 +153,7 @@
 <div class="symbol-header">
   <div class="symbol-header-main">
     <div>
-      <span class="symbol-name" id="sym-name">600519.SH</span>
+      <span class="symbol-name" id="sym-name">贵州茅台 (600519) 沪/主板/酿酒/沪深300/上证50</span>
       <span class="symbol-exchange">上交所</span>
     </div>
     <div class="symbol-price" id="sym-price">--</div>
@@ -413,6 +413,7 @@ function changeSymbol() {
   if (!sym.includes('.')) sym += '.SH';
   if (!sym) { showToast('请输入股票代码', 'error'); return; }
   currentSymbol = sym;
+  document.getElementById('sym-name').textContent = '⏳ 加载中...';
   loadQuote();
   loadTradingState();
   initTradeChart('1d');
@@ -431,7 +432,6 @@ async function loadQuote() {
     if (q.error) { showToast(q.error, 'error'); return; }
     currentQuote = q;
 
-    document.getElementById('sym-name').textContent = q.symbol;
     document.getElementById('sym-price').textContent = '¥' + q.last_price.toLocaleString();
     document.getElementById('sym-open').textContent = '¥' + q.open.toLocaleString();
     document.getElementById('sym-high').textContent = '¥' + q.high.toLocaleString();
@@ -450,6 +450,28 @@ async function loadQuote() {
     updateEstimate();
   } catch (e) {
     console.error('loadQuote failed', e);
+  }
+
+  // Also fetch detailed stock info (name, industry, indices) for the header
+  fetchStockInfo(currentSymbol);
+}
+
+// ── Stock Info ──
+async function fetchStockInfo(symbol) {
+  const el = document.getElementById('sym-name');
+  if (!symbol) { el.textContent = '--'; return; }
+  try {
+    const res = await fetch(`/api/v1/tv/stock-info?symbol=${encodeURIComponent(symbol)}`);
+    const info = await res.json();
+    if (info.name) {
+      const parts = [info.industry, ...(info.indices || [])].filter(Boolean);
+      const suffix = parts.length > 0 ? '/' + parts.join('/') : '';
+      el.textContent = `${info.name} (${info.code}) ${info.exchange}/${info.board}${suffix}`;
+    } else {
+      el.textContent = `${symbol} ${info.exchange}/${info.board}`;
+    }
+  } catch {
+    el.textContent = symbol;
   }
 }
 

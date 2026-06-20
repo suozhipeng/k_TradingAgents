@@ -291,13 +291,14 @@ class TestWebSpecificPages:
     def test_sectors_has_heatmap(self, client):
         resp = client.get("/sectors")
         html = resp.data.decode("utf-8")
-        assert "tv-heatmap" in html
+        assert "chart-heatmap-treemap" in html
         assert "tv-market-overview" in html
         assert "sec-topn" in html
         assert "chart-sector-bars" in html
         assert "loadSectors" in html
         assert "sec-top-table" in html
         assert "sec-bottom-table" in html
+        assert "echarts" in html
 
     def test_northbound_has_flow_chart(self, client):
         resp = client.get("/northbound")

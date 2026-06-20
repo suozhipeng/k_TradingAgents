@@ -158,8 +158,21 @@ async function runOptimization() {
 
     // Show results
     document.getElementById('opt-results').classList.remove('hidden');
+
+    // Fetch stock info for display header
+    let displaySymbol = data.symbol;
+    try {
+      const res = await fetch(`/api/v1/tv/stock-info?symbol=${encodeURIComponent(data.symbol)}`);
+      const info = await res.json();
+      if (info.name) {
+        const parts = [info.industry, ...(info.indices || [])].filter(Boolean);
+        const suffix = parts.length > 0 ? '/' + parts.join('/') : '';
+        displaySymbol = `${info.name} (${info.code}) ${info.exchange}/${info.board}${suffix}`;
+      }
+    } catch {}
+
     document.getElementById('opt-results-header').innerHTML =
-      `策略: <strong>${data.strategy}</strong> | 标的: ${data.symbol} | ` +
+      `策略: <strong>${data.strategy}</strong> | 标的: ${displaySymbol} | ` +
       `区间: ${data.start_date} → ${data.end_date} | 返回: ${results.length} 组`;
 
     // Build table

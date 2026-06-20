@@ -1,38 +1,44 @@
 {% extends "base.html" %}
 {% block title %}Backtest — AStock WebUI{% endblock %}
 {% block content %}
-<h2 class="text-2xl font-bold text-white mb-6">🔄 回测 Backtest</h2>
+<h2 class="tv-section-title">🔄 回测 Backtest</h2>
 
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+<div class="tv-grid-3">
   <!-- Run Backtest -->
-  <div class="lg:col-span-1 card">
+  <div class="card">
     <h3 class="text-lg font-semibold text-white mb-4">运行回测</h3>
     <div class="space-y-3">
       <div>
-        <label class="block text-xs text-gray-400 mb-1">股票 Symbol</label>
-        <div class="search-wrap"><input type="text" id="bt-symbol" placeholder="600519.SH" class="w-full" value="600519.SH"></div>
+        <label class="tv-label">股票 Symbol</label>
+        <div class="search-wrap"><input type="text" id="bt-symbol" placeholder="600519.SH" class="tv-input w-full" value="600519.SH"></div>
+        <div id="bt-stock-info" class="text-xs text-gray-500 mt-1" style="min-height:1.2em;"></div>
       </div>
       <div>
-        <label class="block text-xs text-gray-400 mb-1">策略 Strategy</label>
-        <select id="bt-strategy" class="w-full">
-          <option value="ma_cross">MA Cross</option>
-          <option value="macd">MACD</option>
-          <option value="bollinger">Bollinger</option>
-          <option value="momentum">Momentum</option>
-          <option value="mean_reversion">Mean Reversion</option>
-          <option value="volume_breakout">Volume Breakout</option>
+        <label class="tv-label">策略 Strategy</label>
+        <select id="bt-strategy" class="tv-select w-full">
+          <option value="MovingAverageTrend">MA Cross</option>
+          <option value="MACDTrend">MACD</option>
+          <option value="BollingerBands">Bollinger</option>
+          <option value="DefensiveMomentum">Momentum</option>
+          <option value="MeanReversion">Mean Reversion</option>
+          <option value="BullTrend">Volume Breakout</option>
         </select>
       </div>
       <div>
-        <label class="block text-xs text-gray-400 mb-1">起始日期</label>
-        <input type="text" id="bt-start" placeholder="2024-01-01" class="w-full" value="2024-01-01">
+        <label class="tv-label">起始日期</label>
+        <input type="date" id="bt-start" class="tv-input w-full">
       </div>
       <div>
-        <label class="block text-xs text-gray-400 mb-1">结束日期</label>
-        <input type="text" id="bt-end" placeholder="2024-12-31" class="w-full" value="2024-12-31">
+        <label class="tv-label">结束日期</label>
+        <input type="date" id="bt-end" class="tv-input w-full">
       </div>
-      <button onclick="runBacktest()" class="btn btn-primary w-full">▶ 运行 Backtest</button>
+      <div class="flex gap-2">
+        <button onclick="runBacktest()" class="tv-btn tv-btn-primary flex-1">▶ 运行 Backtest</button>
+      </div>
       <div id="bt-run-status" class="text-xs text-gray-400 mt-2"></div>
+      <div class="text-xs text-gray-500 border-t border-gray-700 pt-2 mt-1">
+        <button onclick="clearBtHistory()" class="tv-btn tv-btn-sm tv-btn-secondary">🗑 清空历史</button>
+      </div>
     </div>
   </div>
 
@@ -52,8 +58,51 @@
 
 {% block scripts %}
 <script>
+// ── Stock Identity Info ──
+async function updateStockInfo(symbol) {
+  const el = document.getElementById('bt-stock-info');
+  if (!symbol) { el.textContent = ''; return; }
+  try {
+    const res = await fetch(`/api/v1/tv/stock-info?symbol=${encodeURIComponent(symbol)}`);
+    if (!res.ok) { el.textContent = ''; return; }
+    const info = await res.json();
+    if (!info || !info.name) { el.textContent = ''; return; }
+    const parts = [info.exchange, info.board, info.industry].filter(Boolean);
+    if (info.indices && info.indices.length) {
+      parts.push(info.indices.join('/'));
+    }
+    el.textContent = `${info.name} (${info.code}) ${parts.join('/')}`;
+  } catch (e) {
+    el.textContent = '';
+  }
+}
+
+// ── Set default dates ──
+function setDefaultDates() {
+  const now = new Date();
+  const year = now.getFullYear();
+  document.getElementById('bt-start').value = year + '-01-01';
+  document.getElementById('bt-end').value = now.toISOString().slice(0, 10);
+}
+
 // ── Search Suggestions ──
-KCDataLoader.setupSearch('bt-symbol', symbol => { runBacktest(); });
+KCDataLoader.setupSearch('bt-symbol', symbol => {
+  updateStockInfo(symbol);
+  runBacktest();
+});
+
+// Initial stock info
+setDefaultDates();
+updateStockInfo('600519.SH');
+
+// Manual input: debounced info fetch
+document.getElementById('bt-symbol').addEventListener('input', (function() {
+  let timer;
+  return function() {
+    clearTimeout(timer);
+    timer = setTimeout(() => updateStockInfo(this.value.trim()), 300);
+  };
+})());
 
 async function runBacktest() {
   let symbol = document.getElementById('bt-symbol').value.trim();
@@ -62,23 +111,71 @@ async function runBacktest() {
   const startDate = document.getElementById('bt-start').value.trim();
   const endDate = document.getElementById('bt-end').value.trim();
   const statusEl = document.getElementById('bt-run-status');
-  statusEl.textContent = 'Running...';
+  statusEl.textContent = '⏳ 下载最新数据...';
 
   try {
+    // Download latest data first
+    const refreshRes = await fetch('/api/v1/data/refresh/kline', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ symbol, start: startDate, end: endDate }),
+    });
+    const refreshData = await refreshRes.json();
+    if (refreshData?.status === 'ok') {
+      statusEl.textContent = `✅ 数据已更新 (${refreshData.rows_inserted || 0}条) → 运行回测...`;
+    } else {
+      statusEl.textContent = '⏳ 运行回测...';
+    }
+
+    // Run backtest
     const res = await fetch('/api/v1/backtest/run', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ symbol, strategy, start_date: startDate, end_date: endDate })
+      body: JSON.stringify({ symbol, strategy, start: startDate, end: endDate })
     });
     const data = await res.json();
     statusEl.textContent = data?.status || 'Done';
 
     const rc = document.getElementById('bt-results-content');
-    if (data?.metrics) {
-      rc.innerHTML = '<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">' +
-        Object.entries(data.metrics).map(([k, v]) =>
-          `<div class="bg-dark-bg rounded-lg p-3"><div class="text-xs text-gray-400">${k}</div><div class="text-lg font-bold text-white">${typeof v === 'number' ? v.toFixed(4) : v}</div></div>`
+    if (data && data.total_return !== undefined) {
+      // Metrics grid
+      let html = '<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">' +
+        [
+          ['总收益 Total Return', data.total_return != null ? (data.total_return * 100).toFixed(2) + '%' : '--'],
+          ['年化收益 Ann. Return', data.annualized_return != null ? (data.annualized_return * 100).toFixed(2) + '%' : '--'],
+          ['夏普 Sharpe', data.sharpe_ratio != null ? data.sharpe_ratio.toFixed(4) : '--'],
+          ['最大回撤 Max DD', data.max_drawdown != null ? (data.max_drawdown * 100).toFixed(2) + '%' : '--'],
+          ['胜率 Win Rate', data.win_rate != null ? (data.win_rate * 100).toFixed(2) + '%' : '--'],
+          ['交易次数 Trades', data.total_trades != null ? data.total_trades : '--'],
+        ].map(([k, v]) =>
+          `<div class="tv-card p-3"><div class="tv-label">${k}</div><div class="text-lg font-bold text-white font-mono">${v}</div></div>`
         ).join('') + '</div>';
+
+      // Trade records table
+      const trades = data.trades || [];
+      if (trades.length > 0) {
+        html += '<div class="tv-section-title" style="font-size:14px;margin-bottom:8px;">📝 交易记录 Trade Log</div>' +
+          '<div class="overflow-x-auto"><table class="tv-table">' +
+          '<thead><tr><th>#</th><th>日期</th><th>方向</th><th class="text-right">价格</th><th class="text-right">股数</th><th class="text-right">手续费</th><th class="text-right">盈亏</th></tr></thead><tbody>' +
+          trades.map((t, i) => {
+            const isBuy = t.type === 'buy';
+            return `<tr>
+              <td class="text-center text-gray-400">${i + 1}</td>
+              <td>${t.date}</td>
+              <td><span class="tv-badge ${isBuy ? 'tv-badge-green' : 'tv-badge-red'}">${isBuy ? '买入' : '卖出'}</span></td>
+              <td class="text-right font-mono">${t.price.toFixed(2)}</td>
+              <td class="text-right font-mono">${t.shares.toFixed(2)}</td>
+              <td class="text-right font-mono text-gray-400">${t.fees.toFixed(2)}</td>
+              <td class="text-right font-mono ${t.pnl >= 0 ? 'tv-up' : 'tv-down'}">${t.pnl >= 0 ? '+' : ''}${t.pnl.toFixed(2)}</td>
+            </tr>`;
+          }).join('') + '</tbody></table></div>';
+      } else {
+        html += '<div class="text-gray-500 text-xs mt-2">本次回测无交易记录</div>';
+      }
+
+      rc.innerHTML = html;
+    } else if (data?.error) {
+      rc.innerHTML = `<div class="text-red-400">${data.error}</div>`;
     } else {
       rc.innerHTML = `<pre class="text-xs">${JSON.stringify(data, null, 2)}</pre>`;
     }
@@ -88,21 +185,51 @@ async function runBacktest() {
   }
 }
 
+async function clearBtHistory() {
+  if (!confirm('确认清空所有回测历史？')) return;
+  try {
+    const res = await fetch('/api/v1/backtest/results', { method: 'DELETE' });
+    const data = await res.json();
+    document.getElementById('bt-run-status').textContent = data?.status === 'ok' ? '✅ 历史已清空' : '❌ ' + (data?.error || '删除失败');
+    loadBtHistory();
+  } catch (e) {
+    document.getElementById('bt-run-status').textContent = '❌ ' + e.message;
+  }
+}
+
+async function deleteBtRecord(runId) {
+  if (!runId || !confirm('确认删除该条回测记录？')) return;
+  try {
+    const res = await fetch(`/api/v1/backtest/results/${encodeURIComponent(runId)}`, { method: 'DELETE' });
+    const data = await res.json();
+    const statusEl = document.getElementById('bt-run-status');
+    if (data?.status === 'ok') {
+      statusEl.textContent = '✅ 已删除';
+      loadBtHistory();
+    } else {
+      statusEl.textContent = '❌ ' + (data?.error || '删除失败');
+    }
+  } catch (e) {
+    document.getElementById('bt-run-status').textContent = '❌ ' + e.message;
+  }
+}
+
 async function loadBtHistory() {
   try {
     const res = await fetch('/api/v1/backtest/results?limit=20');
     const data = await res.json();
     const el = document.getElementById('bt-history');
-    if (data?.backtests?.length) {
-      el.innerHTML = '<table><thead><tr><th>ID</th><th>Symbol</th><th>Strategy</th><th>状态</th><th>Sharpe</th><th>Return</th></tr></thead><tbody>' +
-        data.backtests.map(bt =>
+    const results = data?.backtests || data?.results || [];
+    if (results.length) {
+      el.innerHTML = '<table class="tv-table"><thead><tr><th>ID</th><th>Symbol</th><th>Strategy</th><th>Sharpe</th><th>Return</th><th class="text-right">操作</th></tr></thead><tbody>' +
+        results.map(bt =>
           `<tr>
-            <td class="text-gray-300 text-xs">${bt.id?.substring(0, 8)}</td>
+            <td class="text-gray-300 text-xs font-mono">${(bt.id || bt.run_id || '').substring(0, 8)}</td>
             <td>${bt.symbol}</td>
-            <td><span class="badge badge-info">${bt.strategy || '--'}</span></td>
-            <td><span class="badge ${bt.status === 'completed' ? 'badge-success' : bt.status === 'running' ? 'badge-warning' : 'badge-error'}">${bt.status}</span></td>
-            <td>${bt.metrics?.sharpe_ratio?.toFixed(2) ?? '--'}</td>
-            <td>${bt.metrics?.total_return ? (bt.metrics.total_return * 100).toFixed(2) + '%' : '--'}</td>
+            <td><span class="tv-badge tv-badge-blue">${bt.strategy || bt.strategy_name || '--'}</span></td>
+            <td class="font-mono">${bt.sharpe_ratio?.toFixed(2) ?? '--'}</td>
+            <td class="font-mono">${bt.total_return != null ? (bt.total_return * 100).toFixed(2) + '%' : '--'}</td>
+            <td class="text-right"><button onclick="deleteBtRecord('${(bt.id || bt.run_id || '')}')" class="tv-btn tv-btn-sm" style="background:transparent;color:#f23645;border:1px solid #f23645;padding:2px 8px;">✕</button></td>
           </tr>`
         ).join('') + '</tbody></table>';
     } else {

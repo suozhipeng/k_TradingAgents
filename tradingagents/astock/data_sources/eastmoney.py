@@ -177,7 +177,8 @@ def industry_comparison(top_n: int = 20) -> dict[str, Any]:
     -------
     dict with keys: ``top``, ``bottom``, ``total``.
     Each entry has: ``rank``, ``name``, ``change_pct``, ``code``,
-    ``up_count``, ``down_count``, ``leader``, ``leader_change``.
+    ``up_count``, ``down_count``, ``leader``, ``leader_change``,
+    ``market_cap`` (总市值, in CNY).
     """
     url = "https://push2.eastmoney.com/api/qt/clist/get"
     params: dict[str, str] = {
@@ -188,7 +189,7 @@ def industry_comparison(top_n: int = 20) -> dict[str, Any]:
         "fltt": "2",
         "invt": "2",
         "fs": "m:90+t:2",
-        "fields": "f2,f3,f4,f12,f13,f14,f104,f105,f128,f136,f140,f141,f207",
+        "fields": "f2,f3,f4,f12,f13,f14,f20,f21,f104,f105,f128,f136,f140,f141,f207",
     }
     r = em_get(url, params=params, timeout=15)
     d = r.json()
@@ -204,6 +205,8 @@ def industry_comparison(top_n: int = 20) -> dict[str, Any]:
                 "name": item.get("f14", ""),
                 "change_pct": item.get("f3", 0),
                 "code": item.get("f12", ""),
+                "market_cap": item.get("f20", 0),
+                "circulating_cap": item.get("f21", 0),
                 "up_count": item.get("f104", 0),
                 "down_count": item.get("f105", 0),
                 "leader": item.get("f140", ""),
