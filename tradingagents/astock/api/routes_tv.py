@@ -29,8 +29,9 @@ _df_to_json = df_to_json
 
 RESOLUTION_MAP: dict[str, str] = {
     "1": "1m", "5": "5m", "15": "15m", "30": "30m", "60": "60m",
-    "240": "1d", "D": "1d", "1D": "1d", "1d": "1d",
-    "1W": "1w", "W": "1w", "1M": "1mo", "M": "1mo",
+    "240": "1d", "1440": "1d", "D": "1d", "1D": "1d", "1d": "1d",
+    "1W": "1w", "W": "1w", "10080": "1w",
+    "1M": "1mo", "M": "1mo", "43200": "1mo",
 }
 
 
@@ -47,9 +48,48 @@ def _tv_resolution(resolution: str) -> str:
     return RESOLUTION_MAP.get(resolution, "1d")
 
 
+def _aggregate_bars(daily_bars: list[dict[str, Any]], interval: str) -> list[dict[str, Any]]:
+    """Aggregate daily bars into weekly (1w) or monthly (1mo) bars."""
+    from datetime import datetime
+
+    grouped: dict[str, dict[str, Any]] = {}
+    for bar in daily_bars:
+        td = bar.get("trade_date") or bar.get("date") or ""
+        if not td:
+            continue
+        dt = datetime.strptime(td[:10], "%Y-%m-%d")
+        if interval == "1w":
+            # ISO week: year + '-' + week number
+            iso = dt.isocalendar()
+            key = f"{iso[0]}-W{iso[1]:02d}"
+        else:
+            # Monthly: year + '-' + month
+            key = f"{dt.year}-{dt.month:02d}"
+
+        if key not in grouped:
+            grouped[key] = {
+                "open": bar.get("open", 0),
+                "high": bar.get("high", 0),
+                "low": bar.get("low", 0),
+                "close": bar.get("close", 0),
+                "volume": float(bar.get("volume", 0)),
+                "trade_date": td[:10],
+            }
+        else:
+            g = grouped[key]
+            g["high"] = max(g["high"], bar.get("high", 0))
+            g["low"] = min(g["low"], bar.get("low", 0))
+            g["close"] = bar.get("close", 0)
+            g["volume"] = g["volume"] + float(bar.get("volume", 0))
+            g["trade_date"] = td[:10]  # keep last date as the bar date
+
+    return sorted(grouped.values(), key=lambda b: b["trade_date"])
+
+
 # ---------------------------------------------------------------------------
 # GET /api/v1/tv/symbols
 # ---------------------------------------------------------------------------
+
 
 @bp.route("/tv/symbols")
 def tv_symbols() -> tuple[Response, int]:
@@ -58,7 +98,6 @@ def tv_symbols() -> tuple[Response, int]:
     if not symbol:
         return jsonify({"error": "symbol is required", "status": 400}), 400
 
-    # Get the latest kline bar to determine price data
     try:
         store = _store()
         df = store.query_kline(symbol, interval="1d", limit=1)
@@ -69,7 +108,6 @@ def tv_symbols() -> tuple[Response, int]:
         last_price = 100.0
         prev_close = 100.0
 
-    # Determine exchange and ticker from symbol format (600519.SH)
     parts = symbol.upper().split(".")
     ticker = parts[0]
     exchange = parts[1] if len(parts) > 1 else "SSE"
@@ -105,6 +143,38 @@ def tv_symbols() -> tuple[Response, int]:
 # GET /api/v1/tv/history
 # ---------------------------------------------------------------------------
 
+
+@bp.route("/tv/debug_mootdx")
+def tv_debug_mootdx() -> tuple[Response, int]:
+    """Debug endpoint to check mootdx fallback."""
+    symbol = request.args.get("symbol", "600519.SH")
+    interval = "5m"
+    router = _router()
+    result = {
+        "router_type": type(router).__name__ if router else None,
+        "symbol": symbol,
+        "interval": interval,
+    }
+    if router is None:
+        result["error"] = "router is None"
+    else:
+        try:
+            resp = router.get_kline(symbol, interval=interval, source="mootdx", limit=5)
+            result["resp_status"] = resp.status
+            result["has_data"] = resp.data is not None
+            if resp.data:
+                items = resp.data.get("bars") or resp.data.get("items", [])
+                result["items_type"] = type(items).__name__
+                result["items_count"] = len(items)
+                if items:
+                    result["sample"] = items[0]
+        except Exception as exc:
+            result["exception"] = str(exc)
+            import traceback
+            result["traceback"] = traceback.format_exc()
+    return jsonify(result), 200
+
+
 @bp.route("/tv/history")
 def tv_history() -> tuple[Response, int]:
     """Return OHLCV bars for TradingView.
@@ -124,18 +194,21 @@ def tv_history() -> tuple[Response, int]:
         return jsonify({"s": "error", "errmsg": "symbol required"}), 400
 
     interval = _tv_resolution(resolution)
-    limit = 5000
 
     try:
         store = _store()
-        # Convert UNIX timestamps to date strings for efficient DB query
-        start_str = __import__("datetime").datetime.utcfromtimestamp(from_ts).strftime("%Y-%m-%d") if from_ts else None
+        start_str = __import__("datetime").datetime.utcfromtimestamp(from_ts).strftime("%Y-%m-%d") if from_ts else None  # noqa: E501
         end_str = __import__("datetime").datetime.utcfromtimestamp(to_ts).strftime("%Y-%m-%d") if to_ts else None
         df = store.query_kline(symbol, interval=interval, start=start_str, end=end_str)
         bars = _df_to_json(df)
 
-        # If no data for intraday, try live fetch via facade
-        if not bars and interval not in ("1d", "daily", "day"):
+        # Weekly/Monthly: aggregate from daily data
+        if not bars and interval in ("1w", "1mo"):
+            df_daily = store.query_kline(symbol, interval="1d", start=start_str, end=end_str)
+            daily_bars = _df_to_json(df_daily)
+            if daily_bars:
+                bars = _aggregate_bars(daily_bars, interval)
+        elif not bars and interval not in ("1d", "daily", "day"):
             router = _router()
             if router is not None:
                 try:
@@ -143,6 +216,8 @@ def tv_history() -> tuple[Response, int]:
                     if resp.status == "ok" and resp.data:
                         items = resp.data.get("bars") or resp.data.get("items", [])
                         if isinstance(items, list) and len(items) > 0:
+                            # Copy to avoid mutating cached source data (mootdx reuses objects)
+                            items = [dict(item) for item in items]
                             first_date = items[0].get("date") or ""
                             if " " in str(first_date):
                                 for item in items:
@@ -167,20 +242,16 @@ def tv_history() -> tuple[Response, int]:
             td = b.get("trade_date") or b.get("date") or ""
             if not td:
                 continue
-            # Convert trade_date to UTC timestamp
             if len(td) <= 10:
-                # Date format: YYYY-MM-DD
                 dt = __import__("datetime").datetime.strptime(td, "%Y-%m-%d")
                 ts = int(dt.timestamp())
             else:
-                # Datetime format: YYYY-MM-DD HH:MM
                 try:
                     dt = __import__("datetime").datetime.strptime(td, "%Y-%m-%d %H:%M")
                     ts = int(dt.timestamp())
                 except ValueError:
                     continue
 
-            # Filter by time range
             if from_ts and ts < from_ts:
                 continue
             if to_ts and ts > to_ts:
@@ -196,7 +267,6 @@ def tv_history() -> tuple[Response, int]:
         if not times:
             return jsonify({"s": "no_data", "nextTime": int(to_ts or 0)}), 200
 
-        # TV expects ascending time order
         times, opens, highs, lows, closes, volumes = zip(
             *sorted(zip(times, opens, highs, lows, closes, volumes))
         )

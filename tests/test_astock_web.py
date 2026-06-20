@@ -192,6 +192,13 @@ class TestWebSpecificPages:
         assert "analysis-live-btn" in html
         assert "research-query" in html
 
+    def test_kc_chart_has_loader_race_guards(self, client):
+        resp = client.get("/kc_chart")
+        html = resp.data.decode("utf-8")
+        assert "_loadGeneration" in html
+        assert "_fetchControllers" in html
+        assert "resolution=${resolution}" in html
+
     def test_backtest_has_run_button(self, client):
         resp = client.get("/backtest")
         html = resp.data.decode("utf-8")

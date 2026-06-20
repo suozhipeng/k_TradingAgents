@@ -3,67 +3,83 @@
 {% block head_extra %}
 <script src="{{ url_for('web.static', filename='tv/klinecharts/klinecharts.min.js') }}"></script>
 <style>
-#kc-chart { width: 100%; height: calc(100vh - 120px); min-height: 500px; }
-.kc-topbar { display: flex; align-items: center; gap: 8px; padding: 6px 14px; background: #1e222d; border-bottom: 1px solid #2a2e39; flex-wrap: wrap; }
+#kc-chart { width: 100%; height: calc(100vh - 160px); min-height: 500px; }
+.kc-topbar { display: flex; flex-direction: column; gap: 5px; padding: 6px 14px; background: #1e222d; border-bottom: 1px solid #2a2e39; }
+.kc-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .kc-topbar input { background: #131722; border: 1px solid #2a2e39; border-radius: 4px; padding: 4px 10px; font-size: 12px; color: #d1d4dc; outline: none; width: 130px; }
 .kc-topbar input:focus { border-color: #2962FF; }
-.kc-topbar .kc-btn { padding: 3px 10px; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer; border: none; font-family: inherit; background: #2a2e39; color: #d1d4dc; transition: all .15s; }
+.kc-topbar .kc-btn { padding: 3px 10px; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer; border: none; font-family: inherit; background: #2a2e39; color: #d1d4dc; transition: all .15s; white-space: nowrap; }
 .kc-topbar .kc-btn:hover { background: #363a45; }
 .kc-topbar .kc-btn.primary { background: #2962FF; color: #fff; }
 .kc-topbar .kc-btn.primary:hover { background: #1a4fd0; }
 .kc-topbar .kc-btn.active { background: rgba(41,98,255,0.15); color: #2962FF; }
-.kc-topbar .sep { width: 1px; height: 18px; background: #2a2e39; }
-.kc-topbar .label { font-size: 11px; color: #787b86; }
+.kc-topbar .sep { width: 1px; height: 18px; background: #2a2e39; flex-shrink: 0; }
+.kc-topbar .label { font-size: 11px; color: #787b86; white-space: nowrap; }
 .kc-topbar a { font-size: 11px; color: #2962FF; text-decoration: none; }
-#kc-status { font-size: 11px; color: #787b86; margin-left: auto; }
+#kc-status { font-size: 11px; color: #787b86; margin-left: auto; white-space: nowrap; }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="kc-topbar">
-  <span class="label" style="font-weight:600;color:#d1d4dc">📊 KLineChart</span>
-  <div class="sep"></div>
-  <input type="text" id="kc-symbol" value="{{ symbol }}" placeholder="600519.SH">
-  <button class="kc-btn primary" onclick="loadKC()">🔍 加载</button>
-  <div class="sep"></div>
-  <span class="label">周期</span>
-  <button class="kc-btn" data-period="5m" onclick="setPeriod('5m')">5m</button>
-  <button class="kc-btn" data-period="15m" onclick="setPeriod('15m')">15m</button>
-  <button class="kc-btn" data-period="30m" onclick="setPeriod('30m')">30m</button>
-  <button class="kc-btn" data-period="60m" onclick="setPeriod('60m')">60m</button>
-  <button class="kc-btn active" data-period="1d" onclick="setPeriod('1d')">日线</button>
-  <button class="kc-btn" data-period="1w" onclick="setPeriod('1w')">周线</button>
-  <button class="kc-btn" data-period="1M" onclick="setPeriod('1M')">月线</button>
-  <div class="sep"></div>
-  <span class="label">指标</span>
-  <button class="kc-btn active" id="ov-toggle" onclick="toggleOverlayMode()" title="叠加主图/底部视图">📌 主图</button>
-  <button class="kc-btn" onclick="toggleIndicator('MA')">MA(5/10/20/30/60)</button>
-  <input type="text" id="ma-custom" placeholder="自定义,如 120" style="width:70px;background:#131722;border:1px solid #2a2e39;border-radius:4px;padding:3px 6px;font-size:11px;color:#d1d4dc;outline:none">
-  <button class="kc-btn" onclick="addCustomMA()" style="font-size:10px">+MA</button>
-  <button class="kc-btn" onclick="toggleIndicator('EMA')">EMA</button>
-  <button class="kc-btn" onclick="toggleIndicator('BOLL')">BOLL</button>
-  <button class="kc-btn" onclick="toggleIndicator('MACD')">MACD</button>
-  <button class="kc-btn" onclick="toggleIndicator('RSI')">RSI</button>
-  <button class="kc-btn" onclick="toggleIndicator('KDJ')">KDJ</button>
-  <button class="kc-btn" onclick="toggleIndicator('WR')">WR</button>
-  <button class="kc-btn" onclick="toggleIndicator('DMI')">DMI</button>
-  <button class="kc-btn" onclick="toggleIndicator('BIAS')">BIAS</button>
-  <button class="kc-btn" onclick="toggleIndicator('CCI')">CCI</button>
-  <button class="kc-btn" onclick="toggleIndicator('OBV')">OBV</button>
-  <div class="sep"></div>
-  <span class="label">画线</span>
-  <button class="kc-btn" onclick="setDrawTool('')">光标</button>
-  <button class="kc-btn" onclick="setDrawTool('straightLine')">直线</button>
-  <button class="kc-btn" onclick="setDrawTool('segment')">线段</button>
-  <button class="kc-btn" onclick="setDrawTool('horizontalStraightLine')">水平线</button>
-  <button class="kc-btn" onclick="setDrawTool('verticalStraightLine')">垂直线</button>
-  <button class="kc-btn" onclick="setDrawTool('parallelStraightLine')">平行线</button>
-  <button class="kc-btn" onclick="setDrawTool('priceLine')">价格线</button>
-  <button class="kc-btn" onclick="setDrawTool('priceChannelLine')">价格通道</button>
-  <button class="kc-btn" onclick="setDrawTool('fibonacciLine')">斐波那契</button>
-  <button class="kc-btn" onclick="setDrawTool('simpleAnnotation')">标注</button>
-  <button class="kc-btn" onclick="setDrawTool('simpleTag')">标签</button>
-  <span id="kc-status">就绪</span>
+  <!-- Row 1: symbol -->
+  <div class="kc-row">
+    <span class="label" style="font-weight:600;color:#d1d4dc">📊 KLineChart</span>
+    <div class="sep"></div>
+    <input type="text" id="kc-symbol" value="{{ symbol }}" placeholder="600519.SH">
+    <button class="kc-btn primary" onclick="loadKC()">🔍 加载</button>
+    <span id="kc-status">就绪</span>
+  </div>
+
+  <!-- Row 2: 周期 -->
+  <div class="kc-row">
+    <span class="label">周期</span>
+    <button class="kc-btn" data-period="5m" onclick="setPeriod('5m')">5m</button>
+    <button class="kc-btn" data-period="15m" onclick="setPeriod('15m')">15m</button>
+    <button class="kc-btn" data-period="30m" onclick="setPeriod('30m')">30m</button>
+    <button class="kc-btn" data-period="60m" onclick="setPeriod('60m')">60m</button>
+    <button class="kc-btn active" data-period="1d" onclick="setPeriod('1d')">日线</button>
+    <button class="kc-btn" data-period="1w" onclick="setPeriod('1w')">周线</button>
+    <button class="kc-btn" data-period="1M" onclick="setPeriod('1M')">月线</button>
+  </div>
+
+  <!-- Row 3: 指标 -->
+  <div class="kc-row">
+    <span class="label">指标</span>
+    <button class="kc-btn active" id="ov-toggle" onclick="toggleOverlayMode()" title="叠加主图/底部视图">📌 主图</button>
+    <button class="kc-btn" onclick="toggleIndicator('MA')">MA(5/10/20/30/60)</button>
+    <input type="text" id="ma-custom" placeholder="自定义,如 120" style="width:70px;background:#131722;border:1px solid #2a2e39;border-radius:4px;padding:3px 6px;font-size:11px;color:#d1d4dc;outline:none">
+    <button class="kc-btn" onclick="addCustomMA()" style="font-size:10px">+MA</button>
+    <button class="kc-btn" onclick="toggleIndicator('EMA')">EMA</button>
+    <button class="kc-btn" onclick="toggleIndicator('BOLL')">BOLL</button>
+    <button class="kc-btn" onclick="toggleIndicator('MACD')">MACD</button>
+    <button class="kc-btn" onclick="toggleIndicator('RSI')">RSI</button>
+    <button class="kc-btn" onclick="toggleIndicator('KDJ')">KDJ</button>
+    <button class="kc-btn" onclick="toggleIndicator('WR')">WR</button>
+    <button class="kc-btn" onclick="toggleIndicator('DMI')">DMI</button>
+    <button class="kc-btn" onclick="toggleIndicator('BIAS')">BIAS</button>
+    <button class="kc-btn" onclick="toggleIndicator('CCI')">CCI</button>
+    <button class="kc-btn" onclick="toggleIndicator('OBV')">OBV</button>
+  </div>
+
+  <!-- Row 4: 画线 -->
+  <div class="kc-row">
+    <span class="label">画线</span>
+    <button class="kc-btn" onclick="setDrawTool('')">光标</button>
+    <button class="kc-btn" onclick="setDrawTool('straightLine')">直线</button>
+    <button class="kc-btn" onclick="setDrawTool('segment')">线段</button>
+    <button class="kc-btn" onclick="setDrawTool('horizontalStraightLine')">水平线</button>
+    <button class="kc-btn" onclick="setDrawTool('verticalStraightLine')">垂直线</button>
+    <button class="kc-btn" onclick="setDrawTool('parallelStraightLine')">平行线</button>
+    <button class="kc-btn" onclick="setDrawTool('priceLine')">价格线</button>
+    <button class="kc-btn" onclick="setDrawTool('priceChannelLine')">价格通道</button>
+    <button class="kc-btn" onclick="setDrawTool('fibonacciLine')">斐波那契</button>
+    <button class="kc-btn" onclick="setDrawTool('simpleAnnotation')">标注</button>
+    <button class="kc-btn" onclick="setDrawTool('simpleTag')">标签</button>
+    <div class="sep"></div>
+    <button class="kc-btn" onclick="removeLastOverlay()">↩ 撤销</button>
+    <button class="kc-btn" onclick="clearAllOverlays()">❌ 清空</button>
+  </div>
 </div>
 <div id="kc-chart"></div>
 {% endblock %}
@@ -90,14 +106,27 @@ function periodToTV(period) {
 
 // ── Data Loader ──
 let _loadTimer = null;
-const _barCache = {}; // key: `${symbol}_${period}`
-let _fetchController = null; // AbortController for in-flight requests
+let _loadGeneration = 0;
+let _subscribeInterval = null; // single subscription timer, properly cleaned
+const _barCache = {}; // key: `${symbol}_${period}` → array of timestamps (ms), for dedup
+const _barDataCache = {}; // key: `${symbol}_${period}` → array of bar objects, for fast reload
+const _fetchControllers = new Set(); // Track in-flight requests across loader callbacks
 const dataLoader = {
   async getBars(params) {
     const { symbol, period, timestamp, callback, type } = params;
     const cacheKey = `${symbol.symbol}_${period}`;
     const tvPeriod = String(period);
     const now = Math.floor(Date.now() / 1000);
+    const requestGeneration = _loadGeneration;
+
+    // ── Fast path: init load from cache ──
+    if (type === 'init' && !timestamp) {
+      const cached = _barDataCache[cacheKey];
+      if (cached && cached.length > 0) {
+        callback(cached, true);
+        return;
+      }
+    }
 
     // Only fetch what we need based on load type
     let from, to;
@@ -112,18 +141,19 @@ const dataLoader = {
       to = now;
     }
 
-    // Abort previous in-flight request for same cache key
-    if (_fetchController) {
-      _fetchController.abort();
-    }
-    _fetchController = new AbortController();
-    const signal = _fetchController.signal;
+    const controller = new AbortController();
+    _fetchControllers.add(controller);
+    const signal = controller.signal;
 
     try {
-      const res = await fetch(`${API_BASE}/history?symbol=${symbol.symbol}&resolution=${tvPeriod}&from=${from}&to=${to}`, { signal });
+      const url = `${API_BASE}/history?symbol=${symbol.symbol}&resolution=${tvPeriod}&from=${from}&to=${to}`;
+      const res = await fetch(url, { signal });
       const data = await res.json();
+      if (requestGeneration !== _loadGeneration || signal.aborted) {
+        return;
+      }
       if (data.s === 'ok' && data.t) {
-        // Deduplicate against cache
+        // Deduplicate against timestamp cache
         const seen = new Set(_barCache[cacheKey] || []);
         const newBars = [];
         for (let i = 0; i < data.t.length; i++) {
@@ -140,37 +170,57 @@ const dataLoader = {
             });
           }
         }
-        // Update cache; limit to 50k entries to prevent memory leak
+        // Update timestamp cache for dedup
         const sorted = Array.from(seen).sort((a, b) => a - b);
         _barCache[cacheKey] = sorted.length > 50000 ? sorted.slice(-50000) : sorted;
+
+        // Store init data in bar cache for fast reload
+        if (type === 'init' && newBars.length > 0) {
+          // Merge with existing cached bars, keep sorted
+          const existing = _barDataCache[cacheKey] || [];
+          const merged = existing.concat(newBars);
+          merged.sort((a, b) => a.timestamp - b.timestamp);
+          _barDataCache[cacheKey] = merged;
+        }
+
         callback(newBars, data.t.length > 0);
       } else {
         callback([], false);
       }
     } catch (e) {
-      if (e.name !== 'AbortError') callback([], false);
+      if (e.name !== 'AbortError' && requestGeneration === _loadGeneration) callback([], false);
+    } finally {
+      _fetchControllers.delete(controller);
     }
   },
   subscribeBar(params) {
-    // Real-time: poll every 30s
-    if (params._interval) clearInterval(params._interval);
-    params._interval = setInterval(async () => {
-      if (!chart) { clearInterval(params._interval); params._interval = null; return; }
+    // Real-time: poll every 30s — use global timer so cleanup always works
+    if (_subscribeInterval) clearInterval(_subscribeInterval);
+    _subscribeInterval = setInterval(async () => {
+      if (!chart) { clearInterval(_subscribeInterval); _subscribeInterval = null; return; }
       const now = Math.floor(Date.now() / 1000);
+      const resolution = String(params.period || 1);
       try {
-        const res = await fetch(`${API_BASE}/history?symbol=${params.symbol.symbol}&resolution=1&from=${now - 7200}&to=${now}`);
+        const res = await fetch(`${API_BASE}/history?symbol=${params.symbol.symbol}&resolution=${resolution}&from=${now - 7200}&to=${now}`);
         const data = await res.json();
         if (data.s === 'ok' && data.t && data.t.length > 0) {
           const i = data.t.length - 1;
-          params.callback({ timestamp: data.t[i] * 1000, open: data.o[i], high: data.h[i], low: data.l[i], close: data.c[i], volume: data.v[i] });
+          const newBar = { timestamp: data.t[i] * 1000, open: data.o[i], high: data.h[i], low: data.l[i], close: data.c[i], volume: data.v[i] };
+          params.callback(newBar);
+          // Also update bar data cache for this period
+          const cacheKey = `${params.symbol.symbol}_${resolution}`;
+          const existing = _barDataCache[cacheKey] || [];
+          existing.push(newBar);
+          existing.sort((a, b) => a.timestamp - b.timestamp);
+          _barDataCache[cacheKey] = existing;
         }
       } catch (_) {}
     }, 30000);
   },
-  unsubscribeBar(params) {
-    if (params._interval) {
-      clearInterval(params._interval);
-      params._interval = null;
+  unsubscribeBar(_params) {
+    if (_subscribeInterval) {
+      clearInterval(_subscribeInterval);
+      _subscribeInterval = null;
     }
   },
 };
@@ -178,15 +228,20 @@ const dataLoader = {
 // ── Chart Init ──
 function loadKC(initialPeriod) {
   const symbol = getSymbol();
+  _loadGeneration++;
 
   // ══ Resource cleanup before reinit ══
-  // 1. Kill pending period check timer
+  // 1. Kill pending period check timer (legacy, kept for safety)
   if (_loadTimer) { clearTimeout(_loadTimer); _loadTimer = null; }
-  // 2. Clear data cache for new symbol
+  // 2. Kill real-time subscription from previous chart
+  if (_subscribeInterval) { clearInterval(_subscribeInterval); _subscribeInterval = null; }
+  // 3. Clear data caches for OTHER symbols (keep current symbol for fast period switch)
   Object.keys(_barCache).forEach(k => { if (!k.startsWith(symbol)) delete _barCache[k]; });
-  // 3. Abort any in-flight fetch
-  if (_fetchController) { _fetchController.abort(); _fetchController = null; }
-  // 4. Dispose old chart (KLineChart cleans up its own intervals)
+  Object.keys(_barDataCache).forEach(k => { if (!k.startsWith(symbol)) delete _barDataCache[k]; });
+  // 4. Abort old in-flight fetches so stale callbacks do not target the new chart
+  _fetchControllers.forEach(controller => controller.abort());
+  _fetchControllers.clear();
+  // 5. Dispose old chart (KLineChart cleans up its own internals)
   if (chart) { klinecharts.dispose(chart); chart = null; }
 
   const container = document.getElementById('kc-chart');
@@ -230,7 +285,8 @@ function loadKC(initialPeriod) {
   // Default MA5/10/20/30/60 on K-line
   _overlayMode = true;
   indicators = {};
-  chart.createIndicator('MA');
+  _overlayIds = [];
+  chart.createIndicator('MA', { isStack: true, pane: { id: 'candle_pane' } });
   chart.overrideIndicator({ name: 'MA', calcParams: [5, 10, 20, 30, 60] });
   indicators['MA'] = true;
   // Highlight MA button
@@ -243,27 +299,13 @@ function loadKC(initialPeriod) {
 // ── Period ──
 function setPeriod(period) {
   if (!chart) return;
-  const minutes = periodToKC(period);
-  try {
-    chart.setPeriod(minutes);
-  } catch (e) {
-    // setPeriod threw → reinit chart
-    loadKC(period);
-    return;
-  }
-  document.querySelectorAll('[data-period]').forEach(el => el.classList.toggle('active', el.dataset.period === period));
-  document.getElementById('kc-status').textContent = period;
-  // Clear old check timer, set new one
-  if (_loadTimer) clearTimeout(_loadTimer);
-  _loadTimer = setTimeout(() => {
-    _loadTimer = null;
-    try {
-      const dl = chart.getDataList();
-      if (!dl || dl.length === 0) { loadKC(period); return; }
-    } catch (e) {
-      loadKC(period);
-    }
-  }, 3000);
+  // Full rebuild: KLineChart chart.setPeriod() has race conditions with dataLoader
+  // callback in v10.0.0-beta3.  Always rebuild to guarantee correct data + indicators.
+  document.querySelectorAll('[data-period]').forEach(
+    el => el.classList.toggle('active', el.dataset.period === period)
+  );
+  document.getElementById('kc-status').textContent = '⏳ ' + period;
+  loadKC(period);
 }
 
 // ── Indicators ──
@@ -276,7 +318,7 @@ function toggleIndicator(name) {
     if (btn) btn.classList.remove('active');
   } else {
     if (name === 'MA') {
-      chart.createIndicator('MA');
+      chart.createIndicator('MA', { isStack: true, pane: { id: 'candle_pane' } });
       // Override to 5/10/20/30/60 after creation
       chart.overrideIndicator({ name: 'MA', calcParams: [5, 10, 20, 30, 60] });
     } else {
@@ -290,6 +332,7 @@ function toggleIndicator(name) {
 
 // ── Drawing Tools ──
 let currentDrawTool = '';
+let _overlayIds = [];
 
 function toggleOverlayMode() {
   _overlayMode = !_overlayMode;
@@ -304,7 +347,7 @@ function setDrawTool(tool) {
   if (!chart) return;
   // Clear all draw tool active states
   document.querySelectorAll('.kc-btn').forEach(el => {
-    if (el.getAttribute('onclick') && el.getAttribute('onclick').startsWith("setDrawTool(")) {
+    if (el.getAttribute('onclick') && el.getAttribute('onclick').startsWith('setDrawTool(')) {
       el.classList.remove('active');
     }
   });
@@ -312,10 +355,31 @@ function setDrawTool(tool) {
   if (tool) {
     const btn = document.querySelector(`.kc-btn[onclick*="setDrawTool('${tool}')"]`);
     if (btn) btn.classList.add('active');
-    // Create the overlay directly on the chart
-    chart.createOverlay(tool);
+    // Create the overlay directly on the chart (returns overlay ID string)
+    const ol = chart.createOverlay(tool);
+    if (ol) {
+      if (typeof ol === 'string') {
+        _overlayIds.push(ol);
+      } else if (Array.isArray(ol)) {
+        ol.forEach(o => { if (o) _overlayIds.push(typeof o === 'string' ? o : o.id); });
+      }
+    }
   }
   currentDrawTool = tool;
+}
+
+function removeLastOverlay() {
+  if (!chart || _overlayIds.length === 0) return;
+  const id = _overlayIds.pop();
+  try { chart.removeOverlay({ id }); } catch (_) {}
+}
+
+function clearAllOverlays() {
+  if (!chart) return;
+  while (_overlayIds.length > 0) {
+    const id = _overlayIds.pop();
+    try { chart.removeOverlay({ id }); } catch (_) {}
+  }
 }
 
 // ── Custom MA ──
@@ -330,7 +394,7 @@ function addCustomMA() {
   periods.forEach(p => {
     const key = `MA_${p}`;
     _customMACount++;
-    chart.createIndicator({ name: 'MA', calcParams: [p] });
+    chart.createIndicator({ name: 'MA', calcParams: [p] }, { isStack: true, pane: { id: 'candle_pane' } });
     indicators[key] = true;
   });
   input.value = '';
