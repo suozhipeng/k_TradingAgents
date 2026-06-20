@@ -24,8 +24,9 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
-# ── 22 只龙头股票 (A股) ────────────────────────────────────────────────
-LEADING_STOCKS: list[dict[str, str]] = [
+# ── 龙头股票获取（动态优先，硬编码兜底） ──────────────────────────
+
+_DEFAULT_LEADING_STOCKS: list[dict[str, str]] = [
     {"symbol": "600111.SH", "name": "北方稀土", "sector": "有色"},
     {"symbol": "002460.SZ", "name": "赣锋锂业", "sector": "有色"},
     {"symbol": "601899.SH", "name": "紫金矿业", "sector": "有色"},
@@ -50,8 +51,58 @@ LEADING_STOCKS: list[dict[str, str]] = [
     {"symbol": "601319.SH", "name": "中国人保", "sector": "金融"},
 ]
 
+_LEADING_STOCKS_CACHE: list[dict[str, str]] | None = None
+_LEADING_STOCKS_SOURCE: str = "default"
+
+
+def get_leading_stocks() -> tuple[list[dict[str, str]], str]:
+    """Get leading stocks: try EastMoney dynamic → fallback default list.
+
+    Returns (stocks, source_name).
+    """
+    global _LEADING_STOCKS_CACHE, _LEADING_STOCKS_SOURCE
+    if _LEADING_STOCKS_CACHE is not None:
+        return _LEADING_STOCKS_CACHE, _LEADING_STOCKS_SOURCE
+
+    # Try EastMoney: all A-shares sorted by market cap
+    try:
+        import akshare as ak
+
+        df = ak.stock_zh_a_spot_em()
+        if df is not None and not df.empty and "总市值" in df.columns:
+            top = df.nlargest(25, "总市值")
+            stocks = []
+            for _, row in top.iterrows():
+                code = str(row["代码"])
+                sym = f"{code}.SH" if code.startswith("6") else f"{code}.SZ"
+                stocks.append({
+                    "symbol": sym,
+                    "name": str(row["名称"]),
+                    "sector": str(row.get("行业", "")),
+                })
+            if stocks:
+                _LEADING_STOCKS_CACHE = stocks
+                _LEADING_STOCKS_SOURCE = "eastmoney"
+                return stocks, "eastmoney"
+    except Exception:
+        pass
+
+    # Fallback to default
+    _LEADING_STOCKS_CACHE = _DEFAULT_LEADING_STOCKS
+    _LEADING_STOCKS_SOURCE = "default"
+    return _DEFAULT_LEADING_STOCKS, "default"
+
+
+def refresh_leading_stocks() -> tuple[list[dict[str, str]], str]:
+    """Force re-fetch leading stocks, clearing cache."""
+    global _LEADING_STOCKS_CACHE
+    _LEADING_STOCKS_CACHE = None
+    return get_leading_stocks()
+
+
 BENCHMARK_SYMBOL = "588000.SH"  # 科创50ETF
 BENCHMARK_NAME = "科创50ETF"
+LEADING_STOCKS = _DEFAULT_LEADING_STOCKS  # alias for backward compat
 
 
 @dataclass
@@ -289,7 +340,8 @@ def run_momentum_rotation(
 
 def _fetch_all_prices(start_date: str, end_date: str) -> pd.DataFrame | None:
     """Fetch adjusted close prices for all leading stocks + benchmark via baostock (fast)."""
-    all_symbols = [s["symbol"] for s in LEADING_STOCKS] + [BENCHMARK_SYMBOL]
+    leading, _ = get_leading_stocks()
+    all_symbols = [s["symbol"] for s in leading] + [BENCHMARK_SYMBOL]
     price_data: dict[str, pd.Series] = {}
 
     try:

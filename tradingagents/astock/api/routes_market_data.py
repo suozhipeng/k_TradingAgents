@@ -20,6 +20,7 @@ from tradingagents.astock.data_sources.sina_sectors import (
     industry_comparison as sina_industry_comparison,
 )
 from tradingagents.astock.execution.momentum_rotation import (
+    get_leading_stocks,
     run_momentum_rotation,
 )
 
@@ -170,6 +171,11 @@ def momentum_rotation() -> tuple[Response, int]:
             "stock_selection_freq": result.stock_selection_freq,
             "dates": result.dates,
             "params": result.params,
+            "leading_stocks": [
+                {"symbol": s["symbol"], "name": s["name"], "sector": s.get("sector", "")}
+                for s in get_leading_stocks()[0]
+            ],
+            "leading_source": get_leading_stocks()[1],
         }), 200
     except Exception as exc:
         return jsonify({"error": str(exc), "status": 500}), 500
