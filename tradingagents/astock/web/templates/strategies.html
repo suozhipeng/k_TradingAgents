@@ -93,18 +93,14 @@ async function updateStockInfo(symbol) {
       parts.push(info.indices.join('/'));
     }
     el.textContent = `${info.name} (${info.code}) ${parts.join('/')}`;
-
-    // Set start date = listing date if available, else Jan 1 of listing year
-    if (info.listing_date) {
-      document.getElementById('opt-start').value = info.listing_date;
-    }
   } catch (e) {
     el.textContent = '';
   }
 }
 
-// ── Set default end date = today ──
+// ── Set default dates ──
 function setDefaultDates() {
+  document.getElementById('opt-start').value = '2018-01-01';
   const now = new Date();
   document.getElementById('opt-end').value = now.toISOString().slice(0, 10);
 }

@@ -79,9 +79,8 @@ async function updateStockInfo(symbol) {
 
 // ── Set default dates ──
 function setDefaultDates() {
+  document.getElementById('bt-start').value = '2018-01-01';
   const now = new Date();
-  const year = now.getFullYear();
-  document.getElementById('bt-start').value = year + '-01-01';
   document.getElementById('bt-end').value = now.toISOString().slice(0, 10);
 }
 
