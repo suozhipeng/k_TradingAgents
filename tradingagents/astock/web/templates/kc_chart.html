@@ -222,7 +222,7 @@ function loadKC() {
 
   // Default MA5/10/20/30/60 on K-line
   indicators = {};
-  chart.createIndicator('MA');
+  chart.createIndicator('MA', { pane: { id: 'candle_pane' } });
   chart.overrideIndicator({ name: 'MA', calcParams: [5, 10, 20, 30, 60] });
   indicators['MA'] = true;
   // Highlight MA button
@@ -243,7 +243,7 @@ function setPeriod(period) {
   const hadMA = indicators['MA'];
   indicators = {};
   if (hadMA) {
-    chart.createIndicator('MA');
+    chart.createIndicator('MA', { pane: { id: 'candle_pane' } });
     indicators['MA'] = true;
     const maBtn = document.querySelector(`.kc-btn[onclick*="toggleIndicator('MA')"]`);
     if (maBtn) maBtn.classList.add('active');
@@ -260,7 +260,7 @@ function toggleIndicator(name) {
     if (btn) btn.classList.remove('active');
   } else {
     if (name === 'MA') {
-      chart.createIndicator('MA');
+      chart.createIndicator('MA', { pane: { id: 'candle_pane' } });
       // Override to 5/10/20/30/60 after creation
       chart.overrideIndicator({ name: 'MA', calcParams: [5, 10, 20, 30, 60] });
     } else {
