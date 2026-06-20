@@ -175,7 +175,7 @@ const dataLoader = {
 };
 
 // ── Chart Init ──
-function loadKC() {
+function loadKC(initialPeriod) {
   const symbol = getSymbol();
   const container = document.getElementById('kc-chart');
   container.innerHTML = '';
@@ -214,7 +214,7 @@ function loadKC() {
     pricePrecision: 2,
     volumePrecision: 0,
   });
-  chart.setPeriod(1440); // Default 1d
+  chart.setPeriod(initialPeriod ? periodToKC(initialPeriod) : 1440); // Default 1d
 
   // Disable empty-space scrolling: cannot scroll beyond data edges
   chart.setMaxOffsetLeftDistance(0);
@@ -236,10 +236,26 @@ function loadKC() {
 function setPeriod(period) {
   if (!chart) return;
   const minutes = periodToKC(period);
-  chart.setPeriod(minutes);
+  try {
+    chart.setPeriod(minutes);
+  } catch (e) {
+    // setPeriod threw → reinit chart
+    loadKC(period);
+    return;
+  }
   document.querySelectorAll('[data-period]').forEach(el => el.classList.toggle('active', el.dataset.period === period));
   document.getElementById('kc-status').textContent = period;
-  // MA indicator persists across period changes; no need to recreate
+  // Verify data loaded; if empty, reinit
+  setTimeout(() => {
+    try {
+      const dl = chart.getDataList();
+      if (!dl || dl.length === 0) {
+        loadKC(period);
+      }
+    } catch (e) {
+      loadKC(period);
+    }
+  }, 2000);
 }
 
 // ── Indicators ──
