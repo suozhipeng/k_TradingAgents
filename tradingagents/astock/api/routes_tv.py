@@ -325,7 +325,28 @@ def tv_stock_info() -> tuple[Response, int]:
     info["industry"] = industry
     info["indices"] = _check_index_membership(symbol)
     info["symbol"] = symbol
+    # Listing date via baostock
+    info["listing_date"] = _listing_date(symbol)
     return jsonify(info), 200
+
+
+def _listing_date(symbol: str) -> str:
+    """Return stock listing date (YYYY-MM-DD) or empty string."""
+    try:
+        import baostock as bs
+        bs.login()
+        try:
+            clean = symbol.replace(".SH", ".sh").replace(".SZ", ".sz")
+            rs = bs.query_stock_basic(code=clean)
+            while rs.next():
+                row = rs.get_row_data()
+                if len(row) > 2 and row[2]:
+                    return row[2]
+            return ""
+        finally:
+            bs.logout()
+    except Exception:
+        return ""
 
 
 # ---------------------------------------------------------------------------

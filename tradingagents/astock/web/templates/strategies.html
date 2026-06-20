@@ -1,9 +1,9 @@
 {% extends "base.html" %}
 {% block title %}Strategies — AStock WebUI{% endblock %}
 {% block content %}
-<h2 class="text-2xl font-bold text-white mb-6">🧠 策略管理 Strategy Management</h2>
+<h2 class="tv-section-title">🧠 策略管理 Strategy Management</h2>
 
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+<div class="tv-grid-2 mb-6">
   <!-- Available Strategies -->
   <div class="card">
     <h3 class="text-lg font-semibold text-white mb-4">📋 可用策略 Available</h3>
@@ -13,7 +13,7 @@
   <div class="card">
     <h3 class="text-lg font-semibold text-white mb-4">⚡ 策略总数</h3>
     <div class="text-center py-8">
-      <div id="strategy-count" class="text-5xl font-bold text-indigo-400">--</div>
+      <div id="strategy-count" class="text-5xl font-bold tv-text" style="color:#2962FF;">--</div>
       <div class="text-sm text-gray-400 mt-2">已注册策略</div>
     </div>
   </div>
@@ -26,37 +26,38 @@
 
   <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
     <div>
-      <label class="block text-xs text-gray-400 mb-1">策略 Strategy</label>
-      <select id="opt-strategy" class="w-full">
+      <label class="tv-label">策略 Strategy</label>
+      <select id="opt-strategy" class="tv-select w-full">
         <option value="">-- 选择策略 --</option>
       </select>
     </div>
     <div>
-      <label class="block text-xs text-gray-400 mb-1">股票代码 Symbol</label>
+      <label class="tv-label">股票代码 Symbol</label>
       <div class="search-wrap">
-        <input type="text" id="opt-symbol" value="600519.SH" class="w-full" placeholder="600519.SH">
+        <input type="text" id="opt-symbol" value="600519.SH" class="tv-input w-full" placeholder="600519.SH">
       </div>
+      <div id="opt-stock-info" class="text-xs text-gray-500 mt-1" style="min-height:1.2em;"></div>
     </div>
     <div>
-      <label class="block text-xs text-gray-400 mb-1">开始日期 Start</label>
-      <input type="text" id="opt-start" value="2024-01-01" class="w-full" placeholder="2024-01-01">
+      <label class="tv-label">开始日期 Start</label>
+      <input type="date" id="opt-start" class="tv-input w-full">
     </div>
     <div>
-      <label class="block text-xs text-gray-400 mb-1">结束日期 End</label>
-      <input type="text" id="opt-end" value="2025-12-31" class="w-full" placeholder="2025-12-31">
+      <label class="tv-label">结束日期 End</label>
+      <input type="date" id="opt-end" class="tv-input w-full">
     </div>
   </div>
 
-  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
     <div>
-      <label class="block text-xs text-gray-400 mb-1">返回条数 Top N</label>
-      <input type="number" id="opt-topn" value="5" min="1" max="20" class="w-24">
+      <label class="tv-label">返回条数 Top N</label>
+      <input type="number" id="opt-topn" value="5" min="1" max="20" class="tv-input w-24">
     </div>
     <div class="flex items-end">
-      <button onclick="runOptimization()" class="btn btn-primary w-full">🚀 开始优化 Run Optimization</button>
+      <button onclick="runOptimization()" class="tv-btn tv-btn-primary w-full">🚀 开始优化 Run Optimization</button>
     </div>
     <div class="flex items-end">
-      <button onclick="cancelOptimization()" class="btn btn-secondary w-full">⏹ 取消 Cancel</button>
+      <button onclick="cancelOptimization()" class="tv-btn tv-btn-secondary w-full">⏹ 取消 Cancel</button>
     </div>
   </div>
 
@@ -76,6 +77,38 @@
 <script>
 let abortController = null;
 
+// ── Stock info + listing date ──
+async function updateStockInfo(symbol) {
+  const el = document.getElementById('opt-stock-info');
+  if (!symbol) { el.textContent = ''; return; }
+  try {
+    const res = await fetch(`/api/v1/tv/stock-info?symbol=${encodeURIComponent(symbol)}`);
+    if (!res.ok) { el.textContent = ''; return; }
+    const info = await res.json();
+    if (!info || !info.name) { el.textContent = ''; return; }
+
+    // Display stock identity
+    const parts = [info.exchange, info.board, info.industry].filter(Boolean);
+    if (info.indices && info.indices.length) {
+      parts.push(info.indices.join('/'));
+    }
+    el.textContent = `${info.name} (${info.code}) ${parts.join('/')}`;
+
+    // Set start date = listing date if available, else Jan 1 of listing year
+    if (info.listing_date) {
+      document.getElementById('opt-start').value = info.listing_date;
+    }
+  } catch (e) {
+    el.textContent = '';
+  }
+}
+
+// ── Set default end date = today ──
+function setDefaultDates() {
+  const now = new Date();
+  document.getElementById('opt-end').value = now.toISOString().slice(0, 10);
+}
+
 async function loadStrategies() {
   try {
     const res = await fetch('/api/v1/market/strategies');
@@ -86,8 +119,8 @@ async function loadStrategies() {
     const sl = document.getElementById('strategies-list');
     if (strategies.length) {
       sl.innerHTML = '<div class="space-y-2">' + strategies.map(s =>
-        `<div class="flex justify-between items-center py-2 px-3 bg-dark-bg rounded-lg">
-          <span class="text-white font-medium">${s.name}</span>
+        `<div class="flex justify-between items-center py-2 px-3 tv-card" style="padding:8px 12px;">
+          <span class="text-white font-medium text-sm">${s.name}</span>
           <span class="text-xs text-gray-400">${s.description || ''}</span>
         </div>`
       ).join('') + '</div>';
@@ -108,6 +141,20 @@ async function loadStrategies() {
     document.getElementById('strategy-count').textContent = 'ERR';
   }
 }
+
+// ── Search Suggestions ──
+KCDataLoader.setupSearch('opt-symbol', symbol => {
+  updateStockInfo(symbol);
+});
+
+// ── Manual input: debounced stock info ──
+document.getElementById('opt-symbol').addEventListener('input', (function() {
+  let timer;
+  return function() {
+    clearTimeout(timer);
+    timer = setTimeout(() => updateStockInfo(this.value.trim()), 300);
+  };
+})());
 
 async function runOptimization() {
   const strategy = document.getElementById('opt-strategy').value;
@@ -162,12 +209,11 @@ async function runOptimization() {
     // Fetch stock info for display header
     let displaySymbol = data.symbol;
     try {
-      const res = await fetch(`/api/v1/tv/stock-info?symbol=${encodeURIComponent(data.symbol)}`);
-      const info = await res.json();
+      const res2 = await fetch(`/api/v1/tv/stock-info?symbol=${encodeURIComponent(data.symbol)}`);
+      const info = await res2.json();
       if (info.name) {
-        const parts = [info.industry, ...(info.indices || [])].filter(Boolean);
-        const suffix = parts.length > 0 ? '/' + parts.join('/') : '';
-        displaySymbol = `${info.name} (${info.code}) ${info.exchange}/${info.board}${suffix}`;
+        const parts2 = [info.exchange, info.board, info.industry, ...(info.indices || [])].filter(Boolean);
+        displaySymbol = `${info.name} (${info.code}) ${parts2.join('/')}`;
       }
     } catch {}
 
@@ -177,22 +223,22 @@ async function runOptimization() {
 
     // Build table
     const table = document.getElementById('opt-results-table');
-    table.innerHTML = '<table><thead><tr>' +
-      '<th>排名</th><th>参数</th><th>评分</th><th>年化收益</th><th>Sharpe</th><th>最大回撤</th><th>胜率</th><th>交易次数</th>' +
+    table.innerHTML = '<table class="tv-table"><thead><tr>' +
+      '<th>排名</th><th>参数</th><th class="text-right">评分</th><th class="text-right">年化收益</th><th class="text-right">Sharpe</th><th class="text-right">最大回撤</th><th class="text-right">胜率</th><th class="text-right">交易次数</th>' +
       '</tr></thead><tbody>' +
       results.map(r => {
         const paramsStr = Object.entries(r.params || {}).map(([k, v]) => `${k}=${v}`).join(', ');
         const m = r.metrics || {};
-        const scoreClass = r.score > 0.3 ? 'text-emerald-400' : r.score > 0 ? 'text-amber-400' : 'text-red-400';
-        return `<tr class="${r.rank === 1 ? 'bg-indigo-900/20' : ''}">
-          <td class="text-center"><span class="badge ${r.rank === 1 ? 'badge-success' : 'badge-info'}">#${r.rank}</span></td>
+        const scoreClass = r.score > 0.3 ? 'tv-up' : r.score > 0 ? '' : 'tv-down';
+        return `<tr class="${r.rank === 1 ? 'tv-card' : ''}">
+          <td class="text-center"><span class="tv-badge ${r.rank === 1 ? 'tv-badge-green' : 'tv-badge-blue'}">#${r.rank}</span></td>
           <td class="text-xs font-mono">${paramsStr || '(默认)'}</td>
-          <td class="text-center font-bold ${scoreClass}">${r.score?.toFixed(4) ?? '--'}</td>
-          <td class="text-right">${(m.total_return * 100)?.toFixed(2) ?? '--'}%</td>
-          <td class="text-right ${m.sharpe_ratio > 1 ? 'text-emerald-400' : m.sharpe_ratio > 0 ? 'text-amber-400' : 'text-red-400'}">${m.sharpe_ratio?.toFixed(3) ?? '--'}</td>
-          <td class="text-right">${(m.max_drawdown * 100)?.toFixed(2) ?? '--'}%</td>
-          <td class="text-right">${(m.win_rate * 100)?.toFixed(1) ?? '--'}%</td>
-          <td class="text-right">${m.total_trades ?? '--'}</td>
+          <td class="text-right font-bold ${scoreClass}">${r.score?.toFixed(4) ?? '--'}</td>
+          <td class="text-right font-mono">${(m.total_return * 100)?.toFixed(2) ?? '--'}%</td>
+          <td class="text-right font-mono ${m.sharpe_ratio > 1 ? 'tv-up' : m.sharpe_ratio > 0 ? '' : 'tv-down'}">${m.sharpe_ratio?.toFixed(3) ?? '--'}</td>
+          <td class="text-right font-mono">${(m.max_drawdown * 100)?.toFixed(2) ?? '--'}%</td>
+          <td class="text-right font-mono">${(m.win_rate * 100)?.toFixed(1) ?? '--'}%</td>
+          <td class="text-right font-mono">${m.total_trades ?? '--'}</td>
         </tr>`;
       }).join('') +
       '</tbody></table>';
@@ -221,7 +267,8 @@ function showStatus(msg, isError) {
   el.className = 'text-xs mb-2 ' + (isError ? 'text-red-400' : 'text-gray-400');
 }
 
+setDefaultDates();
 loadStrategies();
-KCDataLoader.setupSearch('opt-symbol', symbol => { loadStrategy() });
+updateStockInfo('600519.SH');
 </script>
 {% endblock %}
