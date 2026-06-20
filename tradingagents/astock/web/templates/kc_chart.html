@@ -38,6 +38,8 @@
   <span class="label">指标</span>
   <button class="kc-btn active" id="ov-toggle" onclick="toggleOverlayMode()" title="叠加主图/底部视图">📌 主图</button>
   <button class="kc-btn" onclick="toggleIndicator('MA')">MA(5/10/20/30/60)</button>
+  <input type="text" id="ma-custom" placeholder="自定义,如 120" style="width:70px;background:#131722;border:1px solid #2a2e39;border-radius:4px;padding:3px 6px;font-size:11px;color:#d1d4dc;outline:none">
+  <button class="kc-btn" onclick="addCustomMA()" style="font-size:10px">+MA</button>
   <button class="kc-btn" onclick="toggleIndicator('EMA')">EMA</button>
   <button class="kc-btn" onclick="toggleIndicator('BOLL')">BOLL</button>
   <button class="kc-btn" onclick="toggleIndicator('MACD')">MACD</button>
@@ -218,19 +220,14 @@ function loadKC() {
   chart.setMaxOffsetLeftDistance(0);
   chart.setMaxOffsetRightDistance(0);
 
-  // Default MA5/10/20/30/60 on K-line (overlaid on candles)
+  // Default MA5/10/20/30/60 on K-line
   indicators = {};
-  setTimeout(() => {
-    // Create MA directly on candle chart (always stacked)
-    chart.createIndicator(
-      { name: 'MA', calcParams: [5, 10, 20, 30, 60] },
-      { isStack: true }
-    );
-    indicators['MA'] = true;
-    // Highlight MA button
-    const maBtn = document.querySelector(`.kc-btn[onclick*="toggleIndicator('MA')"]`);
-    if (maBtn) maBtn.classList.add('active');
-  }, 500);
+  chart.createIndicator('MA');
+  chart.overrideIndicator({ name: 'MA', calcParams: [5, 10, 20, 30, 60] });
+  indicators['MA'] = true;
+  // Highlight MA button
+  const maBtn = document.querySelector(`.kc-btn[onclick*="toggleIndicator('MA')"]`);
+  if (maBtn) maBtn.classList.add('active');
 
   document.getElementById('kc-status').textContent = `✅ ${symbol}`;
 }
@@ -242,25 +239,14 @@ function setPeriod(period) {
   chart.setPeriod(minutes);
   document.querySelectorAll('[data-period]').forEach(el => el.classList.toggle('active', el.dataset.period === period));
   document.getElementById('kc-status').textContent = period;
-  // Remove all indicators except MA, then re-add MA if it was active
+  // Period change resets data; remove indicator tracking (re-add MA if needed)
   const hadMA = indicators['MA'];
-  Object.keys(indicators).forEach(name => {
-    if (name !== 'MA') {
-      chart.removeIndicator({ name });
-      delete indicators[name];
-      const btn = document.querySelector(`.kc-btn[onclick*="toggleIndicator('${name}')"]`);
-      if (btn) btn.classList.remove('active');
-    }
-  });
-  // Re-create MA if it was active (it may have been cleared by period change)
+  indicators = {};
   if (hadMA) {
-    const existing = chart.getIndicators().some(i => i.name === 'MA');
-    if (!existing) {
-      chart.createIndicator(
-        { name: 'MA', calcParams: [5, 10, 20, 30, 60] },
-        { isStack: true }
-      );
-    }
+    chart.createIndicator('MA');
+    indicators['MA'] = true;
+    const maBtn = document.querySelector(`.kc-btn[onclick*="toggleIndicator('MA')"]`);
+    if (maBtn) maBtn.classList.add('active');
   }
 }
 
@@ -274,13 +260,10 @@ function toggleIndicator(name) {
     if (btn) btn.classList.remove('active');
   } else {
     if (name === 'MA') {
-      // MA always goes to main pane, stacked on candles
-      chart.createIndicator(
-        { name: 'MA', calcParams: [5, 10, 20, 30, 60] },
-        { isStack: true }
-      );
+      chart.createIndicator('MA');
+      // Override to 5/10/20/30/60 after creation
+      chart.overrideIndicator({ name: 'MA', calcParams: [5, 10, 20, 30, 60] });
     } else {
-      // Other indicators: overlay mode controls placement
       const opts = _overlayMode ? { isStack: true } : {};
       chart.createIndicator(name, opts);
     }
@@ -313,9 +296,28 @@ function setDrawTool(tool) {
   if (tool) {
     const btn = document.querySelector(`.kc-btn[onclick*="setDrawTool('${tool}')"]`);
     if (btn) btn.classList.add('active');
+    // Create the overlay directly on the chart
+    chart.createOverlay(tool);
   }
   currentDrawTool = tool;
-  chart.executeAction('onDrawingTool', tool || '');
+}
+
+// ── Custom MA ──
+let _customMACount = 0;
+function addCustomMA() {
+  if (!chart) return;
+  const input = document.getElementById('ma-custom');
+  const raw = (input.value || '').trim();
+  const periods = raw.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n) && n > 0);
+  if (periods.length === 0) { input.style.borderColor = '#f23645'; return; }
+  input.style.borderColor = '#2a2e39';
+  periods.forEach(p => {
+    const key = `MA_${p}`;
+    _customMACount++;
+    chart.createIndicator({ name: 'MA', calcParams: [p] });
+    indicators[key] = true;
+  });
+  input.value = '';
 }
 
 // ── Init ──
