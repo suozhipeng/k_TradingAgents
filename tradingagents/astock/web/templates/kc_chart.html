@@ -219,10 +219,10 @@ function loadKC() {
   // Default MA5/10/20/30/60 on K-line (overlaid on candles)
   indicators = {};
   setTimeout(() => {
-    // Create MA on the main price pane, stacking on candle chart
+    // Create MA directly on the candle_pane (main chart pane)
     chart.createIndicator(
       { name: 'MA', calcParams: [5, 10, 20, 30, 60] },
-      { isStack: true }
+      { pane: { id: 'candle_pane' } }
     );
     indicators['MA'] = true;
     // Highlight MA button
@@ -250,7 +250,7 @@ function setPeriod(period) {
     if (!indicators['MA']) {
       chart.createIndicator(
         { name: 'MA', calcParams: [5, 10, 20, 30, 60] },
-        { isStack: true }
+        { pane: { id: 'candle_pane' } }
       );
       indicators['MA'] = true;
       const maBtn = document.querySelector(`.kc-btn[onclick*="toggleIndicator('MA')"]`);
@@ -279,10 +279,10 @@ function toggleIndicator(name) {
     if (name === 'MA') {
       chart.createIndicator(
         { name: 'MA', calcParams: [5, 10, 20, 30, 60] },
-        { isStack: true }
+        { pane: { id: 'candle_pane' } }
       );
     } else {
-      chart.createIndicator(name, { isStack: true });
+      chart.createIndicator(name, { pane: { id: 'candle_pane' } });
     }
     indicators[name] = true;
     if (btn) btn.classList.add('active');
