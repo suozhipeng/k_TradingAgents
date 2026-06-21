@@ -89,8 +89,8 @@ def _generate_equity_curve() -> pd.DataFrame:
     # Benchmark (沪深300) daily returns
     bench_rets = np.random.normal(0.0003, 0.014, len(dates))
 
-    strat_cum = (1 + strat_rets).cumprod()
-    bench_cum = (1 + bench_rets).cumprod()
+    strat_cum = pd.Series((1 + strat_rets).cumprod(), index=dates)
+    bench_cum = pd.Series((1 + bench_rets).cumprod(), index=dates)
 
     return pd.DataFrame({
         "date": dates,
@@ -568,11 +568,21 @@ fig.update_layout(
     margin=dict(l=0, r=40, t=10, b=10),
     coloraxis_showscale=False,
 )
-# Highlight top 3
-for i, name in enumerate(scores_df.head(3)["name"]):
-    if i < len(fig.data[0].y):
-        idx = list(fig.data[0].y).index(name)
-        fig.data[0].marker.color[idx] = "#dc2626" if i == 0 else "#f87171" if i == 1 else "#60a5fa"
+# Highlight top 3 with explicit colors
+colors = []
+for i, row in enumerate(scores_df.head(10)["name"]):
+    if i == 0:
+        colors.append("#dc2626")
+    elif i == 1:
+        colors.append("#f87171")
+    elif i == 2:
+        colors.append("#60a5fa")
+    else:
+        # Score-based gradient
+        score = scores_df.head(10)["momentum_score"].iloc[i]
+        ratio = (score - 40) / 60
+        colors.append(f"rgba(148, 163, 184, {max(0.3, min(0.9, ratio))})")
+fig.update_traces(marker_color=colors)
 
 st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 

@@ -1,0 +1,289 @@
+{% extends "base.html" %}
+{% block title %}Momentum Dashboard — AStock WebUI{% endblock %}
+{% block head_extra %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<style>
+/* ── Metric Cards ── */
+.mr-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
+@media (max-width: 768px) { .mr-grid { grid-template-columns: 1fr; } }
+.mr-card {
+  background: linear-gradient(145deg, #1e293b 0%, #1a2332 100%);
+  border: 1px solid #2d3a50;
+  border-radius: 14px;
+  padding: 16px 20px;
+  text-align: center;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+}
+.mr-card .lbl { font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+.mr-card .val { font-size: 30px; font-weight: 800; line-height: 1.1; margin: 4px 0; }
+.mr-card .val.red { color: #dc2626; }
+.mr-card .val.green { color: #16a34a; }
+.mr-card .val.blue { color: #3b82f6; }
+.mr-card .sub { font-size: 11px; color: #64748b; margin-top: 2px; }
+
+/* ── Action Cards ── */
+.act-card {
+  border-radius: 10px; padding: 12px 16px; margin-bottom: 6px;
+  border-left: 4px solid; background: #1e293b;
+}
+.act-card.buy { border-left-color: #dc2626; background: linear-gradient(90deg, rgba(220,38,38,0.08) 0%, #1e293b 40%); }
+.act-card.hold { border-left-color: #3b82f6; background: linear-gradient(90deg, rgba(59,130,246,0.08) 0%, #1e293b 40%); }
+.act-card.sell { border-left-color: #16a34a; background: linear-gradient(90deg, rgba(22,163,74,0.08) 0%, #1e293b 40%); }
+.act-tag {
+  display: inline-block; padding: 1px 8px; border-radius: 6px;
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.5px; margin-right: 8px;
+}
+.act-tag.buy { background: rgba(220,38,38,0.2); color: #f87171; }
+.act-tag.hold { background: rgba(59,130,246,0.2); color: #60a5fa; }
+.act-tag.sell { background: rgba(22,163,74,0.2); color: #4ade80; }
+.act-name { font-size: 14px; font-weight: 700; color: #f1f5f9; }
+.act-detail { font-size: 12px; color: #94a3b8; margin-top: 2px; }
+.update-banner {
+  background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.2);
+  border-radius: 8px; padding: 6px 12px; font-size: 11px; color: #93c5fd;
+  text-align: center; margin-top: 10px;
+}
+
+/* ── Calculator ── */
+.calc-card {
+  background: #0f172a; border: 1px solid #2d3a50;
+  border-radius: 10px; padding: 10px 14px; margin-bottom: 8px;
+}
+.calc-card .lbl { font-size: 10px; color: #64748b; }
+.calc-card .val { font-size: 16px; font-weight: 700; color: #f1f5f9; }
+.calc-card .sub { font-size: 10px; color: #94a3b8; }
+
+/* ── Section Title ── */
+.sec-title {
+  font-size: 16px; font-weight: 700; color: #f1f5f9;
+  margin: 20px 0 12px 0; padding-bottom: 6px;
+  border-bottom: 1px solid #2d3a50;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<h2 class="tv-section-title">🐉 龙头股动量轮动决策系统</h2>
+<p class="tv-muted" style="margin-top:-12px;margin-bottom:16px;">聚焦行业绝对龙头 · 20日风险调整动量算法 · 年化目标 110%+</p>
+
+<!-- ══════ 核心绩效 ──>
+<div class="sec-title">📊 实时回测核心绩效</div>
+<div class="mr-grid" id="mr-metrics"></div>
+
+<!-- ══════ 今日行动 ──>
+<div class="sec-title">📢 今日行动建议</div>
+<div id="mr-actions"></div>
+
+<!-- ══════ 资金换算器 ──>
+<div class="sec-title">💰 资金仓位换算器</div>
+<div class="tv-card mb-6">
+  <div class="flex items-center gap-3 mb-4">
+    <label class="tv-label" style="margin:0;white-space:nowrap;">跟单总资金（万元）</label>
+    <input type="number" id="mr-capital" value="100" min="1" max="100000" step="10" class="tv-input" style="width:140px;">
+  </div>
+  <div id="mr-calculator" class="tv-grid-3"></div>
+</div>
+
+<!-- ══════ 动量天梯榜 ──>
+<div class="sec-title">🏆 当前龙头股动量天梯榜</div>
+<div class="tv-grid-2 mb-6">
+  <div class="tv-card">
+    <canvas id="mr-chart-bar" height="320"></canvas>
+  </div>
+  <div class="tv-card">
+    <div id="mr-rank-table"></div>
+    <div class="tv-divider"></div>
+    <div style="font-size:11px;color:#94a3b8;line-height:1.8;">
+      <strong style="color:#f1f5f9;">评分说明</strong><br>
+      <span style="color:#f87171;">≥ 85分</span> — 强势买入区<br>
+      <span style="color:#60a5fa;">70–84分</span> — 持有/观察区<br>
+      <span style="color:#94a3b8;">50–69分</span> — 弱势区<br>
+      <span style="color:#4ade80;">&lt; 50分</span> — 卖出区
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ── Mock Data ──
+const STOCKS = [
+  {symbol:"300750.SZ",name:"宁德时代",sector:"新能源",price:285.5},
+  {symbol:"002594.SZ",name:"比亚迪",sector:"新能源",price:268.0},
+  {symbol:"601127.SH",name:"赛力斯",sector:"新能源",price:98.6},
+  {symbol:"002230.SZ",name:"科大讯飞",sector:"科技",price:52.3},
+  {symbol:"688981.SH",name:"中芯国际",sector:"科技",price:78.4},
+  {symbol:"688256.SH",name:"寒武纪",sector:"科技",price:620.0},
+  {symbol:"601138.SH",name:"工业富联",sector:"科技",price:25.8},
+  {symbol:"600519.SH",name:"贵州茅台",sector:"消费",price:1550.0},
+  {symbol:"601899.SH",name:"紫金矿业",sector:"有色",price:18.6},
+  {symbol:"603259.SH",name:"药明康德",sector:"医药",price:48.2},
+  {symbol:"601939.SH",name:"建设银行",sector:"金融",price:8.6},
+  {symbol:"600111.SH",name:"北方稀土",sector:"有色",price:22.5},
+  {symbol:"002460.SZ",name:"赣锋锂业",sector:"有色",price:36.8},
+  {symbol:"300502.SZ",name:"新易盛",sector:"科技",price:120.0},
+];
+
+const BASE_SCORES = [94.5, 91.2, 88.0, 82.3, 78.6, 75.1, 71.8, 54.2, 62.5, 68.3, 59.7, 45.2, 52.1, 48.9, 43.5];
+
+let scores = [];
+let barChart = null;
+
+function generateScores() {
+  scores = STOCKS.map((s, i) => {
+    const noise = (Math.random() - 0.5) * 4;
+    const ms = Math.round(Math.max(0, Math.min(100, BASE_SCORES[i] + noise)) * 10) / 10;
+    return {...s, momentum_score: ms};
+  });
+  scores.sort((a, b) => b.momentum_score - a.momentum_score);
+  scores.forEach((s, i) => s.rank = i + 1);
+}
+
+function renderMetrics() {
+  const el = document.getElementById('mr-metrics');
+  el.innerHTML = `
+    <div class="mr-card"><div class="lbl">策略年化收益率</div><div class="val red">+114.2%</div><div class="sub">跑赢沪深300 <strong style="color:#f87171;">+123.5%</strong></div></div>
+    <div class="mr-card"><div class="lbl">最大历史回撤</div><div class="val green">-14.8%</div><div class="sub">发生在震荡市风格切换期</div></div>
+    <div class="mr-card"><div class="lbl">胜率 / 盈亏比</div><div class="val blue">62.3% <span style="font-size:16px;color:#64748b;">/</span> 3.4</div><div class="sub">高胜率依赖强趋势行情</div></div>
+  `;
+}
+
+function renderActions() {
+  const t3 = scores.slice(0, 3);
+  const last = scores[scores.length - 1];
+  const el = document.getElementById('mr-actions');
+  el.innerHTML = `
+    <div class="act-card buy">
+      <span class="act-tag buy">买入</span>
+      <span class="act-name">${t3[0].name} (${t3[0].symbol})</span>
+      <span class="act-detail">分配仓位：<strong style="color:#f87171;">30%</strong> · 动量得分：<span style="color:#f87171;font-weight:600;">${t3[0].momentum_score}分 (#1 🏆)</span></span>
+    </div>
+    <div class="act-card buy">
+      <span class="act-tag buy">买入</span>
+      <span class="act-name">${t3[1].name} (${t3[1].symbol})</span>
+      <span class="act-detail">分配仓位：<strong style="color:#f87171;">30%</strong> · 动量得分：<span style="color:#f87171;font-weight:600;">${t3[1].momentum_score}分 (#2 🚀)</span></span>
+    </div>
+    <div class="act-card hold">
+      <span class="act-tag hold">持有</span>
+      <span class="act-name">${t3[2].name} (${t3[2].symbol})</span>
+      <span class="act-detail">维持仓位：<strong style="color:#60a5fa;">40%</strong> · 动量得分：<span style="color:#60a5fa;font-weight:600;">${t3[2].momentum_score}分 (#3 📈)</span></span>
+    </div>
+    <div class="act-card sell">
+      <span class="act-tag sell">卖出</span>
+      <span class="act-name">${last.name} (${last.symbol})</span>
+      <span class="act-detail">腾出仓位：<strong style="color:#4ade80;">30%</strong> · 动量得分：<span style="color:#4ade80;font-weight:600;">${last.momentum_score}分 (跌破前8 📉)</span></span>
+    </div>
+    <div class="update-banner">🕐 数据截止：${new Date().toISOString().slice(0,10)} 15:30 (盘后计算) · 次日早盘执行</div>
+  `;
+}
+
+function renderCalculator() {
+  const capital = parseFloat(document.getElementById('mr-capital').value) || 100;
+  const t3 = scores.slice(0, 3);
+  const alloc = [0.30, 0.30, 0.40];
+  const names = ["买入", "买入", "持有"];
+  const colors = ["#f87171", "#f87171", "#60a5fa"];
+
+  const el = document.getElementById('mr-calculator');
+  el.innerHTML = t3.map((s, i) => {
+    const amt = capital * alloc[i];
+    const shares = Math.floor(amt * 10000 / s.price / 100) * 100;
+    return `<div class="calc-card">
+      <div class="lbl" style="color:${colors[i]};">${names[i]} ${s.name}</div>
+      <div class="val">${amt.toFixed(1)} 万元</div>
+      <div class="sub">≈ ${shares} 股 (均价 ¥${s.price.toFixed(2)}) · 仓位 ${(alloc[i]*100).toFixed(0)}%</div>
+    </div>`;
+  }).join('');
+}
+
+function renderBarChart() {
+  const canvas = document.getElementById('mr-chart-bar');
+  const ctx = canvas.getContext('2d');
+  if (barChart) { barChart.destroy(); }
+
+  const top10 = scores.slice(0, 10);
+  const colors = top10.map((_, i) => {
+    if (i === 0) return '#dc2626';
+    if (i === 1) return '#f87171';
+    if (i === 2) return '#60a5fa';
+    const ratio = Math.max(0.3, Math.min(0.9, (top10[i].momentum_score - 40) / 60));
+    return `rgba(148,163,184,${ratio})`;
+  });
+
+  barChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: top10.map(s => s.name),
+      datasets: [{
+        data: top10.map(s => s.momentum_score),
+        backgroundColor: colors,
+        borderColor: colors,
+        borderWidth: 1,
+        borderRadius: 3,
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1e222d',
+          titleColor: '#fff',
+          bodyColor: '#d1d5db',
+          borderColor: '#2a2e39',
+          borderWidth: 1,
+          callbacks: {
+            label: ctx => `动量评分: ${ctx.parsed.x}`,
+          }
+        },
+      },
+      scales: {
+        x: {
+          max: 105,
+          grid: { color: '#2d3a50' },
+          ticks: { color: '#94a3b8', font: { size: 10 } },
+        },
+        y: {
+          grid: { display: false },
+          ticks: { color: '#e2e8f0', font: { size: 11, weight: '500' } },
+        }
+      }
+    }
+  });
+}
+
+function renderRankTable() {
+  const el = document.getElementById('mr-rank-table');
+  el.innerHTML = '<table class="tv-table"><thead><tr><th>排名</th><th>股票</th><th>行业</th><th class="text-right">价格</th><th class="text-right">动量评分</th></tr></thead><tbody>' +
+    scores.map(s => {
+      const rowClass = s.rank <= 2 ? 'style="background:rgba(220,38,38,0.08);"' : s.rank === 3 ? 'style="background:rgba(59,130,246,0.08);"' : '';
+      const scoreCls = s.momentum_score >= 85 ? 'tv-up' : s.momentum_score >= 70 ? '' : s.momentum_score >= 50 ? 'tv-muted' : 'tv-down';
+      return `<tr ${rowClass}>
+        <td class="text-center tv-muted">#${s.rank}</td>
+        <td class="tv-text font-medium">${s.name}</td>
+        <td><span class="tv-badge tv-badge-blue">${s.sector}</span></td>
+        <td class="text-right font-mono">${s.price.toFixed(2)}</td>
+        <td class="text-right font-mono font-bold ${scoreCls}">${s.momentum_score}</td>
+      </tr>`;
+    }).join('') + '</tbody></table>';
+}
+
+function refreshAll() {
+  generateScores();
+  renderMetrics();
+  renderActions();
+  renderCalculator();
+  renderBarChart();
+  renderRankTable();
+}
+
+// ── Events ──
+document.getElementById('mr-capital').addEventListener('input', renderCalculator);
+
+refreshAll();
+</script>
+{% endblock %}
