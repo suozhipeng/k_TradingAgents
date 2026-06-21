@@ -129,11 +129,6 @@ def research() -> str:
     return render_template("research.html")
 
 
-@bp.route("/backtest")
-def backtest() -> str:
-    return render_template("backtest.html")
-
-
 @bp.route("/strategy_hub")
 def strategy_hub() -> str:
     """三位一体策略研究控制台"""
@@ -168,16 +163,6 @@ def reports() -> str:
 @bp.route("/settings")
 def settings() -> str:
     return render_template("settings.html")
-
-
-@bp.route("/performance")
-def performance() -> str:
-    return render_template("performance.html")
-
-
-@bp.route("/comparison")
-def comparison() -> str:
-    return render_template("comparison.html")
 
 
 @bp.route("/screener")

@@ -153,7 +153,7 @@
 <div class="symbol-header">
   <div class="symbol-header-main">
     <div>
-      <span class="symbol-name" id="sym-name">贵州茅台 (600519) 沪/主板/酿酒/沪深300/上证50</span>
+      <span class="symbol-name" id="sym-name">上证指数 (000001) 沪/主板/沪深300</span>
       <span class="symbol-exchange">上交所</span>
     </div>
     <div class="symbol-price" id="sym-price">--</div>
@@ -169,7 +169,7 @@
   </div>
   <div class="symbol-search-box">
     <div class="search-wrap">
-      <input class="tv-input" id="symbol-input" placeholder="输入代码 600519.SH" value="600519.SH" spellcheck="false">
+      <input class="tv-input" id="symbol-input" placeholder="输入代码 000001.SH" value="000001.SH" spellcheck="false">
     </div>
     <button class="tv-btn tv-btn-primary tv-btn-sm" onclick="changeSymbol()">🔍</button>
   </div>
@@ -310,9 +310,19 @@
  * ====================================================================== */
 
 const API_BASE = '/api/v1/tv';
-let currentSymbol = '600519.SH';
+let currentSymbol = '000001.SH';
 let currentSide = 'buy';
 let currentQuote = {};
+
+// ── 指数识别 ──
+function isIndexSymbol(sym) {
+  if (!sym) return false;
+  const code = sym.split('.')[0];
+  return code === '000001' || code === '000300' || code === '000016' ||
+         code === '000688' || code === '399001' || code === '399006' ||
+         code === '000905' || code === '000852';
+}
+function pricePrefix(sym) { return isIndexSymbol(sym) ? '' : '¥'; }
 
 // ── KLineChart State ──
 let tradeChart = null;
@@ -418,9 +428,10 @@ function syncOrderPriceFromChart() {
     updateEstimate();
 
     // 头部报价条 — 与 K 线同源
+    const pp = pricePrefix(currentSymbol);
     const priceEl = document.getElementById('sym-price');
     if (priceEl) {
-      priceEl.textContent = '¥' + chartClose.toFixed(2);
+      priceEl.textContent = pp + chartClose.toFixed(2);
       priceEl.style.color = '';
     }
 
@@ -509,16 +520,17 @@ async function handleSymbolChange(symbol) {
     if (!quote.error) {
       currentQuote = quote;
 
+      const pp = pricePrefix(sym);
       const roundedPrice = Math.round((quote.last_price || 0) * 100) / 100;
-      priceEl.textContent = '¥' + roundedPrice.toFixed(2);
+      priceEl.textContent = pp + roundedPrice.toFixed(2);
       priceEl.style.color = '';
 
-      document.getElementById('sym-open').textContent = '¥' + (quote.open || 0).toLocaleString();
-      document.getElementById('sym-high').textContent = '¥' + (quote.high || 0).toLocaleString();
-      document.getElementById('sym-low').textContent  = '¥' + (quote.low  || 0).toLocaleString();
+      document.getElementById('sym-open').textContent = pp + (quote.open || 0).toLocaleString();
+      document.getElementById('sym-high').textContent = pp + (quote.high || 0).toLocaleString();
+      document.getElementById('sym-low').textContent  = pp + (quote.low  || 0).toLocaleString();
       document.getElementById('sym-vol').textContent  = (quote.volume || 0).toLocaleString();
-      document.getElementById('sym-bid').textContent  = '¥' + (quote.bid  || 0).toLocaleString();
-      document.getElementById('sym-ask').textContent  = '¥' + (quote.ask  || 0).toLocaleString();
+      document.getElementById('sym-bid').textContent  = pp + (quote.bid  || 0).toLocaleString();
+      document.getElementById('sym-ask').textContent  = pp + (quote.ask  || 0).toLocaleString();
 
       const changeEl  = document.getElementById('sym-change');
       const chgPct    = quote.change_pct || 0;
@@ -805,7 +817,7 @@ async function loadTradeHistory() {
 
 // ── Init ──
 function init() {
-  handleSymbolChange('600519.SH');
+  handleSymbolChange('000001.SH');
   loadTradingState();
   loadTradeHistory();
   // 定时器: 只刷新交易状态 (报价和K线由用户触发切换)
