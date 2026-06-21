@@ -7,18 +7,64 @@
    ═══════════════════════════════════════════════════════════════════════ */
 
 /* ── Left-right layout ── */
-.bt-layout { display: flex; gap: 16px; align-items: flex-start; }
+.bt-layout { display: flex; gap: 8px; align-items: stretch; position: relative; }
+.bt-sidebar-wrap {
+  position: relative; flex-shrink: 0;
+  width: 340px; min-width: 240px; max-width: 600px;
+}
 .bt-sidebar {
-  width: 340px; flex-shrink: 0;
   background: #1e222d; border: 1px solid #2a2e39; border-radius: 6px;
   padding: 16px; position: sticky; top: 16px;
+  resize: both; overflow: auto; min-width: 228px;
 }
+/* 自定义拖拽手柄 */
+.bt-resize-handle {
+  position: absolute; right: -4px; top: 0; bottom: 0;
+  width: 12px; cursor: col-resize; z-index: 10;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; transition: opacity .15s;
+}
+.bt-sidebar-wrap:hover .bt-resize-handle { opacity: 1; }
+.bt-resize-handle::before {
+  content: ''; display: block;
+  width: 3px; height: 32px;
+  background: #2a2e39; border-radius: 2px;
+  transition: background .15s;
+}
+.bt-resize-handle:hover::before,
+.bt-resize-handle.is-dragging::before {
+  background: #3b82f6;
+}
+/* 右下角原生 resize 手柄 */
+.bt-sidebar::-webkit-resizer {
+  border: 2px solid #2a2e39;
+  border-radius: 2px;
+}
+.bt-sidebar::-webkit-scrollbar { width: 6px; height: 6px; }
+.bt-sidebar::-webkit-scrollbar-thumb { background: #2a2e39; border-radius: 3px; }
+.bt-sidebar::-webkit-scrollbar-thumb:hover { background: #3b82f6; }
 .bt-main { flex: 1; min-width: 0; }
 
 @media (max-width: 1024px) {
-  .bt-layout { flex-direction: column; }
-  .bt-sidebar { width: 100%; position: static; }
+  .bt-layout { flex-direction: column; gap: 6px; }
+  .bt-sidebar-wrap { width: 100% !important; }
+  .bt-sidebar { width: 100% !important; position: static; resize: none; }
+  .bt-resize-handle { display: none; }
 }
+
+/* ── 所有模块统一可调整大小 ── */
+.bt-module {
+  resize: both; overflow: auto;
+  min-height: 60px;
+  transition: min-height .1s;
+}
+.bt-module::-webkit-resizer {
+  border: 2px solid #2a2e39;
+  border-radius: 2px;
+}
+.bt-module::-webkit-scrollbar { width: 6px; height: 6px; }
+.bt-module::-webkit-scrollbar-thumb { background: #2a2e39; border-radius: 3px; }
+.bt-module::-webkit-scrollbar-thumb:hover { background: #3b82f6; }
 
 /* ── Sidebar config card ── */
 .bt-sidebar h3 { font-size: 14px; font-weight: 700; color: #d1d4dc; margin-bottom: 14px; letter-spacing: 0.3px; }
@@ -29,11 +75,27 @@
 }
 .bt-mode-toggle button {
   flex: 1; padding: 6px 10px; font-size: 12px; font-weight: 600; border: none;
-  cursor: pointer; transition: all .15s;
+  cursor: pointer; transition: all .2s;
   background: transparent; color: #787b86;
 }
 .bt-mode-toggle button.active { background: #2962FF; color: #fff; }
 .bt-mode-toggle button:not(.active):hover { background: #2a2e39; color: #d1d4dc; }
+
+/* ── Field transitions ── */
+.bt-field-fade {
+  transition: opacity .25s ease, transform .2s ease;
+  overflow: hidden;
+}
+.bt-field-fade.hidden-field {
+  opacity: 0; transform: translateY(-6px);
+  pointer-events: none; position: absolute;
+}
+
+/* ── Symbol field disabled state ── */
+#bt-symbol.bt-symbol-locked {
+  opacity: 0.5; cursor: not-allowed; pointer-events: none;
+}
+#bt-symbol.bt-symbol-locked::placeholder { color: #4a4e5a; }
 
 /* ── Strategy checkbox grid ── */
 .bt-strat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; max-height: 220px; overflow-y: auto; margin-bottom: 10px; }
@@ -41,7 +103,7 @@
 .bt-strat-grid::-webkit-scrollbar-thumb { background: #2a2e39; border-radius: 2px; }
 .bt-strat-item {
   display: flex; align-items: center; gap: 6px; padding: 4px 8px;
-  border-radius: 4px; cursor: pointer; transition: background .1s;
+  border-radius: 4px; cursor: pointer; transition: background .12s;
   font-size: 11px; color: #d1d4dc;
 }
 .bt-strat-item:hover { background: #2a2e39; }
@@ -63,6 +125,42 @@
 }
 .bt-history-title .count { color: #2962FF; font-weight: 600; }
 
+/* ── History item — clickable to restore ── */
+.bt-hist-item {
+  display: flex; align-items: flex-start; gap: 6px; padding: 4px 0;
+  border-bottom: 1px solid #2a2e39; cursor: pointer;
+  transition: background 0.12s;
+}
+.bt-hist-item:hover { background: #2a2e39; }
+.bt-hist-item .del-btn {
+  background: none; border: none; color: #f23645;
+  cursor: pointer; font-size: 12px; padding: 2px 6px; border-radius: 3px;
+  line-height: 1; opacity: 0.5; transition: opacity 0.12s;
+  flex-shrink: 0;
+}
+.bt-hist-item:hover .del-btn { opacity: 1; }
+.bt-hist-item .hist-mid {
+  flex: 1; min-width: 0;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px;
+}
+.bt-hist-item .hist-return {
+  font-size: 11px; font-family: 'JetBrains Mono', monospace;
+  white-space: nowrap; flex-shrink: 0;
+}
+
+/* ── Scrollbar isolation ── */
+.bt-hist-scroll {
+  max-height: 260px; overflow-y: auto; overflow-x: auto;
+}
+.bt-hist-scroll::-webkit-scrollbar,
+.bt-trade-table::-webkit-scrollbar { width: 6px; height: 6px; }
+.bt-hist-scroll::-webkit-scrollbar-track,
+.bt-trade-table::-webkit-scrollbar-track { background: transparent; }
+.bt-hist-scroll::-webkit-scrollbar-thumb,
+.bt-trade-table::-webkit-scrollbar-thumb { background: #2a2e39; border-radius: 3px; }
+.bt-hist-scroll::-webkit-scrollbar-thumb:hover,
+.bt-trade-table::-webkit-scrollbar-thumb:hover { background: #3b82f6; }
+
 /* ── Tabs ── */
 .bt-tabs {
   display: flex; gap: 0; border-bottom: 1px solid #2a2e39;
@@ -81,7 +179,13 @@
 .bt-panel.active { display: block; }
 
 /* ── Metric cards ── */
-.bt-metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px; }
+.bt-metrics {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+  resize: both; overflow: auto; min-height: 80px; padding: 4px; margin-bottom: 8px;
+}
+.bt-metrics::-webkit-resizer { border: 2px solid #2a2e39; border-radius: 2px; }
+.bt-metrics::-webkit-scrollbar { width: 6px; height: 6px; }
+.bt-metrics::-webkit-scrollbar-thumb { background: #2a2e39; border-radius: 3px; }
 @media (max-width: 640px) { .bt-metrics { grid-template-columns: 1fr 1fr; } }
 .bt-metric {
   background: #1e222d; border: 1px solid #2a2e39; border-radius: 6px;
@@ -89,25 +193,59 @@
 }
 .bt-metric .lbl { font-size: 10px; color: #787b86; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 2px; }
 .bt-metric .val { font-size: 22px; font-weight: 800; font-family: 'JetBrains Mono', monospace; line-height: 1.2; }
-.bt-metric .val.up { color: #089981; }
-.bt-metric .val.down { color: #f23645; }
+.bt-metric .val.up { color: #ef5350; }     /* A股红涨 */
+.bt-metric .val.down { color: #26a69a; }   /* A股绿跌 */
 .bt-metric .val.neutral { color: #d1d4dc; }
 .bt-metric .sub { font-size: 10px; color: #787b86; margin-top: 2px; }
 
 /* ── Dual Chart Row ── */
-.bt-chart-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
-@media (max-width: 768px) { .bt-chart-row { grid-template-columns: 1fr; } }
-.bt-chart-card { background: #1e222d; border: 1px solid #2a2e39; border-radius: 6px; padding: 12px; }
+.bt-chart-row {
+  display: flex; gap: 12px; margin-bottom: 14px; align-items: flex-start;
+}
+@media (max-width: 768px) { .bt-chart-row { flex-direction: column; } }
+.bt-chart-card {
+  background: #1e222d; border: 1px solid #2a2e39; border-radius: 6px; padding: 12px;
+  flex: 1; min-width: 200px; height: 280px; max-height: 800px;
+  resize: both; overflow: hidden;
+}
+.bt-chart-card::-webkit-resizer { border: 2px solid #2a2e39; border-radius: 2px; }
+.bt-chart-card::-webkit-scrollbar { width: 6px; height: 6px; }
+.bt-chart-card::-webkit-scrollbar-thumb { background: #2a2e39; border-radius: 3px; }
+.bt-chart-card::-webkit-scrollbar-thumb:hover { background: #3b82f6; }
 .bt-chart-card .title { font-size: 12px; font-weight: 600; color: #d1d4dc; margin-bottom: 8px; }
-.bt-chart-card canvas { width: 100% !important; height: 220px !important; }
+.bt-chart-card canvas { width: 100% !important; min-height: 150px; }
 
 /* ── Single chart card (full width) ── */
-.bt-chart-full { background: #1e222d; border: 1px solid #2a2e39; border-radius: 6px; padding: 12px; margin-bottom: 14px; }
+.bt-chart-full {
+  background: #1e222d; border: 1px solid #2a2e39; border-radius: 6px; padding: 12px;
+  resize: both; overflow: hidden; height: 280px; max-height: 800px; margin-bottom: 14px;
+}
+.bt-chart-full::-webkit-resizer { border: 2px solid #2a2e39; border-radius: 2px; }
+.bt-chart-full::-webkit-scrollbar { width: 6px; height: 6px; }
+.bt-chart-full::-webkit-scrollbar-thumb { background: #2a2e39; border-radius: 3px; }
+.bt-chart-full::-webkit-scrollbar-thumb:hover { background: #3b82f6; }
 .bt-chart-full .title { font-size: 12px; font-weight: 600; color: #d1d4dc; margin-bottom: 8px; }
-.bt-chart-full canvas { width: 100% !important; }
+.bt-chart-full canvas { width: 100% !important; min-height: 80px; }
+
+/* ── Heatmap Grid ── */
+.bt-heatmap-wrap { overflow-x: auto; margin-bottom: 12px; padding-bottom: 15px; }
+.bt-heatmap-wrap::-webkit-scrollbar { height: 5px; }
+.bt-heatmap-wrap::-webkit-scrollbar-thumb { background: #2a2e39; border-radius: 3px; }
+.bt-heatmap { border-collapse: collapse; font-size: 11px; width: 100%; }
+.bt-heatmap th { padding: 4px 8px; color: #787b86; font-weight: 500; text-align: center; border: 1px solid #2a2e39; font-size: 10px; text-transform: uppercase; white-space: nowrap; }
+.bt-heatmap td { padding: 6px 8px; text-align: center; border: 1px solid #2a2e39; font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 600; min-width: 52px; }
+.bt-heatmap .hm-year { color: #787b86; font-weight: 500; font-size: 10px; text-align: center; background: #1e222d; }
+/* 热力图容器独立控制 overflow，防止底部月份被裁切 */
+#heatmap-container { overflow: auto !important; min-height: 260px; }
 
 /* ── Comparison table ── */
-.bt-cmp-table { overflow-x: auto; margin-bottom: 12px; }
+.bt-cmp-table {
+  resize: both; overflow: auto; min-height: 80px; margin-bottom: 14px;
+}
+.bt-cmp-table::-webkit-resizer { border: 2px solid #2a2e39; border-radius: 2px; }
+.bt-cmp-table::-webkit-scrollbar { height: 5px; }
+.bt-cmp-table::-webkit-scrollbar { height: 5px; }
+.bt-cmp-table::-webkit-scrollbar-thumb { background: #2a2e39; border-radius: 3px; }
 .bt-cmp-table table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .bt-cmp-table th {
   text-align: left; padding: 6px 10px; font-size: 10px; font-weight: 500;
@@ -128,17 +266,31 @@
 .bt-cmp-table tr.top-row { background: rgba(41,98,255,0.06); }
 
 /* ── Trade log table ── */
-.bt-trade-table { overflow-x: auto; }
+.bt-trade-table {
+  overflow: auto; resize: both; min-height: 120px; max-height: none; margin-bottom: 8px;
+}
 .bt-trade-table table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .bt-trade-table th {
   text-align: left; padding: 6px 10px; font-size: 10px; font-weight: 500;
   color: #787b86; text-transform: uppercase; letter-spacing: 0.4px;
-  border-bottom: 1px solid #2a2e39; white-space: nowrap;
+  border-bottom: 1px solid #2a2e39; white-space: nowrap; position: sticky; top: 0; background: #131722; z-index: 1;
 }
 .bt-trade-table td { padding: 6px 10px; border-bottom: 1px solid #2a2e39; white-space: nowrap; color: #d1d4dc; }
 .bt-trade-table td.text-right { text-align: right; }
 .bt-trade-table td.text-center { text-align: center; }
 .bt-trade-table .font-mono { font-family: 'JetBrains Mono', monospace; }
+
+/* ── Trade row active (click-to-focus) ── */
+.bt-trade-table tr.trade-row-active {
+  background: #2a2e39 !important;
+  border-left: 3px solid #3b82f6;
+}
+.bt-trade-table tr.trade-row-active td:first-child {
+  padding-left: 7px;
+}
+.bt-trade-table tr { transition: background 0.15s; }
+.bt-trade-table tbody tr { cursor: pointer; }
+.bt-trade-table tbody tr:hover { background: #1e222d; }
 
 /* ── Empty state ── */
 .bt-empty {
@@ -163,7 +315,8 @@
 <div class="bt-layout">
 
   <!-- ═══════════════ LEFT: 参数配置面板 ═══════════════ -->
-  <aside class="bt-sidebar">
+  <aside class="bt-sidebar-wrap">
+    <div class="bt-sidebar" data-rsz="sidebar">
     <h3>⚙️ 参数配置</h3>
 
     <!-- 模式切换 -->
@@ -191,7 +344,7 @@
     </div>
 
     <!-- 单策略：策略选择 -->
-    <div class="field" id="bt-field-single-strat">
+    <div class="field bt-field-fade" id="bt-field-single-strat">
       <label>策略 Strategy</label>
       <select id="bt-strategy" class="tv-select w-full">
         <option value="MovingAverageTrend">MA Cross</option>
@@ -204,7 +357,7 @@
     </div>
 
     <!-- 多策略对比：策略多选 -->
-    <div class="field" id="bt-field-multi-strat" style="display:none;">
+    <div class="field bt-field-fade hidden-field" id="bt-field-multi-strat" style="display:none;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
         <label style="display:inline;text-transform:uppercase;">策略多选</label>
         <div style="display:flex;gap:6px;">
@@ -225,8 +378,12 @@
     <!-- 回测历史 -->
     <div class="bt-history">
       <div class="bt-history-title">📋 回测历史 <span id="bt-history-count" class="count">0</span></div>
-      <div id="bt-history-list" class="text-xs"></div>
+      <div id="bt-history-list" class="bt-hist-scroll text-xs"></div>
     </div>
+    </div><!-- /.bt-sidebar -->
+    <div class="bt-resize-handle" id="bt-resize-handle"></div>
+    <!-- 悬浮提示 -->
+    <div id="bt-hist-tip" style="display:none;position:fixed;background:#1c2030;color:#d1d4dc;font-family:'JetBrains Mono',monospace;font-size:11px;padding:8px 12px;border:1px solid #2a2e39;border-radius:5px;white-space:pre-line;z-index:99999;pointer-events:none;line-height:1.6;box-shadow:0 4px 16px rgba(0,0,0,0.5);min-width:200px;"></div>
   </aside>
 
   <!-- ═══════════════ RIGHT: 多功能视窗 ═══════════════ -->
@@ -250,13 +407,14 @@
         </div>
       </div>
       <div id="ov-content" style="display:none;">
-        <div class="bt-metrics" id="ov-metrics"></div>
+        <div class="bt-metrics" id="ov-metrics" data-rsz="metrics"></div>
+        <div id="ov-date-bar" style="display:none;font-size:11px;color:#787b86;margin-bottom:10px;font-family:'JetBrains Mono',monospace;letter-spacing:0.3px;"></div>
         <div class="bt-chart-row">
-          <div class="bt-chart-card">
+          <div class="bt-chart-card" data-rsz="eq-chart">
             <div class="title">📈 净值曲线 Equity Curve</div>
             <canvas id="chart-equity"></canvas>
           </div>
-          <div class="bt-chart-card">
+          <div class="bt-chart-card" data-rsz="dd-chart">
             <div class="title">📉 水下回撤图 Drawdown</div>
             <canvas id="chart-drawdown"></canvas>
           </div>
@@ -273,9 +431,16 @@
         </div>
       </div>
       <div id="pr-content" style="display:none;">
-        <div class="bt-chart-full">
+        <div class="bt-chart-full" data-rsz="period-returns">
           <div class="title">📊 周期收益 Period Returns</div>
           <canvas id="chart-period-returns" height="200"></canvas>
+        </div>
+        <!-- 月度收益率热力图矩阵 -->
+        <div class="bt-chart-full" id="heatmap-container" data-rsz="heatmap" style="display:none;">
+          <div class="title">🗂️ 月度收益率热力图 Monthly Return Heatmap</div>
+          <div class="bt-heatmap-wrap">
+            <table class="bt-heatmap" id="heatmap-grid"></table>
+          </div>
         </div>
       </div>
     </div>
@@ -290,9 +455,9 @@
       </div>
       <div id="cp-content" style="display:none;">
         <!-- 策略对比表 -->
-        <div class="bt-cmp-table" id="cmp-table"></div>
+        <div class="bt-cmp-table" id="cmp-table" data-rsz="cmp-table"></div>
         <!-- 净值叠加图 -->
-        <div class="bt-chart-full">
+        <div class="bt-chart-full" data-rsz="cmp-equity">
           <div class="title">📈 多策略净值曲线叠加</div>
           <canvas id="chart-cmp-equity" height="220"></canvas>
         </div>
@@ -308,7 +473,7 @@
         </div>
       </div>
       <div id="td-content" style="display:none;">
-        <div class="bt-trade-table" id="trade-table"></div>
+        <div class="bt-trade-table" id="trade-table" data-rsz="trade-log"></div>
       </div>
     </div>
 
@@ -338,7 +503,6 @@ function loadChartJS(callback) {
     chartJsQueue.length = 0;
   };
   s.onerror = () => {
-    // Fallback: try alternative CDN
     const s2 = document.createElement('script');
     s2.id = 'chartjs-script';
     s2.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.7/chart.umd.min.js';
@@ -357,11 +521,14 @@ function whenChartJs(fn) {
   chartJsQueue.push(fn);
 }
 
-let btMode = 'single';           // 'single' | 'multi'
-let chartInstances = {};         // keyed chart refs
-let lastSingleResult = null;     // last single backtest full result (for analyze)
-let lastMultiResults = null;     // last multi comparison results
-let allStrategies = [];          // cached strategy list
+let btMode = 'single';
+let chartInstances = {};
+let lastSingleResult = null;
+let lastMultiResults = null;
+let allStrategies = [];
+// Stored equity labels/values for trade-log → chart focus
+let _eqLabels = [];
+let _eqValues = [];
 
 const CHART_COLORS = [
   { line: '#818cf8', bg: 'rgba(129,140,248,0.15)' },
@@ -377,12 +544,114 @@ const CHART_COLORS = [
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════
+//  Crosshair — absolute timeline sync between equity & drawdown charts
+// ═══════════════════════════════════════════════════════════════════════════
+
+let syncedHoverIndex = -1;
+
+const HOVER_SYNC_PLUGIN = {
+  id: 'crosshairSync',
+  afterDraw(chart) {
+    if (syncedHoverIndex < 0) return;
+    const meta = chart.getDatasetMeta(0);
+    if (!meta || !meta.data || syncedHoverIndex >= meta.data.length) return;
+    const pt = meta.data[syncedHoverIndex];
+    if (!pt || !pt.x) return;
+    const ctx = chart.ctx;
+    const yAxis = chart.scales.y;
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(pt.x, yAxis.top);
+    ctx.lineTo(pt.x, yAxis.bottom);
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 3]);
+    ctx.stroke();
+    ctx.restore();
+  },
+};
+
+function syncChartHover(src, active) {
+  const idx = active && active.length > 0 ? active[0].index : -1;
+  syncedHoverIndex = idx;
+  // Also force tooltip on the source chart itself
+  const srcChart = chartInstances[src];
+  if (srcChart && idx >= 0 && srcChart.data.labels && idx < srcChart.data.labels.length) {
+    srcChart.setActiveElements([{ datasetIndex: 0, index: idx }]);
+    srcChart.tooltip.setActiveElements([{ datasetIndex: 0, index: idx }], { x: 0, y: 0 });
+  }
+  // Sync to the paired chart
+  const target = src === 'equity' ? 'drawdown' : 'equity';
+  const targetChart = chartInstances[target];
+  if (targetChart) {
+    if (idx >= 0 && targetChart.data.labels && idx < targetChart.data.labels.length) {
+      targetChart.setActiveElements([{ datasetIndex: 0, index: idx }]);
+      targetChart.tooltip.setActiveElements([{ datasetIndex: 0, index: idx }], { x: 0, y: 0 });
+    } else {
+      targetChart.setActiveElements([]);
+      targetChart.tooltip.setActiveElements([], { x: 0, y: 0 });
+    }
+    targetChart.draw();
+  }
+}
+
+/**
+ * Focus both charts to the period containing the given trade date.
+ * Scrolls the equity/drawdown x-axis to center on that date.
+ */
+function focusChartOnDate(dateStr) {
+  if (!_eqLabels || _eqLabels.length === 0) return;
+  // Find the closest month label matching the trade date
+  const prefix = dateStr.substring(0, 7); // "YYYY-MM"
+  let idx = _eqLabels.indexOf(prefix);
+  if (idx < 0) {
+    // Fuzzy match: find nearest month
+    const numeric = prefix.replace('-', '');
+    let best = 0;
+    let bestDist = Infinity;
+    _eqLabels.forEach((l, i) => {
+      const d = Math.abs(parseInt(l.replace('-', ''), 10) - parseInt(numeric, 10));
+      if (d < bestDist) { bestDist = d; best = i; }
+    });
+    idx = best;
+  }
+  // Calculate a window of ±8 periods around the clicked date
+  const halfWindow = 8;
+  const minIdx = Math.max(0, idx - halfWindow);
+  const maxIdx = Math.min(_eqLabels.length - 1, idx + halfWindow);
+
+  [chartInstances.equity, chartInstances.drawdown].forEach(chart => {
+    if (!chart) return;
+    // Use scale min/max to focus on the window
+    chart.options.scales.x.min = _eqLabels[minIdx];
+    chart.options.scales.x.max = _eqLabels[maxIdx];
+    chart.update('none');
+  });
+
+  // Also trigger crosshair at this position
+  const targetChart = chartInstances.equity;
+  if (targetChart) {
+    syncedHoverIndex = idx;
+    targetChart.setActiveElements([{ datasetIndex: 0, index: idx }]);
+    targetChart.tooltip.setActiveElements([{ datasetIndex: 0, index: idx }], { x: 0, y: 0 });
+    if (chartInstances.drawdown) {
+      chartInstances.drawdown.setActiveElements([{ datasetIndex: 0, index: idx }]);
+      chartInstances.drawdown.tooltip.setActiveElements([{ datasetIndex: 0, index: idx }], { x: 0, y: 0 });
+    }
+    targetChart.draw();
+    if (chartInstances.drawdown) chartInstances.drawdown.draw();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 //  INIT
 // ═══════════════════════════════════════════════════════════════════════════
 
 function setDefaultDates() {
-  document.getElementById('bt-start').value = '2018-01-01';
   const now = new Date();
+  const oneYearAgo = new Date(now);
+  oneYearAgo.setFullYear(now.getFullYear() - 1);
+  document.getElementById('bt-start').value = oneYearAgo.toISOString().slice(0, 10);
   document.getElementById('bt-end').value = now.toISOString().slice(0, 10);
 }
 
@@ -406,11 +675,9 @@ async function loadStrategies() {
     const data = await res.json();
     allStrategies = data?.strategies || [];
 
-    // Fill single strategy dropdown
     const sel = document.getElementById('bt-strategy');
     sel.innerHTML = allStrategies.map(s => `<option value="${s.name}">${s.name}</option>`).join('');
 
-    // Fill multi strategy grid
     const grid = document.getElementById('bt-strat-list');
     if (allStrategies.length === 0) {
       grid.innerHTML = '<span style="color:#787b86;font-size:11px;">暂无策略</span>';
@@ -433,9 +700,40 @@ function switchMode(mode) {
   btMode = mode;
   document.getElementById('bt-mode-single').className = mode === 'single' ? 'active' : '';
   document.getElementById('bt-mode-multi').className = mode === 'multi' ? 'active' : '';
-  document.getElementById('bt-field-single-strat').style.display = mode === 'single' ? '' : 'none';
-  document.getElementById('bt-field-multi-strat').style.display = mode === 'multi' ? '' : 'none';
   document.getElementById('bt-run-btn').textContent = mode === 'single' ? '▶ 运行回测' : '▶ 对比运行';
+
+  const singleField = document.getElementById('bt-field-single-strat');
+  const multiField = document.getElementById('bt-field-multi-strat');
+  const symbolInput = document.getElementById('bt-symbol');
+
+  if (mode === 'single') {
+    singleField.style.display = '';
+    singleField.classList.remove('hidden-field');
+    multiField.style.display = 'none';
+    multiField.classList.add('hidden-field');
+    symbolInput.classList.remove('bt-symbol-locked');
+    symbolInput.value = '600519.SH';
+    symbolInput.disabled = false;
+    updateStockInfo('600519.SH');
+  } else {
+    singleField.style.display = 'none';
+    singleField.classList.add('hidden-field');
+    multiField.style.display = '';
+    multiField.classList.remove('hidden-field');
+    symbolInput.classList.add('bt-symbol-locked');
+    symbolInput.value = '000300.SH';
+    symbolInput.disabled = true;
+    updateStockInfo('000300.SH');
+
+    const grid = document.getElementById('bt-strat-list');
+    if (grid && grid.innerHTML === '加载中...' && allStrategies.length === 0) {
+      loadStrategies();
+    }
+    const cbs = document.querySelectorAll('.strat-cb');
+    if (cbs.length > 0 && [...cbs].every(cb => !cb.checked)) {
+      cbs.forEach((cb, i) => { if (i < 3) cb.checked = true; });
+    }
+  }
 }
 
 function selectAllStrat(checked) {
@@ -487,7 +785,6 @@ async function runSingleBacktest(symbol, start, end, statusEl) {
   statusEl.textContent = '⏳ 刷新数据中...';
 
   try {
-    // 1. Refresh data
     await fetch('/api/v1/data/refresh/kline', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -496,7 +793,6 @@ async function runSingleBacktest(symbol, start, end, statusEl) {
 
     statusEl.textContent = '⏳ 运行回测...';
 
-    // 2. Run backtest
     const res = await fetch('/api/v1/backtest/run', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -508,7 +804,6 @@ async function runSingleBacktest(symbol, start, end, statusEl) {
     lastSingleResult = btData;
     statusEl.textContent = '⏳ 加载绩效分析...';
 
-    // 3. Run analyze for detailed charts
     const analyzeRes = await fetch('/api/v1/backtest/analyze', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -516,7 +811,6 @@ async function runSingleBacktest(symbol, start, end, statusEl) {
     });
     const analyzeData = await analyzeRes.json();
     if (analyzeData.error) {
-      // Fallback: use btData metrics
       renderSingleResults(btData, btData);
     } else {
       renderSingleResults(btData, analyzeData);
@@ -567,6 +861,9 @@ function renderSingleResults(btData, analyzeData) {
   const equityCurve = analyzeData.equity_curve || [];
   const returns = analyzeData.returns || [];
   const trades = btData.trades || [];
+  // Reset to prevent stale label reuse
+  _eqLabels = [];
+  _eqValues = [];
 
   const tr = metrics.total_return !== undefined ? metrics.total_return : btData.total_return;
   const ar = metrics.annualized_return !== undefined ? metrics.annualized_return : btData.annualized_return;
@@ -575,7 +872,7 @@ function renderSingleResults(btData, analyzeData) {
   const wr = metrics.win_rate !== undefined ? metrics.win_rate : btData.win_rate;
   const tc = metrics.total_trades !== undefined ? metrics.total_trades : btData.total_trades;
 
-  // ── Tab 1: Core Metrics ──
+  // ── Tab 1: Core Metrics (A股红涨绿跌: up=red, down=green) ──
   document.getElementById('ov-placeholder').style.display = 'none';
   document.getElementById('ov-content').style.display = '';
   document.getElementById('ov-metrics').innerHTML = [
@@ -587,16 +884,28 @@ function renderSingleResults(btData, analyzeData) {
     { lbl: '交易次数', val: tc != null ? tc : '--', cls: 'neutral', sub: 'Total Trades' },
   ].map(m => `<div class="bt-metric"><div class="lbl">${m.lbl}</div><div class="val ${m.cls}">${m.val}</div><div class="sub">${m.sub}</div></div>`).join('');
 
+  // ── Date range indicator ──
+  const startVal = document.getElementById('bt-start').value;
+  const endVal = document.getElementById('bt-end').value;
+  const dateBar = document.getElementById('ov-date-bar');
+  if (dateBar) {
+    dateBar.textContent = `📅 ${startVal}  →  ${endVal}`;
+    dateBar.style.display = '';
+  }
+
   destroyCharts(['equity', 'drawdown']);
 
   // Equity curve
   const eqLabels = equityCurve.map(e => (e.period || '').substring(0, 7));
   const eqValues = equityCurve.map(e => e.value);
   const eqRef = eqValues[0] || 1;
+  _eqLabels = eqLabels;
+  _eqValues = eqValues;
 
   whenChartJs(() => {
     chartInstances.equity = new Chart(document.getElementById('chart-equity'), {
       type: 'line',
+      plugins: [HOVER_SYNC_PLUGIN],
       data: {
         labels: eqLabels,
         datasets: [
@@ -605,15 +914,22 @@ function renderSingleResults(btData, analyzeData) {
         ]
       },
       options: {
-        responsive: true, maintainAspectRatio: true,
+        responsive: true, maintainAspectRatio: false, resizeDelay: 100,
+        layout: { padding: { bottom: 20 } },
+        interaction: { mode: 'index', intersect: false, axis: 'x' },
         plugins: {
           legend: { labels: { color: '#9ca3af', boxWidth: 12, padding: 12 } },
-          tooltip: { backgroundColor: '#1e293b', titleColor: '#fff', bodyColor: '#d1d5db' },
+          tooltip: {
+            backgroundColor: '#1e293b', titleColor: '#fff', bodyColor: '#d1d5db',
+            mode: 'index', intersect: false, axis: 'x',
+          },
         },
+        hover: { mode: 'index', intersect: false, axis: 'x' },
         scales: {
-          x: { ticks: { color: '#6b7280', maxTicksLimit: 10, maxRotation: 0 }, grid: { color: '#1e293b' } },
-          y: { ticks: { color: '#6b7280', callback: v => v.toLocaleString() }, grid: { color: '#1e293b' } },
+          x: { offset: true, ticks: { color: '#6b7280', maxTicksLimit: 10, maxRotation: 0 }, grid: { color: 'rgba(42,46,57,0.2)' } },
+          y: { ticks: { color: '#6b7280', callback: v => v.toLocaleString() }, grid: { color: 'rgba(42,46,57,0.2)' } },
         },
+        onHover(evt, active) { syncChartHover('equity', active); },
       },
     });
 
@@ -626,6 +942,7 @@ function renderSingleResults(btData, analyzeData) {
 
     chartInstances.drawdown = new Chart(document.getElementById('chart-drawdown'), {
       type: 'line',
+      plugins: [HOVER_SYNC_PLUGIN],
       data: {
         labels: eqLabels,
         datasets: [{
@@ -634,15 +951,19 @@ function renderSingleResults(btData, analyzeData) {
         }]
       },
       options: {
-        responsive: true, maintainAspectRatio: true,
+        responsive: true, maintainAspectRatio: false, resizeDelay: 100,
+        layout: { padding: { bottom: 20 } },
+        interaction: { mode: 'index', intersect: false, axis: 'x' },
         plugins: {
           legend: { labels: { color: '#9ca3af', boxWidth: 12, padding: 12 } },
-          tooltip: { backgroundColor: '#1e293b', titleColor: '#fff', bodyColor: '#d1d5db', callbacks: { label: ctx => ctx.parsed.y.toFixed(2) + '%' } },
+          tooltip: { backgroundColor: '#1e293b', titleColor: '#fff', bodyColor: '#d1d5db', mode: 'index', intersect: false, axis: 'x', callbacks: { label: ctx => ctx.parsed.y.toFixed(2) + '%' } },
         },
+        hover: { mode: 'index', intersect: false, axis: 'x' },
         scales: {
-          x: { ticks: { color: '#6b7280', maxTicksLimit: 10, maxRotation: 0 }, grid: { color: '#1e293b' } },
-          y: { ticks: { color: '#f23645', callback: v => v.toFixed(1) + '%' }, grid: { color: '#1e293b' } },
+          x: { offset: true, ticks: { color: '#6b7280', maxTicksLimit: 10, maxRotation: 0 }, grid: { color: 'rgba(42,46,57,0.2)' } },
+          y: { ticks: { color: '#f23645', callback: v => v.toFixed(1) + '%' }, grid: { color: 'rgba(42,46,57,0.2)' } },
         },
+        onHover(evt, active) { syncChartHover('drawdown', active); },
       },
     });
   });
@@ -655,7 +976,7 @@ function renderSingleResults(btData, analyzeData) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  RENDER: Period Returns (Tab 2)
+//  RENDER: Period Returns (Tab 2) + Heatmap
 // ═══════════════════════════════════════════════════════════════════════════
 
 function renderPeriodReturns(returns) {
@@ -672,8 +993,9 @@ function renderPeriodReturns(returns) {
 
   const labels = returns.map(r => (r.period || '').substring(0, 7));
   const vals = returns.map(r => (r.return || 0) * 100);
-  const colors = vals.map(v => v >= 0 ? 'rgba(8,153,129,0.6)' : 'rgba(242,54,69,0.6)');
-  const borderColors = vals.map(v => v >= 0 ? '#089981' : '#f23645');
+  // A股红涨绿跌: positive=red, negative=green
+  const colors = vals.map(v => v >= 0 ? 'rgba(239,83,80,0.55)' : 'rgba(38,166,154,0.55)');
+  const borderColors = vals.map(v => v >= 0 ? '#ef5350' : '#26a69a');
 
   whenChartJs(() => {
     chartInstances.periodReturns = new Chart(document.getElementById('chart-period-returns'), {
@@ -690,7 +1012,8 @@ function renderPeriodReturns(returns) {
       }]
     },
     options: {
-      responsive: true, maintainAspectRatio: true,
+      responsive: true, maintainAspectRatio: false, resizeDelay: 100,
+      layout: { padding: { bottom: 28 } },
       plugins: {
         legend: { labels: { color: '#9ca3af', boxWidth: 12, padding: 12 } },
         tooltip: {
@@ -699,15 +1022,75 @@ function renderPeriodReturns(returns) {
         },
       },
       scales: {
-        x: { ticks: { color: '#6b7280', maxTicksLimit: 15, maxRotation: 45 }, grid: { display: false } },
+        x: { offset: true, ticks: { color: '#6b7280', maxTicksLimit: 12, maxRotation: 0, autoSkip: true, padding: 6 }, grid: { display: false } },
         y: {
           ticks: { color: '#6b7280', callback: v => v.toFixed(1) + '%' },
-          grid: { color: '#1e293b' },
+          grid: { color: 'rgba(42,46,57,0.2)' },
         },
       },
     },
     });
   });
+
+  // ── Monthly Return Heatmap Grid ──
+  renderMonthlyHeatmap(returns);
+}
+
+function renderMonthlyHeatmap(returns) {
+  const heatmapContainer = document.getElementById('heatmap-container');
+  if (!returns || returns.length === 0) {
+    heatmapContainer.style.display = 'none';
+    return;
+  }
+
+  // Group returns by year-month
+  const monthlyMap = {};
+  returns.forEach(r => {
+    const period = r.period || '';
+    if (period.length < 7) return;
+    const year = period.substring(0, 4);
+    const month = period.substring(5, 7);
+    if (month >= '01' && month <= '12') {
+      if (!monthlyMap[year]) monthlyMap[year] = {};
+      monthlyMap[year][month] = (r.return || 0) * 100;
+    }
+  });
+
+  const years = Object.keys(monthlyMap).sort();
+  if (years.length === 0) { heatmapContainer.style.display = 'none'; return; }
+
+  const months = ['01','02','03','04','05','06','07','08','09','10','11','12'];
+  const monthLabels = ['一月','二月','三月','四月','五月','六月','七月','八月','九月','十月','十一月','十二月'];
+
+  heatmapContainer.style.display = '';
+
+  let html = '<table class="bt-heatmap"><thead><tr><th></th>';
+  monthLabels.forEach(m => { html += `<th>${m}</th>`; });
+  html += '<th style="color:#2962FF;">累计</th></tr></thead><tbody>';
+
+  years.forEach(year => {
+    html += `<tr><td class="hm-year">${year}</td>`;
+    let yearTotal = 0;
+    months.forEach(month => {
+      const v = monthlyMap[year][month];
+      if (v !== undefined) {
+        yearTotal += v;
+        const cls = v >= 0 ? '#ef5350' : '#26a69a';
+        const bg = v >= 0 ? 'rgba(239,83,80,0.12)' : 'rgba(38,166,154,0.12)';
+        html += `<td style="color:${cls};background:${bg}">${v >= 0 ? '+' : ''}${v.toFixed(1)}%</td>`;
+      } else {
+        html += `<td style="color:#4a4e5a;">--</td>`;
+      }
+    });
+    // Year cumulative
+    const yearCls = yearTotal >= 0 ? '#ef5350' : '#26a69a';
+    const yearBg = yearTotal >= 0 ? 'rgba(239,83,80,0.15)' : 'rgba(38,166,154,0.15)';
+    html += `<td style="color:${yearCls};background:${yearBg};font-weight:700;">${yearTotal >= 0 ? '+' : ''}${yearTotal.toFixed(1)}%</td>`;
+    html += '</tr>';
+  });
+
+  html += '</tbody></table>';
+  document.getElementById('heatmap-grid').innerHTML = html;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -719,7 +1102,6 @@ function renderCompareResults(comparison) {
   document.getElementById('cp-content').style.display = '';
   destroyCharts(['cmpEquity']);
 
-  // ── Comparison Table ──
   const bestReturn = Math.max(...comparison.map(r => r.total_return || 0));
   const bestSharpe = Math.max(...comparison.map(r => r.sharpe_ratio || 0));
   const bestWinRate = Math.max(...comparison.map(r => r.win_rate || 0));
@@ -743,8 +1125,8 @@ function renderCompareResults(comparison) {
         return `<tr class="${rank === 1 ? 'top-row' : ''}">
           <td class="text-center"><span class="rank-badge ${rankCls}">#${rank}</span></td>
           <td style="font-weight:${rank === 1 ? '700' : '400'}">${r.strategy_name}</td>
-          <td class="text-right" style="color:${tr >= 0 ? '#089981' : '#f23645'}">${(tr * 100).toFixed(2)}%</td>
-          <td class="text-right" style="color:${ar >= 0 ? '#089981' : '#f23645'}">${(ar * 100).toFixed(2)}%</td>
+          <td class="text-right" style="color:${tr >= 0 ? '#ef5350' : '#26a69a'}">${(tr * 100).toFixed(2)}%</td>
+          <td class="text-right" style="color:${ar >= 0 ? '#ef5350' : '#26a69a'}">${(ar * 100).toFixed(2)}%</td>
           <td class="text-right" style="color:${sh > 1 ? '#089981' : sh > 0 ? '#ff9800' : '#f23645'}">${sh.toFixed(3)}</td>
           <td class="text-right" style="color:${Math.abs(dd) < 0.15 ? '#089981' : '#ff9800'}">${(dd * 100).toFixed(2)}%</td>
           <td class="text-right" style="color:${wr >= bestWinRate * 0.9 ? '#089981' : '#ff9800'}">${(wr * 100).toFixed(1)}%</td>
@@ -754,7 +1136,6 @@ function renderCompareResults(comparison) {
     </tbody>
   </table>`;
 
-  // ── Equity Overlay Chart ──
   let labels = [];
   const datasets = comparison.map((r, i) => {
     const curve = r.equity_curve || [];
@@ -777,15 +1158,16 @@ function renderCompareResults(comparison) {
     type: 'line',
     data: { labels, datasets },
     options: {
-      responsive: true, maintainAspectRatio: true,
-      interaction: { mode: 'index', intersect: false },
+      responsive: true, maintainAspectRatio: false, resizeDelay: 100,
+      interaction: { mode: 'index', intersect: false, axis: 'x' },
       plugins: {
         legend: { labels: { color: '#9ca3af', boxWidth: 12, padding: 12 } },
-        tooltip: { backgroundColor: '#1e293b', titleColor: '#fff', bodyColor: '#d1d5db' },
+        tooltip: { backgroundColor: '#1e293b', titleColor: '#fff', bodyColor: '#d1d5db', mode: 'index', intersect: false },
       },
+      hover: { mode: 'index', intersect: false },
       scales: {
-        x: { ticks: { color: '#6b7280', maxTicksLimit: 12, maxRotation: 0 }, grid: { color: '#1e293b' } },
-        y: { ticks: { color: '#6b7280', callback: v => v.toLocaleString() }, grid: { color: '#1e293b' } },
+        x: { ticks: { color: '#6b7280', maxTicksLimit: 12, maxRotation: 0 }, grid: { color: 'rgba(42,46,57,0.2)' } },
+        y: { ticks: { color: '#6b7280', callback: v => v.toLocaleString() }, grid: { color: 'rgba(42,46,57,0.2)' } },
       },
     },
     });
@@ -813,14 +1195,15 @@ function renderTradeLog(trades) {
     <tbody>
       ${trades.map((t, i) => {
         const isBuy = t.type === 'buy' || t.signal === 1;
-        return `<tr>
+        const dateVal = t.date || t.period || '';
+        return `<tr data-date="${dateVal}" onclick="onTradeRowClick(this)">
           <td class="text-center" style="color:#787b86;">${i + 1}</td>
-          <td>${t.date || t.period || '--'}</td>
+          <td>${dateVal}</td>
           <td><span class="tv-badge ${isBuy ? 'tv-badge-green' : 'tv-badge-red'}">${isBuy ? '买入' : '卖出'}</span></td>
           <td class="text-right font-mono">${t.price != null ? t.price.toFixed(2) : '--'}</td>
           <td class="text-right font-mono">${t.shares != null ? t.shares.toFixed(0) : '--'}</td>
           <td class="text-right font-mono" style="color:#787b86;">${t.fees != null ? t.fees.toFixed(2) : '--'}</td>
-          <td class="text-right font-mono" style="color:${(t.pnl || 0) >= 0 ? '#089981' : '#f23645'}">
+          <td class="text-right font-mono" style="color:${(t.pnl || 0) >= 0 ? '#ef5350' : '#26a69a'}">
             ${t.pnl != null ? (t.pnl >= 0 ? '+' : '') + t.pnl.toFixed(2) : '--'}
           </td>
         </tr>`;
@@ -828,6 +1211,19 @@ function renderTradeLog(trades) {
     </tbody>
   </table>
   <div style="font-size:11px;color:#787b86;margin-top:6px;">共 ${trades.length} 笔交易</div>`;
+}
+
+// ── Trade row click → focus charts ──
+function onTradeRowClick(row) {
+  const date = row.dataset.date;
+  if (!date) return;
+  // Remove previous active state
+  document.querySelectorAll('#trade-table .trade-row-active').forEach(el => el.classList.remove('trade-row-active'));
+  row.classList.add('trade-row-active');
+  // Focus charts on this trade date
+  if (typeof focusChartOnDate === 'function') focusChartOnDate(date);
+  // Switch to overview tab to show the charts
+  switchTab('overview');
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -848,19 +1244,28 @@ async function loadBtHistory() {
     }
 
     el.innerHTML = results.slice(0, 10).map(bt => {
-      const id = (bt.id || bt.run_id || '').substring(0, 8);
+      const symbol = bt.symbol || '';
+      const strategy = bt.strategy || bt.strategy_name || '';
+      const startDate = bt.start_date || bt.params?.start || bt.params?.start_date || '';
+      const endDate = bt.end_date || bt.params?.end || bt.params?.end_date || '';
+      const id = (bt.id || bt.run_id || '').substring(0, 14);
       const tr = bt.total_return;
-      return `<div style="display:flex;align-items:center;gap:6px;padding:3px 0;border-bottom:1px solid #2a2e39;">
-        <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:#787b86;">${id}</span>
-        <span style="font-size:11px;color:#d1d4dc;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
-          ${bt.symbol || '--'}
+      const attrs = `data-symbol="${symbol}" data-strategy="${strategy}" data-start="${startDate}" data-end="${endDate}"`;
+      const dateLabel = (startDate && endDate) ? `${startDate.slice(2)}~${endDate.slice(2)}` : '';
+      const trPct = tr != null ? (tr >= 0 ? '+' : '') + (tr * 100).toFixed(1) + '%' : '--';
+      const rangeLabel = dateLabel || `${(startDate||'??').slice(2)}~${(endDate||'??').slice(2)}`;
+      return `<div class="bt-hist-item" ${attrs} data-id="${id}" data-symbol="${symbol}" data-strategy="${strategy}" data-range="${rangeLabel}" data-return="${trPct}" onclick="restoreBtRecord(this)">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:#787b86;flex-shrink:0;">${id}</span>
+        <span class="hist-mid">
+          <span style="font-size:11px;color:#d1d4dc;white-space:nowrap;">${symbol}</span>
           <span style="color:#787b86;">/</span>
-          <span class="tv-badge tv-badge-blue" style="font-size:9px;padding:0 4px;">${bt.strategy || bt.strategy_name || '--'}</span>
+          <span class="tv-badge tv-badge-blue" style="font-size:9px;padding:0 4px;white-space:nowrap;">${strategy}</span>
+          <span style="font-size:10px;color:#4a4e5a;font-family:'JetBrains Mono',monospace;word-break:break-all;">${rangeLabel}</span>
         </span>
-        <span style="font-size:11px;font-family:'JetBrains Mono',monospace;color:${tr != null && tr >= 0 ? '#089981' : '#f23645'};">
-          ${tr != null ? (tr >= 0 ? '+' : '') + (tr * 100).toFixed(1) + '%' : '--'}
+        <span class="hist-return" style="color:${tr != null && tr >= 0 ? '#ef5350' : '#26a69a'};">
+          ${trPct}
         </span>
-        <button onclick="deleteBtRecord('${bt.id || bt.run_id || ''}')" style="background:none;border:none;color:#f23645;cursor:pointer;font-size:12px;padding:0 2px;" title="删除">✕</button>
+        <button class="del-btn" onclick="event.stopPropagation();deleteBtRecord('${bt.id || bt.run_id || ''}')" title="删除">✕</button>
       </div>`;
     }).join('');
   } catch (e) {
@@ -878,6 +1283,29 @@ async function deleteBtRecord(runId) {
   } catch (e) {
     document.getElementById('bt-status').textContent = '❌ ' + e.message;
   }
+}
+
+function restoreBtRecord(el) {
+  const symbol = el.dataset.symbol || '';
+  const strategy = el.dataset.strategy || '';
+  const start = el.dataset.start || '';
+  const end = el.dataset.end || '';
+  if (!symbol || !strategy) return;
+
+  document.getElementById('bt-symbol').value = symbol;
+  if (start) document.getElementById('bt-start').value = start;
+  if (end) document.getElementById('bt-end').value = end;
+
+  if (btMode !== 'single') switchMode('single');
+
+  const sel = document.getElementById('bt-strategy');
+  if ([...sel.options].some(o => o.value === strategy)) {
+    sel.value = strategy;
+  }
+
+  updateStockInfo(symbol);
+  document.getElementById('bt-status').textContent = '⏳ 恢复历史回测...';
+  runBacktest();
 }
 
 async function clearAllResults() {
@@ -900,12 +1328,10 @@ setDefaultDates();
 updateStockInfo('600519.SH');
 loadStrategies();
 loadBtHistory();
-loadChartJS(() => {}); // preload Chart.js
+loadChartJS(() => {});
 
-// Search suggestions
 KCDataLoader.setupSearch('bt-symbol', symbol => { updateStockInfo(symbol); });
 
-// Manual input: debounced info fetch
 document.getElementById('bt-symbol').addEventListener('input', (function() {
   let timer;
   return function() {
@@ -913,5 +1339,185 @@ document.getElementById('bt-symbol').addEventListener('input', (function() {
     timer = setTimeout(() => updateStockInfo(this.value.trim()), 300);
   };
 })());
+
+// ── History item mouse-follow tooltip ──
+const _histTip = document.getElementById('bt-hist-tip');
+document.getElementById('bt-history-list').addEventListener('mouseenter', function(e) {
+  const target = e.target.closest('.bt-hist-item');
+  if (!target) { _histTip.style.display = 'none'; return; }
+}, true);
+document.getElementById('bt-history-list').addEventListener('mousemove', function(e) {
+  const target = e.target.closest('.bt-hist-item');
+  if (!target) { _histTip.style.display = 'none'; return; }
+  const id = target.getAttribute('data-id') || '';
+  const sym = target.getAttribute('data-symbol') || '';
+  const strat = target.getAttribute('data-strategy') || '';
+  const range = target.getAttribute('data-range') || '';
+  const ret = target.getAttribute('data-return') || '';
+  _histTip.textContent = `ID:    ${id}\n股票:  ${sym}\n策略:  ${strat}\n区间:  ${range}\n收益:  ${ret}`;
+  _histTip.style.display = '';
+  // Position: 10px offset from cursor, stay in viewport
+  let x = e.clientX + 14;
+  let y = e.clientY - 10;
+  const tw = _histTip.offsetWidth;
+  const th = _histTip.offsetHeight;
+  if (x + tw > window.innerWidth - 10) x = e.clientX - tw - 14;
+  if (y + th > window.innerHeight - 10) y = window.innerHeight - th - 10;
+  if (y < 6) y = 6;
+  _histTip.style.left = x + 'px';
+  _histTip.style.top = y + 'px';
+});
+document.getElementById('bt-history-list').addEventListener('mouseleave', function() {
+  _histTip.style.display = 'none';
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  侧边栏拖拽调整宽度
+// ═══════════════════════════════════════════════════════════════════════════
+
+(function initResize() {
+  const handle = document.getElementById('bt-resize-handle');
+  const wrap = document.querySelector('.bt-sidebar-wrap');
+  const sidebar = document.querySelector('.bt-sidebar');
+  if (!handle || !wrap || !sidebar) return;
+
+  let isDragging = false;
+
+  handle.addEventListener('mousedown', function (e) {
+    e.preventDefault();
+    isDragging = true;
+    handle.classList.add('is-dragging');
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  });
+
+  document.addEventListener('mousemove', function (e) {
+    if (!isDragging) return;
+    const rect = wrap.parentElement.getBoundingClientRect();
+    let newWidth = e.clientX - rect.left;
+    newWidth = Math.max(240, Math.min(600, newWidth));
+    wrap.style.width = newWidth + 'px';
+    sidebar.style.width = newWidth + 'px';
+    // Trigger Chart.js responsive resize
+    window.dispatchEvent(new Event('resize'));
+  });
+
+  document.addEventListener('mouseup', function () {
+    if (!isDragging) return;
+    isDragging = false;
+    handle.classList.remove('is-dragging');
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+    // Save sidebar size immediately on drag end
+    saveModuleSize('sidebar', sidebar.offsetWidth, sidebar.offsetHeight);
+  });
+})();
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  模块尺寸持久化缓存 (localStorage)
+// ═══════════════════════════════════════════════════════════════════════════
+
+const RSZ_STORAGE_KEY = 'bt_module_sizes';
+let rszSaveTimer = null;
+
+/** 读取所有保存的模块尺寸 */
+function loadModuleSizes() {
+  try { return JSON.parse(localStorage.getItem(RSZ_STORAGE_KEY)) || {}; } catch(e) { return {}; }
+}
+
+/** 保存单个模块尺寸（节流） */
+function saveModuleSize(id, w, h) {
+  const sizes = loadModuleSizes();
+  sizes[id] = { w: Math.round(w), h: Math.round(h) };
+  try { localStorage.setItem(RSZ_STORAGE_KEY, JSON.stringify(sizes)); } catch(e) {}
+}
+
+/** 恢复所有模块尺寸 */
+function restoreModuleSizes() {
+  const sizes = loadModuleSizes();
+  Object.entries(sizes).forEach(([id, dim]) => {
+    const el = document.querySelector(`[data-rsz="${id}"]`);
+    if (!el) return;
+    // 合理性检查: 跳过损坏的缓存
+    if (!dim || !dim.w || !dim.h || dim.w > 20000 || dim.h > 20000 || dim.w <= 0 || dim.h <= 0) return;
+    // Skip sidebar — handled by custom drag
+    if (id === 'sidebar') {
+      const wrap = document.querySelector('.bt-sidebar-wrap');
+      if (wrap && dim.w) { wrap.style.width = dim.w + 'px'; el.style.width = dim.w + 'px'; }
+      if (dim.h) el.style.height = dim.h + 'px';
+      return;
+    }
+    if (dim.w) el.style.width = dim.w + 'px';
+    if (dim.h) el.style.height = dim.h + 'px';
+  });
+}
+
+/** 初始化 ResizeObserver 监听所有 data-rsz 模块 */
+function initModuleSizePersistence() {
+  restoreModuleSizes();
+
+  const observer = new ResizeObserver(function(entries) {
+    // 清除之前的定时器（节流 500ms）
+    if (rszSaveTimer) clearTimeout(rszSaveTimer);
+    rszSaveTimer = setTimeout(function() {
+      const sizes = {};
+      entries.forEach(function(entry) {
+        const id = entry.target.getAttribute('data-rsz');
+        if (!id) return;
+        // 使用 clientWidth/clientHeight 而非 contentRect (避免 overflow 伪无限值)
+        var cw = entry.target.clientWidth;
+        var ch = entry.target.clientHeight;
+        // 合理性检查: 超过 20000px 或 <=0 不保存
+        if (cw <= 0 || ch <= 0 || cw > 20000 || ch > 20000) return;
+        sizes[id] = { w: Math.round(cw), h: Math.round(ch) };
+        // 触发该模块内的 Chart.js 图表重绘
+        const canvases = entry.target.querySelectorAll('canvas');
+        canvases.forEach(function(cv) {
+          const chartKey = Object.keys(chartInstances).find(function(k) {
+            return chartInstances[k] && chartInstances[k].canvas === cv;
+          });
+          if (chartKey && chartInstances[chartKey].resize) {
+            chartInstances[chartKey].resize();
+          }
+        });
+      });
+      if (Object.keys(sizes).length === 0) return;
+      // Merge with existing (overwrite changed entries)
+      const existing = loadModuleSizes();
+      Object.assign(existing, sizes);
+      try { localStorage.setItem(RSZ_STORAGE_KEY, JSON.stringify(existing)); } catch(e) {}
+      // 全局 resize 事件触发所有 Chart.js 响应
+      window.dispatchEvent(new Event('resize'));
+    }, 500);
+  });
+
+  // 首先观察当前已经存在的模块
+  document.querySelectorAll('[data-rsz]').forEach(function(el) {
+    observer.observe(el);
+  });
+
+  // 保存引用以便后续动态添加模块时可重新观察
+  window.__rszObserver = observer;
+}
+
+/** 当动态渲染新模块后调用，注册到持久化系统 */
+function observeResizableModule(el) {
+  if (window.__rszObserver && el) {
+    window.__rszObserver.observe(el);
+    // 恢复该模块之前保存的尺寸
+    const id = el.getAttribute('data-rsz');
+    if (id) {
+      const sizes = loadModuleSizes();
+      const dim = sizes[id];
+      if (dim) {
+        if (dim.w) el.style.width = dim.w + 'px';
+        if (dim.h) el.style.height = dim.h + 'px';
+      }
+    }
+  }
+}
+
+// Bootstrap
+initModuleSizePersistence();
 </script>
 {% endblock %}
