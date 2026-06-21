@@ -1,0 +1,1253 @@
+{% extends "base.html" %}
+{% block title %}策略研究控制台 — AStock WebUI{% endblock %}
+{% block head_extra %}
+<style>
+/* ═══════════════════════════════════════════════════════════════════════
+   Strategy Hub — 三位一体策略研究控制台
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── Full-screen layout ── */
+.sh-layout { display: flex; height: 100vh; overflow: hidden; background: #131722; }
+.sh-sidebar {
+  width: 300px; flex-shrink: 0; overflow-y: auto; overflow-x: hidden;
+  background: #1e222d; border-right: 1px solid #2a2e39;
+  padding: 16px 14px;
+}
+.sh-sidebar::-webkit-scrollbar { width: 5px; }
+.sh-sidebar::-webkit-scrollbar-thumb { background: #2a2e39; border-radius: 3px; }
+.sh-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+
+@media (max-width: 900px) {
+  .sh-layout { flex-direction: column; }
+  .sh-sidebar { width: 100%; max-height: 40vh; border-right: none; border-bottom: 1px solid #2a2e39; }
+}
+
+/* ── Sidebar config ── */
+.sh-sidebar h3 { font-size: 13px; font-weight: 700; color: #d1d4dc; margin-bottom: 12px; }
+.sh-sidebar .field { margin-bottom: 10px; }
+.sh-sidebar .field label { display: block; font-size: 10px; color: #787b86; margin-bottom: 2px; text-transform: uppercase; letter-spacing: 0.4px; }
+
+/* ── Adaptive strategy selection ── */
+#sh-strat-single-wrap { display: block; }
+#sh-strat-multi-wrap { display: none; }
+.sh-strat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; max-height: 160px; overflow-y: auto; margin-bottom: 8px; }
+.sh-strat-grid::-webkit-scrollbar { width: 4px; }
+.sh-strat-grid::-webkit-scrollbar-thumb { background: #2a2e39; border-radius: 2px; }
+.sh-strat-item {
+  display: flex; align-items: center; gap: 5px; padding: 3px 6px;
+  border-radius: 3px; cursor: pointer; transition: background .12s;
+  font-size: 11px; color: #d1d4dc;
+}
+.sh-strat-item:hover { background: #2a2e39; }
+.sh-strat-item input { accent-color: #2962FF; width: 12px; height: 12px; cursor: pointer; }
+
+/* ── Action buttons ── */
+.sh-actions { display: flex; gap: 6px; margin-top: 6px; }
+.sh-actions button { flex: 1; }
+
+/* ── Status bar ── */
+.sh-status { font-size: 11px; color: #787b86; margin-top: 6px; min-height: 1.2em; }
+
+/* ── History ── */
+.sh-history { margin-top: 10px; border-top: 1px solid #2a2e39; padding-top: 8px; }
+.sh-history-title { font-size: 10px; color: #787b86; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
+.sh-history-title .count { color: #2962FF; font-weight: 600; }
+.sh-hist-scroll { max-height: 180px; overflow-y: auto; overflow-x: hidden; }
+.sh-hist-scroll::-webkit-scrollbar { width: 4px; }
+.sh-hist-scroll::-webkit-scrollbar-thumb { background: #2a2e39; border-radius: 2px; }
+.sh-hist-item {
+  display: flex; align-items: flex-start; gap: 4px; padding: 3px 0;
+  border-bottom: 1px solid #2a2e39; cursor: pointer; transition: background 0.12s;
+}
+.sh-hist-item:hover { background: #2a2e39; }
+.sh-hist-item .del-btn {
+  background: none; border: none; color: #f23645; cursor: pointer;
+  font-size: 11px; padding: 1px 4px; border-radius: 2px; line-height: 1; opacity: 0.5;
+  flex-shrink: 0; transition: opacity 0.12s;
+}
+.sh-hist-item:hover .del-btn { opacity: 1; }
+.sh-hist-mid { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 3px; }
+.sh-hist-ret { font-size: 10px; font-family: 'JetBrains Mono', monospace; white-space: nowrap; flex-shrink: 0; }
+
+/* ── Tabs ── */
+.sh-tabs {
+  display: flex; gap: 0; border-bottom: 1px solid #2a2e39;
+  background: #131722; flex-shrink: 0;
+}
+.sh-tab {
+  padding: 10px 18px; font-size: 12px; font-weight: 600; cursor: pointer;
+  color: #787b86; border-bottom: 2px solid transparent;
+  transition: all .15s; white-space: nowrap; background: none;
+  border-top: none; border-left: none; border-right: none;
+}
+.sh-tab:hover { color: #d1d4dc; }
+.sh-tab.active { color: #2962FF; border-bottom-color: #2962FF; }
+
+.sh-panel { display: none; overflow-y: auto; flex: 1; padding: 14px; }
+.sh-panel.active { display: block; }
+.sh-panel::-webkit-scrollbar { width: 6px; }
+.sh-panel::-webkit-scrollbar-thumb { background: #2a2e39; border-radius: 3px; }
+
+/* ── Panel 1: Single backtest — dual chart row + trade log side-by-side ── */
+.sh-chart-row { display: flex; gap: 12px; margin-bottom: 14px; align-items: flex-start; }
+@media (max-width: 768px) { .sh-chart-row { flex-direction: column; } }
+.sh-chart-card {
+  background: #1e222d; border: 1px solid #2a2e39; border-radius: 6px; padding: 12px;
+  flex: 1; min-width: 200px; height: 280px; max-height: 800px;
+  resize: both; overflow: hidden;
+}
+.sh-chart-card::-webkit-resizer { border: 2px solid #2a2e39; border-radius: 2px; }
+.sh-chart-card::-webkit-scrollbar { width: 5px; height: 5px; }
+.sh-chart-card::-webkit-scrollbar-thumb { background: #2a2e39; border-radius: 3px; }
+.sh-chart-card .title { font-size: 12px; font-weight: 600; color: #d1d4dc; margin-bottom: 8px; }
+.sh-chart-card canvas { width: 100% !important; min-height: 150px; }
+
+/* ── Panel 1: inline trade log ── */
+.sh-log-section { margin-top: 6px; }
+.sh-log-section .sh-section-title { font-size: 12px; font-weight: 600; color: #d1d4dc; margin-bottom: 8px; }
+.sh-trade-table { overflow: auto; resize: both; min-height: 120px; max-height: 320px; margin-bottom: 8px; }
+.sh-trade-table::-webkit-resizer { border: 2px solid #2a2e39; border-radius: 2px; }
+.sh-trade-table::-webkit-scrollbar { width: 5px; height: 5px; }
+.sh-trade-table::-webkit-scrollbar-thumb { background: #2a2e39; border-radius: 3px; }
+.sh-trade-table table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.sh-trade-table th {
+  text-align: left; padding: 5px 8px; font-size: 9px; font-weight: 500;
+  color: #787b86; text-transform: uppercase; letter-spacing: 0.4px;
+  border-bottom: 1px solid #2a2e39; white-space: nowrap; position: sticky; top: 0; background: #131722; z-index: 1;
+}
+.sh-trade-table td { padding: 5px 8px; border-bottom: 1px solid #2a2e39; white-space: nowrap; color: #d1d4dc; font-size: 11px; }
+.sh-trade-table td.text-right { text-align: right; }
+.sh-trade-table td.text-center { text-align: center; }
+.sh-trade-table .font-mono { font-family: 'JetBrains Mono', monospace; }
+.sh-trade-table tr { transition: background 0.15s; cursor: pointer; }
+.sh-trade-table tbody tr:hover { background: #1e222d; }
+
+/* ── Metric cards ── */
+.sh-metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px; }
+@media (max-width: 640px) { .sh-metrics { grid-template-columns: 1fr 1fr; } }
+.sh-metric {
+  background: #1e222d; border: 1px solid #2a2e39; border-radius: 6px;
+  padding: 10px 12px; text-align: center;
+}
+.sh-metric .lbl { font-size: 9px; color: #787b86; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 2px; }
+.sh-metric .val { font-size: 20px; font-weight: 800; font-family: 'JetBrains Mono', monospace; line-height: 1.2; }
+.sh-metric .val.up { color: #ef5350; }
+.sh-metric .val.down { color: #26a69a; }
+.sh-metric .val.neutral { color: #d1d4dc; }
+.sh-metric .sub { font-size: 9px; color: #787b86; margin-top: 2px; }
+
+/* ── Chart full width ── */
+.sh-chart-full {
+  background: #1e222d; border: 1px solid #2a2e39; border-radius: 6px; padding: 12px;
+  resize: both; overflow: hidden; height: 280px; max-height: 800px; margin-bottom: 14px;
+}
+.sh-chart-full::-webkit-resizer { border: 2px solid #2a2e39; border-radius: 2px; }
+.sh-chart-full::-webkit-scrollbar { width: 5px; height: 5px; }
+.sh-chart-full::-webkit-scrollbar-thumb { background: #2a2e39; border-radius: 3px; }
+.sh-chart-full .title { font-size: 12px; font-weight: 600; color: #d1d4dc; margin-bottom: 8px; }
+.sh-chart-full canvas { width: 100% !important; min-height: 80px; }
+
+/* ── Panel 2: Diagnosis grid ── */
+.sh-diag-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 14px; margin-bottom: 14px; }
+@media (max-width: 768px) { .sh-diag-grid { grid-template-columns: 1fr; } }
+.sh-diag-left { min-width: 0; }
+.sh-diag-right { min-width: 0; }
+.sh-risk-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+.sh-risk-card {
+  background: #1e222d; border: 1px solid #2a2e39; border-radius: 6px;
+  padding: 10px 12px; text-align: center;
+}
+.sh-risk-card .lbl { font-size: 9px; color: #787b86; text-transform: uppercase; letter-spacing: 0.5px; }
+.sh-risk-card .val { font-size: 16px; font-weight: 700; font-family: 'JetBrains Mono', monospace; line-height: 1.4; }
+
+/* ── Heatmap ── */
+.sh-heatmap-wrap { overflow-x: auto; overflow-y: auto; padding-bottom: 12px; }
+.sh-heatmap-wrap::-webkit-scrollbar { height: 5px; }
+.sh-heatmap-wrap::-webkit-scrollbar-thumb { background: #2a2e39; border-radius: 3px; }
+.sh-heatmap { border-collapse: collapse; font-size: 10px; width: 100%; }
+.sh-heatmap th { padding: 3px 6px; color: #787b86; font-weight: 500; text-align: center; border: 1px solid #2a2e39; font-size: 9px; text-transform: uppercase; white-space: nowrap; }
+.sh-heatmap td { padding: 4px 6px; text-align: center; border: 1px solid #2a2e39; font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 600; min-width: 46px; }
+.sh-heatmap .hm-year { color: #787b86; font-weight: 500; font-size: 9px; text-align: center; background: #1e222d; }
+
+/* ── Comparison table ── */
+.sh-cmp-table { resize: both; overflow: auto; min-height: 80px; margin-bottom: 14px; }
+.sh-cmp-table::-webkit-resizer { border: 2px solid #2a2e39; border-radius: 2px; }
+.sh-cmp-table::-webkit-scrollbar { height: 5px; }
+.sh-cmp-table::-webkit-scrollbar-thumb { background: #2a2e39; border-radius: 3px; }
+.sh-cmp-table table { width: 100%; border-collapse: collapse; font-size: 10pt; }
+.sh-cmp-table th {
+  text-align: left; padding: 5px 7px; font-size: 9px; font-weight: 500;
+  font-family: 'JetBrains Mono', monospace;
+  color: #787b86; text-transform: uppercase; letter-spacing: 0.4px;
+  border-bottom: 1px solid #2a2e39; white-space: nowrap;
+}
+.sh-cmp-table td { padding: 5px 7px; border-bottom: 1px solid #2a2e39; white-space: nowrap; font-family: 'JetBrains Mono', monospace; font-size: 10pt; }
+.sh-cmp-table td.text-right { text-align: right; }
+.sh-cmp-table td.text-center { text-align: center; }
+.sh-cmp-table .rank-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px; border-radius: 3px; font-size: 10px; font-weight: 700;
+}
+.sh-cmp-table .rank-1 { background: rgba(8,153,129,0.15); color: #089981; }
+.sh-cmp-table .rank-2 { background: rgba(41,98,255,0.15); color: #2962FF; }
+.sh-cmp-table .rank-3 { background: rgba(255,152,0,0.15); color: #ff9800; }
+.sh-cmp-table .rank-n { background: #2a2e39; color: #787b86; }
+.sh-cmp-table tr.top-row { background: rgba(41,98,255,0.06); }
+
+/* ── Empty state ── */
+.sh-empty { text-align: center; padding: 40px 20px; color: #787b86; }
+.sh-empty .icon { font-size: 30px; margin-bottom: 8px; }
+.sh-empty .text { font-size: 13px; }
+.sh-empty .hint { font-size: 11px; color: #787b86; margin-top: 4px; }
+
+/* ── Donut chart card ── */
+.sh-donut-card {
+  background: #1e222d; border: 1px solid #2a2e39; border-radius: 6px;
+  padding: 12px; margin-bottom: 14px;
+}
+.sh-donut-card .title { font-size: 12px; font-weight: 600; color: #d1d4dc; margin-bottom: 8px; }
+.sh-donut-card canvas { width: 100% !important; max-height: 200px; }
+
+/* ── Stock info ── */
+.sh-stock-info { font-size: 10px; color: #787b86; min-height: 1.2em; margin-top: 1px; }
+
+/* ── Capital config ── */
+.sh-cap-row { display: flex; gap: 6px; align-items: center; margin-bottom: 8px; }
+.sh-cap-row label { font-size: 10px; color: #787b86; text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap; }
+.sh-cap-row input { width: 80px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="sh-layout">
+
+  <!-- ═══════════════ LEFT: 统一参数配置面板 ═══════════════ -->
+  <aside class="sh-sidebar">
+    <h3>⚙️ 策略参数</h3>
+
+    <div class="field">
+      <label>股票 Symbol</label>
+      <div class="search-wrap">
+        <input type="text" id="sh-symbol" class="tv-input w-full" value="600519.SH" placeholder="600519.SH">
+      </div>
+      <div id="sh-stock-info" class="sh-stock-info"></div>
+    </div>
+
+    <div class="field">
+      <label>起始日期</label>
+      <input type="date" id="sh-start" class="tv-input w-full">
+    </div>
+    <div class="field">
+      <label>结束日期</label>
+      <input type="date" id="sh-end" class="tv-input w-full">
+    </div>
+
+    <!-- 单策略模式：下拉单选 -->
+    <div class="field" id="sh-strat-single-wrap">
+      <label>策略 Strategy</label>
+      <select id="sh-strategy" class="tv-select w-full">
+        <option value="MovingAverageTrend">MA Cross</option>
+        <option value="MACDTrend">MACD</option>
+        <option value="BollingerBands">Bollinger</option>
+        <option value="DefensiveMomentum">Momentum</option>
+        <option value="MeanReversion">Mean Reversion</option>
+        <option value="BullTrend">Volume Breakout</option>
+      </select>
+    </div>
+
+    <!-- 多策略模式：Checkbox 矩阵 -->
+    <div class="field" id="sh-strat-multi-wrap" style="display:none;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;">
+        <label style="display:inline;">策略多选</label>
+        <div style="display:flex;gap:4px;">
+          <button onclick="shSelectAll(true)" class="tv-btn tv-btn-sm" style="padding:1px 6px;font-size:9px;background:#2a2e39;color:#d1d4dc;border:none;cursor:pointer;">全选</button>
+          <button onclick="shSelectAll(false)" class="tv-btn tv-btn-sm" style="padding:1px 6px;font-size:9px;background:#2a2e39;color:#d1d4dc;border:none;cursor:pointer;">清除</button>
+        </div>
+      </div>
+      <div id="sh-strat-list" class="sh-strat-grid">加载中...</div>
+    </div>
+
+    <!-- 操作区 -->
+    <div class="sh-actions">
+      <button id="sh-run-btn" onclick="shRunBacktest()" class="tv-btn tv-btn-primary" style="flex:2;">▶ 运行回测</button>
+      <button onclick="shClearAll()" class="tv-btn tv-btn-secondary" title="清空历史">🗑</button>
+    </div>
+    <div id="sh-status" class="sh-status">就绪</div>
+
+    <!-- 回测历史 -->
+    <div class="sh-history">
+      <div class="sh-history-title">📋 回测历史 <span id="sh-history-count" class="count">0</span></div>
+      <div id="sh-history-list" class="sh-hist-scroll"></div>
+    </div>
+  </aside>
+
+  <!-- ═══════════════ RIGHT: 工作流 Tab 视窗 ═══════════════ -->
+  <main class="sh-main">
+
+    <div class="sh-tabs">
+      <button class="sh-tab active" data-tab="single" onclick="shSwitchTab('single')">🛠️ 1. 单策略回测</button>
+      <button class="sh-tab" data-tab="diagnosis" onclick="shSwitchTab('diagnosis')">📊 2. 深度绩效诊断</button>
+      <button class="sh-tab" data-tab="compare" onclick="shSwitchTab('compare')">⚔️ 3. 多策略横向对比</button>
+    </div>
+
+    <!-- ── Tab 1: 单策略回测 ── -->
+    <div class="sh-panel active" id="panel-single">
+      <div id="sh-single-placeholder">
+        <div class="sh-empty">
+          <div class="icon">🛠️</div>
+          <div class="text">配置左侧参数后点击「运行」开始单策略回测</div>
+          <div class="hint">时序双图 + 交易日志将展示在此处</div>
+        </div>
+      </div>
+      <div id="sh-single-content" style="display:none;">
+        <div class="sh-metrics" id="sh-single-metrics"></div>
+        <div id="sh-single-datebar" style="display:none;font-size:11px;color:#787b86;margin-bottom:8px;font-family:'JetBrains Mono',monospace;"></div>
+        <div class="sh-chart-row">
+          <div class="sh-chart-card" data-rsz="eq-chart">
+            <div class="title">📈 净值曲线</div>
+            <canvas id="sh-chart-equity"></canvas>
+          </div>
+          <div class="sh-chart-card" data-rsz="dd-chart">
+            <div class="title">📉 水下回撤</div>
+            <canvas id="sh-chart-drawdown"></canvas>
+          </div>
+        </div>
+        <div class="sh-log-section">
+          <div class="sh-section-title">📋 交易日志</div>
+          <div class="sh-trade-table" id="sh-trade-table" data-rsz="trade-log">
+            <div class="sh-empty" style="padding:20px;"><div class="icon">📋</div><div class="text">暂无交易记录</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Tab 2: 深度绩效诊断 ── -->
+    <div class="sh-panel" id="panel-diagnosis">
+      <div id="sh-diag-placeholder">
+        <div class="sh-empty">
+          <div class="icon">📊</div>
+          <div class="text">先运行单策略回测，再切换到此标签查看深度诊断</div>
+          <div class="hint">无需重复跑回测，秒级切换</div>
+        </div>
+      </div>
+      <div id="sh-diag-content" style="display:none;">
+        <!-- 风险归因卡片 -->
+        <div class="sh-risk-cards" id="sh-risk-cards"></div>
+
+        <div class="sh-diag-grid">
+          <div class="sh-diag-left">
+            <!-- 周期收益柱状图 -->
+            <div class="sh-chart-full" data-rsz="period-returns">
+              <div class="title">📊 周期收益 Period Returns</div>
+              <canvas id="sh-chart-period-returns" height="200"></canvas>
+            </div>
+            <!-- 月度热力图 -->
+            <div class="sh-chart-full" id="sh-heatmap-container" data-rsz="heatmap" style="display:none;">
+              <div class="title">🗂️ 月度收益率热力图</div>
+              <div class="sh-heatmap-wrap">
+                <table class="sh-heatmap" id="sh-heatmap-grid"></table>
+              </div>
+            </div>
+          </div>
+          <div class="sh-diag-right">
+            <!-- 信号多空分布圆盘 -->
+            <div class="sh-donut-card">
+              <div class="title">🔵 信号多空分布</div>
+              <canvas id="sh-chart-signals"></canvas>
+            </div>
+            <!-- 额外风险指标 -->
+            <div class="sh-chart-full" data-rsz="diag-risk" style="height:200px;min-height:150px;">
+              <div class="title">📉 回撤分析</div>
+              <div id="sh-diag-drawdown-text" style="font-size:11px;color:#d1d4dc;font-family:'JetBrains Mono',monospace;line-height:1.8;padding:8px;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Tab 3: 多策略横向对比 ── -->
+    <div class="sh-panel" id="panel-compare">
+      <div id="sh-cmp-placeholder">
+        <div class="sh-empty">
+          <div class="icon">⚔️</div>
+          <div class="text">多策略对比模式下勾选多个策略后运行</div>
+          <div class="hint">切换顶部 Tab 到「多策略横向对比」并勾选策略</div>
+        </div>
+      </div>
+      <div id="sh-cmp-content" style="display:none;">
+        <div class="sh-cmp-table" id="sh-cmp-table" data-rsz="cmp-table"></div>
+        <div class="sh-chart-full" data-rsz="cmp-equity">
+          <div class="title">📈 多策略净值曲线叠加</div>
+          <canvas id="sh-chart-cmp-equity" height="220"></canvas>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ═══════════════════════════════════════════════════════════════════════════
+//  Chart.js 动态加载
+// ═══════════════════════════════════════════════════════════════════════════
+
+let chartJsReady = false;
+const chartJsQueue = [];
+
+function loadChartJS(callback) {
+  if (typeof Chart !== 'undefined') { chartJsReady = true; callback(); return; }
+  chartJsQueue.push(callback);
+  if (document.getElementById('chartjs-script')) return;
+  const s = document.createElement('script');
+  s.id = 'chartjs-script';
+  s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js';
+  s.onload = () => { chartJsReady = true; chartJsQueue.forEach(fn => fn()); chartJsQueue.length = 0; };
+  s.onerror = () => {
+    const s2 = document.createElement('script');
+    s2.id = 'chartjs-script';
+    s2.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.7/chart.umd.min.js';
+    s2.onload = () => { chartJsReady = true; chartJsQueue.forEach(fn => fn()); chartJsQueue.length = 0; };
+    document.head.appendChild(s2);
+  };
+  document.head.appendChild(s);
+}
+
+function whenChartJs(fn) {
+  if (chartJsReady || typeof Chart !== 'undefined') { fn(); return; }
+  chartJsQueue.push(fn);
+}
+
+let chartInstances = {};
+let lastSingleResult = null;
+let lastSingleAnalyze = null;
+let lastMultiResults = null;
+let allStrategies = [];
+let _eqLabels = [];
+let _eqValues = [];
+let shActiveTab = 'single';
+
+const CHART_COLORS = [
+  { line: '#818cf8', bg: 'rgba(129,140,248,0.15)' },
+  { line: '#34d399', bg: 'rgba(52,211,153,0.15)' },
+  { line: '#fbbf24', bg: 'rgba(251,191,36,0.15)' },
+  { line: '#f87171', bg: 'rgba(248,113,113,0.15)' },
+  { line: '#60a5fa', bg: 'rgba(96,165,250,0.15)' },
+  { line: '#c084fc', bg: 'rgba(192,132,252,0.15)' },
+  { line: '#fb923c', bg: 'rgba(251,146,60,0.15)' },
+  { line: '#2dd4bf', bg: 'rgba(45,212,191,0.15)' },
+  { line: '#a78bfa', bg: 'rgba(167,139,250,0.15)' },
+  { line: '#e879f9', bg: 'rgba(232,121,249,0.15)' },
+];
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  Crosshair sync
+// ═══════════════════════════════════════════════════════════════════════════
+
+let syncedHoverIndex = -1;
+
+const HOVER_SYNC_PLUGIN = {
+  id: 'crosshairSync',
+  afterDraw(chart) {
+    if (syncedHoverIndex < 0) return;
+    const meta = chart.getDatasetMeta(0);
+    if (!meta || !meta.data || syncedHoverIndex >= meta.data.length) return;
+    const pt = meta.data[syncedHoverIndex];
+    if (!pt || !pt.x) return;
+    const ctx = chart.ctx;
+    const yAxis = chart.scales.y;
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(pt.x, yAxis.top);
+    ctx.lineTo(pt.x, yAxis.bottom);
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 3]);
+    ctx.stroke();
+    ctx.restore();
+  },
+};
+
+function syncChartHover(src, active) {
+  const idx = active && active.length > 0 ? active[0].index : -1;
+  syncedHoverIndex = idx;
+  const srcChart = chartInstances[src];
+  if (srcChart && idx >= 0 && srcChart.data.labels && idx < srcChart.data.labels.length) {
+    srcChart.setActiveElements([{ datasetIndex: 0, index: idx }]);
+    srcChart.tooltip.setActiveElements([{ datasetIndex: 0, index: idx }], { x: 0, y: 0 });
+  }
+  const target = src === 'equity' ? 'drawdown' : 'equity';
+  const targetChart = chartInstances[target];
+  if (targetChart) {
+    if (idx >= 0 && targetChart.data.labels && idx < targetChart.data.labels.length) {
+      targetChart.setActiveElements([{ datasetIndex: 0, index: idx }]);
+      targetChart.tooltip.setActiveElements([{ datasetIndex: 0, index: idx }], { x: 0, y: 0 });
+    } else {
+      targetChart.setActiveElements([]);
+      targetChart.tooltip.setActiveElements([], { x: 0, y: 0 });
+    }
+    targetChart.draw();
+  }
+}
+
+function focusChartOnDate(dateStr) {
+  if (!_eqLabels || _eqLabels.length === 0) return;
+  const prefix = dateStr.substring(0, 7);
+  let idx = _eqLabels.indexOf(prefix);
+  if (idx < 0) {
+    const numeric = prefix.replace('-', '');
+    let best = 0, bestDist = Infinity;
+    _eqLabels.forEach((l, i) => {
+      const d = Math.abs(parseInt(l.replace('-', ''), 10) - parseInt(numeric, 10));
+      if (d < bestDist) { bestDist = d; best = i; }
+    });
+    idx = best;
+  }
+  const halfWindow = 8;
+  const minIdx = Math.max(0, idx - halfWindow);
+  const maxIdx = Math.min(_eqLabels.length - 1, idx + halfWindow);
+  [chartInstances.equity, chartInstances.drawdown].forEach(chart => {
+    if (!chart) return;
+    chart.options.scales.x.min = _eqLabels[minIdx];
+    chart.options.scales.x.max = _eqLabels[maxIdx];
+    chart.update('none');
+  });
+  const targetChart = chartInstances.equity;
+  if (targetChart) {
+    syncedHoverIndex = idx;
+    targetChart.setActiveElements([{ datasetIndex: 0, index: idx }]);
+    targetChart.tooltip.setActiveElements([{ datasetIndex: 0, index: idx }], { x: 0, y: 0 });
+    if (chartInstances.drawdown) {
+      chartInstances.drawdown.setActiveElements([{ datasetIndex: 0, index: idx }]);
+      chartInstances.drawdown.tooltip.setActiveElements([{ datasetIndex: 0, index: idx }], { x: 0, y: 0 });
+    }
+    targetChart.draw();
+    if (chartInstances.drawdown) chartInstances.drawdown.draw();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════════════════════
+
+function shSetDefaultDates() {
+  const now = new Date();
+  const oneYearAgo = new Date(now);
+  oneYearAgo.setFullYear(now.getFullYear() - 1);
+  document.getElementById('sh-start').value = oneYearAgo.toISOString().slice(0, 10);
+  document.getElementById('sh-end').value = now.toISOString().slice(0, 10);
+}
+
+async function shUpdateStockInfo(symbol) {
+  const el = document.getElementById('sh-stock-info');
+  if (!symbol) { el.textContent = ''; return; }
+  try {
+    const res = await fetch('/api/v1/tv/stock-info?symbol=' + encodeURIComponent(symbol));
+    if (!res.ok) { el.textContent = ''; return; }
+    const info = await res.json();
+    if (!info || !info.name) { el.textContent = ''; return; }
+    const parts = [info.exchange, info.board, info.industry].filter(Boolean);
+    if (info.indices && info.indices.length) parts.push(info.indices.join('/'));
+    el.textContent = info.name + ' (' + info.code + ') ' + parts.join('/');
+  } catch (e) { el.textContent = ''; }
+}
+
+async function shLoadStrategies() {
+  try {
+    const res = await fetch('/api/v1/market/strategies');
+    const data = await res.json();
+    allStrategies = data?.strategies || [];
+    const sel = document.getElementById('sh-strategy');
+    sel.innerHTML = allStrategies.map(s => '<option value="' + s.name + '">' + s.name + '</option>').join('');
+    const grid = document.getElementById('sh-strat-list');
+    if (allStrategies.length === 0) {
+      grid.innerHTML = '<span style="color:#787b86;font-size:11px;">暂无策略</span>';
+      return;
+    }
+    grid.innerHTML = allStrategies.map(s =>
+      '<label class="sh-strat-item"><input type="checkbox" class="sh-strat-cb" value="' + s.name + '"><span>' + s.name + '</span></label>'
+    ).join('');
+  } catch (e) {
+    document.getElementById('sh-strategy').innerHTML = '<option>加载失败</option>';
+    document.getElementById('sh-strat-list').innerHTML = '<span style="color:#f23645;font-size:11px;">加载失败</span>';
+  }
+}
+
+function shSelectAll(checked) {
+  document.querySelectorAll('.sh-strat-cb').forEach(cb => cb.checked = checked);
+}
+
+function shDestroyCharts(keys) {
+  if (keys) {
+    keys.forEach(k => { if (chartInstances[k]) { try { chartInstances[k].destroy(); } catch(e) {} delete chartInstances[k]; } });
+  } else {
+    Object.values(chartInstances).forEach(c => { try { c.destroy(); } catch(e) {} });
+    chartInstances = {};
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  Tab switching
+// ═══════════════════════════════════════════════════════════════════════════
+
+function shSwitchTab(tabId) {
+  shActiveTab = tabId;
+  document.querySelectorAll('.sh-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tabId));
+  document.querySelectorAll('.sh-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + tabId));
+
+  // Adapt strategy selection
+  const singleWrap = document.getElementById('sh-strat-single-wrap');
+  const multiWrap = document.getElementById('sh-strat-multi-wrap');
+  if (tabId === 'compare') {
+    singleWrap.style.display = 'none';
+    multiWrap.style.display = 'block';
+    document.getElementById('sh-run-btn').textContent = '▶ 对比运行';
+    // Pre-select first 3
+    const cbs = document.querySelectorAll('.sh-strat-cb');
+    if (cbs.length > 0 && [...cbs].every(cb => !cb.checked)) {
+      cbs.forEach((cb, i) => { if (i < 3) cb.checked = true; });
+    }
+  } else {
+    singleWrap.style.display = 'block';
+    multiWrap.style.display = 'none';
+    document.getElementById('sh-run-btn').textContent = '▶ 运行回测';
+  }
+
+  // Trigger chart resize after tab switch
+  setTimeout(function() {
+    Object.values(chartInstances).forEach(c => { try { c.resize(); } catch(e) {} });
+    window.dispatchEvent(new Event('resize'));
+  }, 100);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  RUN
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function shRunBacktest() {
+  let symbol = document.getElementById('sh-symbol').value.trim();
+  if (!symbol.includes('.')) symbol += '.SH';
+  const start = document.getElementById('sh-start').value.trim();
+  const end = document.getElementById('sh-end').value.trim();
+  const statusEl = document.getElementById('sh-status');
+  if (!symbol || !start || !end) { statusEl.textContent = '⚠️ 请填写完整参数'; return; }
+
+  if (shActiveTab === 'compare') {
+    await shRunMultiCompare(symbol, start, end, statusEl);
+  } else {
+    await shRunSingle(symbol, start, end, statusEl);
+  }
+}
+
+async function shRunSingle(symbol, start, end, statusEl) {
+  const strategy = document.getElementById('sh-strategy').value;
+  statusEl.textContent = '⏳ 刷新数据中...';
+  try {
+    await fetch('/api/v1/data/refresh/kline', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ symbol, start, end }),
+    });
+    statusEl.textContent = '⏳ 运行回测...';
+    const res = await fetch('/api/v1/backtest/run', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ symbol, strategy, start, end }),
+    });
+    const btData = await res.json();
+    if (btData.error) { statusEl.textContent = '❌ ' + btData.error; return; }
+    lastSingleResult = btData;
+    statusEl.textContent = '⏳ 加载绩效分析...';
+    const analyzeRes = await fetch('/api/v1/backtest/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ strategy, symbol, start_date: start, end_date: end }),
+    });
+    const analyzeData = await analyzeRes.json();
+    lastSingleAnalyze = analyzeData.error ? btData : analyzeData;
+    shRenderSingleResults(btData, analyzeData.error ? btData : analyzeData);
+    statusEl.textContent = '✅ ' + strategy + ' · ' + symbol + ' 完成';
+    shLoadHistory();
+    if (shActiveTab !== 'single') shSwitchTab('single');
+  } catch (e) {
+    statusEl.textContent = '❌ ' + e.message;
+  }
+}
+
+async function shRunMultiCompare(symbol, start, end, statusEl) {
+  const selected = [];
+  document.querySelectorAll('.sh-strat-cb:checked').forEach(cb => selected.push(cb.value));
+  if (selected.length < 2) { statusEl.textContent = '⚠️ 请至少选择两个策略'; return; }
+  statusEl.textContent = '⏳ 运行多策略对比...';
+  try {
+    const params = new URLSearchParams({
+      strategies: selected.join(','), symbol, start, end, mock_data: '0',
+    });
+    const res = await fetch('/api/v1/backtest/compare?' + params.toString());
+    const data = await res.json();
+    if (data.error) { statusEl.textContent = '❌ ' + data.error; return; }
+    lastMultiResults = data.comparison || [];
+    if (lastMultiResults.length === 0) { statusEl.textContent = '⚠️ 无对比结果'; return; }
+    shRenderCompareResults(lastMultiResults);
+    statusEl.textContent = '✅ 对比完成 (' + lastMultiResults.length + ' 个策略)';
+    if (shActiveTab !== 'compare') shSwitchTab('compare');
+  } catch (e) {
+    statusEl.textContent = '❌ ' + e.message;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  RENDER: Single Results → Tab 1 (charts + log) + Tab 2 (diagnosis)
+// ═══════════════════════════════════════════════════════════════════════════
+
+function shRenderSingleResults(btData, ad) {
+  const metrics = ad.metrics || {};
+  const equityCurve = ad.equity_curve || [];
+  const returns = ad.returns || [];
+  const trades = btData.trades || [];
+  _eqLabels = []; _eqValues = [];
+
+  const tr = metrics.total_return !== undefined ? metrics.total_return : btData.total_return;
+  const ar = metrics.annualized_return !== undefined ? metrics.annualized_return : btData.annualized_return;
+  const sh = metrics.sharpe_ratio !== undefined ? metrics.sharpe_ratio : btData.sharpe_ratio;
+  const dd = metrics.max_drawdown !== undefined ? metrics.max_drawdown : btData.max_drawdown;
+  const wr = metrics.win_rate !== undefined ? metrics.win_rate : btData.win_rate;
+  const tc = metrics.total_trades !== undefined ? metrics.total_trades : btData.total_trades;
+
+  // ── Tab 1: Metrics ──
+  document.getElementById('sh-single-placeholder').style.display = 'none';
+  document.getElementById('sh-single-content').style.display = '';
+  document.getElementById('sh-single-metrics').innerHTML = [
+    { lbl: '总收益', val: (tr != null && isFinite(tr)) ? ((tr * 100).toFixed(2) + '%') : '--', cls: tr != null && isFinite(tr) && tr >= 0 ? 'up' : 'down', sub: 'Total Return' },
+    { lbl: '年化收益', val: (ar != null && isFinite(ar)) ? ((ar * 100).toFixed(2) + '%') : '--', cls: ar != null && isFinite(ar) && ar >= 0 ? 'up' : 'down', sub: 'Annualized' },
+    { lbl: '夏普比率', val: (sh != null && isFinite(sh)) ? sh.toFixed(3) : '--', cls: sh != null && isFinite(sh) && sh > 1 ? 'up' : sh != null && isFinite(sh) && sh > 0 ? 'neutral' : 'down', sub: 'Sharpe' },
+    { lbl: '最大回撤', val: (dd != null && isFinite(dd)) ? ((dd * 100).toFixed(2) + '%') : '--', cls: dd != null && isFinite(dd) && Math.abs(dd) < 0.15 ? 'up' : 'down', sub: 'Max DD' },
+    { lbl: '胜率', val: (wr != null && isFinite(wr)) ? ((wr * 100).toFixed(1) + '%') : '--', cls: wr != null && isFinite(wr) && wr > 0.5 ? 'up' : 'neutral', sub: 'Win Rate' },
+    { lbl: '交易次数', val: tc != null ? tc : '--', cls: 'neutral', sub: 'Trades' },
+  ].map(function(m) {
+    return '<div class="sh-metric"><div class="lbl">' + m.lbl + '</div><div class="val ' + m.cls + '">' + m.val + '</div><div class="sub">' + m.sub + '</div></div>';
+  }).join('');
+
+  var sv = document.getElementById('sh-start').value;
+  var ev = document.getElementById('sh-end').value;
+  var db = document.getElementById('sh-single-datebar');
+  if (db) { db.textContent = '📅 ' + sv + '  →  ' + ev; db.style.display = ''; }
+
+  shDestroyCharts(['equity', 'drawdown']);
+
+  // ── Charts ──
+  const eqLabels = equityCurve.map(function(e) { return (e.period || '').substring(0, 7); });
+  const eqValues = equityCurve.map(function(e) { return e.value; });
+  const eqRef = eqValues[0] || 1;
+  _eqLabels = eqLabels; _eqValues = eqValues;
+
+  whenChartJs(function() {
+    chartInstances.equity = new Chart(document.getElementById('sh-chart-equity'), {
+      type: 'line',
+      plugins: [HOVER_SYNC_PLUGIN],
+      data: {
+        labels: eqLabels,
+        datasets: [
+          { label: '净值', data: eqValues, borderColor: '#818cf8', backgroundColor: 'rgba(129,140,248,0.1)', fill: true, tension: 0.3, pointRadius: 0 },
+          { label: '初始', data: Array(eqValues.length).fill(eqRef), borderColor: '#334155', borderDash: [5,5], pointRadius: 0 },
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false, resizeDelay: 100,
+        layout: { padding: { bottom: 20 } },
+        interaction: { mode: 'index', intersect: false, axis: 'x' },
+        plugins: {
+          legend: { labels: { color: '#9ca3af', boxWidth: 12, padding: 12 } },
+          tooltip: { backgroundColor: '#1e293b', titleColor: '#fff', bodyColor: '#d1d5db', mode: 'index', intersect: false, axis: 'x' },
+        },
+        hover: { mode: 'index', intersect: false, axis: 'x' },
+        scales: {
+          x: { offset: true, ticks: { color: '#6b7280', maxTicksLimit: 10, maxRotation: 0 }, grid: { color: 'rgba(42,46,57,0.15)' } },
+          y: { ticks: { color: '#6b7280', callback: function(v) { return (v != null && isFinite(v)) ? v.toFixed(2) : '--'; } }, grid: { color: 'rgba(42,46,57,0.15)' } },
+        },
+        onHover: function(evt, active) { syncChartHover('equity', active); },
+      },
+    });
+
+    let peak = eqValues[0];
+    const ddValues = eqValues.map(function(v) {
+      peak = Math.max(peak, v);
+      return ((v - peak) / peak) * 100;
+    });
+
+    chartInstances.drawdown = new Chart(document.getElementById('sh-chart-drawdown'), {
+      type: 'line',
+      plugins: [HOVER_SYNC_PLUGIN],
+      data: {
+        labels: eqLabels,
+        datasets: [{
+          label: '回撤 %', data: ddValues, borderColor: '#f23645',
+          backgroundColor: 'rgba(242,54,69,0.12)', fill: true, tension: 0.3, pointRadius: 0,
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false, resizeDelay: 100,
+        layout: { padding: { bottom: 20 } },
+        interaction: { mode: 'index', intersect: false, axis: 'x' },
+        plugins: {
+          legend: { labels: { color: '#9ca3af', boxWidth: 12, padding: 12 } },
+          tooltip: { backgroundColor: '#1e293b', titleColor: '#fff', bodyColor: '#d1d5db', mode: 'index', intersect: false, axis: 'x', callbacks: { label: function(ctx) { return (ctx.parsed.y != null && isFinite(ctx.parsed.y)) ? ctx.parsed.y.toFixed(2) + '%' : '--'; } } },
+        },
+        hover: { mode: 'index', intersect: false, axis: 'x' },
+        scales: {
+          x: { offset: true, ticks: { color: '#6b7280', maxTicksLimit: 10, maxRotation: 0 }, grid: { color: 'rgba(42,46,57,0.15)' } },
+          y: { ticks: { color: '#f23645', callback: function(v) { return (v != null && isFinite(v)) ? v.toFixed(2) + '%' : '--'; } }, grid: { color: 'rgba(42,46,57,0.15)' } },
+        },
+        onHover: function(evt, active) { syncChartHover('drawdown', active); },
+      },
+    });
+  });
+
+  // ── Trade log ──
+  shRenderTradeLog(trades);
+
+  // ── Tab 2: Diagnosis ──
+  shRenderDiagnosis(returns, trades, dd, tr, ar, sh, wr, tc);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  RENDER: Trade Log
+// ═══════════════════════════════════════════════════════════════════════════
+
+function shRenderTradeLog(trades) {
+  var el = document.getElementById('sh-trade-table');
+  if (!trades || trades.length === 0) {
+    el.innerHTML = '<div class="sh-empty" style="padding:20px;"><div class="icon">📋</div><div class="text">本次回测无交易记录</div></div>';
+    return;
+  }
+  el.innerHTML = '<table><thead><tr>' +
+    '<th>#</th><th>日期</th><th>方向</th><th class="text-right">价格</th><th class="text-right">股数</th><th class="text-right">手续费</th><th class="text-right">盈亏</th>' +
+    '</tr></thead><tbody>' +
+    trades.map(function(t, i) {
+      var isBuy = t.type === 'buy' || t.signal === 1;
+      var dateVal = t.date || t.period || '';
+      return '<tr data-date="' + dateVal + '" onclick="onTradeRowClick(this)">' +
+        '<td class="text-center" style="color:#787b86;">' + (i + 1) + '</td>' +
+        '<td>' + dateVal + '</td>' +
+        '<td><span class="tv-badge ' + (isBuy ? 'tv-badge-green' : 'tv-badge-red') + '">' + (isBuy ? '买入' : '卖出') + '</span></td>' +
+        '<td class="text-right font-mono">' + (t.price != null ? t.price.toFixed(2) : '--') + '</td>' +
+        '<td class="text-right font-mono">' + (t.shares != null ? t.shares.toFixed(0) : '--') + '</td>' +
+        '<td class="text-right font-mono" style="color:#787b86;">' + (t.fees != null ? t.fees.toFixed(2) : '--') + '</td>' +
+        '<td class="text-right font-mono" style="color:' + ((t.pnl || 0) >= 0 ? '#ef5350' : '#26a69a') + '">' +
+          (t.pnl != null ? (t.pnl >= 0 ? '+' : '') + t.pnl.toFixed(2) : '--') +
+        '</td></tr>';
+    }).join('') +
+    '</tbody></table>' +
+    '<div style="font-size:10px;color:#787b86;margin-top:4px;">共 ' + trades.length + ' 笔交易</div>';
+}
+
+function onTradeRowClick(row) {
+  var date = row.dataset.date;
+  if (!date) return;
+  document.querySelectorAll('#sh-trade-table .trade-row-active').forEach(function(el) { el.classList.remove('trade-row-active'); });
+  row.classList.add('trade-row-active');
+  if (typeof focusChartOnDate === 'function') focusChartOnDate(date);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  RENDER: Diagnosis (Tab 2)
+// ═══════════════════════════════════════════════════════════════════════════
+
+function shRenderDiagnosis(returns, trades, dd, tr, ar, sh, wr, tc) {
+  document.getElementById('sh-diag-placeholder').style.display = 'none';
+  document.getElementById('sh-diag-content').style.display = '';
+
+  // ── Risk cards ──
+  const buyCount = trades ? trades.filter(function(t) { return t.type === 'buy' || t.signal === 1; }).length : 0;
+  const sellCount = trades ? trades.filter(function(t) { return t.type === 'sell' || t.signal === -1; }).length : 0;
+  const totalSig = buyCount + sellCount || 1;
+  var avgReturn = (returns && returns.length > 0) ? returns.reduce(function(s, r) { return s + (r.return || 0); }, 0) / returns.length : null;
+  var calmar = (ar != null && isFinite(ar) && dd != null && isFinite(dd) && dd !== 0) ? (ar / Math.abs(dd)) : null;
+
+  document.getElementById('sh-risk-cards').innerHTML = [
+    { lbl: '卡尔玛比率', val: (calmar != null && isFinite(calmar)) ? calmar.toFixed(2) : '--', cls: calmar != null && isFinite(calmar) && calmar > 1 ? '#ef5350' : '#d1d4dc' },
+    { lbl: '平均周期收益', val: (avgReturn != null && isFinite(avgReturn)) ? (avgReturn >= 0 ? '+' : '') + (avgReturn * 100).toFixed(2) + '%' : '--', cls: avgReturn != null && isFinite(avgReturn) && avgReturn >= 0 ? '#ef5350' : '#26a69a' },
+    { lbl: '买入信号', val: buyCount, cls: '#ef5350' },
+    { lbl: '卖出信号', val: sellCount, cls: '#26a69a' },
+  ].map(function(c) {
+    return '<div class="sh-risk-card"><div class="lbl">' + c.lbl + '</div><div class="val" style="color:' + c.cls + '">' + c.val + '</div></div>';
+  }).join('');
+
+  // ── Period returns bar chart ──
+  shRenderPeriodReturns(returns);
+
+  // ── Monthly heatmap ──
+  shRenderMonthlyHeatmap(returns);
+
+  // ── Signal donut ──
+  shDestroyCharts(['signals']);
+  whenChartJs(function() {
+    chartInstances.signals = new Chart(document.getElementById('sh-chart-signals'), {
+      type: 'doughnut',
+      data: {
+        labels: ['买入 (Buy)', '卖出 (Sell)'],
+        datasets: [{
+          data: [buyCount, sellCount || 1],
+          backgroundColor: ['rgba(239,83,80,0.7)', 'rgba(38,166,154,0.7)'],
+          borderColor: ['#ef5350', '#26a69a'],
+          borderWidth: 2,
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: true,
+        cutout: '55%',
+        plugins: {
+          legend: { labels: { color: '#9ca3af', boxWidth: 12, padding: 12 } },
+          tooltip: { backgroundColor: '#1e293b', titleColor: '#fff', bodyColor: '#d1d5db' },
+        },
+      },
+    });
+  });
+
+  // ── Drawdown text detail ──
+  var ddPct = (dd != null && isFinite(dd)) ? (dd * 100).toFixed(2) + '%' : '--';
+  var ddColor = dd != null && isFinite(dd) && Math.abs(dd) < 0.15 ? '#26a69a' : '#ef5350';
+  document.getElementById('sh-diag-drawdown-text').innerHTML =
+    '<div>最大回撤: <span style="color:' + ddColor + ';font-weight:700;">' + ddPct + '</span></div>' +
+    '<div>总交易: <span style="color:#d1d4dc;">' + (tc != null ? tc : '--') + '</span></div>' +
+    '<div>买卖比: <span style="color:#d1d4dc;">' + buyCount + ':' + sellCount + '</span></div>' +
+    '<div style="margin-top:8px;font-size:10px;color:#4a4e5a;">回撤期为净值从峰值回落至新高的区间</div>';
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  RENDER: Period Returns + Monthly Heatmap
+// ═══════════════════════════════════════════════════════════════════════════
+
+function shRenderPeriodReturns(returns) {
+  shDestroyCharts(['periodReturns']);
+  if (!returns || returns.length === 0) return;
+
+  var labels = returns.map(function(r) { return (r.period || '').substring(0, 7); });
+  var vals = returns.map(function(r) { return (r.return || 0) * 100; });
+  var colors = vals.map(function(v) { return v >= 0 ? 'rgba(239,83,80,0.55)' : 'rgba(38,166,154,0.55)'; });
+  var borderColors = vals.map(function(v) { return v >= 0 ? '#ef5350' : '#26a69a'; });
+
+  whenChartJs(function() {
+    chartInstances.periodReturns = new Chart(document.getElementById('sh-chart-period-returns'), {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: '周期收益 %',
+          data: vals,
+          backgroundColor: colors,
+          borderColor: borderColors,
+          borderWidth: 1,
+          borderRadius: 2,
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false, resizeDelay: 100,
+        layout: { padding: { bottom: 28 } },
+        plugins: {
+          legend: { labels: { color: '#9ca3af', boxWidth: 12, padding: 12 } },
+          tooltip: { backgroundColor: '#1e293b', titleColor: '#fff', bodyColor: '#d1d5db', callbacks: { label: function(ctx) { return (ctx.parsed.y >= 0 ? '+' : '') + ctx.parsed.y.toFixed(2) + '%'; } } },
+        },
+        scales: {
+          x: { offset: true, ticks: { color: '#6b7280', maxTicksLimit: 12, maxRotation: 0, autoSkip: true, padding: 6 }, grid: { display: false } },
+          y: { ticks: { color: '#6b7280', callback: function(v) { return (v != null && isFinite(v)) ? v.toFixed(2) + '%' : '--'; } }, grid: { color: 'rgba(42,46,57,0.15)' } },
+        },
+      },
+    });
+  });
+}
+
+function shRenderMonthlyHeatmap(returns) {
+  var container = document.getElementById('sh-heatmap-container');
+  if (!returns || returns.length === 0) { container.style.display = 'none'; return; }
+
+  var monthlyMap = {};
+  returns.forEach(function(r) {
+    var period = r.period || '';
+    if (period.length < 7) return;
+    var year = period.substring(0, 4);
+    var month = period.substring(5, 7);
+    if (month >= '01' && month <= '12') {
+      if (!monthlyMap[year]) monthlyMap[year] = {};
+      monthlyMap[year][month] = (r.return || 0) * 100;
+    }
+  });
+
+  var years = Object.keys(monthlyMap).sort();
+  if (years.length === 0) { container.style.display = 'none'; return; }
+
+  var months = ['01','02','03','04','05','06','07','08','09','10','11','12'];
+  var monthLabels = ['一月','二月','三月','四月','五月','六月','七月','八月','九月','十月','十一月','十二月'];
+  container.style.display = '';
+
+  var html = '<table class="sh-heatmap"><thead><tr><th></th>';
+  monthLabels.forEach(function(m) { html += '<th>' + m + '</th>'; });
+  html += '<th style="color:#2962FF;">累计</th></tr></thead><tbody>';
+
+  years.forEach(function(year) {
+    html += '<tr><td class="hm-year">' + year + '</td>';
+    var yearTotal = 0;
+    months.forEach(function(month) {
+      var v = monthlyMap[year][month];
+      if (v !== undefined) {
+        yearTotal += v;
+        var cls = v >= 0 ? '#ef5350' : '#26a69a';
+        var bg = v >= 0 ? 'rgba(239,83,80,0.12)' : 'rgba(38,166,154,0.12)';
+        html += '<td style="color:' + cls + ';background:' + bg + '">' + (v >= 0 ? '+' : '') + v.toFixed(1) + '%</td>';
+      } else {
+        html += '<td style="color:#4a4e5a;">--</td>';
+      }
+    });
+    var yearCls = yearTotal >= 0 ? '#ef5350' : '#26a69a';
+    var yearBg = yearTotal >= 0 ? 'rgba(239,83,80,0.15)' : 'rgba(38,166,154,0.15)';
+    html += '<td style="color:' + yearCls + ';background:' + yearBg + ';font-weight:700;">' + (yearTotal >= 0 ? '+' : '') + yearTotal.toFixed(1) + '%</td>';
+    html += '</tr>';
+  });
+
+  html += '</tbody></table>';
+  document.getElementById('sh-heatmap-grid').innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  RENDER: Multi Compare (Tab 3)
+// ═══════════════════════════════════════════════════════════════════════════
+
+function _fmtPct(v) {
+  if (v == null || typeof v !== 'number' || !isFinite(v)) return '--';
+  return (v >= 0 ? '+' : '') + (v * 100).toFixed(2) + '%';
+}
+function _fmtNum(v) {
+  if (v == null || typeof v !== 'number' || !isFinite(v)) return '--';
+  return v.toFixed(2);
+}
+function _pctColor(v) {
+  if (v == null || typeof v !== 'number' || !isFinite(v)) return '#787b86';
+  return v >= 0 ? '#ef5350' : '#26a69a';
+}
+
+function shRenderCompareResults(comparison) {
+  document.getElementById('sh-cmp-placeholder').style.display = 'none';
+  document.getElementById('sh-cmp-content').style.display = '';
+  shDestroyCharts(['cmpEquity']);
+
+  var bestReturn = Math.max.apply(null, comparison.map(function(r) { return r.total_return || 0; }));
+  var bestSharpe = Math.max.apply(null, comparison.map(function(r) { return r.sharpe_ratio || 0; }));
+  var bestWinRate = Math.max.apply(null, comparison.map(function(r) { return r.win_rate || 0; }));
+  var worstDD = Math.min.apply(null, comparison.map(function(r) { return r.max_drawdown || 0; }));
+
+  document.getElementById('sh-cmp-table').innerHTML = '<table>' +
+    '<thead><tr><th>#</th><th>策略</th><th class="text-right">总收益</th><th class="text-right">年化</th><th class="text-right">Sharpe</th><th class="text-right">回撤</th><th class="text-right">胜率</th><th class="text-right">交易</th></tr></thead><tbody>' +
+    comparison.map(function(r, idx) {
+      var rank = r.rank || idx + 1;
+      var tr = r.total_return, ar = r.annualized_return, sh = r.sharpe_ratio, dd = r.max_drawdown, wr = r.win_rate, tc = r.total_trades || 0;
+      var rankCls = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : 'rank-n';
+      var ddSafe = (dd != null && isFinite(dd) && Math.abs(dd) < 0.15);
+      var wrHigh = (wr != null && isFinite(wr) && wr >= (bestWinRate || 0) * 0.9);
+      return '<tr class="' + (rank === 1 ? 'top-row' : '') + '">' +
+        '<td class="text-center"><span class="rank-badge ' + rankCls + '">#' + rank + '</span></td>' +
+        '<td style="font-weight:' + (rank === 1 ? '700' : '400') + ';font-family:Inter,sans-serif;">' + r.strategy_name + '</td>' +
+        '<td class="text-right" style="color:' + _pctColor(tr) + '">' + _fmtPct(tr) + '</td>' +
+        '<td class="text-right" style="color:' + _pctColor(ar) + '">' + _fmtPct(ar) + '</td>' +
+        '<td class="text-right" style="color:' + (sh != null && isFinite(sh) ? (sh > 1 ? '#089981' : sh > 0 ? '#ff9800' : '#f23645') : '#787b86') + '">' + _fmtNum(sh) + '</td>' +
+        '<td class="text-right" style="color:' + (ddSafe ? '#26a69a' : '#ef5350') + '">' + _fmtPct(dd) + '</td>' +
+        '<td class="text-right" style="color:' + (wrHigh ? '#ef5350' : '#ff9800') + '">' + _fmtPct(wr) + '</td>' +
+        '<td class="text-right" style="color:#d1d4dc;">' + tc + '</td></tr>';
+    }).join('') +
+    '</tbody></table>';
+
+  var labels = [];
+  var datasets = comparison.map(function(r, i) {
+    var curve = r.equity_curve || [];
+    var color = CHART_COLORS[i % CHART_COLORS.length];
+    if (curve.length > labels.length) labels = curve.map(function(p) { return (p.period || '').substring(0, 7); });
+    return {
+      label: r.strategy_name,
+      data: curve.map(function(p) { return p.value; }),
+      borderColor: color.line,
+      backgroundColor: color.bg,
+      fill: false,
+      tension: 0.3,
+      pointRadius: 0,
+      borderWidth: (r.rank || i + 1) === 1 ? 2.5 : 1.5,
+    };
+  });
+
+  whenChartJs(function() {
+    chartInstances.cmpEquity = new Chart(document.getElementById('sh-chart-cmp-equity'), {
+      type: 'line',
+      data: { labels: labels, datasets: datasets },
+      options: {
+        responsive: true, maintainAspectRatio: false, resizeDelay: 100,
+        layout: { padding: { bottom: 20 } },
+        interaction: { mode: 'index', intersect: false, axis: 'x' },
+        plugins: {
+          legend: { labels: { color: '#9ca3af', boxWidth: 12, padding: 12 } },
+          tooltip: { backgroundColor: '#1e293b', titleColor: '#fff', bodyColor: '#d1d5db', mode: 'index', intersect: false, callbacks: { label: function(ctx) { var v = ctx.parsed.y; return (v != null && isFinite(v)) ? v.toFixed(2) : '--'; } } },
+        },
+        hover: { mode: 'index', intersect: false },
+        scales: {
+          x: { ticks: { color: '#6b7280', maxTicksLimit: 12, maxRotation: 0 }, grid: { color: 'rgba(42,46,57,0.15)' } },
+          y: { ticks: { color: '#6b7280', callback: function(v) { return (v != null && isFinite(v)) ? v.toFixed(2) : '--'; } }, grid: { color: 'rgba(42,46,57,0.15)' } },
+        },
+      },
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  HISTORY
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function shLoadHistory() {
+  try {
+    var res = await fetch('/api/v1/backtest/results?limit=20');
+    var data = await res.json();
+    var results = data?.results || [];
+    document.getElementById('sh-history-count').textContent = results.length;
+    var el = document.getElementById('sh-history-list');
+    if (results.length === 0) { el.innerHTML = '<div style="color:#787b86;font-size:11px;">暂无回测记录</div>'; return; }
+    el.innerHTML = results.slice(0, 10).map(function(bt) {
+      var symbol = bt.symbol || '';
+      var strategy = bt.strategy || bt.strategy_name || '';
+      var startDate = bt.start_date || bt.params?.start || bt.params?.start_date || '';
+      var endDate = bt.end_date || bt.params?.end || bt.params?.end_date || '';
+      var id = (bt.id || bt.run_id || '').substring(0, 14);
+      var tr = bt.total_return;
+      var dateLabel = (startDate && endDate) ? startDate.slice(2) + '~' + endDate.slice(2) : '';
+      var trPct = tr != null ? (tr >= 0 ? '+' : '') + (tr * 100).toFixed(1) + '%' : '--';
+      return '<div class="sh-hist-item" data-symbol="' + symbol + '" data-strategy="' + strategy + '" data-start="' + startDate + '" data-end="' + endDate + '" onclick="shRestoreRecord(this)">' +
+        '<span style="font-family:JetBrains Mono,monospace;font-size:9px;color:#787b86;flex-shrink:0;">' + id + '</span>' +
+        '<span class="sh-hist-mid">' +
+          '<span style="font-size:10px;color:#d1d4dc;white-space:nowrap;">' + symbol + '</span>' +
+          '<span style="color:#787b86;">/</span>' +
+          '<span class="tv-badge tv-badge-blue" style="font-size:8px;padding:0 3px;white-space:nowrap;">' + strategy + '</span>' +
+          '<span style="font-size:9px;color:#4a4e5a;font-family:JetBrains Mono,monospace;">' + dateLabel + '</span>' +
+        '</span>' +
+        '<span class="sh-hist-ret" style="color:' + (tr != null && tr >= 0 ? '#ef5350' : '#26a69a') + '">' + trPct + '</span>' +
+        '<button class="del-btn" onclick="event.stopPropagation();shDeleteRecord(\'' + (bt.id || bt.run_id || '') + '\')">✕</button></div>';
+    }).join('');
+  } catch (e) {
+    document.getElementById('sh-history-list').innerHTML = '<span style="color:#f23645;font-size:11px;">加载失败</span>';
+  }
+}
+
+async function shDeleteRecord(runId) {
+  if (!runId || !confirm('确认删除该条回测记录？')) return;
+  try {
+    var res = await fetch('/api/v1/backtest/results/' + encodeURIComponent(runId), { method: 'DELETE' });
+    var data = await res.json();
+    document.getElementById('sh-status').textContent = data?.status === 'ok' ? '✅ 已删除' : '❌ 删除失败';
+    shLoadHistory();
+  } catch (e) {
+    document.getElementById('sh-status').textContent = '❌ ' + e.message;
+  }
+}
+
+function shRestoreRecord(el) {
+  var symbol = el.dataset.symbol || '';
+  var strategy = el.dataset.strategy || '';
+  var start = el.dataset.start || '';
+  var end = el.dataset.end || '';
+  if (!symbol || !strategy) return;
+  document.getElementById('sh-symbol').value = symbol;
+  if (start) document.getElementById('sh-start').value = start;
+  if (end) document.getElementById('sh-end').value = end;
+  if (shActiveTab === 'compare') shSwitchTab('single');
+  var sel = document.getElementById('sh-strategy');
+  if ([...sel.options].some(function(o) { return o.value === strategy; })) sel.value = strategy;
+  shUpdateStockInfo(symbol);
+  document.getElementById('sh-status').textContent = '⏳ 恢复历史回测...';
+  shRunBacktest();
+}
+
+async function shClearAll() {
+  if (!confirm('确认清空所有回测历史？')) return;
+  try {
+    var res = await fetch('/api/v1/backtest/results', { method: 'DELETE' });
+    var data = await res.json();
+    document.getElementById('sh-status').textContent = data?.status === 'ok' ? '✅ 已清空' : '❌ 失败';
+    shLoadHistory();
+  } catch (e) {
+    document.getElementById('sh-status').textContent = '❌ ' + e.message;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  模块尺寸持久化缓存 (localStorage)
+// ═══════════════════════════════════════════════════════════════════════════
+
+const RSZ_KEY = 'sh_module_sizes';
+var rszTimer = null;
+
+function shLoadSizes() {
+  try { return JSON.parse(localStorage.getItem(RSZ_KEY)) || {}; } catch(e) { return {}; }
+}
+function shSaveSize(id, w, h) {
+  var sizes = shLoadSizes();
+  sizes[id] = { w: Math.round(w), h: Math.round(h) };
+  try { localStorage.setItem(RSZ_KEY, JSON.stringify(sizes)); } catch(e) {}
+}
+function shRestoreSizes() {
+  var sizes = shLoadSizes();
+  Object.keys(sizes).forEach(function(id) {
+    var dim = sizes[id];
+    if (!dim || !dim.w || !dim.h || dim.w > 20000 || dim.h > 20000 || dim.w <= 0 || dim.h <= 0) return;
+    var el = document.querySelector('[data-rsz="' + id + '"]');
+    if (!el) return;
+    if (dim.w) el.style.width = dim.w + 'px';
+    if (dim.h) el.style.height = dim.h + 'px';
+  });
+}
+function shInitPersistence() {
+  shRestoreSizes();
+  var observer = new ResizeObserver(function(entries) {
+    if (rszTimer) clearTimeout(rszTimer);
+    rszTimer = setTimeout(function() {
+      var sizes = {};
+      entries.forEach(function(entry) {
+        var id = entry.target.getAttribute('data-rsz');
+        if (!id) return;
+        var cw = entry.target.clientWidth, ch = entry.target.clientHeight;
+        if (cw <= 0 || ch <= 0 || cw > 20000 || ch > 20000) return;
+        sizes[id] = { w: Math.round(cw), h: Math.round(ch) };
+        var canvases = entry.target.querySelectorAll('canvas');
+        canvases.forEach(function(cv) {
+          var key = Object.keys(chartInstances).find(function(k) { return chartInstances[k] && chartInstances[k].canvas === cv; });
+          if (key && chartInstances[key].resize) chartInstances[key].resize();
+        });
+      });
+      if (Object.keys(sizes).length === 0) return;
+      var existing = shLoadSizes();
+      Object.assign(existing, sizes);
+      try { localStorage.setItem(RSZ_KEY, JSON.stringify(existing)); } catch(e) {}
+      window.dispatchEvent(new Event('resize'));
+    }, 500);
+  });
+  document.querySelectorAll('[data-rsz]').forEach(function(el) { observer.observe(el); });
+  window.__shObserver = observer;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  BOOT
+// ═══════════════════════════════════════════════════════════════════════════
+
+shSetDefaultDates();
+shUpdateStockInfo('600519.SH');
+shLoadStrategies();
+shLoadHistory();
+loadChartJS(function() {});
+
+KCDataLoader.setupSearch('sh-symbol', function(symbol) { shUpdateStockInfo(symbol); });
+
+document.getElementById('sh-symbol').addEventListener('input', (function() {
+  var timer;
+  return function() {
+    clearTimeout(timer);
+    timer = setTimeout(function() { shUpdateStockInfo(document.getElementById('sh-symbol').value.trim()); }, 300);
+  };
+})());
+
+shInitPersistence();
+</script>
+{% endblock %}

@@ -134,6 +134,12 @@ def backtest() -> str:
     return render_template("backtest.html")
 
 
+@bp.route("/strategy_hub")
+def strategy_hub() -> str:
+    """三位一体策略研究控制台"""
+    return render_template("strategy_hub.html")
+
+
 @bp.route("/strategies")
 def strategies() -> str:
     return render_template("strategies.html")
@@ -220,7 +226,7 @@ def momentum_rotation() -> str:
 @bp.route("/momentum_dashboard")
 def momentum_dashboard() -> str:
     """Streamlit 嵌入版决策看板"""
-    return render_template_string(IFRAME_TEMPLATE)
+    return render_template("momentum_dashboard.html")
 
 
 @bp.route("/momentum_standalone")
