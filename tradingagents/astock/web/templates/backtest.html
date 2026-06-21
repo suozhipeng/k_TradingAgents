@@ -246,13 +246,14 @@
 .bt-cmp-table::-webkit-scrollbar { height: 5px; }
 .bt-cmp-table::-webkit-scrollbar { height: 5px; }
 .bt-cmp-table::-webkit-scrollbar-thumb { background: #2a2e39; border-radius: 3px; }
-.bt-cmp-table table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.bt-cmp-table table { width: 100%; border-collapse: collapse; font-size: 10pt; }
 .bt-cmp-table th {
-  text-align: left; padding: 6px 10px; font-size: 10px; font-weight: 500;
+  text-align: left; padding: 6px 8px; font-size: 9px; font-weight: 500;
+  font-family: 'JetBrains Mono', monospace;
   color: #787b86; text-transform: uppercase; letter-spacing: 0.4px;
   border-bottom: 1px solid #2a2e39; white-space: nowrap;
 }
-.bt-cmp-table td { padding: 6px 10px; border-bottom: 1px solid #2a2e39; white-space: nowrap; }
+.bt-cmp-table td { padding: 6px 8px; border-bottom: 1px solid #2a2e39; white-space: nowrap; font-family: 'JetBrains Mono', monospace; font-size: 10pt; }
 .bt-cmp-table td.text-right { text-align: right; }
 .bt-cmp-table td.text-center { text-align: center; }
 .bt-cmp-table .rank-badge {
@@ -876,11 +877,11 @@ function renderSingleResults(btData, analyzeData) {
   document.getElementById('ov-placeholder').style.display = 'none';
   document.getElementById('ov-content').style.display = '';
   document.getElementById('ov-metrics').innerHTML = [
-    { lbl: '总收益', val: tr != null ? ((tr * 100).toFixed(2) + '%') : '--', cls: tr != null && tr >= 0 ? 'up' : 'down', sub: 'Total Return' },
-    { lbl: '年化收益', val: ar != null ? ((ar * 100).toFixed(2) + '%') : '--', cls: ar != null && ar >= 0 ? 'up' : 'down', sub: 'Annualized' },
-    { lbl: '夏普比率', val: sh != null ? sh.toFixed(3) : '--', cls: sh != null && sh > 1 ? 'up' : sh != null && sh > 0 ? 'neutral' : 'down', sub: 'Sharpe Ratio' },
-    { lbl: '最大回撤', val: dd != null ? ((dd * 100).toFixed(2) + '%') : '--', cls: dd != null && Math.abs(dd) < 0.15 ? 'up' : 'down', sub: 'Max Drawdown' },
-    { lbl: '胜率', val: wr != null ? ((wr * 100).toFixed(1) + '%') : '--', cls: wr != null && wr > 0.5 ? 'up' : 'neutral', sub: 'Win Rate' },
+    { lbl: '总收益', val: (tr != null && isFinite(tr)) ? ((tr * 100).toFixed(2) + '%') : '--', cls: tr != null && isFinite(tr) && tr >= 0 ? 'up' : 'down', sub: 'Total Return' },
+    { lbl: '年化收益', val: (ar != null && isFinite(ar)) ? ((ar * 100).toFixed(2) + '%') : '--', cls: ar != null && isFinite(ar) && ar >= 0 ? 'up' : 'down', sub: 'Annualized' },
+    { lbl: '夏普比率', val: (sh != null && isFinite(sh)) ? sh.toFixed(3) : '--', cls: sh != null && isFinite(sh) && sh > 1 ? 'up' : sh != null && isFinite(sh) && sh > 0 ? 'neutral' : 'down', sub: 'Sharpe Ratio' },
+    { lbl: '最大回撤', val: (dd != null && isFinite(dd)) ? ((dd * 100).toFixed(2) + '%') : '--', cls: dd != null && isFinite(dd) && Math.abs(dd) < 0.15 ? 'up' : 'down', sub: 'Max Drawdown' },
+    { lbl: '胜率', val: (wr != null && isFinite(wr)) ? ((wr * 100).toFixed(1) + '%') : '--', cls: wr != null && isFinite(wr) && wr > 0.5 ? 'up' : 'neutral', sub: 'Win Rate' },
     { lbl: '交易次数', val: tc != null ? tc : '--', cls: 'neutral', sub: 'Total Trades' },
   ].map(m => `<div class="bt-metric"><div class="lbl">${m.lbl}</div><div class="val ${m.cls}">${m.val}</div><div class="sub">${m.sub}</div></div>`).join('');
 
@@ -926,8 +927,8 @@ function renderSingleResults(btData, analyzeData) {
         },
         hover: { mode: 'index', intersect: false, axis: 'x' },
         scales: {
-          x: { offset: true, ticks: { color: '#6b7280', maxTicksLimit: 10, maxRotation: 0 }, grid: { color: 'rgba(42,46,57,0.2)' } },
-          y: { ticks: { color: '#6b7280', callback: v => v.toLocaleString() }, grid: { color: 'rgba(42,46,57,0.2)' } },
+          x: { offset: true, ticks: { color: '#6b7280', maxTicksLimit: 10, maxRotation: 0 }, grid: { color: 'rgba(42,46,57,0.15)' } },
+          y: { ticks: { color: '#6b7280', callback: function(v) { return (v != null && isFinite(v)) ? v.toFixed(2) : '--'; } }, grid: { color: 'rgba(42,46,57,0.15)' } },
         },
         onHover(evt, active) { syncChartHover('equity', active); },
       },
@@ -960,8 +961,8 @@ function renderSingleResults(btData, analyzeData) {
         },
         hover: { mode: 'index', intersect: false, axis: 'x' },
         scales: {
-          x: { offset: true, ticks: { color: '#6b7280', maxTicksLimit: 10, maxRotation: 0 }, grid: { color: 'rgba(42,46,57,0.2)' } },
-          y: { ticks: { color: '#f23645', callback: v => v.toFixed(1) + '%' }, grid: { color: 'rgba(42,46,57,0.2)' } },
+          x: { offset: true, ticks: { color: '#6b7280', maxTicksLimit: 10, maxRotation: 0 }, grid: { color: 'rgba(42,46,57,0.15)' } },
+          y: { ticks: { color: '#f23645', callback: function(v) { return (v != null && isFinite(v)) ? v.toFixed(2) + '%' : '--'; } }, grid: { color: 'rgba(42,46,57,0.15)' } },
         },
         onHover(evt, active) { syncChartHover('drawdown', active); },
       },
@@ -1024,8 +1025,8 @@ function renderPeriodReturns(returns) {
       scales: {
         x: { offset: true, ticks: { color: '#6b7280', maxTicksLimit: 12, maxRotation: 0, autoSkip: true, padding: 6 }, grid: { display: false } },
         y: {
-          ticks: { color: '#6b7280', callback: v => v.toFixed(1) + '%' },
-          grid: { color: 'rgba(42,46,57,0.2)' },
+          ticks: { color: '#6b7280', callback: function(v) { return (v != null && isFinite(v)) ? v.toFixed(2) + '%' : '--'; } },
+          grid: { color: 'rgba(42,46,57,0.15)' },
         },
       },
     },
@@ -1097,6 +1098,19 @@ function renderMonthlyHeatmap(returns) {
 //  RENDER: Multi Compare (Tab 3)
 // ═══════════════════════════════════════════════════════════════════════════
 
+function _fmtPct(v) {
+  if (v == null || typeof v !== 'number' || !isFinite(v)) return '--';
+  return (v >= 0 ? '+' : '') + (v * 100).toFixed(2) + '%';
+}
+function _fmtNum(v) {
+  if (v == null || typeof v !== 'number' || !isFinite(v)) return '--';
+  return v.toFixed(2);
+}
+function _pctColor(v) {
+  if (v == null || typeof v !== 'number' || !isFinite(v)) return '#787b86';
+  return v >= 0 ? '#ef5350' : '#26a69a';
+}
+
 function renderCompareResults(comparison) {
   document.getElementById('cp-placeholder').style.display = 'none';
   document.getElementById('cp-content').style.display = '';
@@ -1115,22 +1129,26 @@ function renderCompareResults(comparison) {
     <tbody>
       ${comparison.map((r, idx) => {
         const rank = r.rank || idx + 1;
-        const tr = r.total_return || 0;
-        const ar = r.annualized_return || 0;
-        const sh = r.sharpe_ratio || 0;
-        const dd = r.max_drawdown || 0;
-        const wr = r.win_rate || 0;
+        const tr = r.total_return;
+        const ar = r.annualized_return;
+        const sh = r.sharpe_ratio;
+        const dd = r.max_drawdown;
+        const wr = r.win_rate;
         const tc = r.total_trades || 0;
         const rankCls = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : 'rank-n';
+        // Drawdown: 绝对值越小越安全 → 数值接近0为健康，这里用绿色表示低回撤(安全)
+        // 中国红涨绿跌：收益正=红，回撤浅(安全)=绿
+        const ddSafe = (dd != null && isFinite(dd) && Math.abs(dd) < 0.15);
+        const wrHigh = (wr != null && isFinite(wr) && wr >= (bestWinRate || 0) * 0.9);
         return `<tr class="${rank === 1 ? 'top-row' : ''}">
           <td class="text-center"><span class="rank-badge ${rankCls}">#${rank}</span></td>
-          <td style="font-weight:${rank === 1 ? '700' : '400'}">${r.strategy_name}</td>
-          <td class="text-right" style="color:${tr >= 0 ? '#ef5350' : '#26a69a'}">${(tr * 100).toFixed(2)}%</td>
-          <td class="text-right" style="color:${ar >= 0 ? '#ef5350' : '#26a69a'}">${(ar * 100).toFixed(2)}%</td>
-          <td class="text-right" style="color:${sh > 1 ? '#089981' : sh > 0 ? '#ff9800' : '#f23645'}">${sh.toFixed(3)}</td>
-          <td class="text-right" style="color:${Math.abs(dd) < 0.15 ? '#089981' : '#ff9800'}">${(dd * 100).toFixed(2)}%</td>
-          <td class="text-right" style="color:${wr >= bestWinRate * 0.9 ? '#089981' : '#ff9800'}">${(wr * 100).toFixed(1)}%</td>
-          <td class="text-right">${tc}</td>
+          <td style="font-weight:${rank === 1 ? '700' : '400'};font-family:'Inter',sans-serif;">${r.strategy_name}</td>
+          <td class="text-right" style="color:${_pctColor(tr)}">${_fmtPct(tr)}</td>
+          <td class="text-right" style="color:${_pctColor(ar)}">${_fmtPct(ar)}</td>
+          <td class="text-right" style="color:${sh != null && isFinite(sh) ? (sh > 1 ? '#089981' : sh > 0 ? '#ff9800' : '#f23645') : '#787b86'}">${_fmtNum(sh)}</td>
+          <td class="text-right" style="color:${ddSafe ? '#26a69a' : '#ef5350'}">${_fmtPct(dd)}</td>
+          <td class="text-right" style="color:${wrHigh ? '#ef5350' : '#ff9800'}">${_fmtPct(wr)}</td>
+          <td class="text-right" style="color:#d1d4dc;">${tc}</td>
         </tr>`;
       }).join('')}
     </tbody>
@@ -1159,15 +1177,21 @@ function renderCompareResults(comparison) {
     data: { labels, datasets },
     options: {
       responsive: true, maintainAspectRatio: false, resizeDelay: 100,
+      layout: { padding: { bottom: 20 } },
       interaction: { mode: 'index', intersect: false, axis: 'x' },
       plugins: {
         legend: { labels: { color: '#9ca3af', boxWidth: 12, padding: 12 } },
-        tooltip: { backgroundColor: '#1e293b', titleColor: '#fff', bodyColor: '#d1d5db', mode: 'index', intersect: false },
+        tooltip: { backgroundColor: '#1e293b', titleColor: '#fff', bodyColor: '#d1d5db', mode: 'index', intersect: false, callbacks: {
+          label: function(ctx) { var v = ctx.parsed.y; return (v != null && isFinite(v)) ? v.toFixed(2) : '--'; }
+        } },
       },
       hover: { mode: 'index', intersect: false },
       scales: {
-        x: { ticks: { color: '#6b7280', maxTicksLimit: 12, maxRotation: 0 }, grid: { color: 'rgba(42,46,57,0.2)' } },
-        y: { ticks: { color: '#6b7280', callback: v => v.toLocaleString() }, grid: { color: 'rgba(42,46,57,0.2)' } },
+        x: { ticks: { color: '#6b7280', maxTicksLimit: 12, maxRotation: 0 }, grid: { color: 'rgba(42,46,57,0.15)' } },
+        y: {
+          ticks: { color: '#6b7280', callback: function(v) { return (v != null && isFinite(v)) ? v.toFixed(2) : '--'; } },
+          grid: { color: 'rgba(42,46,57,0.15)' },
+        },
       },
     },
     });

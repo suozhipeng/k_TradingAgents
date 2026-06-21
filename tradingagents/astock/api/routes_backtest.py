@@ -85,6 +85,50 @@ def _sanitize_nan(records: list[dict]) -> None:
                 record[k] = v.isoformat()
 
 
+def _sanitize_metrics(record: dict) -> dict:
+    """Deep-clean a single backtest result dict: NaN/Inf → None, clip extremes."""
+    import math
+
+    # Core financial metrics that MUST be clean
+    METRIC_KEYS = [
+        "total_return", "annualized_return", "sharpe_ratio",
+        "max_drawdown", "win_rate", "total_trades",
+    ]
+    for key in METRIC_KEYS:
+        v = record.get(key)
+        if v is None:
+            continue
+        if isinstance(v, float):
+            if math.isnan(v) or math.isinf(v):
+                record[key] = None
+            # Extreme outlier guard: Sharpe ratios above/below ±20 are likely
+            # artifacts of near-zero-volatility edge cases
+            elif key == "sharpe_ratio" and abs(v) > 20:
+                record[key] = None
+            # Returns/drawdowns above ±1000% are extreme data errors
+            elif key in ("total_return", "annualized_return", "max_drawdown") and abs(v) > 10:
+                record[key] = None
+            # Win rate outside [0, 1] is impossible
+            elif key == "win_rate" and (v < 0 or v > 1):
+                record[key] = None
+        elif not isinstance(v, (int, float)):
+            record[key] = None
+
+    # Sanitize nested equity_curve values
+    for curve in record.get("equity_curve") or []:
+        val = curve.get("value")
+        if isinstance(val, float) and (math.isnan(val) or math.isinf(val)):
+            curve["value"] = None
+
+    # Sanitize nested returns
+    for ret_item in record.get("returns") or []:
+        ret_val = ret_item.get("return")
+        if isinstance(ret_val, float) and (math.isnan(ret_val) or math.isinf(ret_val)):
+            ret_item["return"] = None
+
+    return record
+
+
 def _store() -> Any:
     return current_app.config["STORE"]
 
@@ -137,11 +181,15 @@ def run_backtest() -> tuple[Response, int]:
         result = engine.run(symbol, start_date, end_date, strategy, rebalance_freq)
         result.strategy_name = strategy_name
 
+        # Generate clean timestamp ID before persisting
+        run_id = datetime.now().strftime("%Y%m%d%H%M%S")
+        result.run_id = run_id
+
         # Persist to store
         _store().store_backtest_result(result)
 
         payload = {
-            "run_id": result.symbol + "_" + strategy_name + "_" + datetime.utcnow().isoformat(),
+            "run_id": run_id,
             "symbol": result.symbol,
             "strategy_name": strategy_name,
             "start_date": result.start_date,
@@ -314,6 +362,10 @@ def compare_backtests() -> tuple[Response, int]:
         results.sort(key=_composite, reverse=True)
         for i, r in enumerate(results, start=1):
             r["rank"] = i
+
+        # Sanitize all metrics before emitting
+        for r in results:
+            _sanitize_metrics(r)
 
         return jsonify({"comparison": results}), 200
     except Exception as exc:
