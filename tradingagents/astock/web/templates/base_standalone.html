@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}KLineChart{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            tv: { bg: '#131722', surface: '#1e222d', card: '#2a2e39', border: '#2a2e39', hover: '#363a45', blue: '#2962FF', green: '#089981', red: '#f23645', orange: '#ff9800', text: '#d1d4dc', muted: '#787b86' },
+          },
+          fontFamily: { sans: ['Inter', '-apple-system', 'sans-serif'], mono: ['JetBrains Mono', 'monospace'] },
+        }
+      }
+    }
+  </script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: 'Inter', -apple-system, sans-serif;
+      background: #131722; color: #d1d4dc; -webkit-font-smoothing: antialiased;
+    }
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #363a45; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #4a4e5a; }
+    ::selection { background: rgba(41,98,255,0.3); }
+  </style>
+  {% block head_extra %}{% endblock %}
+</head>
+<body>
+{% block content %}{% endblock %}
+<script src="{{ url_for('web.static', filename='js/kc-data-loader.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

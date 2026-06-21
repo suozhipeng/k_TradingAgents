@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from flask import Blueprint, render_template, request
+from flask import Blueprint, render_template, render_template_string, request
 
 bp = Blueprint(
     "web",
@@ -17,6 +17,97 @@ bp = Blueprint(
     static_folder="static",
     static_url_path="/web/static",
 )
+
+# ── iframe 嵌入模板（嵌入 Streamlit 决策看板） ─────────────────────────
+
+IFRAME_TEMPLATE = """<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>决策看板 — 龙头股动量轮动系统</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      background: #0f172a; color: #e2e8f0;
+      height: 100vh; display: flex; flex-direction: column; overflow: hidden;
+    }
+    .mini-nav {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 20px;
+      background: linear-gradient(135deg, #0c1f5e, #1e3a8a 60%, #3b82f6);
+      flex-shrink: 0; z-index: 100;
+    }
+    .mini-nav .brand { font-size: 15px; font-weight: 700; color: #fff; letter-spacing: 0.3px; }
+    .mini-nav .brand span { color: #93c5fd; }
+    .mini-nav .sep { width: 1px; height: 18px; background: rgba(255,255,255,0.2); }
+    .mini-nav a {
+      font-size: 12px; color: rgba(255,255,255,0.7); text-decoration: none;
+      padding: 4px 10px; border-radius: 6px; transition: all .15s;
+    }
+    .mini-nav a:hover { background: rgba(255,255,255,0.1); color: #fff; }
+    .mini-nav .spacer { flex: 1; }
+    .mini-nav .status { font-size: 11px; color: rgba(255,255,255,0.5); display: flex; align-items: center; gap: 6px; }
+    .mini-nav .dot { width: 7px; height: 7px; border-radius: 50%; background: #16a34a; display: inline-block; }
+    .iframe-wrap { flex: 1; position: relative; overflow: hidden; }
+    .iframe-wrap iframe { width: 100%; height: 100%; border: none; }
+    .loading-overlay {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: #0f172a; z-index: 10; transition: opacity 0.4s;
+    }
+    .loading-overlay.hidden { opacity: 0; pointer-events: none; }
+    .loading-overlay .spinner {
+      width: 40px; height: 40px;
+      border: 3px solid #2d3a50; border-top-color: #3b82f6;
+      border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 12px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-overlay .text { font-size: 13px; color: #94a3b8; }
+  </style>
+</head>
+<body>
+  <div class="mini-nav">
+    <div class="brand">🐉 <span>动量轮动</span></div>
+    <div class="sep"></div>
+    <a href="/momentum_standalone">📋 经典版</a>
+    <a href="/api/v1/momentum" target="_blank">🔗 API 数据</a>
+    <div class="spacer"></div>
+    <div class="status"><span class="dot"></span><span>Streamlit · 实时</span></div>
+  </div>
+  <div class="iframe-wrap">
+    <div class="loading-overlay" id="loading-overlay">
+      <div class="spinner"></div>
+      <div class="text">加载 Streamlit 决策看板中...</div>
+    </div>
+    <iframe
+      src="http://127.0.0.1:8501/?embed=true"
+      id="streamlit-iframe"
+      onload="document.getElementById('loading-overlay').classList.add('hidden')"
+      allow="clipboard-read; clipboard-write"
+      sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+    ></iframe>
+  </div>
+  <script>
+    const iframe = document.getElementById('streamlit-iframe');
+    const overlay = document.getElementById('loading-overlay');
+    let loadTimeout = setTimeout(() => {
+      if (!overlay.classList.contains('hidden')) {
+        overlay.innerHTML = `
+          <div style="font-size:2rem;margin-bottom:12px;">\\u26a0\\ufe0f</div>
+          <div class="text" style="color:#f87171;font-weight:600;">Streamlit \\u770b\\u677f\\u52a0\\u8f7d\\u8d85\\u65f6</div>
+          <div class="text" style="margin-top:8px;">\\u8bf7\\u786e\\u8ba4 <strong style="color:#60a5fa;">streamlit_app.py</strong> \\u5df2\\u5728\\u8fd0\\u884c<br>
+          \\u6216\\u76f4\\u63a5\\u8bbf\\u95ee <a href="http://127.0.0.1:8501" target="_blank" style="color:#3b82f6;">http://127.0.0.1:8501</a></div>
+        `;
+      }
+    }, 10000);
+    iframe.addEventListener('load', () => clearTimeout(loadTimeout));
+  </script>
+</body>
+</html>"""
 
 # ---------------------------------------------------------------------------
 # Page routes
@@ -117,7 +208,8 @@ def tv_chart() -> str:
 @bp.route("/kc_chart")
 def kc_chart() -> str:
     symbol = request.args.get("symbol", "600519.SH")
-    return render_template("kc_chart.html", symbol=symbol)
+    standalone = request.args.get("standalone", "0") == "1"
+    return render_template("kc_chart.html", symbol=symbol, standalone=standalone)
 
 
 @bp.route("/momentum_rotation")
@@ -127,6 +219,13 @@ def momentum_rotation() -> str:
 
 @bp.route("/momentum_dashboard")
 def momentum_dashboard() -> str:
+    """Streamlit 嵌入版决策看板"""
+    return render_template_string(IFRAME_TEMPLATE)
+
+
+@bp.route("/momentum_standalone")
+def momentum_standalone() -> str:
+    """经典 Jinja2 版决策看板（无 Streamlit 依赖）"""
     return render_template("momentum_dashboard.html")
 
 

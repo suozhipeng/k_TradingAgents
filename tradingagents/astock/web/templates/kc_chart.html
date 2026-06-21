@@ -1,4 +1,8 @@
+{% if standalone %}
+{% extends "base_standalone.html" %}
+{% else %}
 {% extends "base.html" %}
+{% endif %}
 {% block title %}KC Chart — {{ symbol }}{% endblock %}
 {% block head_extra %}
 <script src="{{ url_for('web.static', filename='tv/klinecharts/klinecharts.min.js') }}"></script>
@@ -197,11 +201,14 @@ function loadKC(initialPeriod, forceRefresh) {
   });
   chart.setPeriod(initialPeriod ? periodToKC(initialPeriod) : 1440); // Default 1d
 
-  // Disable empty-space scrolling: cannot scroll beyond data edges
+  // 禁用空区滚动
   chart.setMaxOffsetLeftDistance(0);
   chart.setMaxOffsetRightDistance(0);
   chart.setOffsetRightDistance(0, true);
   chart.scrollToRealTime();
+
+  // 允许鼠标滚轮缩放，设置最小可见范围防止缩到无限小
+  chart.setZoomEnabled(true);
 
   // Default MA5/10/20/30/60 on K-line
   _overlayMode = true;

@@ -304,6 +304,11 @@
 
 {% block scripts %}
 <script>
+/* ======================================================================
+ *  handleSymbolChange — 统一股票切换联动函数
+ *  职责: 一次切换, 同步刷新 报价条 / 五档盘口 / 交易面板 / K线
+ * ====================================================================== */
+
 const API_BASE = '/api/v1/tv';
 let currentSymbol = '600519.SH';
 let currentSide = 'buy';
@@ -320,7 +325,7 @@ const { dataLoader: tradeDataLoader, state: tdState } = KCDataLoader.create(API_
 });
 
 // ── Search Suggestions ──
-KCDataLoader.setupSearch('symbol-input', symbol => { changeSymbol(); });
+KCDataLoader.setupSearch('symbol-input', symbol => { handleSymbolChange(symbol); });
 
 function periodToKC(period) {
   const map = {'1m':1,'5m':5,'15m':15,'30m':30,'60m':60,'1d':1440,'1w':10080,'1M':43200};
@@ -328,8 +333,10 @@ function periodToKC(period) {
 }
 
 // ── KLineChart Init / Period ──
+let _tradeChartGen = 0;
 function initTradeChart(initialPeriod) {
   const symbol = currentSymbol;
+  const gen = ++_tradeChartGen;
   tdState.loadGeneration++;
   tdState.fetchControllers.forEach(c => c.abort());
   tdState.fetchControllers.clear();
@@ -376,6 +383,61 @@ function initTradeChart(initialPeriod) {
 
   document.getElementById('trade-kc-status').textContent = '✅ ' + symbol;
   setTimeout(() => { if (tradeChart) tradeChart.scrollToRealTime(); }, 200);
+
+  // ── 轮询等待 K 线数据就绪 → 用最新 close 覆盖面板和头部报价 ──
+  let _retries = 0;
+  (function _watchBars() {
+    if (_tradeChartGen !== gen) return; // 被新 initTradeChart 取代，停止轮询
+    if (!tradeChart) return;
+    try {
+      const _bars = tradeChart.getDataList();
+      // 最少 5 根 bar 才算完整加载，防止数据不完整时误覆盖
+      if (_bars && _bars.length >= 5) { syncOrderPriceFromChart(); return; }
+    } catch (_) {}
+    if (++_retries < 30) setTimeout(_watchBars, 300);
+  })();
+}
+
+/* ── 从 K 线图最新 bar 覆盖报价 + 订单面板 ── */
+function syncOrderPriceFromChart() {
+  if (!tradeChart) return;
+  try {
+    const bars = tradeChart.getDataList();
+    if (!bars || bars.length < 5) return;
+    const last = bars[bars.length - 1];
+    if (!last || last.close == null || last.close <= 0) return;
+    const chartClose = Math.round(last.close * 100) / 100;
+    const quotePrice = parseFloat(document.getElementById('order-price').value) || 0;
+    const quoteRounded = Math.round(quotePrice * 100) / 100;
+
+    // K 线 close vs quote 价格偏差 > 5% → 信任 quote，不覆盖
+    if (quoteRounded > 0 && Math.abs(chartClose - quoteRounded) / quoteRounded > 0.05) return;
+
+    // 订单面板价格
+    document.getElementById('order-price').value = chartClose.toFixed(2);
+    updateEstimate();
+
+    // 头部报价条 — 与 K 线同源
+    const priceEl = document.getElementById('sym-price');
+    if (priceEl) {
+      priceEl.textContent = '¥' + chartClose.toFixed(2);
+      priceEl.style.color = '';
+    }
+
+    // 涨跌幅：用 last.open 近似计算
+    if (last.open != null && last.open > 0) {
+      const chgVal = chartClose - last.open;
+      const chgPct = (chgVal / last.open) * 100;
+      const changeEl = document.getElementById('sym-change');
+      if (changeEl) {
+        const prefix = chgVal >= 0 ? '+' : '';
+        changeEl.textContent = prefix + chgVal.toFixed(2) + ' (' + prefix + chgPct.toFixed(2) + '%)';
+        changeEl.className = 'symbol-change ' + (chgPct >= 0 ? 'tv-up' : 'tv-down');
+      }
+    }
+  } catch (e) {
+    // getDataList 可能尚未就绪，静默忽略
+  }
 }
 
 function setTradePeriod(period) {
@@ -388,10 +450,9 @@ function setTradePeriod(period) {
 }
 
 function refreshTradeKline() {
-  // Clear all caches so next fetch gets fresh data
+  // 清除缓存, 强制从服务端拉取最新数据
   tdState.barCache = {};
   tdState.barDataCache = {};
-  // Re-init with current period, force refresh via cache clear
   const currentPeriod = document.querySelector('.kc-period-bar .active');
   const period = currentPeriod ? currentPeriod.dataset.period : '1d';
   initTradeChart(period);
@@ -406,63 +467,155 @@ function showToast(msg, type = 'info') {
   setTimeout(() => el.classList.add('hidden'), 4000);
 }
 
-// ── Symbol ──
-function changeSymbol() {
-  const input = document.getElementById('symbol-input');
-  let sym = input.value.trim();
+/* ======================================================================
+ *  handleSymbolChange — 统一符号切换入口
+ *  1. 锁定交易面板, 显示加载遮罩
+ *  2. Promise.all 并行拉取 quote + orderbook
+ *  3. 数据就绪 → 更新报价 + 盘口 + 交易表单
+ *  4. 解锁面板 → 刷新 K 线
+ * ====================================================================== */
+async function handleSymbolChange(symbol) {
+  // ── 标准化股票代码, 补全后缀 ──
+  let sym = (symbol || '').trim();
   if (!sym.includes('.')) sym += '.SH';
   if (!sym) { showToast('请输入股票代码', 'error'); return; }
+
   currentSymbol = sym;
-  document.getElementById('sym-name').textContent = '⏳ 加载中...';
-  loadQuote();
-  loadTradingState();
-  initTradeChart('1d');
+
+  // ── 1. 锁定交易面板 · 防止误操作 ──
+  lockOrderPanel(true);
+  document.getElementById('sym-name').textContent = '⏳ ' + sym;
+  document.getElementById('symbol-input').value = sym;
+
+  // 报价条置灰占位
+  const priceEl = document.getElementById('sym-price');
+  priceEl.textContent = '--';
+  priceEl.style.color = '#787b86';
+  document.getElementById('sym-change').textContent = '--';
+  ['sym-open','sym-high','sym-low','sym-vol','sym-bid','sym-ask']
+    .forEach(id => document.getElementById(id).textContent = '--');
+
+  // ── 2. Promise.all 并行拉取报价 + 五档盘口 ──
+  try {
+    const [quoteRes, orderbookRes] = await Promise.all([
+      fetch(`/api/v1/trade/quote?symbol=${encodeURIComponent(sym)}`),
+      fetch(`/api/v1/orderbook?symbol=${encodeURIComponent(sym)}`),
+    ]);
+
+    const quote  = await quoteRes.json();
+    const orders = await orderbookRes.json();
+
+    // ── 3a. 更新报价条 ──
+    if (!quote.error) {
+      currentQuote = quote;
+
+      const roundedPrice = Math.round((quote.last_price || 0) * 100) / 100;
+      priceEl.textContent = '¥' + roundedPrice.toFixed(2);
+      priceEl.style.color = '';
+
+      document.getElementById('sym-open').textContent = '¥' + (quote.open || 0).toLocaleString();
+      document.getElementById('sym-high').textContent = '¥' + (quote.high || 0).toLocaleString();
+      document.getElementById('sym-low').textContent  = '¥' + (quote.low  || 0).toLocaleString();
+      document.getElementById('sym-vol').textContent  = (quote.volume || 0).toLocaleString();
+      document.getElementById('sym-bid').textContent  = '¥' + (quote.bid  || 0).toLocaleString();
+      document.getElementById('sym-ask').textContent  = '¥' + (quote.ask  || 0).toLocaleString();
+
+      const changeEl  = document.getElementById('sym-change');
+      const chgPct    = quote.change_pct || 0;
+      const chgVal    = quote.change     || 0;
+      const prefix    = chgVal >= 0 ? '+' : '';
+      changeEl.textContent = prefix + chgVal.toFixed(2) + ' (' + prefix + chgPct.toFixed(2) + '%)';
+      changeEl.className   = 'symbol-change ' + (chgPct >= 0 ? 'tv-up' : 'tv-down');
+
+      // ── 3b. 更新交易面板价格 + 预计金额 ──
+      // roundedPrice 已在 3a 中定义，直接复用保证一致
+      document.getElementById('order-price').value = roundedPrice.toFixed(2);
+      updateEstimate();
+    } else {
+      showToast('报价数据异常: ' + (quote.error || '未知'), 'error');
+    }
+
+    // ── 3c. 更新五档盘口 ──
+    renderOrderbook(orders);
+
+    // ── 3d. 异步补充股票详情 (名称/行业/指数) ──
+    fetchStockInfo(sym);
+
+  } catch (e) {
+    console.error('handleSymbolChange fetch failed', e);
+    showToast('数据加载失败: ' + e.message, 'error');
+  }
+
+  // ── 4. 解锁面板 → 刷新 K 线 ──
+  lockOrderPanel(false);
   updateOrderButton();
+  initTradeChart('1d');
+}
+
+/* ── 订单面板锁 ── */
+function lockOrderPanel(locked) {
+  const priceInp = document.getElementById('order-price');
+  const qtyInp   = document.getElementById('order-qty');
+  const submit   = document.getElementById('order-submit');
+
+  if (locked) {
+    priceInp.disabled = true;
+    qtyInp.disabled   = true;
+    submit.disabled   = true;
+    submit.textContent = '⏳ 加载中...';
+  } else {
+    priceInp.disabled = false;
+    qtyInp.disabled   = false;
+    submit.disabled   = false;
+  }
+}
+
+/* ── 五档盘口渲染 (占位 — 根据实际 DOM 结构调整) ── */
+function renderOrderbook(data) {
+  // 若页面上存在五档盘口容器则更新, 否则无操作
+  const bidsEl = document.getElementById('orderbook-bids');
+  const asksEl = document.getElementById('orderbook-asks');
+  if (!bidsEl && !asksEl) return; // 当前页面无独立盘口容器
+
+  const bids = (data.bids || []).slice(0, 5);
+  const asks = (data.asks || []).slice(0, 5);
+
+  if (bidsEl) {
+    bidsEl.innerHTML = bids.map(b =>
+      `<div class="flex justify-between text-xs font-mono" style="color:#089981;">
+        <span>${b.price.toFixed(2)}</span><span>${(b.volume || 0).toLocaleString()}</span>
+      </div>`
+    ).join('') || '<div class="text-xs" style="color:#787b86;">--</div>';
+  }
+  if (asksEl) {
+    asksEl.innerHTML = asks.map(a =>
+      `<div class="flex justify-between text-xs font-mono" style="color:#f23645;">
+        <span>${a.price.toFixed(2)}</span><span>${(a.volume || 0).toLocaleString()}</span>
+      </div>`
+    ).join('') || '<div class="text-xs" style="color:#787b86;">--</div>';
+  }
+}
+
+// ── 向下兼容: 旧 changeSymbol 委托给 handleSymbolChange ──
+function changeSymbol() {
+  const input = document.getElementById('symbol-input');
+  handleSymbolChange(input.value);
 }
 
 document.getElementById('symbol-input').addEventListener('keydown', e => {
-  if (e.key === 'Enter') changeSymbol();
+  if (e.key === 'Enter') handleSymbolChange(e.target.value);
 });
 
-// ── Quote ──
-async function loadQuote() {
-  try {
-    const res = await fetch('/api/v1/trade/quote?symbol=' + encodeURIComponent(currentSymbol));
-    const q = await res.json();
-    if (q.error) { showToast(q.error, 'error'); return; }
-    currentQuote = q;
-
-    document.getElementById('sym-price').textContent = '¥' + q.last_price.toLocaleString();
-    document.getElementById('sym-open').textContent = '¥' + q.open.toLocaleString();
-    document.getElementById('sym-high').textContent = '¥' + q.high.toLocaleString();
-    document.getElementById('sym-low').textContent = '¥' + q.low.toLocaleString();
-    document.getElementById('sym-vol').textContent = q.volume.toLocaleString();
-    document.getElementById('sym-bid').textContent = '¥' + q.bid.toLocaleString();
-    document.getElementById('sym-ask').textContent = '¥' + q.ask.toLocaleString();
-
-    const changeEl = document.getElementById('sym-change');
-    const changePct = q.change_pct || 0;
-    const changeVal = q.change || 0;
-    changeEl.textContent = (changeVal >= 0 ? '+' : '') + changeVal.toFixed(2) + ' (' + (changePct >= 0 ? '+' : '') + changePct.toFixed(2) + '%)';
-    changeEl.className = 'symbol-change ' + (changePct >= 0 ? 'tv-up' : 'tv-down');
-
-    document.getElementById('order-price').value = q.last_price.toFixed(2);
-    updateEstimate();
-  } catch (e) {
-    console.error('loadQuote failed', e);
-  }
-
-  // Also fetch detailed stock info (name, industry, indices) for the header
-  fetchStockInfo(currentSymbol);
-}
-
-// ── Stock Info ──
+// ── Stock Info (带竞态保护) ──
+let _stockInfoGen = 0;
 async function fetchStockInfo(symbol) {
   const el = document.getElementById('sym-name');
   if (!symbol) { el.textContent = '--'; return; }
+  const gen = ++_stockInfoGen;
   try {
     const res = await fetch(`/api/v1/tv/stock-info?symbol=${encodeURIComponent(symbol)}`);
     const info = await res.json();
+    if (gen !== _stockInfoGen) return; // 被新请求取代，丢弃旧结果
     if (info.name) {
       const parts = [info.industry, ...(info.indices || [])].filter(Boolean);
       const suffix = parts.length > 0 ? '/' + parts.join('/') : '';
@@ -471,7 +624,7 @@ async function fetchStockInfo(symbol) {
       el.textContent = `${symbol} ${info.exchange}/${info.board}`;
     }
   } catch {
-    el.textContent = symbol;
+    if (gen === _stockInfoGen) el.textContent = symbol;
   }
 }
 
@@ -652,13 +805,11 @@ async function loadTradeHistory() {
 
 // ── Init ──
 function init() {
-  loadQuote();
-  initTradeChart('1d');
+  handleSymbolChange('600519.SH');
   loadTradingState();
   loadTradeHistory();
-  updateOrderButton();
+  // 定时器: 只刷新交易状态 (报价和K线由用户触发切换)
   setInterval(() => {
-    loadQuote();
     loadTradingState();
   }, 30000);
 }

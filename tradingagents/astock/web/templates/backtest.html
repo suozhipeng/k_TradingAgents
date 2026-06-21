@@ -1,64 +1,391 @@
 {% extends "base.html" %}
-{% block title %}Backtest — AStock WebUI{% endblock %}
-{% block content %}
-<h2 class="tv-section-title">🔄 回测 Backtest</h2>
+{% block title %}Backtest Center — AStock WebUI{% endblock %}
+{% block head_extra %}
+<style>
+/* ═══════════════════════════════════════════════════════════════════════
+   Backtest Center — 自定义样式
+   ═══════════════════════════════════════════════════════════════════════ */
 
-<div class="tv-grid-3">
-  <!-- Run Backtest -->
-  <div class="card">
-    <h3 class="text-lg font-semibold text-white mb-4">运行回测</h3>
-    <div class="space-y-3">
-      <div>
-        <label class="tv-label">股票 Symbol</label>
-        <div class="search-wrap"><input type="text" id="bt-symbol" placeholder="600519.SH" class="tv-input w-full" value="600519.SH"></div>
-        <div id="bt-stock-info" class="text-xs text-gray-500 mt-1" style="min-height:1.2em;"></div>
+/* ── Left-right layout ── */
+.bt-layout { display: flex; gap: 16px; align-items: flex-start; }
+.bt-sidebar {
+  width: 340px; flex-shrink: 0;
+  background: #1e222d; border: 1px solid #2a2e39; border-radius: 6px;
+  padding: 16px; position: sticky; top: 16px;
+}
+.bt-main { flex: 1; min-width: 0; }
+
+@media (max-width: 1024px) {
+  .bt-layout { flex-direction: column; }
+  .bt-sidebar { width: 100%; position: static; }
+}
+
+/* ── Sidebar config card ── */
+.bt-sidebar h3 { font-size: 14px; font-weight: 700; color: #d1d4dc; margin-bottom: 14px; letter-spacing: 0.3px; }
+.bt-sidebar .field { margin-bottom: 10px; }
+.bt-sidebar .field label { display: block; font-size: 11px; color: #787b86; margin-bottom: 3px; text-transform: uppercase; letter-spacing: 0.4px; }
+.bt-mode-toggle {
+  display: flex; gap: 0; margin-bottom: 14px; border: 1px solid #2a2e39; border-radius: 4px; overflow: hidden;
+}
+.bt-mode-toggle button {
+  flex: 1; padding: 6px 10px; font-size: 12px; font-weight: 600; border: none;
+  cursor: pointer; transition: all .15s;
+  background: transparent; color: #787b86;
+}
+.bt-mode-toggle button.active { background: #2962FF; color: #fff; }
+.bt-mode-toggle button:not(.active):hover { background: #2a2e39; color: #d1d4dc; }
+
+/* ── Strategy checkbox grid ── */
+.bt-strat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; max-height: 220px; overflow-y: auto; margin-bottom: 10px; }
+.bt-strat-grid::-webkit-scrollbar { width: 4px; }
+.bt-strat-grid::-webkit-scrollbar-thumb { background: #2a2e39; border-radius: 2px; }
+.bt-strat-item {
+  display: flex; align-items: center; gap: 6px; padding: 4px 8px;
+  border-radius: 4px; cursor: pointer; transition: background .1s;
+  font-size: 11px; color: #d1d4dc;
+}
+.bt-strat-item:hover { background: #2a2e39; }
+.bt-strat-item input { accent-color: #2962FF; width: 13px; height: 13px; cursor: pointer; }
+.bt-strat-item .name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ── Action buttons ── */
+.bt-actions { display: flex; gap: 6px; margin-top: 4px; }
+.bt-actions button { flex: 1; }
+
+/* ── Status bar ── */
+.bt-status { font-size: 11px; color: #787b86; margin-top: 8px; min-height: 1.2em; }
+
+/* ── History table ── */
+.bt-history { margin-top: 12px; border-top: 1px solid #2a2e39; padding-top: 10px; }
+.bt-history-title {
+  font-size: 11px; color: #787b86; text-transform: uppercase; letter-spacing: 0.4px;
+  margin-bottom: 6px; display: flex; align-items: center; gap: 6px;
+}
+.bt-history-title .count { color: #2962FF; font-weight: 600; }
+
+/* ── Tabs ── */
+.bt-tabs {
+  display: flex; gap: 0; border-bottom: 1px solid #2a2e39;
+  margin-bottom: 14px; overflow-x: auto;
+}
+.bt-tab {
+  padding: 8px 16px; font-size: 12px; font-weight: 600; cursor: pointer;
+  color: #787b86; border-bottom: 2px solid transparent;
+  transition: all .15s; white-space: nowrap;
+  background: none; border-top: none; border-left: none; border-right: none;
+}
+.bt-tab:hover { color: #d1d4dc; }
+.bt-tab.active { color: #2962FF; border-bottom-color: #2962FF; }
+
+.bt-panel { display: none; }
+.bt-panel.active { display: block; }
+
+/* ── Metric cards ── */
+.bt-metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px; }
+@media (max-width: 640px) { .bt-metrics { grid-template-columns: 1fr 1fr; } }
+.bt-metric {
+  background: #1e222d; border: 1px solid #2a2e39; border-radius: 6px;
+  padding: 12px 14px; text-align: center;
+}
+.bt-metric .lbl { font-size: 10px; color: #787b86; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 2px; }
+.bt-metric .val { font-size: 22px; font-weight: 800; font-family: 'JetBrains Mono', monospace; line-height: 1.2; }
+.bt-metric .val.up { color: #089981; }
+.bt-metric .val.down { color: #f23645; }
+.bt-metric .val.neutral { color: #d1d4dc; }
+.bt-metric .sub { font-size: 10px; color: #787b86; margin-top: 2px; }
+
+/* ── Dual Chart Row ── */
+.bt-chart-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
+@media (max-width: 768px) { .bt-chart-row { grid-template-columns: 1fr; } }
+.bt-chart-card { background: #1e222d; border: 1px solid #2a2e39; border-radius: 6px; padding: 12px; }
+.bt-chart-card .title { font-size: 12px; font-weight: 600; color: #d1d4dc; margin-bottom: 8px; }
+.bt-chart-card canvas { width: 100% !important; height: 220px !important; }
+
+/* ── Single chart card (full width) ── */
+.bt-chart-full { background: #1e222d; border: 1px solid #2a2e39; border-radius: 6px; padding: 12px; margin-bottom: 14px; }
+.bt-chart-full .title { font-size: 12px; font-weight: 600; color: #d1d4dc; margin-bottom: 8px; }
+.bt-chart-full canvas { width: 100% !important; }
+
+/* ── Comparison table ── */
+.bt-cmp-table { overflow-x: auto; margin-bottom: 12px; }
+.bt-cmp-table table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.bt-cmp-table th {
+  text-align: left; padding: 6px 10px; font-size: 10px; font-weight: 500;
+  color: #787b86; text-transform: uppercase; letter-spacing: 0.4px;
+  border-bottom: 1px solid #2a2e39; white-space: nowrap;
+}
+.bt-cmp-table td { padding: 6px 10px; border-bottom: 1px solid #2a2e39; white-space: nowrap; }
+.bt-cmp-table td.text-right { text-align: right; }
+.bt-cmp-table td.text-center { text-align: center; }
+.bt-cmp-table .rank-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border-radius: 4px; font-size: 11px; font-weight: 700;
+}
+.bt-cmp-table .rank-1 { background: rgba(8,153,129,0.15); color: #089981; }
+.bt-cmp-table .rank-2 { background: rgba(41,98,255,0.15); color: #2962FF; }
+.bt-cmp-table .rank-3 { background: rgba(255,152,0,0.15); color: #ff9800; }
+.bt-cmp-table .rank-n { background: #2a2e39; color: #787b86; }
+.bt-cmp-table tr.top-row { background: rgba(41,98,255,0.06); }
+
+/* ── Trade log table ── */
+.bt-trade-table { overflow-x: auto; }
+.bt-trade-table table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.bt-trade-table th {
+  text-align: left; padding: 6px 10px; font-size: 10px; font-weight: 500;
+  color: #787b86; text-transform: uppercase; letter-spacing: 0.4px;
+  border-bottom: 1px solid #2a2e39; white-space: nowrap;
+}
+.bt-trade-table td { padding: 6px 10px; border-bottom: 1px solid #2a2e39; white-space: nowrap; color: #d1d4dc; }
+.bt-trade-table td.text-right { text-align: right; }
+.bt-trade-table td.text-center { text-align: center; }
+.bt-trade-table .font-mono { font-family: 'JetBrains Mono', monospace; }
+
+/* ── Empty state ── */
+.bt-empty {
+  text-align: center; padding: 40px 20px; color: #787b86;
+}
+.bt-empty .icon { font-size: 32px; margin-bottom: 8px; }
+.bt-empty .text { font-size: 13px; }
+.bt-empty .hint { font-size: 11px; color: #787b86; margin-top: 4px; }
+
+/* ── Strategy count badge ── */
+.bt-badge-count {
+  display: inline-block; background: rgba(41,98,255,0.15); color: #2962FF;
+  font-size: 11px; font-weight: 600; padding: 0 6px; border-radius: 3px;
+  margin-left: 4px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<h2 class="tv-section-title">🔄 回测平台 Backtest Center</h2>
+
+<div class="bt-layout">
+
+  <!-- ═══════════════ LEFT: 参数配置面板 ═══════════════ -->
+  <aside class="bt-sidebar">
+    <h3>⚙️ 参数配置</h3>
+
+    <!-- 模式切换 -->
+    <div class="bt-mode-toggle">
+      <button id="bt-mode-single" class="active" onclick="switchMode('single')">📋 单策略</button>
+      <button id="bt-mode-multi" onclick="switchMode('multi')">⚔️ 多策略对比</button>
+    </div>
+
+    <!-- 通用参数 -->
+    <div class="field">
+      <label>股票 Symbol</label>
+      <div class="search-wrap">
+        <input type="text" id="bt-symbol" class="tv-input w-full" value="600519.SH" placeholder="600519.SH">
       </div>
-      <div>
-        <label class="tv-label">策略 Strategy</label>
-        <select id="bt-strategy" class="tv-select w-full">
-          <option value="MovingAverageTrend">MA Cross</option>
-          <option value="MACDTrend">MACD</option>
-          <option value="BollingerBands">Bollinger</option>
-          <option value="DefensiveMomentum">Momentum</option>
-          <option value="MeanReversion">Mean Reversion</option>
-          <option value="BullTrend">Volume Breakout</option>
-        </select>
+      <div id="bt-stock-info" class="text-xs" style="color:#787b86;min-height:1.2em;margin-top:1px;"></div>
+    </div>
+
+    <div class="field">
+      <label>起始日期</label>
+      <input type="date" id="bt-start" class="tv-input w-full">
+    </div>
+    <div class="field">
+      <label>结束日期</label>
+      <input type="date" id="bt-end" class="tv-input w-full">
+    </div>
+
+    <!-- 单策略：策略选择 -->
+    <div class="field" id="bt-field-single-strat">
+      <label>策略 Strategy</label>
+      <select id="bt-strategy" class="tv-select w-full">
+        <option value="MovingAverageTrend">MA Cross</option>
+        <option value="MACDTrend">MACD</option>
+        <option value="BollingerBands">Bollinger</option>
+        <option value="DefensiveMomentum">Momentum</option>
+        <option value="MeanReversion">Mean Reversion</option>
+        <option value="BullTrend">Volume Breakout</option>
+      </select>
+    </div>
+
+    <!-- 多策略对比：策略多选 -->
+    <div class="field" id="bt-field-multi-strat" style="display:none;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+        <label style="display:inline;text-transform:uppercase;">策略多选</label>
+        <div style="display:flex;gap:6px;">
+          <button onclick="selectAllStrat(true)" class="tv-btn tv-btn-sm" style="padding:2px 8px;font-size:10px;background:#2a2e39;color:#d1d4dc;border:none;cursor:pointer;">全选</button>
+          <button onclick="selectAllStrat(false)" class="tv-btn tv-btn-sm" style="padding:2px 8px;font-size:10px;background:#2a2e39;color:#d1d4dc;border:none;cursor:pointer;">清除</button>
+        </div>
       </div>
-      <div>
-        <label class="tv-label">起始日期</label>
-        <input type="date" id="bt-start" class="tv-input w-full">
+      <div id="bt-strat-list" class="bt-strat-grid">加载中...</div>
+    </div>
+
+    <!-- 操作区 -->
+    <div class="bt-actions">
+      <button id="bt-run-btn" onclick="runBacktest()" class="tv-btn tv-btn-primary" style="flex:2;">▶ 运行回测</button>
+      <button onclick="clearAllResults()" class="tv-btn tv-btn-secondary" title="清空历史">🗑</button>
+    </div>
+    <div id="bt-status" class="bt-status">就绪</div>
+
+    <!-- 回测历史 -->
+    <div class="bt-history">
+      <div class="bt-history-title">📋 回测历史 <span id="bt-history-count" class="count">0</span></div>
+      <div id="bt-history-list" class="text-xs"></div>
+    </div>
+  </aside>
+
+  <!-- ═══════════════ RIGHT: 多功能视窗 ═══════════════ -->
+  <main class="bt-main">
+
+    <!-- Tabs -->
+    <div class="bt-tabs">
+      <button class="bt-tab active" data-tab="overview" onclick="switchTab('overview')">📊 核心绩效</button>
+      <button class="bt-tab" data-tab="periods" onclick="switchTab('periods')">⏱️ 周期收益</button>
+      <button class="bt-tab" data-tab="compare" onclick="switchTab('compare')">⚔️ 策略对比</button>
+      <button class="bt-tab" data-tab="trades" onclick="switchTab('trades')">📋 交易日志</button>
+    </div>
+
+    <!-- ── Tab 1: 核心绩效 ── -->
+    <div class="bt-panel active" id="panel-overview">
+      <div id="ov-placeholder">
+        <div class="bt-empty">
+          <div class="icon">📊</div>
+          <div class="text">请配置参数后点击「运行」开始回测</div>
+          <div class="hint">左侧面板选择策略 → 点击按钮 → 结果展示在此处</div>
+        </div>
       </div>
-      <div>
-        <label class="tv-label">结束日期</label>
-        <input type="date" id="bt-end" class="tv-input w-full">
-      </div>
-      <div class="flex gap-2">
-        <button onclick="runBacktest()" class="tv-btn tv-btn-primary flex-1">▶ 运行 Backtest</button>
-      </div>
-      <div id="bt-run-status" class="text-xs text-gray-400 mt-2"></div>
-      <div class="text-xs text-gray-500 border-t border-gray-700 pt-2 mt-1">
-        <button onclick="clearBtHistory()" class="tv-btn tv-btn-sm tv-btn-secondary">🗑 清空历史</button>
+      <div id="ov-content" style="display:none;">
+        <div class="bt-metrics" id="ov-metrics"></div>
+        <div class="bt-chart-row">
+          <div class="bt-chart-card">
+            <div class="title">📈 净值曲线 Equity Curve</div>
+            <canvas id="chart-equity"></canvas>
+          </div>
+          <div class="bt-chart-card">
+            <div class="title">📉 水下回撤图 Drawdown</div>
+            <canvas id="chart-drawdown"></canvas>
+          </div>
+        </div>
       </div>
     </div>
-  </div>
 
-  <!-- Results -->
-  <div class="lg:col-span-2 card">
-    <h3 class="text-lg font-semibold text-white mb-4">结果 Results</h3>
-    <div id="bt-results-content" class="text-gray-400 text-sm">点击运行开始回测...</div>
-  </div>
-</div>
+    <!-- ── Tab 2: 周期收益 ── -->
+    <div class="bt-panel" id="panel-periods">
+      <div id="pr-placeholder">
+        <div class="bt-empty">
+          <div class="icon">⏱️</div>
+          <div class="text">运行回测后查看各周期收益分布</div>
+        </div>
+      </div>
+      <div id="pr-content" style="display:none;">
+        <div class="bt-chart-full">
+          <div class="title">📊 周期收益 Period Returns</div>
+          <canvas id="chart-period-returns" height="200"></canvas>
+        </div>
+      </div>
+    </div>
 
-<!-- Backtest History -->
-<div class="card mt-6">
-  <h3 class="text-lg font-semibold text-white mb-4">📋 回测历史对比</h3>
-  <div id="bt-history" class="text-gray-400 text-sm overflow-x-auto">Loading...</div>
+    <!-- ── Tab 3: 策略对比 ── -->
+    <div class="bt-panel" id="panel-compare">
+      <div id="cp-placeholder">
+        <div class="bt-empty">
+          <div class="icon">⚔️</div>
+          <div class="text">切到「多策略对比」模式并勾选多个策略后运行</div>
+        </div>
+      </div>
+      <div id="cp-content" style="display:none;">
+        <!-- 策略对比表 -->
+        <div class="bt-cmp-table" id="cmp-table"></div>
+        <!-- 净值叠加图 -->
+        <div class="bt-chart-full">
+          <div class="title">📈 多策略净值曲线叠加</div>
+          <canvas id="chart-cmp-equity" height="220"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Tab 4: 交易日志 ── -->
+    <div class="bt-panel" id="panel-trades">
+      <div id="td-placeholder">
+        <div class="bt-empty">
+          <div class="icon">📋</div>
+          <div class="text">运行回测后查看每笔交易的详细记录</div>
+        </div>
+      </div>
+      <div id="td-content" style="display:none;">
+        <div class="bt-trade-table" id="trade-table"></div>
+      </div>
+    </div>
+
+  </main>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-// ── Stock Identity Info ──
+// ═══════════════════════════════════════════════════════════════════════════
+//  Chart.js 动态加载
+// ═══════════════════════════════════════════════════════════════════════════
+
+let chartJsReady = false;
+const chartJsQueue = [];
+
+function loadChartJS(callback) {
+  if (typeof Chart !== 'undefined') { chartJsReady = true; callback(); return; }
+  chartJsQueue.push(callback);
+  if (document.getElementById('chartjs-script')) return; // already loading
+  const s = document.createElement('script');
+  s.id = 'chartjs-script';
+  s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js';
+  s.onload = () => {
+    chartJsReady = true;
+    chartJsQueue.forEach(fn => fn());
+    chartJsQueue.length = 0;
+  };
+  s.onerror = () => {
+    // Fallback: try alternative CDN
+    const s2 = document.createElement('script');
+    s2.id = 'chartjs-script';
+    s2.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.7/chart.umd.min.js';
+    s2.onload = () => {
+      chartJsReady = true;
+      chartJsQueue.forEach(fn => fn());
+      chartJsQueue.length = 0;
+    };
+    document.head.appendChild(s2);
+  };
+  document.head.appendChild(s);
+}
+
+function whenChartJs(fn) {
+  if (chartJsReady || typeof Chart !== 'undefined') { fn(); return; }
+  chartJsQueue.push(fn);
+}
+
+let btMode = 'single';           // 'single' | 'multi'
+let chartInstances = {};         // keyed chart refs
+let lastSingleResult = null;     // last single backtest full result (for analyze)
+let lastMultiResults = null;     // last multi comparison results
+let allStrategies = [];          // cached strategy list
+
+const CHART_COLORS = [
+  { line: '#818cf8', bg: 'rgba(129,140,248,0.15)' },
+  { line: '#34d399', bg: 'rgba(52,211,153,0.15)' },
+  { line: '#fbbf24', bg: 'rgba(251,191,36,0.15)' },
+  { line: '#f87171', bg: 'rgba(248,113,113,0.15)' },
+  { line: '#60a5fa', bg: 'rgba(96,165,250,0.15)' },
+  { line: '#c084fc', bg: 'rgba(192,132,252,0.15)' },
+  { line: '#fb923c', bg: 'rgba(251,146,60,0.15)' },
+  { line: '#2dd4bf', bg: 'rgba(45,212,191,0.15)' },
+  { line: '#a78bfa', bg: 'rgba(167,139,250,0.15)' },
+  { line: '#e879f9', bg: 'rgba(232,121,249,0.15)' },
+];
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════════════════════
+
+function setDefaultDates() {
+  document.getElementById('bt-start').value = '2018-01-01';
+  const now = new Date();
+  document.getElementById('bt-end').value = now.toISOString().slice(0, 10);
+}
+
 async function updateStockInfo(symbol) {
   const el = document.getElementById('bt-stock-info');
   if (!symbol) { el.textContent = ''; return; }
@@ -68,31 +395,515 @@ async function updateStockInfo(symbol) {
     const info = await res.json();
     if (!info || !info.name) { el.textContent = ''; return; }
     const parts = [info.exchange, info.board, info.industry].filter(Boolean);
-    if (info.indices && info.indices.length) {
-      parts.push(info.indices.join('/'));
-    }
+    if (info.indices && info.indices.length) parts.push(info.indices.join('/'));
     el.textContent = `${info.name} (${info.code}) ${parts.join('/')}`;
+  } catch (e) { el.textContent = ''; }
+}
+
+async function loadStrategies() {
+  try {
+    const res = await fetch('/api/v1/market/strategies');
+    const data = await res.json();
+    allStrategies = data?.strategies || [];
+
+    // Fill single strategy dropdown
+    const sel = document.getElementById('bt-strategy');
+    sel.innerHTML = allStrategies.map(s => `<option value="${s.name}">${s.name}</option>`).join('');
+
+    // Fill multi strategy grid
+    const grid = document.getElementById('bt-strat-list');
+    if (allStrategies.length === 0) {
+      grid.innerHTML = '<span style="color:#787b86;font-size:11px;">暂无策略</span>';
+      return;
+    }
+    grid.innerHTML = allStrategies.map(s =>
+      `<label class="bt-strat-item">
+        <input type="checkbox" class="strat-cb" value="${s.name}">
+        <span class="name">${s.name}</span>
+      </label>`
+    ).join('');
   } catch (e) {
-    el.textContent = '';
+    document.getElementById('bt-strategy').innerHTML = '<option>加载失败</option>';
+    document.getElementById('bt-strat-list').innerHTML = '<span style="color:#f23645;font-size:11px;">加载失败</span>';
   }
 }
 
-// ── Set default dates ──
-function setDefaultDates() {
-  document.getElementById('bt-start').value = '2018-01-01';
-  const now = new Date();
-  document.getElementById('bt-end').value = now.toISOString().slice(0, 10);
+// ── Mode Switch ──
+function switchMode(mode) {
+  btMode = mode;
+  document.getElementById('bt-mode-single').className = mode === 'single' ? 'active' : '';
+  document.getElementById('bt-mode-multi').className = mode === 'multi' ? 'active' : '';
+  document.getElementById('bt-field-single-strat').style.display = mode === 'single' ? '' : 'none';
+  document.getElementById('bt-field-multi-strat').style.display = mode === 'multi' ? '' : 'none';
+  document.getElementById('bt-run-btn').textContent = mode === 'single' ? '▶ 运行回测' : '▶ 对比运行';
 }
 
-// ── Search Suggestions ──
-KCDataLoader.setupSearch('bt-symbol', symbol => {
-  updateStockInfo(symbol);
-  runBacktest();
-});
+function selectAllStrat(checked) {
+  document.querySelectorAll('.strat-cb').forEach(cb => cb.checked = checked);
+}
 
-// Initial stock info
+// ── Tab Switch ──
+function switchTab(tabId) {
+  document.querySelectorAll('.bt-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tabId));
+  document.querySelectorAll('.bt-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + tabId));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  DESTROY CHARTS
+// ═══════════════════════════════════════════════════════════════════════════
+
+function destroyCharts(keys) {
+  if (keys) {
+    keys.forEach(k => { if (chartInstances[k]) { try { chartInstances[k].destroy(); } catch(e) {} delete chartInstances[k]; } });
+  } else {
+    Object.values(chartInstances).forEach(c => { try { c.destroy(); } catch(e) {} });
+    chartInstances = {};
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  RUN BACKTEST
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function runBacktest() {
+  let symbol = document.getElementById('bt-symbol').value.trim();
+  if (!symbol.includes('.')) symbol += '.SH';
+  const start = document.getElementById('bt-start').value.trim();
+  const end = document.getElementById('bt-end').value.trim();
+  const statusEl = document.getElementById('bt-status');
+
+  if (!symbol || !start || !end) { statusEl.textContent = '⚠️ 请填写完整参数'; return; }
+
+  if (btMode === 'single') {
+    await runSingleBacktest(symbol, start, end, statusEl);
+  } else {
+    await runMultiCompare(symbol, start, end, statusEl);
+  }
+}
+
+// ── Single Backtest ──
+async function runSingleBacktest(symbol, start, end, statusEl) {
+  const strategy = document.getElementById('bt-strategy').value;
+  statusEl.textContent = '⏳ 刷新数据中...';
+
+  try {
+    // 1. Refresh data
+    await fetch('/api/v1/data/refresh/kline', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ symbol, start, end }),
+    });
+
+    statusEl.textContent = '⏳ 运行回测...';
+
+    // 2. Run backtest
+    const res = await fetch('/api/v1/backtest/run', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ symbol, strategy, start, end }),
+    });
+    const btData = await res.json();
+    if (btData.error) { statusEl.textContent = '❌ ' + btData.error; return; }
+
+    lastSingleResult = btData;
+    statusEl.textContent = '⏳ 加载绩效分析...';
+
+    // 3. Run analyze for detailed charts
+    const analyzeRes = await fetch('/api/v1/backtest/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ strategy, symbol, start_date: start, end_date: end }),
+    });
+    const analyzeData = await analyzeRes.json();
+    if (analyzeData.error) {
+      // Fallback: use btData metrics
+      renderSingleResults(btData, btData);
+    } else {
+      renderSingleResults(btData, analyzeData);
+    }
+
+    statusEl.textContent = `✅ ${strategy} · ${symbol} 完成`;
+    loadBtHistory();
+    switchTab('overview');
+  } catch (e) {
+    statusEl.textContent = '❌ ' + e.message;
+  }
+}
+
+// ── Multi Compare ──
+async function runMultiCompare(symbol, start, end, statusEl) {
+  const selected = [];
+  document.querySelectorAll('.strat-cb:checked').forEach(cb => selected.push(cb.value));
+
+  if (selected.length < 2) { statusEl.textContent = '⚠️ 请至少选择两个策略'; return; }
+
+  statusEl.textContent = '⏳ 运行多策略对比...';
+
+  try {
+    const params = new URLSearchParams({
+      strategies: selected.join(','), symbol, start, end, mock_data: '0',
+    });
+    const res = await fetch(`/api/v1/backtest/compare?${params}`);
+    const data = await res.json();
+    if (data.error) { statusEl.textContent = '❌ ' + data.error; return; }
+
+    lastMultiResults = data.comparison || [];
+    if (lastMultiResults.length === 0) { statusEl.textContent = '⚠️ 无对比结果'; return; }
+
+    renderCompareResults(lastMultiResults);
+    statusEl.textContent = `✅ 对比完成 (${lastMultiResults.length} 个策略)`;
+    switchTab('compare');
+  } catch (e) {
+    statusEl.textContent = '❌ ' + e.message;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  RENDER: Single Results (fills tabs 1,2,4)
+// ═══════════════════════════════════════════════════════════════════════════
+
+function renderSingleResults(btData, analyzeData) {
+  const metrics = analyzeData.metrics || {};
+  const equityCurve = analyzeData.equity_curve || [];
+  const returns = analyzeData.returns || [];
+  const trades = btData.trades || [];
+
+  const tr = metrics.total_return !== undefined ? metrics.total_return : btData.total_return;
+  const ar = metrics.annualized_return !== undefined ? metrics.annualized_return : btData.annualized_return;
+  const sh = metrics.sharpe_ratio !== undefined ? metrics.sharpe_ratio : btData.sharpe_ratio;
+  const dd = metrics.max_drawdown !== undefined ? metrics.max_drawdown : btData.max_drawdown;
+  const wr = metrics.win_rate !== undefined ? metrics.win_rate : btData.win_rate;
+  const tc = metrics.total_trades !== undefined ? metrics.total_trades : btData.total_trades;
+
+  // ── Tab 1: Core Metrics ──
+  document.getElementById('ov-placeholder').style.display = 'none';
+  document.getElementById('ov-content').style.display = '';
+  document.getElementById('ov-metrics').innerHTML = [
+    { lbl: '总收益', val: tr != null ? ((tr * 100).toFixed(2) + '%') : '--', cls: tr != null && tr >= 0 ? 'up' : 'down', sub: 'Total Return' },
+    { lbl: '年化收益', val: ar != null ? ((ar * 100).toFixed(2) + '%') : '--', cls: ar != null && ar >= 0 ? 'up' : 'down', sub: 'Annualized' },
+    { lbl: '夏普比率', val: sh != null ? sh.toFixed(3) : '--', cls: sh != null && sh > 1 ? 'up' : sh != null && sh > 0 ? 'neutral' : 'down', sub: 'Sharpe Ratio' },
+    { lbl: '最大回撤', val: dd != null ? ((dd * 100).toFixed(2) + '%') : '--', cls: dd != null && Math.abs(dd) < 0.15 ? 'up' : 'down', sub: 'Max Drawdown' },
+    { lbl: '胜率', val: wr != null ? ((wr * 100).toFixed(1) + '%') : '--', cls: wr != null && wr > 0.5 ? 'up' : 'neutral', sub: 'Win Rate' },
+    { lbl: '交易次数', val: tc != null ? tc : '--', cls: 'neutral', sub: 'Total Trades' },
+  ].map(m => `<div class="bt-metric"><div class="lbl">${m.lbl}</div><div class="val ${m.cls}">${m.val}</div><div class="sub">${m.sub}</div></div>`).join('');
+
+  destroyCharts(['equity', 'drawdown']);
+
+  // Equity curve
+  const eqLabels = equityCurve.map(e => (e.period || '').substring(0, 7));
+  const eqValues = equityCurve.map(e => e.value);
+  const eqRef = eqValues[0] || 1;
+
+  whenChartJs(() => {
+    chartInstances.equity = new Chart(document.getElementById('chart-equity'), {
+      type: 'line',
+      data: {
+        labels: eqLabels,
+        datasets: [
+          { label: '净值', data: eqValues, borderColor: '#818cf8', backgroundColor: 'rgba(129,140,248,0.1)', fill: true, tension: 0.3, pointRadius: 0 },
+          { label: '初始', data: Array(eqValues.length).fill(eqRef), borderColor: '#334155', borderDash: [5,5], pointRadius: 0 },
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: true,
+        plugins: {
+          legend: { labels: { color: '#9ca3af', boxWidth: 12, padding: 12 } },
+          tooltip: { backgroundColor: '#1e293b', titleColor: '#fff', bodyColor: '#d1d5db' },
+        },
+        scales: {
+          x: { ticks: { color: '#6b7280', maxTicksLimit: 10, maxRotation: 0 }, grid: { color: '#1e293b' } },
+          y: { ticks: { color: '#6b7280', callback: v => v.toLocaleString() }, grid: { color: '#1e293b' } },
+        },
+      },
+    });
+
+    // Drawdown chart
+    let peak = eqValues[0];
+    const ddValues = eqValues.map(v => {
+      peak = Math.max(peak, v);
+      return ((v - peak) / peak) * 100;
+    });
+
+    chartInstances.drawdown = new Chart(document.getElementById('chart-drawdown'), {
+      type: 'line',
+      data: {
+        labels: eqLabels,
+        datasets: [{
+          label: '回撤 %', data: ddValues, borderColor: '#f23645',
+          backgroundColor: 'rgba(242,54,69,0.12)', fill: true, tension: 0.3, pointRadius: 0,
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: true,
+        plugins: {
+          legend: { labels: { color: '#9ca3af', boxWidth: 12, padding: 12 } },
+          tooltip: { backgroundColor: '#1e293b', titleColor: '#fff', bodyColor: '#d1d5db', callbacks: { label: ctx => ctx.parsed.y.toFixed(2) + '%' } },
+        },
+        scales: {
+          x: { ticks: { color: '#6b7280', maxTicksLimit: 10, maxRotation: 0 }, grid: { color: '#1e293b' } },
+          y: { ticks: { color: '#f23645', callback: v => v.toFixed(1) + '%' }, grid: { color: '#1e293b' } },
+        },
+      },
+    });
+  });
+
+  // ── Tab 2: Period Returns ──
+  renderPeriodReturns(returns);
+
+  // ── Tab 4: Trade Log ──
+  renderTradeLog(trades);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  RENDER: Period Returns (Tab 2)
+// ═══════════════════════════════════════════════════════════════════════════
+
+function renderPeriodReturns(returns) {
+  document.getElementById('pr-placeholder').style.display = 'none';
+  document.getElementById('pr-content').style.display = '';
+
+  destroyCharts(['periodReturns']);
+
+  if (!returns || returns.length === 0) {
+    document.getElementById('pr-content').innerHTML =
+      '<div class="bt-empty"><div class="icon">⏱️</div><div class="text">暂无周期收益数据</div></div>';
+    return;
+  }
+
+  const labels = returns.map(r => (r.period || '').substring(0, 7));
+  const vals = returns.map(r => (r.return || 0) * 100);
+  const colors = vals.map(v => v >= 0 ? 'rgba(8,153,129,0.6)' : 'rgba(242,54,69,0.6)');
+  const borderColors = vals.map(v => v >= 0 ? '#089981' : '#f23645');
+
+  whenChartJs(() => {
+    chartInstances.periodReturns = new Chart(document.getElementById('chart-period-returns'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: '周期收益 %',
+        data: vals,
+        backgroundColor: colors,
+        borderColor: borderColors,
+        borderWidth: 1,
+        borderRadius: 2,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      plugins: {
+        legend: { labels: { color: '#9ca3af', boxWidth: 12, padding: 12 } },
+        tooltip: {
+          backgroundColor: '#1e293b', titleColor: '#fff', bodyColor: '#d1d5db',
+          callbacks: { label: ctx => (ctx.parsed.y >= 0 ? '+' : '') + ctx.parsed.y.toFixed(2) + '%' },
+        },
+      },
+      scales: {
+        x: { ticks: { color: '#6b7280', maxTicksLimit: 15, maxRotation: 45 }, grid: { display: false } },
+        y: {
+          ticks: { color: '#6b7280', callback: v => v.toFixed(1) + '%' },
+          grid: { color: '#1e293b' },
+        },
+      },
+    },
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  RENDER: Multi Compare (Tab 3)
+// ═══════════════════════════════════════════════════════════════════════════
+
+function renderCompareResults(comparison) {
+  document.getElementById('cp-placeholder').style.display = 'none';
+  document.getElementById('cp-content').style.display = '';
+  destroyCharts(['cmpEquity']);
+
+  // ── Comparison Table ──
+  const bestReturn = Math.max(...comparison.map(r => r.total_return || 0));
+  const bestSharpe = Math.max(...comparison.map(r => r.sharpe_ratio || 0));
+  const bestWinRate = Math.max(...comparison.map(r => r.win_rate || 0));
+  const worstDD = Math.min(...comparison.map(r => r.max_drawdown || 0));
+
+  document.getElementById('cmp-table').innerHTML = `<table>
+    <thead><tr>
+      <th>#</th><th>策略</th><th class="text-right">总收益</th><th class="text-right">年化</th>
+      <th class="text-right">Sharpe</th><th class="text-right">回撤</th><th class="text-right">胜率</th><th class="text-right">交易</th>
+    </tr></thead>
+    <tbody>
+      ${comparison.map((r, idx) => {
+        const rank = r.rank || idx + 1;
+        const tr = r.total_return || 0;
+        const ar = r.annualized_return || 0;
+        const sh = r.sharpe_ratio || 0;
+        const dd = r.max_drawdown || 0;
+        const wr = r.win_rate || 0;
+        const tc = r.total_trades || 0;
+        const rankCls = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : 'rank-n';
+        return `<tr class="${rank === 1 ? 'top-row' : ''}">
+          <td class="text-center"><span class="rank-badge ${rankCls}">#${rank}</span></td>
+          <td style="font-weight:${rank === 1 ? '700' : '400'}">${r.strategy_name}</td>
+          <td class="text-right" style="color:${tr >= 0 ? '#089981' : '#f23645'}">${(tr * 100).toFixed(2)}%</td>
+          <td class="text-right" style="color:${ar >= 0 ? '#089981' : '#f23645'}">${(ar * 100).toFixed(2)}%</td>
+          <td class="text-right" style="color:${sh > 1 ? '#089981' : sh > 0 ? '#ff9800' : '#f23645'}">${sh.toFixed(3)}</td>
+          <td class="text-right" style="color:${Math.abs(dd) < 0.15 ? '#089981' : '#ff9800'}">${(dd * 100).toFixed(2)}%</td>
+          <td class="text-right" style="color:${wr >= bestWinRate * 0.9 ? '#089981' : '#ff9800'}">${(wr * 100).toFixed(1)}%</td>
+          <td class="text-right">${tc}</td>
+        </tr>`;
+      }).join('')}
+    </tbody>
+  </table>`;
+
+  // ── Equity Overlay Chart ──
+  let labels = [];
+  const datasets = comparison.map((r, i) => {
+    const curve = r.equity_curve || [];
+    const color = CHART_COLORS[i % CHART_COLORS.length];
+    if (curve.length > labels.length) labels = curve.map(p => (p.period || '').substring(0, 7));
+    return {
+      label: r.strategy_name,
+      data: curve.map(p => p.value),
+      borderColor: color.line,
+      backgroundColor: color.bg,
+      fill: false,
+      tension: 0.3,
+      pointRadius: 0,
+      borderWidth: (r.rank || i + 1) === 1 ? 2.5 : 1.5,
+    };
+  });
+
+  whenChartJs(() => {
+    chartInstances.cmpEquity = new Chart(document.getElementById('chart-cmp-equity'), {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { labels: { color: '#9ca3af', boxWidth: 12, padding: 12 } },
+        tooltip: { backgroundColor: '#1e293b', titleColor: '#fff', bodyColor: '#d1d5db' },
+      },
+      scales: {
+        x: { ticks: { color: '#6b7280', maxTicksLimit: 12, maxRotation: 0 }, grid: { color: '#1e293b' } },
+        y: { ticks: { color: '#6b7280', callback: v => v.toLocaleString() }, grid: { color: '#1e293b' } },
+      },
+    },
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  RENDER: Trade Log (Tab 4)
+// ═══════════════════════════════════════════════════════════════════════════
+
+function renderTradeLog(trades) {
+  document.getElementById('td-placeholder').style.display = 'none';
+  document.getElementById('td-content').style.display = '';
+
+  if (!trades || trades.length === 0) {
+    document.getElementById('trade-table').innerHTML =
+      '<div class="bt-empty"><div class="icon">📋</div><div class="text">本次回测无交易记录</div></div>';
+    return;
+  }
+
+  document.getElementById('trade-table').innerHTML = `<table>
+    <thead><tr>
+      <th>#</th><th>日期</th><th>方向</th><th class="text-right">价格</th><th class="text-right">股数</th><th class="text-right">手续费</th><th class="text-right">盈亏</th>
+    </tr></thead>
+    <tbody>
+      ${trades.map((t, i) => {
+        const isBuy = t.type === 'buy' || t.signal === 1;
+        return `<tr>
+          <td class="text-center" style="color:#787b86;">${i + 1}</td>
+          <td>${t.date || t.period || '--'}</td>
+          <td><span class="tv-badge ${isBuy ? 'tv-badge-green' : 'tv-badge-red'}">${isBuy ? '买入' : '卖出'}</span></td>
+          <td class="text-right font-mono">${t.price != null ? t.price.toFixed(2) : '--'}</td>
+          <td class="text-right font-mono">${t.shares != null ? t.shares.toFixed(0) : '--'}</td>
+          <td class="text-right font-mono" style="color:#787b86;">${t.fees != null ? t.fees.toFixed(2) : '--'}</td>
+          <td class="text-right font-mono" style="color:${(t.pnl || 0) >= 0 ? '#089981' : '#f23645'}">
+            ${t.pnl != null ? (t.pnl >= 0 ? '+' : '') + t.pnl.toFixed(2) : '--'}
+          </td>
+        </tr>`;
+      }).join('')}
+    </tbody>
+  </table>
+  <div style="font-size:11px;color:#787b86;margin-top:6px;">共 ${trades.length} 笔交易</div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  HISTORY
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function loadBtHistory() {
+  try {
+    const res = await fetch('/api/v1/backtest/results?limit=20');
+    const data = await res.json();
+    const results = data?.results || [];
+    document.getElementById('bt-history-count').textContent = results.length;
+    const el = document.getElementById('bt-history-list');
+
+    if (results.length === 0) {
+      el.innerHTML = '<div style="color:#787b86;font-size:11px;">暂无回测记录</div>';
+      return;
+    }
+
+    el.innerHTML = results.slice(0, 10).map(bt => {
+      const id = (bt.id || bt.run_id || '').substring(0, 8);
+      const tr = bt.total_return;
+      return `<div style="display:flex;align-items:center;gap:6px;padding:3px 0;border-bottom:1px solid #2a2e39;">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:#787b86;">${id}</span>
+        <span style="font-size:11px;color:#d1d4dc;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+          ${bt.symbol || '--'}
+          <span style="color:#787b86;">/</span>
+          <span class="tv-badge tv-badge-blue" style="font-size:9px;padding:0 4px;">${bt.strategy || bt.strategy_name || '--'}</span>
+        </span>
+        <span style="font-size:11px;font-family:'JetBrains Mono',monospace;color:${tr != null && tr >= 0 ? '#089981' : '#f23645'};">
+          ${tr != null ? (tr >= 0 ? '+' : '') + (tr * 100).toFixed(1) + '%' : '--'}
+        </span>
+        <button onclick="deleteBtRecord('${bt.id || bt.run_id || ''}')" style="background:none;border:none;color:#f23645;cursor:pointer;font-size:12px;padding:0 2px;" title="删除">✕</button>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    document.getElementById('bt-history-list').innerHTML = '<span style="color:#f23645;font-size:11px;">加载失败</span>';
+  }
+}
+
+async function deleteBtRecord(runId) {
+  if (!runId || !confirm('确认删除该条回测记录？')) return;
+  try {
+    const res = await fetch(`/api/v1/backtest/results/${encodeURIComponent(runId)}`, { method: 'DELETE' });
+    const data = await res.json();
+    document.getElementById('bt-status').textContent = data?.status === 'ok' ? '✅ 已删除' : '❌ 删除失败';
+    loadBtHistory();
+  } catch (e) {
+    document.getElementById('bt-status').textContent = '❌ ' + e.message;
+  }
+}
+
+async function clearAllResults() {
+  if (!confirm('确认清空所有回测历史？')) return;
+  try {
+    const res = await fetch('/api/v1/backtest/results', { method: 'DELETE' });
+    const data = await res.json();
+    document.getElementById('bt-status').textContent = data?.status === 'ok' ? '✅ 已清空' : '❌ 失败';
+    loadBtHistory();
+  } catch (e) {
+    document.getElementById('bt-status').textContent = '❌ ' + e.message;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  BOOT
+// ═══════════════════════════════════════════════════════════════════════════
+
 setDefaultDates();
 updateStockInfo('600519.SH');
+loadStrategies();
+loadBtHistory();
+loadChartJS(() => {}); // preload Chart.js
+
+// Search suggestions
+KCDataLoader.setupSearch('bt-symbol', symbol => { updateStockInfo(symbol); });
 
 // Manual input: debounced info fetch
 document.getElementById('bt-symbol').addEventListener('input', (function() {
@@ -102,142 +913,5 @@ document.getElementById('bt-symbol').addEventListener('input', (function() {
     timer = setTimeout(() => updateStockInfo(this.value.trim()), 300);
   };
 })());
-
-async function runBacktest() {
-  let symbol = document.getElementById('bt-symbol').value.trim();
-  if (!symbol.includes('.')) symbol += '.SH';
-  const strategy = document.getElementById('bt-strategy').value;
-  const startDate = document.getElementById('bt-start').value.trim();
-  const endDate = document.getElementById('bt-end').value.trim();
-  const statusEl = document.getElementById('bt-run-status');
-  statusEl.textContent = '⏳ 下载最新数据...';
-
-  try {
-    // Download latest data first
-    const refreshRes = await fetch('/api/v1/data/refresh/kline', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ symbol, start: startDate, end: endDate }),
-    });
-    const refreshData = await refreshRes.json();
-    if (refreshData?.status === 'ok') {
-      statusEl.textContent = `✅ 数据已更新 (${refreshData.rows_inserted || 0}条) → 运行回测...`;
-    } else {
-      statusEl.textContent = '⏳ 运行回测...';
-    }
-
-    // Run backtest
-    const res = await fetch('/api/v1/backtest/run', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ symbol, strategy, start: startDate, end: endDate })
-    });
-    const data = await res.json();
-    statusEl.textContent = data?.status || 'Done';
-
-    const rc = document.getElementById('bt-results-content');
-    if (data && data.total_return !== undefined) {
-      // Metrics grid
-      let html = '<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">' +
-        [
-          ['总收益 Total Return', data.total_return != null ? (data.total_return * 100).toFixed(2) + '%' : '--'],
-          ['年化收益 Ann. Return', data.annualized_return != null ? (data.annualized_return * 100).toFixed(2) + '%' : '--'],
-          ['夏普 Sharpe', data.sharpe_ratio != null ? data.sharpe_ratio.toFixed(4) : '--'],
-          ['最大回撤 Max DD', data.max_drawdown != null ? (data.max_drawdown * 100).toFixed(2) + '%' : '--'],
-          ['胜率 Win Rate', data.win_rate != null ? (data.win_rate * 100).toFixed(2) + '%' : '--'],
-          ['交易次数 Trades', data.total_trades != null ? data.total_trades : '--'],
-        ].map(([k, v]) =>
-          `<div class="tv-card p-3"><div class="tv-label">${k}</div><div class="text-lg font-bold text-white font-mono">${v}</div></div>`
-        ).join('') + '</div>';
-
-      // Trade records table
-      const trades = data.trades || [];
-      if (trades.length > 0) {
-        html += '<div class="tv-section-title" style="font-size:14px;margin-bottom:8px;">📝 交易记录 Trade Log</div>' +
-          '<div class="overflow-x-auto"><table class="tv-table">' +
-          '<thead><tr><th>#</th><th>日期</th><th>方向</th><th class="text-right">价格</th><th class="text-right">股数</th><th class="text-right">手续费</th><th class="text-right">盈亏</th></tr></thead><tbody>' +
-          trades.map((t, i) => {
-            const isBuy = t.type === 'buy';
-            return `<tr>
-              <td class="text-center text-gray-400">${i + 1}</td>
-              <td>${t.date}</td>
-              <td><span class="tv-badge ${isBuy ? 'tv-badge-green' : 'tv-badge-red'}">${isBuy ? '买入' : '卖出'}</span></td>
-              <td class="text-right font-mono">${t.price.toFixed(2)}</td>
-              <td class="text-right font-mono">${t.shares.toFixed(2)}</td>
-              <td class="text-right font-mono text-gray-400">${t.fees.toFixed(2)}</td>
-              <td class="text-right font-mono ${t.pnl >= 0 ? 'tv-up' : 'tv-down'}">${t.pnl >= 0 ? '+' : ''}${t.pnl.toFixed(2)}</td>
-            </tr>`;
-          }).join('') + '</tbody></table></div>';
-      } else {
-        html += '<div class="text-gray-500 text-xs mt-2">本次回测无交易记录</div>';
-      }
-
-      rc.innerHTML = html;
-    } else if (data?.error) {
-      rc.innerHTML = `<div class="text-red-400">${data.error}</div>`;
-    } else {
-      rc.innerHTML = `<pre class="text-xs">${JSON.stringify(data, null, 2)}</pre>`;
-    }
-    loadBtHistory();
-  } catch (e) {
-    statusEl.textContent = 'Error: ' + e.message;
-  }
-}
-
-async function clearBtHistory() {
-  if (!confirm('确认清空所有回测历史？')) return;
-  try {
-    const res = await fetch('/api/v1/backtest/results', { method: 'DELETE' });
-    const data = await res.json();
-    document.getElementById('bt-run-status').textContent = data?.status === 'ok' ? '✅ 历史已清空' : '❌ ' + (data?.error || '删除失败');
-    loadBtHistory();
-  } catch (e) {
-    document.getElementById('bt-run-status').textContent = '❌ ' + e.message;
-  }
-}
-
-async function deleteBtRecord(runId) {
-  if (!runId || !confirm('确认删除该条回测记录？')) return;
-  try {
-    const res = await fetch(`/api/v1/backtest/results/${encodeURIComponent(runId)}`, { method: 'DELETE' });
-    const data = await res.json();
-    const statusEl = document.getElementById('bt-run-status');
-    if (data?.status === 'ok') {
-      statusEl.textContent = '✅ 已删除';
-      loadBtHistory();
-    } else {
-      statusEl.textContent = '❌ ' + (data?.error || '删除失败');
-    }
-  } catch (e) {
-    document.getElementById('bt-run-status').textContent = '❌ ' + e.message;
-  }
-}
-
-async function loadBtHistory() {
-  try {
-    const res = await fetch('/api/v1/backtest/results?limit=20');
-    const data = await res.json();
-    const el = document.getElementById('bt-history');
-    const results = data?.backtests || data?.results || [];
-    if (results.length) {
-      el.innerHTML = '<table class="tv-table"><thead><tr><th>ID</th><th>Symbol</th><th>Strategy</th><th>Sharpe</th><th>Return</th><th class="text-right">操作</th></tr></thead><tbody>' +
-        results.map(bt =>
-          `<tr>
-            <td class="text-gray-300 text-xs font-mono">${(bt.id || bt.run_id || '').substring(0, 8)}</td>
-            <td>${bt.symbol}</td>
-            <td><span class="tv-badge tv-badge-blue">${bt.strategy || bt.strategy_name || '--'}</span></td>
-            <td class="font-mono">${bt.sharpe_ratio?.toFixed(2) ?? '--'}</td>
-            <td class="font-mono">${bt.total_return != null ? (bt.total_return * 100).toFixed(2) + '%' : '--'}</td>
-            <td class="text-right"><button onclick="deleteBtRecord('${(bt.id || bt.run_id || '')}')" class="tv-btn tv-btn-sm" style="background:transparent;color:#f23645;border:1px solid #f23645;padding:2px 8px;">✕</button></td>
-          </tr>`
-        ).join('') + '</tbody></table>';
-    } else {
-      el.innerHTML = '<p class="text-gray-500">No backtests found.</p>';
-    }
-  } catch (e) {
-    document.getElementById('bt-history').innerHTML = '<p class="text-red-400">Failed to load history.</p>';
-  }
-}
-loadBtHistory();
 </script>
 {% endblock %}

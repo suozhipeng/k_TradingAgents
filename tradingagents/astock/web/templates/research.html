@@ -1,160 +1,130 @@
 {% extends "base.html" %}
 {% block title %}Research — AStock WebUI{% endblock %}
 {% block head_extra %}
-<script src="{{ url_for('web.static', filename='tv/klinecharts/klinecharts.min.js') }}"></script>
 <style>
-.kline-period-btn {
-  padding: 4px 12px; border-radius: 4px; font-size: 12px; font-weight: 600;
-  cursor: pointer; border: none; font-family: inherit;
-  background: #2a2e39; color: #787b86; transition: all .15s;
+/* ── Iframe Kline ── */
+.kline-wrap {
+  position: relative; width: 100%; height: 500px; overflow: hidden;
+  background: #131722; border-radius: 4px;
 }
-.kline-period-btn:hover { background: #363a45; color: #d1d4dc; }
-.kline-period-btn.active { background: rgba(41,98,255,0.15); color: #2962FF; }
-#kline-chart { width: 100%; height: 420px; border-radius: 4px; overflow: hidden; }
-.kline-detail-table { font-size: 12px; width: 100%; border-collapse: collapse; }
-.kline-detail-table th {
-  text-align: left; padding: 5px 8px; font-size: 11px; font-weight: 500;
-  color: #787b86; text-transform: uppercase; letter-spacing: 0.5px;
-  border-bottom: 1px solid #2a2e39; white-space: nowrap; position: sticky; top: 0;
-  background: #1e222d; z-index: 1;
+.kline-wrap iframe { width: 100%; height: 100%; border: none; display: block; }
+.kline-loading {
+  position: absolute; inset: 0; z-index: 10;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: #131722; transition: opacity .35s;
 }
-.kline-detail-table td {
-  padding: 5px 8px; border-bottom: 1px solid #2a2e39; color: #d1d4dc;
-  white-space: nowrap; font-family: 'JetBrains Mono', monospace; font-size: 11px;
+.kline-loading.hidden { opacity: 0; pointer-events: none; }
+.kline-loading .spinner {
+  width: 32px; height: 32px;
+  border: 3px solid #2a2e39; border-top-color: #2962FF;
+  border-radius: 50%; animation: kspin .7s linear infinite; margin-bottom: 10px;
 }
-.kline-detail-table tr:hover td { background: rgba(42,46,57,0.5); }
-.kline-detail-table td:first-child { color: #787b86; }
-.kline-summary-stat {
-  display: flex; flex-direction: column; align-items: center;
-  padding: 8px 14px; background: #2a2e39; border-radius: 4px; min-width: 80px;
+@keyframes kspin { to { transform: rotate(360deg); } }
+.kline-loading .txt { font-size: 12px; color: #787b86; }
+
+/* ── Module cards ── */
+.res-card { background: #1e222d; border: 1px solid #2a2e39; border-radius: 6px; padding: 14px 16px; }
+.res-card h3 { font-size: 13px; font-weight: 600; color: #d1d4dc; margin-bottom: 10px; letter-spacing: 0.2px; }
+.res-card .scroller { max-height: 320px; overflow-y: auto; }
+.res-card .scroller::-webkit-scrollbar { width: 4px; }
+.res-card .scroller::-webkit-scrollbar-thumb { background: #2a2e39; border-radius: 2px; }
+
+.val-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.val-table th {
+  text-align: left; padding: 5px 8px; font-size: 10px; font-weight: 500;
+  color: #787b86; text-transform: uppercase; letter-spacing: 0.4px;
+  border-bottom: 1px solid #2a2e39; position: sticky; top: 0; background: #1e222d; z-index: 1;
 }
-.kline-summary-stat .val { font-size: 16px; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
-.kline-summary-stat .lbl { font-size: 10px; color: #787b86; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+.val-table td { padding: 5px 8px; border-bottom: 1px solid #2a2e39; color: #d1d4dc; font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+.val-table td.text-right { text-align: right; }
+.val-table tr:hover td { background: rgba(42,46,57,0.5); }
+
+.news-item { padding: 8px 0; border-bottom: 1px solid #2a2e39; }
+.news-item:last-child { border-bottom: none; }
+.news-item .title { font-size: 13px; color: #2962FF; text-decoration: none; display: block; }
+.news-item .title:hover { text-decoration: underline; }
+.news-item .meta { font-size: 11px; color: #787b86; margin-top: 2px; }
+
+.report-item { padding: 8px 0; border-bottom: 1px solid #2a2e39; }
+.report-item:last-child { border-bottom: none; }
+.report-item .rp-name { font-size: 13px; font-weight: 600; color: #d1d4dc; }
+.report-item .rp-meta { font-size: 11px; color: #787b86; margin-top: 2px; }
+
+.top-bar {
+  display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px;
+  background: #1e222d; border: 1px solid #2a2e39; border-radius: 6px;
+  padding: 12px 16px; margin-bottom: 12px;
+}
+.top-bar .field label { display: block; font-size: 10px; color: #787b86; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 2px; }
+.top-bar .field input { width: 140px; }
+
+.empty-state { text-align: center; padding: 28px 16px; color: #787b86; }
+.empty-state .icon { font-size: 28px; margin-bottom: 6px; }
+.empty-state .txt { font-size: 13px; }
 </style>
 {% endblock %}
 
 {% block content %}
 <h2 class="tv-section-title">🔬 个股研究 Research</h2>
 
-<div class="tv-panel">
-  <div class="flex flex-wrap gap-3 items-end">
-    <div>
-      <label class="tv-label">股票代码 Symbol</label>
-      <div class="search-wrap"><input type="text" id="symbol-input" placeholder="600519.SH" class="tv-input w-36" value="600519.SH"></div>
-    </div>
-    <button onclick="loadResearch()" class="tv-btn tv-btn-primary">🔍 查询 Research</button>
-    <button onclick="refreshKlineForResearch()" class="tv-btn tv-btn-secondary">📥 刷新 K线</button>
-    <button onclick="refreshBaoStockAll()" class="tv-btn tv-btn-secondary" style="color:#089981">🌿 拉取全部历史 K</button>
-    <button onclick="refreshValuationForResearch()" class="tv-btn tv-btn-secondary">💰 刷新估值</button>
-    <a href="/kc_chart?symbol=600519.SH" class="tv-btn tv-btn-outline tv-btn-sm" style="text-decoration:none" id="kc-chart-link">📊 KC Chart</a>
-    <a href="/tv_chart?symbol=600519.SH" class="tv-btn tv-btn-outline tv-btn-sm" style="text-decoration:none;margin-left:auto" id="tv-chart-link">📈 TV Pro</a>
+<div class="top-bar">
+  <div class="field">
+    <label>股票代码 Symbol</label>
+    <div class="search-wrap"><input type="text" id="symbol-input" class="tv-input" value="600519.SH" placeholder="600519.SH"></div>
   </div>
-  <div id="refresh-msg" class="mt-2" style="font-size:11px;color:#787b86"></div>
+  <button onclick="loadResearch()" class="tv-btn tv-btn-primary">🔍 查询 Research</button>
+  <button onclick="refreshKlineForResearch()" class="tv-btn tv-btn-secondary">📥 刷新 K线</button>
+  <button onclick="refreshBaoStockAll()" class="tv-btn tv-btn-secondary" style="color:#089981">🌿 拉取全部历史 K</button>
+  <button onclick="refreshValuationForResearch()" class="tv-btn tv-btn-secondary">💰 刷新估值</button>
+  <a href="/kc_chart?symbol=600519.SH" class="tv-btn tv-btn-outline tv-btn-sm" style="text-decoration:none" id="kc-link" target="_blank">📊 KC</a>
+  <a href="/tv_chart?symbol=600519.SH" class="tv-btn tv-btn-outline tv-btn-sm" style="text-decoration:none" id="tv-link" target="_blank">📈 TV Pro</a>
+  <span id="refresh-msg" style="font-size:11px;color:#787b86;margin-left:auto;"></span>
 </div>
 
-<div id="research-results" class="space-y-4">
-
-  <!-- ── K-line Chart ── -->
-  <div class="tv-card">
-    <div class="flex items-center justify-between mb-3">
-      <h3 class="tv-card-title" style="margin-bottom:0">📊 K 线图 Candlestick</h3>
-      <span id="kline-meta" class="text-xs" style="color:#787b86">...</span>
-    </div>
-
-    <!-- Period selector -->
-    <div class="flex gap-2 mb-3" id="kline-period-bar">
-      <button class="kline-period-btn active" data-days="5" onclick="switchKlinePeriod(5)">5 日</button>
-      <button class="kline-period-btn" data-days="10" onclick="switchKlinePeriod(10)">10 日</button>
-      <button class="kline-period-btn" data-days="30" onclick="switchKlinePeriod(30)">30 日</button>
-      <button class="kline-period-btn" data-days="60" onclick="switchKlinePeriod(60)">60 日</button>
-      <button class="kline-period-btn" data-days="180" onclick="switchKlinePeriod(180)">180 日</button>
-    </div>
-
-    <!-- Chart -->
-    <div id="kline-chart"></div>
-
-    <!-- Summary stats -->
-    <div class="flex gap-3 mt-3 justify-center" id="kline-summary">
-      <div class="kline-summary-stat"><span class="val" id="kstat-close">--</span><span class="lbl">最新价</span></div>
-      <div class="kline-summary-stat"><span class="val" id="kstat-open">--</span><span class="lbl">开盘</span></div>
-      <div class="kline-summary-stat"><span class="val" id="kstat-high">--</span><span class="lbl">最高</span></div>
-      <div class="kline-summary-stat"><span class="val" id="kstat-low">--</span><span class="lbl">最低</span></div>
-      <div class="kline-summary-stat"><span class="val" id="kstat-change">--</span><span class="lbl">涨跌幅</span></div>
-      <div class="kline-summary-stat"><span class="val" id="kstat-vol">--</span><span class="lbl">成交量</span></div>
-      <div class="kline-summary-stat"><span class="val" id="kstat-avg">--</span><span class="lbl">均价</span></div>
-    </div>
-
-    <!-- Click detail panel -->
-    <div id="kline-bar-detail" class="mt-2 hidden" style="background:#131722;border:1px solid #2962FF;border-radius:4px;padding:10px">
-      <div class="flex justify-between items-center mb-1">
-        <span class="text-xs font-semibold" style="color:#2962FF">📌 选中 K 线详情</span>
-        <span class="text-xs" style="color:#787b86;cursor:pointer" onclick="hideBarDetail()">✕ 关闭</span>
+<div id="research-results">
+  <div class="res-card" style="padding:0;overflow:hidden;">
+    <div class="kline-wrap">
+      <div class="kline-loading" id="kline-loading">
+        <div class="spinner"></div>
+        <div class="txt">加载 K 线图中...</div>
       </div>
-      <div class="flex gap-4 text-xs" id="bar-detail-content">
-        <span style="color:#787b86">日期: <span id="bd-date" class="text-white">--</span></span>
-        <span style="color:#787b86">开: <span id="bd-open" class="text-white">--</span></span>
-        <span style="color:#787b86">高: <span id="bd-high" class="text-white">--</span></span>
-        <span style="color:#787b86">低: <span id="bd-low" class="text-white">--</span></span>
-        <span style="color:#787b86">收: <span id="bd-close" class="text-white">--</span></span>
-        <span style="color:#787b86">涨跌幅: <span id="bd-change" class="text-white">--</span></span>
-        <span style="color:#787b86">成交量: <span id="bd-vol" class="text-white">--</span></span>
-        <span style="color:#787b86">成交额: <span id="bd-amount" class="text-white">--</span></span>
-      </div>
-    </div>
-
-    <!-- Detail table -->
-    <details class="mt-3" id="kline-detail-toggle">
-      <summary class="text-xs cursor-pointer" style="color:#2962FF;user-select:none">📋 查看详细数据</summary>
-      <div class="tv-table-wrap mt-2" style="max-height:280px;overflow-y:auto">
-        <table class="kline-detail-table">
-          <thead><tr>
-            <th>日期</th><th class="text-right">开盘</th><th class="text-right">最高</th>
-            <th class="text-right">最低</th><th class="text-right">收盘</th>
-            <th class="text-right">涨跌幅%</th><th class="text-right">成交量</th><th class="text-right">成交额</th>
-          </tr></thead>
-          <tbody id="kline-body"></tbody>
-        </table>
-      </div>
-    </details>
-  </div>
-
-  <!-- ── Valuation & News ── -->
-  <div class="tv-grid-2">
-    <div class="tv-card">
-      <div class="flex items-center justify-between mb-3">
-        <h3 class="tv-card-title" style="margin-bottom:0">📋 估值 Valuation</h3>
-        <span id="valuation-meta" class="text-xs" style="color:#787b86">最近 N 天</span>
-      </div>
-      <div id="valuation-content" class="text-sm" style="color:#787b86">输入股票代码查询...</div>
-    </div>
-    <div class="tv-card">
-      <div class="flex items-center justify-between mb-3">
-        <h3 class="tv-card-title" style="margin-bottom:0">📰 新闻 News</h3>
-        <button id="news-live-btn" onclick="requestLiveNews()" class="tv-btn tv-btn-secondary tv-btn-sm">请求最新 5 条</button>
-      </div>
-      <div id="news-content" class="text-sm" style="color:#787b86">输入股票代码查询...</div>
+      <iframe id="kline-iframe" src="/kc_chart?symbol=600519.SH&amp;standalone=1"
+        onload="document.getElementById('kline-loading').classList.add('hidden')"
+        allow="clipboard-read; clipboard-write"></iframe>
     </div>
   </div>
 
-  <!-- ── Analysis Summary ── -->
-  <div class="tv-card">
-    <div class="flex items-center justify-between mb-3">
-      <h3 class="tv-card-title" style="margin-bottom:0">📝 分析总结 Analysis</h3>
-      <button id="analysis-live-btn" onclick="requestAnalysisSummary()" class="tv-btn tv-btn-secondary tv-btn-sm">请求最新 5 条</button>
+  <div class="tv-grid-2" style="margin-top:12px;">
+    <div class="res-card">
+      <div class="flex items-center justify-between" style="margin-bottom:8px;">
+        <h3 style="margin:0;">📋 估值 Valuation</h3>
+        <span id="valuation-meta" style="font-size:10px;color:#787b86;"></span>
+      </div>
+      <div id="valuation-content" class="scroller"><div class="empty-state"><div class="icon">📋</div><div class="txt">输入股票代码查询</div></div></div>
     </div>
-    <div id="analysis-content" class="text-sm" style="color:#787b86">输入股票代码查询...</div>
+    <div class="res-card">
+      <div class="flex items-center justify-between" style="margin-bottom:8px;">
+        <h3 style="margin:0;">📰 新闻 News</h3>
+        <button onclick="requestLiveNews()" class="tv-btn tv-btn-secondary tv-btn-sm">请求最新 5 条</button>
+      </div>
+      <div id="news-content" class="scroller"><div class="empty-state"><div class="icon">📰</div><div class="txt">输入股票代码查询</div></div></div>
+    </div>
   </div>
 
-  <!-- ── NL Research Search ── -->
-  <div class="tv-card">
-    <h3 class="tv-card-title">🔍 研报语义搜索 NL Research Search</h3>
-    <div class="flex flex-wrap gap-3 items-end mb-3">
-      <div class="flex-1" style="min-width:200px">
+  <div class="res-card" style="margin-top:12px;">
+    <div class="flex items-center justify-between" style="margin-bottom:8px;">
+      <h3 style="margin:0;">📝 分析总结 Analysis</h3>
+      <button onclick="requestAnalysisSummary()" class="tv-btn tv-btn-secondary tv-btn-sm">请求最新 5 条</button>
+    </div>
+    <div id="analysis-content" class="scroller"><div class="empty-state"><div class="icon">📝</div><div class="txt">输入股票代码查询</div></div></div>
+  </div>
+
+  <div class="res-card" style="margin-top:12px;">
+    <h3>🔍 研报语义搜索 NL Research Search</h3>
+    <div class="flex flex-wrap gap-3 items-end" style="margin-top:8px;">
+      <div style="flex:1;min-width:200px;">
         <label class="tv-label">自然语言查询 NL Query</label>
-        <input type="text" id="research-query"
-          placeholder="默认: 股票名称 + 所属行业，如 贵州茅台 白酒"
-          class="tv-input w-full"
-          oninput="markResearchQueryEdited()">
+        <input type="text" id="research-query" placeholder="搜索研报内容..." class="tv-input w-full" oninput="markResearchQueryEdited()">
       </div>
       <div>
         <label class="tv-label">结果数 Limit</label>
@@ -166,26 +136,20 @@
       </div>
       <button onclick="searchResearch()" class="tv-btn tv-btn-primary">🔍 语义搜索</button>
     </div>
-    <div id="research-search-results" class="text-sm" style="color:#787b86">
-      <p style="color:#787b86">默认会尝试填入"股票名称 + 所属行业"，你也可以手动修改后搜索。</p>
-    </div>
+    <div id="research-search-results" class="scroller" style="margin-top:8px;"></div>
   </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-// ── State ──
-let klineChart = null;
-let candlestickSeries = null;
-let volumeSeries = null;
-let currentKlineDays = 5;
-let currentKlineBars = [];
+// ═══════════════════════════════════════════════════════════════════════════
+//  STATE & HELPERS
+// ═══════════════════════════════════════════════════════════════════════════
 
-// ── Search Suggestions ──
-KCDataLoader.setupSearch('symbol-input', symbol => { loadResearch(); });
+let lastSymbol = '600519.SH';
+let stockNameCache = '';  // 当前股票名称缓存
 
-// ── Helpers ──
 function getSymbol() {
   let s = document.getElementById('symbol-input').value.trim() || '600519.SH';
   if (!s.includes('.')) s += '.SH';
@@ -207,405 +171,310 @@ async function fetchJson(url, timeoutMs = 45000) {
   } finally { clearTimeout(timeoutId); }
 }
 
-function pctChange(a, b) {
-  if (a == null || b == null || b === 0) return null;
-  return ((a - b) / b) * 100;
+/** POST JSON 并解析响应（修复刷新按钮 Post body 问题） */
+async function postJson(url, body, timeoutMs = 60000) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    return data;
+  } finally { clearTimeout(timeoutId); }
 }
 
-function setStat(id, text, color) {
-  const el = document.getElementById(id);
-  el.textContent = text;
-  el.style.color = color || '#d1d4dc';
-}
+// ═══════════════════════════════════════════════════════════════════════════
+//  MAIN LOAD
+// ═══════════════════════════════════════════════════════════════════════════
 
-// ── Chart (KLineChart) ──
-let chart = null;
-let _kcDataList = [];
-const PERIOD_MAP = {5:1440, 10:1440, 30:1440, 60:1440, 180:1440};
-
-const _kcDataLoader = {
-  async getBars(params) {
-    const { symbol, period, timestamp, callback } = params;
-    const days = currentKlineDays;
-    try {
-      const res = await fetch(`/api/v1/kline?symbol=${encodeURIComponent(symbol.symbol)}&interval=1d&limit=${days}`);
-      const data = await res.json();
-      const bars = (data.bars || []).map(b => ({
-        timestamp: new Date(b.trade_date || b.date).getTime(),
-        open: b.open, high: b.high, low: b.low, close: b.close, volume: b.volume || 0,
-      }));
-      _kcDataList = bars;
-      callback(bars, false);
-      // Stats & table
-      currentKlineBars = data.bars || [];
-      showPeriodStats();
-      renderKlineTable(currentKlineBars);
-    } catch (e) {
-      callback([], true);
-      document.getElementById('kline-meta').textContent = '❌ 加载失败';
-    }
-  },
-};
-
-function initChart() {
-  const container = document.getElementById('kline-chart');
-  container.innerHTML = '';
-  if (chart) { klinecharts.dispose(chart); chart = null; }
-
-  chart = klinecharts.init('kline-chart', {
-    styles: {
-      grid: { horizontal: { color: '#1e222d' }, vertical: { color: '#1e222d' } },
-      candle: {
-        bar: { upColor: '#089981', downColor: '#f23645', noChangeColor: '#787b86' },
-        priceMark: { highLow: { color: '#d1d4dc' } },
-      },
-      xAxis: { axisLine: { color: '#2a2e39' }, tickLine: { color: '#2a2e39' }, tickText: { color: '#787b86' } },
-      yAxis: { axisLine: { color: '#2a2e39' }, tickLine: { color: '#2a2e39' }, tickText: { color: '#787b86' } },
-      crosshair: {
-        horizontal: { line: { color: '#363a45' }, text: { color: '#d1d4dc' } },
-        vertical: { line: { color: '#363a45' }, text: { color: '#d1d4dc' } },
-      },
-      separator: { color: '#2a2e39' },
-    },
-    locale: 'zh-CN',
-    timezone: 'Asia/Shanghai',
-  });
-
-  chart.setDataLoader(_kcDataLoader);
-  chart.setSymbol({ symbol: getSymbol(), pricePrecision: 2, volumePrecision: 0 });
-  chart.setPeriod(1440);
-  // Bound: no empty space scrolling
-  chart.setMaxOffsetLeftDistance(0);
-  chart.setMaxOffsetRightDistance(0);
-
-  // Subscribe crosshair → stats
-  chart.subscribeAction('crosshair', (data) => {
-    if (data && data.data) {
-      const d = data.data;
-      setStat('kstat-close', (d.close ?? '--').toFixed(2), '');
-      setStat('kstat-open', (d.open ?? '--').toFixed(2), '');
-      setStat('kstat-high', (d.high ?? '--').toFixed(2), '');
-      setStat('kstat-low', (d.low ?? '--').toFixed(2), '');
-      const chg = pctChange(d.close, d.open);
-      setStat('kstat-change', (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%', chg >= 0 ? '#089981' : '#f23645');
-      setStat('kstat-vol', d.volume ? (d.volume / 10000).toFixed(0) + '万' : '--', '');
-      setStat('kstat-avg', '--', '');
-    } else {
-      showPeriodStats();
-    }
-  });
-  // Subscribe click → detail
-  chart.subscribeAction('click', (data) => {
-    if (data && data.data) {
-      const d = data.data;
-      document.getElementById('kline-bar-detail').classList.remove('hidden');
-      const dt = new Date(d.timestamp);
-      const timeKey = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
-      document.getElementById('bd-date').textContent = timeKey;
-      document.getElementById('bd-open').textContent = (d.open ?? '--').toFixed(2);
-      document.getElementById('bd-high').textContent = (d.high ?? '--').toFixed(2);
-      document.getElementById('bd-low').textContent = (d.low ?? '--').toFixed(2);
-      document.getElementById('bd-close').textContent = (d.close ?? '--').toFixed(2);
-      const chg = pctChange(d.close, d.open);
-      const chgEl = document.getElementById('bd-change');
-      chgEl.textContent = (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%';
-      chgEl.style.color = chg >= 0 ? '#089981' : '#f23645';
-      document.getElementById('bd-vol').textContent = d.volume ? (d.volume / 10000).toFixed(0) + '万' : '--';
-      document.getElementById('bd-amount').textContent = '--';
-      highlightDetailRow(timeKey);
-    }
-  });
-}
-
-function showPeriodStats() {
-  const bars = currentKlineBars;
-  if (!bars || bars.length === 0) return;
-  const last = bars[bars.length - 1], first = bars[0];
-  if (!last || !first) return;
-  const change = pctChange(last.close, first.close);
-  const avg = bars.reduce((s, b) => s + b.close, 0) / bars.length;
-  setStat('kstat-close', last.close.toFixed(2), '');
-  setStat('kstat-open', last.open.toFixed(2), '');
-  setStat('kstat-high', Math.max(...bars.map(b => b.high)).toFixed(2), '');
-  setStat('kstat-low', Math.min(...bars.map(b => b.low)).toFixed(2), '');
-  setStat('kstat-change', (change >= 0 ? '+' : '') + change.toFixed(2) + '%', change >= 0 ? '#089981' : '#f23645');
-  const totalVol = bars.reduce((s, b) => s + (b.volume || 0), 0);
-  setStat('kstat-vol', (totalVol / 10000).toFixed(0) + '万', '');
-  setStat('kstat-avg', avg.toFixed(2), '');
-}
-
-function hideBarDetail() {
-  document.getElementById('kline-bar-detail').classList.add('hidden');
-  clearDetailRowHighlight();
-}
-
-function highlightDetailRow(dateStr) {
-  clearDetailRowHighlight();
-  const rows = document.getElementById('kline-body').querySelectorAll('tr');
-  for (const row of rows) {
-    const firstCell = row.querySelector('td');
-    if (firstCell && firstCell.textContent.trim() === dateStr) {
-      row.style.background = 'rgba(41,98,255,0.15)';
-      row.style.outline = '1px solid #2962FF';
-      row.scrollIntoView({ block: 'nearest' });
-      break;
-    }
-  }
-}
-
-function clearDetailRowHighlight() {
-  document.getElementById('kline-body').querySelectorAll('tr').forEach(r => { r.style.background = ''; r.style.outline = ''; });
-}
-
-function renderKlineTable(bars) {
-  const tbody = document.getElementById('kline-body');
-  if (!bars || bars.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="8" class="text-center" style="color:#787b86;padding:20px">No data</td></tr>';
-    return;
-  }
-  tbody.innerHTML = bars.slice().reverse().map((b, i) => {
-    const change = pctChange(b.close, b.open);
-    return `<tr>
-      <td>${b.trade_date}</td>
-      <td class="text-right">${b.open.toFixed(2)}</td>
-      <td class="text-right">${b.high.toFixed(2)}</td>
-      <td class="text-right">${b.low.toFixed(2)}</td>
-      <td class="text-right" style="font-weight:${i===0?'700':'400'}">${b.close.toFixed(2)}</td>
-      <td class="text-right ${change >= 0 ? 'tv-up' : 'tv-down'}">${change >= 0 ? '+' : ''}${change.toFixed(2)}%</td>
-      <td class="text-right">${(b.volume / 10000).toFixed(0)}万</td>
-      <td class="text-right">${b.amount ? (b.amount / 1e8).toFixed(2) + '亿' : '--'}</td>
-    </tr>`;
-  }).join('');
-}
-
-async function switchKlinePeriod(days) {
-  currentKlineDays = days;
-  document.querySelectorAll('.kline-period-btn').forEach(el => {
-    el.classList.toggle('active', parseInt(el.dataset.days) === days);
-  });
-  document.getElementById('kline-meta').textContent = `最近 ${days} 个交易日`;
-  const summary = document.querySelector('#kline-detail-toggle summary');
-  if (summary) summary.textContent = `📋 查看详细数据 (${days} 日)`;
-  hideBarDetail();
-  if (chart) {
-    chart.setPeriod(PERIOD_MAP[days] || 1440);
-    // Force reload via the data loader
-    chart.setDataLoader(_kcDataLoader);
-  }
-}
-
-// ── Valuation ──
-function renderValuation(vals, days) {
-  const vc = document.getElementById('valuation-content');
-  document.getElementById('valuation-meta').textContent = `最近 ${days} 个交易日`;
-  if (!vals || vals.length === 0) { vc.textContent = 'No valuation data.'; return; }
-  const rows = vals.slice().reverse();
-  vc.innerHTML = '<div class="tv-table-wrap"><table class="tv-table"><thead><tr><th>日期</th><th>PE</th><th>PB</th><th>市值(亿)</th></tr></thead><tbody>' +
-    rows.map(v => `<tr><td>${v.trade_date || '--'}</td>
-      <td class="font-mono">${v.pe != null ? Number(v.pe).toFixed(2) : '--'}</td>
-      <td class="font-mono">${v.pb != null ? Number(v.pb).toFixed(2) : '--'}</td>
-      <td class="font-mono">${v.market_cap ? Number(v.market_cap).toFixed(0) + '亿' : '--'}</td></tr>`
-    ).join('') + '</tbody></table></div>';
-}
-
-// ── News ──
-function renderNews(items, note = '') {
-  const nc = document.getElementById('news-content');
-  if (!items || items.length === 0) {
-    nc.innerHTML = `<div><p style="color:#787b86">暂无本地新闻。${note || '可点击按钮请求最新 5 条快讯。'}</p></div>`;
-    return;
-  }
-  nc.innerHTML = items.slice().reverse().map(n =>
-    `<div class="py-2 border-b" style="border-color:#2a2e39;border-bottom-width:1px">
-      <a href="${n.url || '#'}" target="_blank" style="color:#2962FF;text-decoration:none;font-size:13px">${n.title || (n.content || '').substring(0, 80) || '无标题'}</a>
-      ${n.summary ? `<p style="font-size:11px;color:#787b86;margin-top:2px">${n.summary}</p>` : ''}
-      <p style="font-size:11px;color:#787b86;margin-top:2px">${n.publish_date || n.date || n.time || ''}${n.source ? ' · ' + n.source : ''}</p>
-    </div>`
-  ).join('');
-}
-
-// ── Research / Analysis ──
-function renderStoredResearch(reports) {
-  const ac = document.getElementById('analysis-content');
-  if (!reports || reports.length === 0) {
-    ac.innerHTML = '<p style="color:#787b86">暂无本地研报总结。可点击按钮请求最新 5 条机构预期。</p>';
-    return;
-  }
-  ac.innerHTML = reports.slice().reverse().map(item =>
-    `<div class="py-2 border-b" style="border-color:#2a2e39;border-bottom-width:1px">
-      <div class="flex items-start justify-between gap-3">
-        <div><p style="font-size:13px;font-weight:600;color:#d1d4dc">${item.title || '无标题'}</p>
-          <p style="font-size:11px;color:#787b86;margin-top:2px">${item.institution || '--'}${item.report_date ? ' · ' + item.report_date : ''}${item.rating ? ' · ' + item.rating : ''}</p>
-        </div>
-        ${item.pdf_url ? `<a href="${item.pdf_url}" target="_blank" style="color:#2962FF;font-size:11px">📄 PDF</a>` : ''}
-      </div>
-    </div>`
-  ).join('');
-}
-
-function renderExpectation(items) {
-  const ac = document.getElementById('analysis-content');
-  if (!items || items.length === 0) { ac.innerHTML = '<p style="color:#787b86">暂无机构预期数据。</p>'; return; }
-  ac.innerHTML = items.map(item => {
-    const b = v => v ?? '--';
-    return `<div class="py-2 border-b" style="border-color:#2a2e39;border-bottom-width:1px">
-      <p style="font-size:13px;font-weight:600;color:#d1d4dc">${item.name || item.symbol || '--'} · 机构预期</p>
-      <p style="font-size:11px;color:#787b86;margin-top:2px">覆盖机构: ${item.institution_count ?? '--'} 家</p>
-      <p style="font-size:11px;color:#787b86;margin-top:2px">2025E EPS: ${item['2025预测每股收益'] ?? '--'} ｜ 2026E EPS: ${item['2026预测每股收益'] ?? '--'} ｜ 2027E EPS: ${item['2027预测每股收益'] ?? '--'}</p>
-      <p style="font-size:11px;color:#787b86;margin-top:2px">买入 ${b(item['机构投资评级(近六个月)-买入'])} / 增持 ${b(item['机构投资评级(近六个月)-增持'])} / 中性 ${b(item['机构投资评级(近六个月)-中性'])} / 减持 ${b(item['机构投资评级(近六个月)-减持'])} / 卖出 ${b(item['机构投资评级(近六个月)-卖出'])}</p>
-    </div>`;
-  }).join('');
-}
-
-async function hydrateResearchQueryDefault(symbol) {
-  const input = document.getElementById('research-query');
-  if (input.dataset.userEdited === '1' || input.value.trim()) return;
-  const [expRes, blkRes] = await Promise.allSettled([
-    fetchJson(`/api/v1/research/expectation?symbol=${encodeURIComponent(symbol)}&limit=1`, 20000),
-    fetchJson(`/api/v1/market/blocks?symbol=${encodeURIComponent(symbol)}&limit=1`, 20000),
-  ]);
-  const name = expRes.status === 'fulfilled' ? expRes.value?.items?.[0]?.name : '';
-  const industry = blkRes.status === 'fulfilled' ? blkRes.value?.items?.[0]?.name : '';
-  const query = [name, industry].filter(Boolean).join(' ').trim();
-  if (query) input.value = query;
-}
-
-// ── Main load ──
 async function loadResearch() {
   const symbol = getSymbol();
-  const days = currentKlineDays;
-  document.getElementById('kline-meta').textContent = '⏳ 加载中...';
-  // Update TV chart link
-  const tvLink = document.getElementById('tv-chart-link');
-  if (tvLink) tvLink.href = `/tv_chart?symbol=${encodeURIComponent(symbol)}`;
-  const kcLink = document.getElementById('kc-chart-link');
-  if (kcLink) kcLink.href = `/kc_chart?symbol=${encodeURIComponent(symbol)}`;
-  document.getElementById('valuation-content').textContent = 'Loading...';
-  document.getElementById('news-content').textContent = 'Loading...';
-  document.getElementById('analysis-content').textContent = 'Loading...';
-  hydrateResearchQueryDefault(symbol).catch(() => {});
+  lastSymbol = symbol;
+  const msg = document.getElementById('refresh-msg');
+  msg.textContent = '⏳ 加载中...';
 
+  // 1. 获取股票名称（用于搜索框填充）
+  try {
+    const info = await fetchJson(`/api/v1/tv/stock-info?symbol=${encodeURIComponent(symbol)}`);
+    stockNameCache = info?.name || '';
+  } catch { stockNameCache = ''; }
+
+  // 2. 更新 iframe (只刷新一次 K 线)
+  const iframe = document.getElementById('kline-iframe');
+  const loading = document.getElementById('kline-loading');
+  loading.classList.remove('hidden');
+  iframe.src = `/kc_chart?symbol=${encodeURIComponent(symbol)}&standalone=1`;
+
+  // 3. 更新链接
+  const kcLink = document.getElementById('kc-link');
+  if (kcLink) kcLink.href = `/kc_chart?symbol=${encodeURIComponent(symbol)}`;
+  const tvLink = document.getElementById('tv-link');
+  if (tvLink) tvLink.href = `/tv_chart?symbol=${encodeURIComponent(symbol)}`;
+
+  // 4. 显示加载状态
+  const valMeta = document.getElementById('valuation-meta');
+  valMeta.textContent = '⏳';
+  document.getElementById('valuation-content').innerHTML =
+    '<div class="empty-state"><div class="txt">加载估值...</div></div>';
+  document.getElementById('news-content').innerHTML =
+    '<div class="empty-state"><div class="txt">加载新闻...</div></div>';
+  document.getElementById('analysis-content').innerHTML =
+    '<div class="empty-state"><div class="txt">加载分析...</div></div>';
+
+  // 5. 并行拉取估值、新闻、研报
+  const days = 5;
   const [valRes, newsRes, researchRes] = await Promise.allSettled([
     fetchJson(`/api/v1/valuation?symbol=${encodeURIComponent(symbol)}&limit=${days}`),
     fetchJson(`/api/v1/news?symbol=${encodeURIComponent(symbol)}&limit=5`),
     fetchJson(`/api/v1/research?symbol=${encodeURIComponent(symbol)}&limit=5`),
   ]);
 
-  // Init KLineChart (loads kline data via its own DataLoader)
-  if (!chart) initChart();
-  if (valRes.status === 'fulfilled') renderValuation(valRes.value?.valuations || [], days);
-  else document.getElementById('valuation-content').textContent = valRes.reason?.message || 'Error.';
-  if (newsRes.status === 'fulfilled') renderNews(newsRes.value?.news || []);
-  else document.getElementById('news-content').innerHTML = `<p style="color:#f23645">${newsRes.reason?.message || 'Error.'}</p>`;
-  if (researchRes.status === 'fulfilled') renderStoredResearch(researchRes.value?.reports || []);
-  else document.getElementById('analysis-content').innerHTML = `<p style="color:#f23645">${researchRes.reason?.message || 'Error.'}</p>`;
+  if (valRes.status === 'fulfilled') {
+    renderValuation(valRes.value?.valuations || [], days);
+  } else {
+    document.getElementById('valuation-content').innerHTML =
+      '<div class="empty-state"><div class="txt" style="color:#f23645;">加载估值失败</div></div>';
+    valMeta.textContent = '错误';
+  }
+
+  if (newsRes.status === 'fulfilled') {
+    renderNews(newsRes.value?.news || []);
+  } else {
+    document.getElementById('news-content').innerHTML =
+      '<div class="empty-state"><div class="txt" style="color:#f23645;">加载新闻失败</div></div>';
+  }
+
+  if (researchRes.status === 'fulfilled') {
+    renderStoredResearch(researchRes.value?.reports || []);
+  } else {
+    document.getElementById('analysis-content').innerHTML =
+      '<div class="empty-state"><div class="txt" style="color:#f23645;">加载研报失败</div></div>';
+  }
+
+  // 6. 填充语义搜索框 — 股票名称 + 所属行业
+  hydrateResearchQueryDefault(symbol).catch(() => {});
+
+  msg.textContent = `✅ ${symbol} · ${new Date().toLocaleTimeString()}`;
 }
 
-// ── Live news ──
+// ═══════════════════════════════════════════════════════════════════════════
+//  VALUATION
+// ═══════════════════════════════════════════════════════════════════════════
+
+function renderValuation(vals, days) {
+  document.getElementById('valuation-meta').textContent = `最近 ${days} 天`;
+  const el = document.getElementById('valuation-content');
+  if (!vals || vals.length === 0) {
+    el.innerHTML = '<div class="empty-state"><div class="txt">无估值数据</div></div>';
+    return;
+  }
+  const rows = vals.slice().reverse();
+  el.innerHTML = `<table class="val-table"><thead><tr><th>日期</th><th class="text-right">PE</th><th class="text-right">PB</th><th class="text-right">市值(亿)</th></tr></thead><tbody>
+    ${rows.map(v => `<tr><td>${v.trade_date || '--'}</td>
+      <td class="text-right">${v.pe != null ? Number(v.pe).toFixed(2) : '--'}</td>
+      <td class="text-right">${v.pb != null ? Number(v.pb).toFixed(2) : '--'}</td>
+      <td class="text-right">${v.market_cap ? Number(v.market_cap).toFixed(0) + '亿' : '--'}</td>
+    </tr>`).join('')}
+  </tbody></table>`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  NEWS  — 可点击跳转
+// ═══════════════════════════════════════════════════════════════════════════
+
+function renderNews(items) {
+  const el = document.getElementById('news-content');
+  if (!items || items.length === 0) {
+    el.innerHTML = '<div class="empty-state"><div class="txt">暂无本地新闻。可点击按钮请求最新 5 条快讯。</div></div>';
+    return;
+  }
+  el.innerHTML = items.slice().reverse().map(n => {
+    // 构建可跳转 url：优先使用 n.url，否则用搜索链接兜底
+    const url = n.url || (n.title ? `https://www.baidu.com/s?wd=${encodeURIComponent(n.title)}` : '#');
+    return `<div class="news-item">
+      <a href="${url}" target="_blank" rel="noopener" class="title">${n.title || (n.content || '').substring(0, 80) || '无标题'}</a>
+      <div class="meta">${n.publish_date || n.date || n.time || ''}${n.source ? ' · ' + n.source : ''}</div>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  RESEARCH / ANALYSIS  — 机构名称 + 研报链接
+// ═══════════════════════════════════════════════════════════════════════════
+
+function renderStoredResearch(reports) {
+  const el = document.getElementById('analysis-content');
+  if (!reports || reports.length === 0) {
+    el.innerHTML = '<div class="empty-state"><div class="txt">暂无本地研报。可点击按钮请求最新 5 条机构预期。</div></div>';
+    return;
+  }
+  el.innerHTML = reports.slice().reverse().map(item => {
+    // 为每份研报构建可跳转链接（优先 pdf_url，否则用标题搜索）
+    const link = item.pdf_url || (item.title ? `https://www.baidu.com/s?wd=${encodeURIComponent(item.title + ' ' + (item.institution || ''))}` : '#');
+    return `<div class="report-item">
+      <div class="rp-name"><a href="${link}" target="_blank" rel="noopener" style="color:#2962FF;text-decoration:none;">${item.title || '无标题'}</a></div>
+      <div class="rp-meta">${item.institution || '--'}${item.report_date ? ' · ' + item.report_date : ''}${item.rating ? ' · ' + item.rating : ''}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderExpectation(items) {
+  const el = document.getElementById('analysis-content');
+  if (!items || items.length === 0) {
+    el.innerHTML = '<div class="empty-state"><div class="txt">暂无机构预期数据。</div></div>';
+    return;
+  }
+  el.innerHTML = items.map(item => {
+    const b = v => v ?? '--';
+    const name = item.name || item.symbol || '--';
+    const searchUrl = `https://www.baidu.com/s?wd=${encodeURIComponent(name + ' 研报 机构预期')}`;
+    return `<div class="report-item">
+      <div class="rp-name">${name} · 机构预期</div>
+      <div class="rp-meta">覆盖机构: ${item.institution_count ?? '--'} 家</div>
+      <div class="rp-meta" style="margin-top:4px;">
+        2025E EPS: ${item['2025预测每股收益'] ?? '--'} ｜
+        2026E EPS: ${item['2026预测每股收益'] ?? '--'} ｜
+        2027E EPS: ${item['2027预测每股收益'] ?? '--'}
+      </div>
+      <div class="rp-meta">
+        买入 ${b(item['机构投资评级(近六个月)-买入'])} / 增持 ${b(item['机构投资评级(近六个月)-增持'])} /
+        中性 ${b(item['机构投资评级(近六个月)-中性'])} / 减持 ${b(item['机构投资评级(近六个月)-减持'])} /
+        卖出 ${b(item['机构投资评级(近六个月)-卖出'])}
+      </div>
+      <div class="rp-meta" style="margin-top:4px;">
+        <a href="${searchUrl}" target="_blank" rel="noopener" style="color:#2962FF;font-size:11px;">🔍 查看相关研报</a>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  NL RESEARCH SEARCH — 自动填充股票名称
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function hydrateResearchQueryDefault(symbol) {
+  const input = document.getElementById('research-query');
+  // 如果用户手动编辑过或有内容则不覆盖
+  if (input.dataset.userEdited === '1') return;
+  // 先填股票名称（从 stockNameCache 获取）
+  let query = stockNameCache || symbol;
+  // 尝试补充行业
+  try {
+    const blkRes = await fetchJson(`/api/v1/market/blocks?symbol=${encodeURIComponent(symbol)}&limit=1`, 10000);
+    const industry = blkRes?.items?.[0]?.name || '';
+    if (industry && !query.includes(industry)) query += ' ' + industry;
+  } catch {}
+  if (query.trim()) input.value = query.trim();
+}
+
+async function searchResearch() {
+  const query = document.getElementById('research-query').value.trim();
+  const limit = parseInt(document.getElementById('research-limit').value) || 10;
+  const el = document.getElementById('research-search-results');
+  if (!query) { el.innerHTML = '<p style="color:#787b86;font-size:12px;">请输入查询内容</p>'; return; }
+  el.innerHTML = '<p style="color:#787b86;font-size:12px;">⏳ 搜索中...</p>';
+  try {
+    const data = await fetchJson(`/api/v1/research/search?q=${encodeURIComponent(query)}&limit=${limit}`, 60000);
+    const items = data?.results || data?.items || [];
+    if (items.length === 0) {
+      el.innerHTML = '<p style="color:#787b86;font-size:12px;">未找到相关研报</p>';
+      return;
+    }
+    el.innerHTML = items.map(r => {
+      const link = r.pdf_url || '#';
+      return `<div class="report-item">
+        <div class="rp-name"><a href="${link}" target="_blank" rel="noopener" style="color:#2962FF;text-decoration:none;">${r.title || r.name || '无标题'}</a></div>
+        <div class="rp-meta">${r.institution || ''}${r.report_date ? ' · ' + r.report_date : ''}${r.rating ? ' · ' + r.rating : ''}</div>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    el.innerHTML = `<p style="color:#f23645;font-size:12px;">❌ ${e.message}</p>`;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  EXTERNAL REFRESH BUTTONS — 修复 POST body 问题
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function refreshKlineForResearch() {
+  const symbol = getSymbol();
+  const msg = document.getElementById('refresh-msg');
+  msg.textContent = '⏳ 刷新 K线...';
+  try {
+    const data = await postJson('/api/v1/data/refresh/kline', { symbol, start: '2024-01-01' }, 120000);
+    msg.textContent = data?.message || '✅ K线刷新完成';
+  } catch (e) {
+    msg.textContent = '❌ ' + e.message;
+  }
+}
+
+async function refreshBaoStockAll() {
+  const symbol = getSymbol();
+  const msg = document.getElementById('refresh-msg');
+  msg.textContent = '⏳ 拉取全部历史 K...';
+  try {
+    const data = await postJson('/api/v1/data/refresh/kline', { symbol, source: 'baostock' }, 300000);
+    msg.textContent = '✅ 全部历史 K 已拉取';
+  } catch (e) {
+    msg.textContent = '❌ ' + e.message;
+  }
+}
+
+async function refreshValuationForResearch() {
+  const symbol = getSymbol();
+  const msg = document.getElementById('refresh-msg');
+  msg.textContent = '⏳ 刷新估值...';
+  try {
+    const data = await postJson('/api/v1/data/refresh/valuation', { symbol }, 60000);
+    msg.textContent = data?.message || '✅ 估值刷新完成';
+  } catch (e) {
+    msg.textContent = '❌ ' + e.message;
+  }
+}
+
 async function requestLiveNews() {
   const symbol = getSymbol();
-  const el = document.getElementById('news-content');
-  el.innerHTML = '<p style="color:#787b86">⏳ 正在请求最新 5 条快讯...</p>';
+  const msg = document.getElementById('refresh-msg');
+  msg.textContent = '⏳ 获取最新新闻...';
   try {
-    const data = await fetchJson(`/api/v1/news/live?symbol=${encodeURIComponent(symbol)}&limit=5&type=flash&source=em`, 30000);
-    renderNews(data.items || [], data.note || '');
-  } catch (e) { el.innerHTML = `<p style="color:#f23645">❌ ${e.message}</p>`; }
+    const data = await fetchJson(`/api/v1/news/live?symbol=${encodeURIComponent(symbol)}&limit=5`, 30000);
+    renderNews(data?.news || []);
+    msg.textContent = '✅ 新闻更新完成';
+  } catch (e) {
+    msg.textContent = '❌ ' + e.message;
+  }
 }
 
 async function requestAnalysisSummary() {
   const symbol = getSymbol();
-  const el = document.getElementById('analysis-content');
-  el.innerHTML = '<p style="color:#787b86">⏳ 正在请求最新 5 条机构预期...</p>';
+  const msg = document.getElementById('refresh-msg');
+  msg.textContent = '⏳ 获取分析摘要...';
   try {
     const data = await fetchJson(`/api/v1/research/expectation?symbol=${encodeURIComponent(symbol)}&limit=5`, 30000);
-    renderExpectation(data.items || []);
-  } catch (e) { el.innerHTML = `<p style="color:#f23645">❌ ${e.message}</p>`; }
-}
-
-// ── Refresh actions ──
-async function refreshKlineForResearch() {
-  const el = document.getElementById('refresh-msg');
-  const symbol = getSymbol();
-  el.textContent = '⏳ 正在刷新 K-line...';
-  try {
-    const res = await fetch('/api/v1/data/refresh/kline', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({symbol}) });
-    const data = await res.json();
-    el.textContent = data.status === 'ok' ? `✅ K-line 刷新完成 (插入 ${data.rows_inserted} 行)` : '❌ 失败: ' + (data.error || '');
-    if (data.status === 'ok') loadResearch();
-  } catch (e) { el.textContent = '❌ 请求失败: ' + e.message; }
-}
-
-async function refreshValuationForResearch() {
-  const el = document.getElementById('refresh-msg');
-  const symbol = getSymbol();
-  el.textContent = '⏳ 正在刷新估值...';
-  try {
-    const res = await fetch('/api/v1/data/refresh/valuation', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({symbol}) });
-    const data = await res.json();
-    el.textContent = data.status === 'ok' ? `✅ 估值刷新完成 (插入 ${data.rows_inserted} 行)` : '❌ 失败: ' + (data.error || '');
-    if (data.status === 'ok') loadResearch();
-  } catch (e) { el.textContent = '❌ 请求失败: ' + e.message; }
-}
-
-async function refreshBaoStockAll() {
-  const el = document.getElementById('refresh-msg');
-  const symbol = getSymbol();
-  el.textContent = '🌿 正在从 baostock 拉取全部历史 K 线...（可能较慢）';
-  try {
-    const res = await fetch('/api/v1/data/refresh/kline', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({symbol, start: '2000-01-01'}) });
-    const data = await res.json();
-    el.textContent = data.status === 'ok' ? `🌿 baostock 拉取完成 (插入 ${data.rows_inserted} 行)` : '❌ 失败: ' + (data.error || '');
-    if (data.status === 'ok') loadResearch();
-  } catch (e) { el.textContent = '❌ 请求失败: ' + e.message; }
-}
-
-// ── NL Research Search ──
-async function searchResearch() {
-  const symbol = getSymbol();
-  const query = document.getElementById('research-query').value.trim();
-  const limit = document.getElementById('research-limit').value || 10;
-  const el = document.getElementById('research-search-results');
-  if (!query) { el.innerHTML = '<p style="color:#ff9800">⚠️ 请输入自然语言查询</p>'; return; }
-  el.innerHTML = '<p style="color:#787b86">⏳ 搜索中...</p>';
-  try {
-    const data = await fetchJson(`/api/v1/research/search?symbol=${encodeURIComponent(symbol)}&query=${encodeURIComponent(query)}&limit=${limit}`, 45000);
-    const items = data?.items || [];
-    if (items.length === 0) { el.innerHTML = '<p style="color:#787b86">未匹配到结果。</p>'; return; }
-    const isStock = items[0].title == null;
-    let html = `<div class="flex justify-between items-center mb-3"><span style="font-size:11px;color:#787b86">匹配 ${data.count} 条</span><span style="font-size:11px;color:#787b86">来源: ${data.source || (isStock ? 'iwencai' : 'akshare')}</span></div>`;
-    if (isStock) {
-      html += '<div class="tv-table-wrap"><table class="tv-table"><thead><tr><th>代码</th><th>名称</th><th class="text-right">最新价</th><th class="text-right">涨跌幅</th><th>关键词</th></tr></thead><tbody>';
-      items.forEach(item => {
-        const pctClass = (item.pct_change || 0) >= 0 ? 'tv-up' : 'tv-down';
-        const link = item.symbol ? `/research?symbol=${encodeURIComponent(item.symbol)}` : '#';
-        html += `<tr style="cursor:pointer" onclick="location.href='${link}'"><td style="color:#2962FF">${item.symbol || '--'}</td><td>${item.name || '--'}</td>
-          <td class="text-right font-mono">${item.price != null ? Number(item.price).toFixed(2) : '--'}</td>
-          <td class="text-right font-mono ${pctClass}">${item.pct_change != null ? (item.pct_change >= 0 ? '+' : '') + Number(item.pct_change).toFixed(2) + '%' : '--'}</td>
-          <td style="color:#787b86">${item.keyword || '--'}</td></tr>`;
-      });
-      html += '</tbody></table></div>';
-    } else {
-      html += '<div>';
-      items.forEach(item => {
-        const link = item.symbol ? `/research?symbol=${encodeURIComponent(item.symbol)}` : '#';
-        html += `<div class="py-2 px-3" style="background:#131722;border-radius:4px;margin-bottom:4px;cursor:pointer" onclick="location.href='${link}'">
-          <p style="font-size:13px;font-weight:600;color:#d1d4dc">${item.title || '无标题'}</p>
-          <p style="font-size:11px;color:#787b86;margin-top:2px">${item.institution || ''}${item.published_at ? ' · ' + item.published_at : ''}</p></div>`;
-      });
-      html += '</div>';
-    }
-    el.innerHTML = html;
+    renderExpectation(data?.items || []);
+    msg.textContent = '✅ 分析摘要加载完成';
   } catch (e) {
-    el.innerHTML = `<p style="color:#f23645">❌ ${e.message}</p>`;
+    msg.textContent = '❌ ' + e.message;
   }
 }
 
-// ── Init ──
-(function() {
-  const params = new URLSearchParams(window.location.search);
-  const sym = params.get('symbol');
-  if (sym) document.getElementById('symbol-input').value = sym;
-  setTimeout(() => { initChart(); loadResearch(); }, 50);
-})();
+// ═══════════════════════════════════════════════════════════════════════════
+//  BOOT
+// ═══════════════════════════════════════════════════════════════════════════
+
+KCDataLoader.setupSearch('symbol-input', symbol => { loadResearch(); });
+
+// 回车键触发刷新
+document.getElementById('symbol-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') loadResearch();
+});
+
+// Initial load
+loadResearch();
 </script>
 {% endblock %}
