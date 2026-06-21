@@ -129,12 +129,12 @@ async function runAnalysis() {
 }
 
 function renderMetrics(m) {
-  setMetric('m-total-return', fmtPct(m.total_return), m.total_return >= 0 ? 'text-emerald-400' : 'text-red-400');
-  setMetric('m-annual-return', fmtPct(m.annualized_return), m.annualized_return >= 0 ? 'text-emerald-400' : 'text-red-400');
-  setMetric('m-sharpe', m.sharpe_ratio?.toFixed(2) ?? '--', m.sharpe_ratio > 1 ? 'text-emerald-400' : m.sharpe_ratio > 0 ? 'text-amber-400' : 'text-red-400');
-  setMetric('m-drawdown', fmtPct(m.max_drawdown), m.max_drawdown < 0.15 ? 'text-emerald-400' : m.max_drawdown < 0.3 ? 'text-amber-400' : 'text-red-400');
-  setMetric('m-win-rate', fmtPct(m.win_rate), m.win_rate > 0.5 ? 'text-emerald-400' : 'text-amber-400');
-  setMetric('m-trades', m.total_trades, 'text-white');
+  setMetric('m-total-return', fmtPct(m.total_return), (m.total_return != null && isFinite(m.total_return) && m.total_return >= 0) ? '#ef5350' : '#26a69a');
+  setMetric('m-annual-return', fmtPct(m.annualized_return), (m.annualized_return != null && isFinite(m.annualized_return) && m.annualized_return >= 0) ? '#ef5350' : '#26a69a');
+  setMetric('m-sharpe', (m.sharpe_ratio != null && isFinite(m.sharpe_ratio)) ? m.sharpe_ratio.toFixed(2) : '--', (m.sharpe_ratio != null && isFinite(m.sharpe_ratio) && m.sharpe_ratio > 1) ? '#ef5350' : (m.sharpe_ratio != null && isFinite(m.sharpe_ratio) && m.sharpe_ratio > 0) ? '#fbbf24' : '#26a69a');
+  setMetric('m-drawdown', fmtPct(m.max_drawdown), (m.max_drawdown != null && isFinite(m.max_drawdown) && m.max_drawdown < 0.15) ? '#ef5350' : (m.max_drawdown != null && isFinite(m.max_drawdown) && m.max_drawdown < 0.3) ? '#fbbf24' : '#26a69a');
+  setMetric('m-win-rate', fmtPct(m.win_rate), (m.win_rate != null && isFinite(m.win_rate) && m.win_rate > 0.5) ? '#ef5350' : '#fbbf24');
+  setMetric('m-trades', m.total_trades != null ? m.total_trades : '--', '#ffffff');
 }
 
 function setMetric(id, value, cls) {
@@ -144,7 +144,7 @@ function setMetric(id, value, cls) {
 }
 
 function fmtPct(v) {
-  if (v === undefined || v === null) return '--';
+  if (v === undefined || v === null || typeof v !== 'number' || !isFinite(v)) return '--';
   return (v * 100).toFixed(2) + '%';
 }
 
@@ -238,16 +238,17 @@ function renderTable(equity) {
 
 function chartOpts(yLabel, formatMoney) {
   return {
-    responsive: true, maintainAspectRatio: true,
+    responsive: true, maintainAspectRatio: false, resizeDelay: 100,
+    layout: { padding: { bottom: 20 } },
     plugins: {
       legend: { labels: { color: '#9ca3af', boxWidth: 12, padding: 12 } },
       tooltip: { backgroundColor: '#1e293b', titleColor: '#fff', bodyColor: '#d1d5db' },
     },
     scales: {
-      x: { ticks: { color: '#6b7280', maxTicksLimit: 12, maxRotation: 0 }, grid: { color: '#1e293b' } },
+      x: { ticks: { color: '#6b7280', maxTicksLimit: 12, maxRotation: 0 }, grid: { color: 'rgba(42,46,57,0.15)' } },
       y: {
-        ticks: { color: '#6b7280', callback: v => formatMoney ? v.toLocaleString() : v.toFixed(1) },
-        grid: { color: '#1e293b' },
+        ticks: { color: '#6b7280', callback: function(v) { if (v == null || !isFinite(v)) return '--'; return formatMoney ? v.toLocaleString() : v.toFixed(2) + '%'; } },
+        grid: { color: 'rgba(42,46,57,0.15)' },
       },
     },
   };

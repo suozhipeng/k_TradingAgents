@@ -187,10 +187,10 @@ async function runComparison() {
 function renderComparisonTable(comparison) {
   const el = document.getElementById('cmp-table');
 
-  const bestReturn = Math.max(...comparison.map(r => r.total_return || 0));
-  const bestSharpe = Math.max(...comparison.map(r => r.sharpe_ratio || 0));
-  const bestWinRate = Math.max(...comparison.map(r => r.win_rate || 0));
-  const worstDD = Math.min(...comparison.map(r => r.max_drawdown || 0));
+  const bestReturn = Math.max(...comparison.map(r => (r.total_return != null && isFinite(r.total_return)) ? r.total_return : -Infinity));
+  const bestSharpe = Math.max(...comparison.map(r => (r.sharpe_ratio != null && isFinite(r.sharpe_ratio)) ? r.sharpe_ratio : -Infinity));
+  const bestWinRate = Math.max(...comparison.map(r => (r.win_rate != null && isFinite(r.win_rate)) ? r.win_rate : -Infinity));
+  const worstDD = Math.min(...comparison.map(r => (r.max_drawdown != null && isFinite(r.max_drawdown)) ? r.max_drawdown : Infinity));
 
   el.innerHTML = `<table>
     <thead>
@@ -207,11 +207,11 @@ function renderComparisonTable(comparison) {
     </thead>
     <tbody>
       ${comparison.map(r => {
-        const tr = r.total_return || 0;
-        const ar = r.annualized_return || 0;
-        const sh = r.sharpe_ratio || 0;
-        const dd = r.max_drawdown || 0;
-        const wr = r.win_rate || 0;
+        const tr = (r.total_return != null && isFinite(r.total_return)) ? r.total_return : null;
+        const ar = (r.annualized_return != null && isFinite(r.annualized_return)) ? r.annualized_return : null;
+        const sh = (r.sharpe_ratio != null && isFinite(r.sharpe_ratio)) ? r.sharpe_ratio : null;
+        const dd = (r.max_drawdown != null && isFinite(r.max_drawdown)) ? r.max_drawdown : null;
+        const wr = (r.win_rate != null && isFinite(r.win_rate)) ? r.win_rate : null;
         const tc = r.total_trades || 0;
 
         const rankBadge = r.rank === 1 ? 'badge-success' :
@@ -221,11 +221,11 @@ function renderComparisonTable(comparison) {
         return `<tr class="${r.rank === 1 ? 'bg-indigo-900/20' : ''}">
           <td class="text-center"><span class="badge ${rankBadge}">#${r.rank}</span></td>
           <td class="font-medium ${r.rank === 1 ? 'text-indigo-300' : 'text-gray-300'}">${r.strategy_name}</td>
-          <td class="text-right ${tr >= 0 ? 'text-emerald-400' : 'text-red-400'}">${(tr * 100).toFixed(2)}%</td>
-          <td class="text-right ${ar >= 0 ? 'text-emerald-400' : 'text-red-400'}">${(ar * 100).toFixed(2)}%</td>
-          <td class="text-right ${sh > 1 ? 'text-emerald-400' : sh > 0 ? 'text-amber-400' : 'text-red-400'}">${sh.toFixed(3)}</td>
-          <td class="text-right ${dd <= worstDD * 1.1 ? 'text-emerald-400' : dd < 0.15 ? 'text-amber-400' : 'text-red-400'}">${(dd * 100).toFixed(2)}%</td>
-          <td class="text-right ${wr >= bestWinRate * 0.9 ? 'text-emerald-400' : 'text-amber-400'}">${(wr * 100).toFixed(1)}%</td>
+          <td class="text-right ${tr != null ? (tr >= 0 ? 'text-[#ef5350]' : 'text-[#26a69a]') : 'text-gray-500'}">${tr != null ? (tr * 100).toFixed(2) + '%' : '--'}</td>
+          <td class="text-right ${ar != null ? (ar >= 0 ? 'text-[#ef5350]' : 'text-[#26a69a]') : 'text-gray-500'}">${ar != null ? (ar * 100).toFixed(2) + '%' : '--'}</td>
+          <td class="text-right ${sh != null ? (sh > 1 ? 'text-[#ef5350]' : sh > 0 ? 'text-amber-400' : 'text-[#26a69a]') : 'text-gray-500'}">${sh != null ? sh.toFixed(3) : '--'}</td>
+          <td class="text-right ${dd != null ? (dd <= worstDD * 1.1 ? 'text-[#26a69a]' : dd < 0.15 ? 'text-amber-400' : 'text-[#ef5350]') : 'text-gray-500'}">${dd != null ? (dd * 100).toFixed(2) + '%' : '--'}</td>
+          <td class="text-right ${wr != null ? (wr >= bestWinRate * 0.9 ? 'text-[#ef5350]' : 'text-amber-400') : 'text-gray-500'}">${wr != null ? (wr * 100).toFixed(1) + '%' : '--'}</td>
           <td class="text-right text-white">${tc}</td>
         </tr>`;
       }).join('')}
@@ -260,7 +260,8 @@ function renderEquityOverlay(comparison) {
     data: { labels, datasets },
     options: {
       responsive: true,
-      maintainAspectRatio: true,
+      maintainAspectRatio: false, resizeDelay: 100,
+      layout: { padding: { bottom: 20 } },
       interaction: { mode: 'index', intersect: false },
       plugins: {
         legend: {
@@ -274,12 +275,13 @@ function renderEquityOverlay(comparison) {
       },
       scales: {
         x: {
+          offset: true,
           ticks: { color: '#6b7280', maxTicksLimit: 12, maxRotation: 0 },
-          grid: { color: '#1e293b' },
+          grid: { color: 'rgba(42,46,57,0.15)' },
         },
         y: {
-          ticks: { color: '#6b7280', callback: v => v.toLocaleString() },
-          grid: { color: '#1e293b' },
+          ticks: { color: '#6b7280', callback: function(v) { return (v != null && isFinite(v)) ? v.toFixed(2) : '--'; } },
+          grid: { color: 'rgba(42,46,57,0.15)' },
         },
       },
     },
@@ -291,8 +293,8 @@ function renderMetricCharts(comparison) {
   const colors = comparison.map((r, i) => CHART_COLORS[i % CHART_COLORS.length].line);
 
   // Returns & Sharpe bar chart
-  const returnsData = comparison.map(r => ((r.total_return || 0) * 100));
-  const sharpeData = comparison.map(r => (r.sharpe_ratio || 0));
+  const returnsData = comparison.map(r => { const v = (r.total_return != null && isFinite(r.total_return)) ? r.total_return : null; return v != null ? v * 100 : null; });
+  const sharpeData = comparison.map(r => (r.sharpe_ratio != null && isFinite(r.sharpe_ratio)) ? r.sharpe_ratio : null);
 
   chartInstances.returns = new Chart(document.getElementById('chart-returns-sharpe'), {
     type: 'bar',
@@ -302,8 +304,8 @@ function renderMetricCharts(comparison) {
         {
           label: '总收益 %',
           data: returnsData,
-          backgroundColor: returnsData.map(v => v >= 0 ? 'rgba(52,211,153,0.6)' : 'rgba(248,113,113,0.6)'),
-          borderColor: returnsData.map(v => v >= 0 ? '#34d399' : '#f87171'),
+          backgroundColor: returnsData.map(v => v >= 0 ? 'rgba(239,83,80,0.6)' : 'rgba(38,166,154,0.6)'),
+          borderColor: returnsData.map(v => v >= 0 ? '#ef5350' : '#26a69a'),
           borderWidth: 1,
           order: 1,
         },
@@ -324,22 +326,23 @@ function renderMetricCharts(comparison) {
     },
     options: {
       responsive: true,
-      maintainAspectRatio: true,
+      maintainAspectRatio: false, resizeDelay: 100,
+      layout: { padding: { bottom: 20 } },
       plugins: {
         legend: { labels: { color: '#9ca3af', boxWidth: 12, padding: 12 } },
         tooltip: { backgroundColor: '#1e293b', titleColor: '#fff', bodyColor: '#d1d5db' },
       },
       scales: {
-        x: { ticks: { color: '#6b7280', maxRotation: 30 }, grid: { color: '#1e293b' } },
-        y: { ticks: { color: '#6b7280' }, grid: { color: '#1e293b' }, position: 'left' },
+        x: { offset: true, ticks: { color: '#6b7280', maxRotation: 30 }, grid: { color: 'rgba(42,46,57,0.15)' } },
+        y: { ticks: { color: '#6b7280' }, grid: { color: 'rgba(42,46,57,0.15)' }, position: 'left' },
         y1: { ticks: { color: '#818cf8' }, grid: { display: false }, position: 'right' },
       },
     },
   });
 
   // Drawdown & WinRate bar chart
-  const ddData = comparison.map(r => ((r.max_drawdown || 0) * 100));
-  const wrData = comparison.map(r => ((r.win_rate || 0) * 100));
+  const ddData = comparison.map(r => { const v = (r.max_drawdown != null && isFinite(r.max_drawdown)) ? r.max_drawdown : null; return v != null ? v * 100 : null; });
+  const wrData = comparison.map(r => { const v = (r.win_rate != null && isFinite(r.win_rate)) ? r.win_rate : null; return v != null ? v * 100 : null; });
 
   chartInstances.ddwr = new Chart(document.getElementById('chart-drawdown-winrate'), {
     type: 'bar',
@@ -371,14 +374,15 @@ function renderMetricCharts(comparison) {
     },
     options: {
       responsive: true,
-      maintainAspectRatio: true,
+      maintainAspectRatio: false, resizeDelay: 100,
+      layout: { padding: { bottom: 20 } },
       plugins: {
         legend: { labels: { color: '#9ca3af', boxWidth: 12, padding: 12 } },
         tooltip: { backgroundColor: '#1e293b', titleColor: '#fff', bodyColor: '#d1d5db' },
       },
       scales: {
-        x: { ticks: { color: '#6b7280', maxRotation: 30 }, grid: { color: '#1e293b' } },
-        y: { ticks: { color: '#6b7280' }, grid: { color: '#1e293b' }, position: 'left' },
+        x: { offset: true, ticks: { color: '#6b7280', maxRotation: 30 }, grid: { color: 'rgba(42,46,57,0.15)' } },
+        y: { ticks: { color: '#6b7280' }, grid: { color: 'rgba(42,46,57,0.15)' }, position: 'left' },
         y1: { ticks: { color: '#34d399' }, grid: { display: false }, position: 'right' },
       },
     },

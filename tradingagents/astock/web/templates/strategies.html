@@ -224,16 +224,21 @@ async function runOptimization() {
       '</tr></thead><tbody>' +
       results.map(r => {
         const paramsStr = Object.entries(r.params || {}).map(([k, v]) => `${k}=${v}`).join(', ');
-        const m = r.metrics || {};
-        const scoreClass = r.score > 0.3 ? 'tv-up' : r.score > 0 ? '' : 'tv-down';
+        const m = r && r.metrics ? r.metrics : {};
+        const fmtPct = (v) => (v != null && isFinite(v)) ? (v * 100).toFixed(2) + '%' : '--';
+        const fmtNum = (v, d) => (v != null && isFinite(v)) ? v.toFixed(d) : '--';
+        const colorVal = (v) => v != null && isFinite(v) ? (v > 0 ? '#ef5350' : v < 0 ? '#26a69a' : '') : '';
+        const score = (r.score != null && isFinite(r.score)) ? r.score : null;
+        const scoreStr = score != null ? score.toFixed(4) : '--';
+        const scoreColor = score != null ? (score > 0.3 ? '#ef5350' : score > 0 ? '' : '#26a69a') : '';
         return `<tr class="${r.rank === 1 ? 'tv-card' : ''}">
           <td class="text-center"><span class="tv-badge ${r.rank === 1 ? 'tv-badge-green' : 'tv-badge-blue'}">#${r.rank}</span></td>
           <td class="text-xs font-mono">${paramsStr || '(默认)'}</td>
-          <td class="text-right font-bold ${scoreClass}">${r.score?.toFixed(4) ?? '--'}</td>
-          <td class="text-right font-mono">${(m.total_return * 100)?.toFixed(2) ?? '--'}%</td>
-          <td class="text-right font-mono ${m.sharpe_ratio > 1 ? 'tv-up' : m.sharpe_ratio > 0 ? '' : 'tv-down'}">${m.sharpe_ratio?.toFixed(3) ?? '--'}</td>
-          <td class="text-right font-mono">${(m.max_drawdown * 100)?.toFixed(2) ?? '--'}%</td>
-          <td class="text-right font-mono">${(m.win_rate * 100)?.toFixed(1) ?? '--'}%</td>
+          <td class="text-right font-bold"${scoreColor ? ` style="color:${scoreColor}"` : ''}>${scoreStr}</td>
+          <td class="text-right font-mono" style="color:${colorVal(m.total_return)}">${fmtPct(m.total_return)}</td>
+          <td class="text-right font-mono" style="color:${colorVal(m.sharpe_ratio)}">${fmtNum(m.sharpe_ratio, 3)}</td>
+          <td class="text-right font-mono" style="color:${colorVal(m.max_drawdown)}">${fmtPct(m.max_drawdown)}</td>
+          <td class="text-right font-mono" style="color:${colorVal(m.win_rate)}">${fmtPct(m.win_rate)}</td>
           <td class="text-right font-mono">${m.total_trades ?? '--'}</td>
         </tr>`;
       }).join('') +
