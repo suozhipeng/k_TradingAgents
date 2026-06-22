@@ -159,7 +159,10 @@ class AStockBlueprint:
                     "iwencai": "⚠️ pywencai 0.13.1 installed, but ASTOCK_IWENCAI_COOKIE not set — run 'hermes skills' or see docs/ASTOCK_LIVE_RESEARCH_SETUP.md for cookie setup instructions",
                 },
                 "todo": [
-                    "TODO: keep QMT read-only bridge separate from any future execution adapter",
+                    # Comment: QMT read-only bridge is separate from execution adapter.
+                    # The execution adapter (qmt_execution.py) handles controlled execution,
+                    # while QMT as a data source (QmtSource in adapters.py) provides read-only data.
+                    # No unification needed — they serve different roles.
                 ],
             },
             "layers": [

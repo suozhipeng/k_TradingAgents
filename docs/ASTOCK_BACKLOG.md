@@ -41,20 +41,22 @@
 - endpoint 语义与返回内容一致
 - 文档不再误导为真实订单模块
 
-### BL-003 修正 trade quote / trade state 的 mock 能力
+### BL-003 修正 trade quote / trade state 的能力口径
 
 现状：
 
-- `trade/quote` 使用 synthetic mock quote
-- `trade/state` 使用 PaperTrader 状态 + mock price 估值
+- `trade/quote` 使用 EastMoney push2 实时报价 + Sina 降级 + 60s 缓存 — ✅ **已真实**
+- `trade/state` 使用 PaperTrader 状态 + 实时报价估值 — ✅ **明确为 Paper Trading 路径**
 
 目标：
 
-- 明确它们是 paper trading API，或接入真实报价与估值
+- ✅ 已达成 — trade/quote 是实时数据（EastMoney → Sina → 缓存三级降级）
+- trade/state 属于 Paper Trading，非实盘，文档已写明
 
 完成标准：
 
-- 用户不会把 mock 报价误认为真实交易报价
+- endpoint 语义与返回内容一致 — ✅ trade/quote 返回实时数据
+- 用户不会把 mock 报价误认为真实交易报价 — ✅ trade/quote 已标注 source: "live"|"cache"；trade/state 通过 PaperTrader 路径
 
 ### BL-004 为专业交易页建立正式归档
 
