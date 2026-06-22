@@ -232,9 +232,9 @@ Delivery Phase 10 实现开始前必须满足：
 source .venv/bin/activate && python -m pytest tests/test_astock_web.py tests/test_astock_api.py -q
 ```
 
-结果：**146 passed, 0 failed, 0 errors**（WebUI + API 切片）。
+结果：**150 passed, 0 failed, 0 errors**（WebUI + API 切片）。
 
-全量回归状态：812 passed（Phase 21 基线 + KLineChart 增量），9 skipped（live provider / Pydantic BT 条件跳过），0 failed。
+全量回归状态（HEAD 7b7efef）：199 passed（A 股主链 9 切片），9 skipped（live provider / Pydantic BT 条件跳过），0 failed。
 
 跳过项详情：
 - 7 跳过：`test_astock_live_providers.py` — 需要 `ASTOCK_RUN_LIVE_TESTS=1` 环境变量
@@ -250,8 +250,7 @@ source .venv/bin/activate && python -m pytest tests/test_astock_web.py tests/tes
 
 | 验收项 | 结果 |
 ||--------|------|
-|| 全仓回归（Phase 21 基线 + KLineChart 增量） | **812 passed, 9 skipped, 0 failed, 0 errors** |
-|| WebUI + API 切片（Phase 22-28 增量） | **146 passed, 0 failed, 0 errors** |
-|| A 股主链切片（25 文件） | **472 passed, 1 skipped, 0 failed**（Phase 21 基线） |
+|| WebUI + API 切片 (Phase 22-29 增量) | **150 passed, 0 failed, 0 errors** |
+|| A 股主链切片（9 文件） | **199 passed, 0 failed, 0 errors**（HEAD `7b7efef`） |
 || 失败分桶 | 无 — 0 failed |
 || 污染类缺陷 | 无（已消除 `__path__=[]` 假包、API key placeholder、`ASTOCK_TESTING=1`） |
