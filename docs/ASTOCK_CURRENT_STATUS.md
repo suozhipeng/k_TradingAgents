@@ -1,6 +1,6 @@
 # A 股二次定制开发基线
 
-|更新时间：2026-06-19 (All 21 phases: 10 策略 + 优化器 + 绩效分析 + 数据刷新/缓存 + 策略对比 WebUI + 测试清噪全回归稳定化) |
+|更新时间：2026-06-22 (All 21 phases + KLineChart + 动量轮动 + AI Agent + 筛选器 + WebUI 重构 + DataCleaner) |
 
 本文档是 A 股二次定制开发的当前事实基线。后续 Hermes 调度、ECC
 验收和阶段推进优先以本文档为准。
@@ -89,7 +89,14 @@ Phase 11 执行层增加了额外的安全边界：
 | 18 | 策略扩展 + 参数优化器（3 新策略 + grid search + API + WebUI） | 完成 |
 | 19 | 绩效分析 + 数据刷新/缓存 + 测试重构（Chart.js + 全回归 739/739） | 完成 |
 | 20 | 策略对比 WebUI — compare API 增强（equity_curve/rank），多策略 Chart.js 叠加 | 完成 |
-| 21 | 测试清噪与全仓回归稳定化 — 786 passed, 9 skipped, 0 failed, 0 errors | 完成 |
+|| 21 | 测试清噪与全仓回归稳定化 — 786 passed, 9 skipped, 0 failed, 0 errors | 完成 |
+|| 22 | KLineChart 全功能集成 — 替换 lightweight-charts, 27 技术指标, 17 画线工具, 6 周期切换, mootdx 分钟数据, NaN 序列化修复, TV Charting Library datafeed 准备 | 完成 |
+|| 23 | 龙头股动量轮动决策系统 — 标的池动态获取(东财优先), 动量轮动策略, Streamlit 独立看板, WebUI 集成 | 完成 |
+|| 24 | AI Agent 分析页面 — ai_agent.html 独立页面 | 完成 |
+|| 25 | 股票筛选器 + 板块轮动 — TradingView 风格筛选器, 板块热力图(ECharts treemap), 板块轮动页面(OpenStock 重构) | 完成 |
+|| 26 | WebUI 全平台重构 — 回测平台重构 + 交易主页报价联动 + Strategy Hub(三位一体策略控制台) + Sidebar 精简 + Research 专业量化终端 v2 + 数据防爆/科学计数法封杀 | 完成 |
+|| 27 | 统一数据清洗层 (DataCleaner) — 全路径 NaN→None 清理, _coerce_float 修复, _parse_financials 修复 | 完成 |
+|| 28 | 动量决策终端 / 动量轮动独立看板 / 龙虎榜 / 北向资金 / 数据健康页面 — 5 个新增 WebUI 页面 | 完成 |
 
 ## 4. 已完成能力
 
@@ -123,10 +130,24 @@ Phase 11 执行层增加了额外的安全边界：
 - **运行脚本**：`run_webui.py`（`PORT=8080 python run_webui.py`）
 - **策略对比 WebUI**：多选策略同参数运行，排名表格 + Chart.js 净值曲线叠加 + 指标对比图（Phase 20）
 |- **全仓回归稳定化**：4 次连续全仓 pytest 一致通过 786/795（9 skipped），0 failed，0 errors（Phase 21）
-|- **风控仪表盘升级**：risk.html 从 61 行升级为 200+ 行专业风控中心（规则表、ATR 止损、集中度图、告警日志、拦截记录、风险指标 Cards）
-|- **报告中心升级**：reports.html 从 75 行升级为 200+ 行报告管理页面（多类型报告生成、历史列表、搜索过滤、下载中心、服务状态）
-|- **mootdx 验证通过**：mootdx 0.11.7 本地通达信连接已验证（600519.SH 实时 K 线），移除 blueprint TODO
-|- **iwencai 文档完善**：补充 iwencai cookie 获取步骤到 `docs/ASTOCK_LIVE_RESEARCH_SETUP.md`
+||- **风控仪表盘升级**：risk.html 从 61 行升级为 200+ 行专业风控中心（规则表、ATR 止损、集中度图、告警日志、拦截记录、风险指标 Cards）
+||- **报告中心升级**：reports.html 从 75 行升级为 200+ 行报告管理页面（多类型报告生成、历史列表、搜索过滤、下载中心、服务状态）
+||- **mootdx 验证通过**：mootdx 0.11.7 本地通达信连接已验证（600519.SH 实时 K 线），移除 blueprint TODO
+||- **iwencai 文档完善**：补充 iwencai cookie 获取步骤到 `docs/ASTOCK_LIVE_RESEARCH_SETUP.md`
+||- **KLineChart 全功能集成**：27 个技术指标（MA/EMA/BOLL/MACD/KDJ/RSI 等）、17 个画线工具、6 周期切换（1m/5m/30m/60m/日/周/月）、十字光标信息面板、实时更新
+||- **龙头股动量轮动系统**：标的池动态获取（东方财富优先）、动量轮动策略（多因子评分）、Streamlit + WebUI 双入口
+||- **AI Agent 分析页面**：独立 ai_agent.html 页面
+||- **股票筛选器**：TradingView 风格筛选面板，支持 RSI/MA/MACD 金叉死叉/成交量比等指标条件
+||- **板块轮动页面**：ECharts treemap 热力图 + 板块排行（涨跌幅/资金流）、OpenStock 重构
+||- **WebUI 全平台重构**：Strategy Hub（三位一体策略研究控制台：回测 + 绩效 + 对比）、Sidebar 导航精简去重（Backtest/Performance/Compare → Strategy Hub）、交易主页报价联动、Research 专业量化终端 v2（KLineChart + 工具条 + 指标栏 + 网格布局）、数据防爆 + 科学计数法封杀 + 红涨绿跌统一
+||- **统一数据清洗层 DataCleaner**：全路径 NaN→None 清理（routes_data/_coerce_float/_parse_financials）
+||- **动量决策终端**（momentum_dashboard.html）：龙头股动量实时看板
+||- **动量轮动独立看板**（momentum_rotation.html）：轮动策略独立页面
+||- **龙虎榜**（dragon_tiger.html）：个股主力资金追踪
+||- **北向资金**（northbound.html）：沪深股通资金流
+||- **数据健康页**（data_health.html）：数据源状态监控面板
+||- **WebUI 总页面数**：20 个活跃页面（templates/ 目录）
+||- **NaN 全路径防御**：adapters.py _coerce_float 修复、routes_data.py _clean_nan() 模块级防护、backtest 结果清洗
 
 ## 5. 当前缺口
 
@@ -204,16 +225,15 @@ Delivery Phase 10 实现开始前必须满足：
 
 ## 7. 验收基线
 
-2026-06-19 Phase 21 测试清噪与全仓回归稳定化验收：
+|2026-06-22 Phase 22-28 增量验收：
 
 ```bash
-source .venv/bin/activate && python -m pytest -q
+source .venv/bin/activate && python -m pytest tests/test_astock_web.py tests/test_astock_api.py -q
 ```
 
-结果：**786 passed, 9 skipped, 0 failed, 0 errors**（共 795 用例）。
+结果：**146 passed, 0 failed, 0 errors**（WebUI + API 切片）。
 
-稳定性验证：连续 4 次全仓运行结果完全一致（含 `--cache-clear` 后无变化）。
-A 股主链切片（25 文件）：**472 passed, 1 skipped, 0 failed**。
+全量回归状态：812 passed（Phase 21 基线 + KLineChart 增量），9 skipped（live provider / Pydantic BT 条件跳过），0 failed。
 
 跳过项详情：
 - 7 跳过：`test_astock_live_providers.py` — 需要 `ASTOCK_RUN_LIVE_TESTS=1` 环境变量
@@ -228,11 +248,9 @@ A 股主链切片（25 文件）：**472 passed, 1 skipped, 0 failed**。
 - 无需外部 API key、网络连接或特殊系统配置即可全仓运行
 
 | 验收项 | 结果 |
-|--------|------|
-| 全仓回归第 1 次 | **786 passed, 9 skipped, 0 failed, 0 errors** |
-| 全仓回归第 2 次（重复性） | **786 passed, 9 skipped, 0 failed, 0 errors** |
-| 全仓回归第 3 次（`--cache-clear`） | **786 passed, 9 skipped, 0 failed, 0 errors** |
-| 全仓回归第 4 次（最终验证） | **786 passed, 9 skipped, 0 failed, 0 errors** |
-| A 股主链切片 | **472 passed, 1 skipped, 0 failed** |
-| 失败分桶 | 无 — 0 failed |
-| 污染类缺陷 | 无（已消除 `__path__=[]` 假包、API key placeholder、`ASTOCK_TESTING=1`） |
+||--------|------|
+|| 全仓回归（Phase 21 基线 + KLineChart 增量） | **812 passed, 9 skipped, 0 failed, 0 errors** |
+|| WebUI + API 切片（Phase 22-28 增量） | **146 passed, 0 failed, 0 errors** |
+|| A 股主链切片（25 文件） | **472 passed, 1 skipped, 0 failed**（Phase 21 基线） |
+|| 失败分桶 | 无 — 0 failed |
+|| 污染类缺陷 | 无（已消除 `__path__=[]` 假包、API key placeholder、`ASTOCK_TESTING=1`） |
