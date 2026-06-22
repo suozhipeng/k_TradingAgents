@@ -54,6 +54,7 @@ checkpoint.
 || 26 | WebUI full refactor — Strategy Hub (backtest+performance+compare merge), sidebar cleanup, Research v2, data-explosion prevention | Complete | [Phase 26](phase-26-webui-refactor.md) |
 || 27 | DataCleaner — full-path NaN→None sanitization, _coerce_float fix, _clean_nan() helper | Complete | [Phase 27](phase-27-data-cleaner.md) |
 || 28 | 5 new WebUI pages — momentum dashboard, momentum rotation, dragon_tiger, northbound, data_health | Complete | [Phase 28](phase-28-new-webui-pages.md) |
+|| 29 | Professional trading page — TradingView-style trading console, real-time quotes, order panel, KLineChart, positions | Complete | [Phase 29](phase-29-trading-page.md) |
 
 ## Naming
 

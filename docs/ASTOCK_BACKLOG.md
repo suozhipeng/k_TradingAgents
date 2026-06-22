@@ -61,18 +61,18 @@
 现状：
 
 - `trading.html`、`routes_trade.py`、相关测试已进入代码
-- 尚未有新的 phase 归档
+- 已建立独立 phase 归档 `docs/phases/phase-29-trading-page.md`
 
 目标：
 
-- 为交易页建立独立 phase 说明或归入已有 phase 增量记录
+- ✅ 已达成 — 有 scope、测试、风险说明、commit SHA
 
 完成标准：
 
-- 有 scope
-- 有测试
-- 有风险说明
-- 有 commit SHA
+- 有 scope — ✅ `phase-29-trading-page.md`
+- 有测试 — ✅ WebUI 测试 103 passed
+- 有风险说明 — ✅ 实时报价依赖/缓存/持久化
+- 有 commit SHA — ✅ `268d326`, `87e5b73`, `1960c65` 等
 
 ## 3. P1
 
