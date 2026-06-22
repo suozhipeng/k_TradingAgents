@@ -47,7 +47,7 @@ checkpoint.
 | 20 | Strategy comparison WebUI — compare API enhanced (equity_curve, rank), multi-strategy Chart.js overlay | Complete | commit `d128dc9` |
 || 21 | Test stabilization — 786/795 passed, 0 failed, 0 errors, 4× consistent runs | Complete | [Phase 21](phase-21-test-stabilization.md) |
 || — | WebUI risk/reports pages upgrade + mootdx verification + iwencai docs | Complete | Hotfix (post-Phase-21) |
-|| 22 | KLineChart full integration — lightweight-charts replacement, 27 indicators, 17 drawing tools, 6 periods, mootdx minute data, NaN serialization fix | Complete | [Phase 22](phase-klinechart-integration.md) |
+|| 22 | KLineChart full integration — lightweight-charts replacement, 27 indicators, 17 drawing tools, 6 periods, mootdx minute data, NaN serialization fix | Complete | [Phase 22](phase-22-klinechart-integration.md) |
 || 23 | 龙头股动量轮动决策系统 — stock pool, momentum rotation strategy, Streamlit + WebUI | Complete | [Phase 23](phase-23-momentum-rotation.md) |
 || 24 | AI Agent analysis page — ai_agent.html | Complete | [Phase 24](phase-24-ai-agent-page.md) |
 || 25 | Stock screener + sector rotation — TradingView-style screener, ECharts treemap heatmap | Complete | [Phase 25](phase-25-screener-sectors.md) |
