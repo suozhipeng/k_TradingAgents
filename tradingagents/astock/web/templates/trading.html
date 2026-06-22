@@ -213,9 +213,18 @@
     </div>
   </div>
 
-  <!-- RIGHT: Order Panel -->
+  <!-- RIGHT: Mode Switcher + Order Panel -->
   <div class="trade-order-col">
-    <div class="order-panel">
+    <!-- Mode Switcher -->
+    <div class="tv-card" style="margin-bottom:8px;">
+      <div style="display:flex;gap:4px;padding:4px;">
+        <button class="mode-btn active" data-mode="paper" onclick="switchMode('paper')" style="flex:1;padding:4px 8px;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #2a2e39;background:#2962FF;color:#fff;">📝 Paper</button>
+        <button class="mode-btn" data-mode="live" onclick="switchMode('live')" style="flex:1;padding:4px 8px;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #2a2e39;background:#1c2030;color:#787b86;">🔴 实盘</button>
+        <button class="mode-btn" data-mode="research" onclick="switchMode('research')" style="flex:1;padding:4px 8px;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #2a2e39;background:#1c2030;color:#787b86;">🔍 研究</button>
+      </div>
+      <div id="mode-status" style="padding:2px 8px 6px;font-size:10px;color:#787b86;">📝 Paper Trading — 模拟盘模式</div>
+    </div>
+    <div class="order-panel" id="order-panel">
       <div class="tv-card">
         <h3 class="tv-card-title">📝 快捷交易 Quick Order</h3>
 
@@ -313,6 +322,21 @@ const API_BASE = '/api/v1/tv';
 let currentSymbol = '000001.SH';
 let currentSide = 'buy';
 let currentQuote = {};
+let currentMode = 'paper';
+
+// ── 模式切换 ──
+function switchMode(mode) {
+  currentMode = mode;
+  document.querySelectorAll('.mode-btn').forEach(b => {
+    const isActive = b.dataset.mode === mode;
+    b.style.background = isActive ? '#2962FF' : '#1c2030';
+    b.style.color = isActive ? '#fff' : '#787b86';
+  });
+  const labels = { paper: '📝 Paper Trading — 模拟盘模式', live: '🔴 实盘执行 — QMT 桥接模式', research: '🔍 研究辅助 — 只读模式' };
+  const orderPanel = document.getElementById('order-panel');
+  if (orderPanel) orderPanel.style.display = mode === 'research' ? 'none' : '';
+  document.getElementById('mode-status').textContent = labels[mode] || labels.paper;
+}
 
 // ── 指数识别 ──
 function isIndexSymbol(sym) {
