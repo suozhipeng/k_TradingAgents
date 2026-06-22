@@ -1,6 +1,6 @@
-# Phase 10: A-Stock Backtest Verification and Paper Trading Runtime
+# Phase 10：A 股回测验证与模拟盘运行时
 
-## Metadata
+## 元数据
 
 - Status: `implemented`
 - Product specification: `complete`
@@ -11,15 +11,15 @@
 - Git branch: `xg_dev`
 - Commit SHA: `a088465`
 
-## Product objective
+## 产品目标
 
 在 A 股只读研究链路（Phase 3-9）的基础上，增加可执行的回测验证（backtest）与模拟盘试跑（paper trading）能力，使 A 股五层数据、研究结论和 advisory 合约链能投入历史验证和模拟环境运行。
 
 Phase 10 的输出仍保持 `ResearchOnly` 标记，不涉及真实下单；但引入执行语义的建模（虚拟成交、费率、持仓、风控），为 Phase 11 QMT 受控执行提供已验证的执行层基线。
 
-## Scope
+## 范围
 
-### Included
+### 包含
 
 1. **回测引擎接入**：基于现有 A 股五层数据源，构建可重复执行的回测框架。
    - 数据准备：使用现有五层 provider（行情/研报/新闻/基本面/公告）获取历史数据
@@ -47,7 +47,7 @@ Phase 10 的输出仍保持 `ResearchOnly` 标记，不涉及真实下单；但�
    - 模拟盘状态可通过现有 CLI/Streamlit viewer 只读展示
    - 不修改 Phase 3-9 的只读研究链路
 
-### Excluded
+### 排除
 
 - QMT 桥接或真实券商接口 — 这是 Phase 11
 - 实盘下单 — 任何路径不得产生真实交易
@@ -58,7 +58,7 @@ Phase 10 的输出仍保持 `ResearchOnly` 标记，不涉及真实下单；但�
 - Python 3.9 兼容 — 要求 Python 3.10+
 - 修改 Phase 0-9 已完成的归档文档
 
-## Architecture mapping
+## 架构映射
 
 | ARCHITECTURE.md section | Module | Expected change |
 |---|---|---|
@@ -67,7 +67,7 @@ Phase 10 的输出仍保持 `ResearchOnly` 标记，不涉及真实下单；但�
 | 3.1 顶层分层（目标态） | 回测引擎 / 模拟盘引擎 | 新模块，不改变现有只读层 |
 | 5 Agent 层 | Trader / Risk / Portfolio | 回测/模拟盘消费现有合约输出，不修改 Agent |
 
-## Product decisions
+## 产品决策
 
 1. **Delivery Phase 10 = 回测 + 模拟盘放在一个实现阶段**。理由：回测提供历史验证基线，模拟盘提供实时环境验证，两者共享数据层和风控规则，拆成两个 delivery phase 会导致重复接线。
 2. **回测引擎不引入 Backtrader 等外部框架**，初期用纯 Pandas + NumPy 实现。理由：减少依赖风险，A 股回测逻辑（周期调仓、A 股费率模型）与通用回测框架的抽象层不一定对齐。
@@ -77,9 +77,9 @@ Phase 10 的输出仍保持 `ResearchOnly` 标记，不涉及真实下单；但�
 6. **所有回测/模拟盘输出保持 `actionable=false`、`execution_signal=ResearchOnly`**。Phase 10 不能产生可自动执行的交易信号。
 7. **回测/模拟盘的代码放在 `tradingagents/astock/execution/` 子包下**，与现有的 research-only 层（interface, analyst, runtime）保持物理隔离。
 
-## Implementation
+## 实现记录
 
-### Target files
+### 目标文件
 
 | File | Purpose |
 |---|---|
@@ -96,7 +96,7 @@ Phase 10 的输出仍保持 `ResearchOnly` 标记，不涉及真实下单；但�
 | `tests/test_astock_execution_risk_gate.py` | New: risk gate integration tests |
 | `docs/phases/phase-10-backtest-paper-trading.md` | Updated: implementation archive |
 
-### Behavior contract
+### 行为契约
 
 - **BacktestEngine**:
   - Input: symbol list, trade_date range, strategy config, fee config
@@ -116,9 +116,9 @@ Phase 10 的输出仍保持 `ResearchOnly` 标记，不涉及真实下单；但�
   - Degradation: unparseable constraint → `block` (fail closed)
   - Safety: cannot be bypassed by caller
 
-## ECC acceptance
+## ECC 验收
 
-### Minimum tests
+### 最小测试
 
 ```bash
 python3 -m pytest -q \
@@ -127,7 +127,7 @@ python3 -m pytest -q \
   tests/test_astock_execution_risk_gate.py
 ```
 
-### A-share regression (Phase 10 additions must not break existing paths)
+### A 股回归（Phase 10 不能破坏既有路径）
 
 ```bash
 python3 -m pytest -q \
@@ -142,7 +142,7 @@ python3 -m pytest -q \
   tests/test_astock_execution_risk_gate.py
 ```
 
-### Required assertions
+### 必需断言
 
 1. Backtest results are deterministic (same input → same output).
 2. Paper trader never executes a trade with `actionable=true`.
@@ -151,7 +151,7 @@ python3 -m pytest -q \
 5. No QMT or broker import paths exist in `tradingagents/astock/execution/`.
 6. All execution outputs carry `decision_scope` and `actionable=false` metadata.
 
-## Risks and gaps
+## 风险与缺口
 
 - **回测框架设计**：纯 Pandas 实现可能在大规模数据（沪深 300 × 3.4 年）时性能不足。考虑初期只覆盖单/少量股票，后期评估是否引入专用引擎。
 - **模拟盘实时数据依赖**：paper trader 获取当日行情依赖现有 provider 的实时能力，部分 provider（如 mootdx）在非交易时段可能不返回有效数据。
@@ -159,7 +159,7 @@ python3 -m pytest -q \
 - **Python 3.10+ 需求**：Phase 10 的 Pandas/NumPy 基础与 Python 3.9 兼容，但推荐在 3.10+ 环境中运行和验证。
 - **没有 WebUI 实时展示**：模拟盘的 SSE 进度推送仅预留接口，前端消费不在 Phase 10 scope 内。
 
-## Next-phase entry criteria (Phase 11: QMT controlled execution)
+## 下一 phase 进入条件（Phase 11：QMT 受控执行）
 
 1. Phase 10 Codex accept 已获得。
 2. 至少 1 组单股回测结果可复现。
@@ -167,7 +167,7 @@ python3 -m pytest -q \
 4. `execution/` 子包与 `research-only` 层物理隔离已验证。
 5. Phase 10 所有输出保持 `actionable=false` 和 `execution_signal=ResearchOnly`。
 
-## Corrections
+## 修正记录
 
 - 2026-06-14: Created the product specification draft.
 - 2026-06-14: Implemented Phase 10 backtest engine, paper trader, risk gate,

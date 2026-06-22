@@ -1,6 +1,6 @@
-# Phase 14: 6 策略层 — Backtest Strategy Expansion
+# Phase 14：6 策略层 — 回测策略扩展
 
-## Metadata
+## 元数据
 
 - Status: `complete`
 - Started: `2026-06-15`
@@ -9,7 +9,7 @@
 - Git branch: `xg_dev`
 - Commit SHA: `980271f`
 
-## Product objective
+## 产品目标
 
 Extend the Phase 10 backtest strategy layer from a single moving-average trend strategy to a family of 6 strategies covering bull, range, and bear market conditions:
 
@@ -17,9 +17,9 @@ Extend the Phase 10 backtest strategy layer from a single moving-average trend s
 - **Range market (2)**: MeanReversionStrategy (overbought/oversold reversion), RSIRangeStrategy (RSI interval trading)
 - **Bear market (2)**: DefensiveMomentumStrategy (positive momentum + low vol), PutWriteStrategy (protective put writing)
 
-## Scope
+## 范围
 
-### Included
+### 包含
 
 1. **6 new strategy classes** in `tradingagents/astock/execution/strategy_base.py`:
    - `BullTrendStrategy` — MA5/MA20/MA60 bull alignment + volume confirmation → buy; breakdown → sell
@@ -40,7 +40,7 @@ Extend the Phase 10 backtest strategy layer from a single moving-average trend s
    - Uniform constraint tests (output shape, value range, error handling)
    - Custom `importlib` bypass for Python 3.9 compatibility (avoids full package init chain)
 
-### Excluded
+### 排除
 
 - No changes to `BacktestEngine`, `PaperTrader`, `RiskGate` — strategies plug into existing framework
 - No changes to existing Phase 10 tests or behavior
@@ -48,7 +48,7 @@ Extend the Phase 10 backtest strategy layer from a single moving-average trend s
 - No strategy hyperparameter optimization or auto-tuning
 - No integration tests with `AStockStore` or `AStockInterface`
 
-## Architecture mapping
+## 架构映射
 
 | Module | Change |
 |---|---|
@@ -57,16 +57,16 @@ Extend the Phase 10 backtest strategy layer from a single moving-average trend s
 | `tradingagents/astock/__init__.py` | Package re-exports |
 | `tests/test_astock_strategies.py` | New — 26 tests (398 lines) |
 
-## Product decisions
+## 产品决策
 
 - **StrategyBase as abstract base**: All strategies share `generate_signals(df) -> pd.Series` contract with integer output (-1/0/1). BacktestEngine iterates over strategies generically.
 - **Config dict pattern**: Each strategy accepts optional config dict with validated bounds (e.g., `fast_ma < mid_ma < slow_ma`, `pe_low_pct < pe_high_pct`). Validation at `__init__` time, not at signal generation.
 - **No external TA library**: All calculations (MA, RSI, ROC, percentile) computed inline with pandas rolling/expanding — zero new dependencies.
 - **Volume confirmation optional**: Strategies detect presence of `volume` column and adjust logic accordingly — works with or without volume data.
 
-## Implementation
+## 实现记录
 
-### Changed files
+### 修改文件
 
 | File | Lines | Purpose |
 |---|---|---|
@@ -75,23 +75,23 @@ Extend the Phase 10 backtest strategy layer from a single moving-average trend s
 | `tradingagents/astock/__init__.py` | ~15 | Package re-exports |
 | `tests/test_astock_strategies.py` | +398 | 26 tests |
 
-### Behavior contract
+### 行为契约
 
 - **Input**: `pd.DataFrame` with `close` column (required), optional `volume` column
 - **Output**: `pd.Series[int]` with same index as input, values in {-1, 0, 1}
 - **Degradation**: Missing `close` column raises `KeyError`; insufficient data produces NaN → filled to 0
 - **Safety boundary**: All signals are integer-only. Return 0 (hold) when conditions are not met. No partial/fractional positions.
 
-## ECC acceptance
+## ECC 验收
 
-### Commands
+### 命令
 
 ```bash
 cd /Users/szp/Desktop/Code/k-code/ai-lab/TradingAgents
 python3 -m pytest tests/test_astock_strategies.py -v --tb=short
 ```
 
-### Results
+### 结果
 
 - Pass: `26`
 - Fail: `0`
@@ -128,16 +128,16 @@ python3 -m pytest tests/test_astock_strategies.py -v --tb=short
 
 **Required corrections**: None
 
-## Risks and gaps
+## 风险与缺口
 
 1. **Python 3.9 test bypass**: Test file uses `importlib.util.spec_from_file_location` to avoid the full package init chain (which breaks on 3.9 due to `dict | str` syntax in `alpha_vantage_common.py`). On Python 3.10+, tests should import normally through the package.
 2. **No wire-up to training/optimization**: Strategies are manual-config only. No auto-parameter tuning or walk-forward optimization.
 3. **No multi-strategy portfolio**: Each strategy generates signals independently. BacktestEngine runs one strategy at a time. Future enhancement: strategy ensemble vote weighting.
 
-## Next-phase entry criteria
+## 下一 phase 进入条件
 
 Phase 14 is a standalone strategy expansion. No dependencies on subsequent phases. The next natural step would be Phase 15: strategy ensemble voting + portfolio allocation, or integration of strategies into the PaperTrader/BacktestEngine test fixtures.
 
-## Corrections
+## 修正记录
 
 _No corrections at time of writing._

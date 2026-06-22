@@ -1,6 +1,6 @@
 # Phase 27: 统一数据清洗层（DataCleaner）
 
-## Metadata
+## 元数据
 
 - Status: `implemented`
 - Implementation: `complete`
@@ -9,13 +9,13 @@
 - Git branch: `xg_dev`
 - Commits: `06930e7`, `44c1b52`
 
-## Objective
+## 目标
 
 全路径 NaN/Inf 清理，防止 JSON 序列化时产生无效 `NaN` token，确保 Flask jsonify 输出合法 JSON。
 
-## Scope
+## 范围
 
-### Included
+### 包含
 
 1. **`_coerce_float` 修复**（`adapters.py`）：
    - `float('nan')` → `None`
@@ -31,6 +31,6 @@
 4. **Import 优化**：
    - `import math` 移至文件顶部
 
-## Test Results
+## 测试结果
 
 A 股切片：全部通过。NaN 不再出现于 JSON 输出。

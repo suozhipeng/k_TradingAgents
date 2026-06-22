@@ -1,6 +1,6 @@
 # Phase 28: 新增 WebUI 数据源页面（5 页）
 
-## Metadata
+## 元数据
 
 - Status: `implemented`
 - Implementation: `complete`
@@ -9,13 +9,13 @@
 - Git branch: `xg_dev`
 - Commit SHA: `f87d6fa`
 
-## Objective
+## 目标
 
 新增 5 个数据源展示页面到 WebUI，覆盖龙虎榜、北向资金、动量决策、数据健康等。
 
-## Scope
+## 范围
 
-### Included
+### 包含
 
 1. **动量决策终端**（`momentum_dashboard.html`）
    - 龙头股动量实时看板
@@ -37,11 +37,11 @@
    - 数据源状态监控面板
    - 路由 `/data_health`
 
-### Excluded
+### 排除
 
 - 不新增后端 API（复用现有 data source adapter 层）
 - 不修改现有页面
 
-## Test Results
+## 测试结果
 
 WebUI 路由测试已覆盖全部 5 页：103 passed（含新增路由）

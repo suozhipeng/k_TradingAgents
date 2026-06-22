@@ -1,12 +1,17 @@
 # A 股二次定制开发基线
 
-|更新时间：2026-06-22 (All 21 phases + KLineChart + 动量轮动 + AI Agent + 筛选器 + WebUI 重构 + DataCleaner) |
+|更新时间：2026-06-23 (Phase 0-29 + KLineChart + 动量轮动 + AI Agent + 筛选器 + WebUI 重构 + DataCleaner + 专业边界设计) |
 
 本文档是 A 股二次定制开发的当前事实基线。后续 Hermes 调度、ECC
 验收和阶段推进优先以本文档为准。
 
 每个 Delivery Phase 的详细记录必须归档到
 `docs/phases/`。归档索引见 `docs/phases/README.md`。
+
+专业金融开发缺口、代码边界和 WebUI 重构设计见
+`docs/ASTOCK_BOUNDARY_AND_UI_REFACTOR_PLAN.md`。该设计明确：当前系统可用于
+投研分析、策略验证、模拟盘和受控执行试运行，但尚不等同于完整实盘
+生产交易系统。
 
 ## 1. 当前定位
 
@@ -89,15 +94,15 @@ Phase 11 执行层增加了额外的安全边界：
 | 18 | 策略扩展 + 参数优化器（3 新策略 + grid search + API + WebUI） | 完成 |
 | 19 | 绩效分析 + 数据刷新/缓存 + 测试重构（Chart.js + 全回归 739/739） | 完成 |
 | 20 | 策略对比 WebUI — compare API 增强（equity_curve/rank），多策略 Chart.js 叠加 | 完成 |
-|| 21 | 测试清噪与全仓回归稳定化 — 786 passed, 9 skipped, 0 failed, 0 errors | 完成 |
-|| 22 | KLineChart 全功能集成 — 替换 lightweight-charts, 27 技术指标, 17 画线工具, 6 周期切换, mootdx 分钟数据, NaN 序列化修复, TV Charting Library datafeed 准备 | 完成 |
-|| 23 | 龙头股动量轮动决策系统 — 标的池动态获取(东财优先), 动量轮动策略, Streamlit 独立看板, WebUI 集成 | 完成 |
-|| 24 | AI Agent 分析页面 — ai_agent.html 独立页面 | 完成 |
-|| 25 | 股票筛选器 + 板块轮动 — TradingView 风格筛选器, 板块热力图(ECharts treemap), 板块轮动页面(OpenStock 重构) | 完成 |
-|| 26 | WebUI 全平台重构 — 回测平台重构 + 交易主页报价联动 + Strategy Hub(三位一体策略控制台) + Sidebar 精简 + Research 专业量化终端 v2 + 数据防爆/科学计数法封杀 | 完成 |
-|| 27 | 统一数据清洗层 (DataCleaner) — 全路径 NaN→None 清理, _coerce_float 修复, _parse_financials 修复 | 完成 |
-|| 28 | 动量决策终端 / 动量轮动独立看板 / 龙虎榜 / 北向资金 / 数据健康页面 — 5 个新增 WebUI 页面 | 完成 |
-|| 29 | 专业交易页 — TradingView 风格交易控制台, 实时报价, 订单面板, KLineChart, 仓位管理, PaperTrader 桥接 | 完成 |
+| 21 | 测试清噪与全仓回归稳定化 — 786 passed, 9 skipped, 0 failed, 0 errors | 完成 |
+| 22 | KLineChart 全功能集成 — 替换 lightweight-charts, 27 技术指标, 17 画线工具, 6 周期切换, mootdx 分钟数据, NaN 序列化修复, TV Charting Library datafeed 准备 | 完成 |
+| 23 | 龙头股动量轮动决策系统 — 标的池动态获取(东财优先), 动量轮动策略, Streamlit 独立看板, WebUI 集成 | 完成 |
+| 24 | AI Agent 分析页面 — ai_agent.html 独立页面 | 完成 |
+| 25 | 股票筛选器 + 板块轮动 — TradingView 风格筛选器, 板块热力图(ECharts treemap), 板块轮动页面(OpenStock 重构) | 完成 |
+| 26 | WebUI 全平台重构 — 回测平台重构 + 交易主页报价联动 + Strategy Hub(三位一体策略控制台) + Sidebar 精简 + Research 专业量化终端 v2 + 数据防爆/科学计数法封杀 | 完成 |
+| 27 | 统一数据清洗层 (DataCleaner) — 全路径 NaN→None 清理, _coerce_float 修复, _parse_financials 修复 | 完成 |
+| 28 | 动量决策终端 / 动量轮动独立看板 / 龙虎榜 / 北向资金 / 数据健康页面 — 5 个新增 WebUI 页面 | 完成 |
+| 29 | 专业交易页 — TradingView 风格交易控制台, 实时报价, 订单面板, KLineChart, 仓位管理, PaperTrader 桥接 | 完成 |
 
 ## 4. 已完成能力
 
@@ -130,29 +135,44 @@ Phase 11 执行层增加了额外的安全边界：
 - **测试重构**：11 个测试文件消除 `__path__=[]` 假包污染，全仓回归 739/739
 - **运行脚本**：`run_webui.py`（`PORT=8080 python run_webui.py`）
 - **策略对比 WebUI**：多选策略同参数运行，排名表格 + Chart.js 净值曲线叠加 + 指标对比图（Phase 20）
-|- **全仓回归稳定化**：4 次连续全仓 pytest 一致通过 786/795（9 skipped），0 failed，0 errors（Phase 21）
-||- **风控仪表盘升级**：risk.html 从 61 行升级为 200+ 行专业风控中心（规则表、ATR 止损、集中度图、告警日志、拦截记录、风险指标 Cards）
-||- **报告中心升级**：reports.html 从 75 行升级为 200+ 行报告管理页面（多类型报告生成、历史列表、搜索过滤、下载中心、服务状态）
-||- **mootdx 验证通过**：mootdx 0.11.7 本地通达信连接已验证（600519.SH 实时 K 线），移除 blueprint TODO
-||- **iwencai 文档完善**：补充 iwencai cookie 获取步骤到 `docs/ASTOCK_LIVE_RESEARCH_SETUP.md`
-||- **KLineChart 全功能集成**：27 个技术指标（MA/EMA/BOLL/MACD/KDJ/RSI 等）、17 个画线工具、6 周期切换（1m/5m/30m/60m/日/周/月）、十字光标信息面板、实时更新
-||- **龙头股动量轮动系统**：标的池动态获取（东方财富优先）、动量轮动策略（多因子评分）、Streamlit + WebUI 双入口
-||- **AI Agent 分析页面**：独立 ai_agent.html 页面
-||- **股票筛选器**：TradingView 风格筛选面板，支持 RSI/MA/MACD 金叉死叉/成交量比等指标条件
-||- **板块轮动页面**：ECharts treemap 热力图 + 板块排行（涨跌幅/资金流）、OpenStock 重构
-||- **WebUI 全平台重构**：Strategy Hub（三位一体策略研究控制台：回测 + 绩效 + 对比）、Sidebar 导航精简去重（Backtest/Performance/Compare → Strategy Hub）、交易主页报价联动、Research 专业量化终端 v2（KLineChart + 工具条 + 指标栏 + 网格布局）、数据防爆 + 科学计数法封杀 + 红涨绿跌统一
-||- **统一数据清洗层 DataCleaner**：全路径 NaN→None 清理（routes_data/_coerce_float/_parse_financials）
-||- **动量决策终端**（momentum_dashboard.html）：龙头股动量实时看板
-||- **动量轮动独立看板**（momentum_rotation.html）：轮动策略独立页面
-||- **龙虎榜**（dragon_tiger.html）：个股主力资金追踪
-||- **北向资金**（northbound.html）：沪深股通资金流
-||- **数据健康页**（data_health.html）：数据源状态监控面板
-||- **WebUI 总页面数**：20 个活跃页面（templates/ 目录）
-||- **NaN 全路径防御**：adapters.py _coerce_float 修复、routes_data.py _clean_nan() 模块级防护、backtest 结果清洗
+- **全仓回归稳定化**：4 次连续全仓 pytest 一致通过 786/795（9 skipped），0 failed，0 errors（Phase 21）
+- **风控仪表盘升级**：risk.html 从 61 行升级为 200+ 行专业风控中心（规则表、ATR 止损、集中度图、告警日志、拦截记录、风险指标 Cards）
+- **报告中心升级**：reports.html 从 75 行升级为 200+ 行报告管理页面（多类型报告生成、历史列表、搜索过滤、下载中心、服务状态）
+- **mootdx 验证通过**：mootdx 0.11.7 本地通达信连接已验证（600519.SH 实时 K 线），移除 blueprint TODO
+- **iwencai 文档完善**：补充 iwencai cookie 获取步骤到 `docs/ASTOCK_LIVE_RESEARCH_SETUP.md`
+- **KLineChart 全功能集成**：27 个技术指标（MA/EMA/BOLL/MACD/KDJ/RSI 等）、17 个画线工具、6 周期切换（1m/5m/30m/60m/日/周/月）、十字光标信息面板、实时更新
+- **龙头股动量轮动系统**：标的池动态获取（东方财富优先）、动量轮动策略（多因子评分）、Streamlit + WebUI 双入口
+- **AI Agent 分析页面**：独立 ai_agent.html 页面
+- **股票筛选器**：TradingView 风格筛选面板，支持 RSI/MA/MACD 金叉死叉/成交量比等指标条件
+- **板块轮动页面**：ECharts treemap 热力图 + 板块排行（涨跌幅/资金流）、OpenStock 重构
+- **WebUI 全平台重构**：Strategy Hub（三位一体策略研究控制台：回测 + 绩效 + 对比）、Sidebar 导航精简去重（Backtest/Performance/Compare → Strategy Hub）、交易主页报价联动、Research 专业量化终端 v2（KLineChart + 工具条 + 指标栏 + 网格布局）、数据防爆 + 科学计数法封杀 + 红涨绿跌统一
+- **统一数据清洗层 DataCleaner**：全路径 NaN→None 清理（routes_data/_coerce_float/_parse_financials）
+- **动量决策终端**（momentum_dashboard.html）：龙头股动量实时看板
+- **动量轮动独立看板**（momentum_rotation.html）：轮动策略独立页面
+- **龙虎榜**（dragon_tiger.html）：个股主力资金追踪
+- **北向资金**（northbound.html）：沪深股通资金流
+- **数据健康页**（data_health.html）：数据源状态监控面板
+- **WebUI 总页面数**：20 个活跃页面（templates/ 目录）
+- **NaN 全路径防御**：adapters.py _coerce_float 修复、routes_data.py _clean_nan() 模块级防护、backtest 结果清洗
 
 ## 5. 当前缺口
 
-### P0 — 全部完成 ✅
+### 专业评审摘要（2026-06-23）
+
+从专业金融开发者角度看，当前系统仍需补齐以下闭环，才能从“实盘辅助分析/受控试运行”进入“实盘生产系统”口径：
+
+- 实盘账户、持仓、委托、成交、撤单、拒单、部分成交和券商回报 reconciliation。
+- kill switch、硬风控、权限控制、审计日志、异常恢复和运行监控。
+- 交易日历、停复牌、涨跌停、复权、除权除息、ST、退市和数据质量分级。
+- 回测反偏差：survivorship bias、look-ahead bias、未来函数、涨跌停不可成交、停牌不可成交。
+- 组合级风险：行业暴露、集中度、相关性、Beta、流动性、容量、VaR、压力测试和绩效归因。
+- Strategy Lab 模块整合：策略、回测、优化、绩效、对比、动量轮动统一注册和统一结果 schema。
+- AI Research Center 模块整合：AI Agent、研究报告、新闻/公告/研报解读、模型/prompt/数据快照审计统一。
+- Market Leaders 单入口：龙头动量、轮动回测、板块强弱、资金线索、候选池最多保留一个顶层入口。
+
+后续执行入口以 `docs/ASTOCK_BACKLOG.md` 中的 `BL-000`、`BL-100`、`BL-100A`、`BL-100B` 为优先。
+
+### 历史 P0 — 已完成 ✅
 
 - 真实 LLM 与确定性验证 LLM 已通过 `RuntimeProfile` 形成强制隔离，
   且 `live_research` 启动链已部署。
@@ -166,7 +186,7 @@ Phase 11 执行层增加了额外的安全边界：
   均正确生成，`actionable=False` / `execution_signal=ResearchOnly` / `decision_scope=research_only`
   保持不变。
 
-### P1 — 全部完成 ✅
+### 历史 P1 — 已完成 ✅
 
 - `planning/codebase/` 模块图已同步 Phase 9-11 交付内容（commit `ce38370`）。
 - Provider `live_verified` provenance 已修复：不再运行时合成假日期，使用
@@ -175,21 +195,21 @@ Phase 11 执行层增加了额外的安全边界：
   后端。WebUI 已实现 AStockGraphReport 报告查看器组件（commit `f218e84`）。
   两者保持独立代码库，不做全技术合并。
 
-### P2
+### 历史 P2 — 口径说明
 
 - “13 个接口”是原始材料口径；代码按五层拆成 18 个能力点。
   后续工程验收统一使用 18 个能力点，13 仅保留为来源说明。
   该事项已归档为后续规划参考，不在当前定制开发闭环范围内。
 
-## 6. 下一阶段入口条件
+## 6. 历史入口条件与验证记录
 
-Delivery Phase 10 实现开始前必须满足：
+以下为 Phase 10 启动前的历史入口条件，当前均已进入后续 phase 实现或归档，不再代表下一阶段入口：
 
 1. 完成 Trader → Risk → Portfolio agent 接线，使 ResearchConclusion 能
    自然流向后继 advisory 合约。已完成。
 2. 在 Python 3.10+ 环境中完成 A 股全回归（astock 回归 + 全仓回归）。
 3. 部署 `live_research` runtime profile 的可运行验证环境。
-   代码入口已完成；当前仍需在 Python 进程环境中注入真实 provider key。
+   代码入口已完成；后续 live_research 部署回归已验证目标切片。
 4. Phase 09 所有 advisory 输出保持 `actionable=false`、`execution_signal=ResearchOnly`。
 
 产品与开发规格已归档到
@@ -226,7 +246,7 @@ Delivery Phase 10 实现开始前必须满足：
 
 ## 7. 验收基线
 
-|2026-06-22 Phase 22-28 增量验收：
+2026-06-22 Phase 22-28 增量验收：
 
 ```bash
 source .venv/bin/activate && python -m pytest tests/test_astock_web.py tests/test_astock_api.py -q
@@ -249,8 +269,8 @@ source .venv/bin/activate && python -m pytest tests/test_astock_web.py tests/tes
 - 无需外部 API key、网络连接或特殊系统配置即可全仓运行
 
 | 验收项 | 结果 |
-||--------|------|
-|| WebUI + API 切片 (Phase 22-29 增量) | **150 passed, 0 failed, 0 errors** |
-|| A 股主链切片（9 文件） | **199 passed, 0 failed, 0 errors**（HEAD `7b7efef`） |
-|| 失败分桶 | 无 — 0 failed |
-|| 污染类缺陷 | 无（已消除 `__path__=[]` 假包、API key placeholder、`ASTOCK_TESTING=1`） |
+|--------|------|
+| WebUI + API 切片 (Phase 22-29 增量) | **150 passed, 0 failed, 0 errors** |
+| A 股主链切片（9 文件） | **199 passed, 0 failed, 0 errors**（HEAD `7b7efef`） |
+| 失败分桶 | 无 — 0 failed |
+| 污染类缺陷 | 无（已消除 `__path__=[]` 假包、API key placeholder、`ASTOCK_TESTING=1`） |

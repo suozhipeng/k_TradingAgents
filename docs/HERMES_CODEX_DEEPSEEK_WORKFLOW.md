@@ -1,154 +1,131 @@
-# Hermes, Codex, DeepSeek Workflow
+# Hermes / Codex / DeepSeek 协作流程
 
-This document defines the operating contract for this repository when Hermes,
-Codex, and DeepSeek collaborate on phased delivery.
+本文档定义本仓库中 Hermes、Codex、DeepSeek 协作进行 phase delivery 时的操作契约。
 
-## Goal
+## 1. 目标
 
-Use one controller, one coder, and one reviewer:
+使用一个 controller、一个 coder、一个 reviewer：
 
-- `Hermes`: project manager, dispatcher, and phase owner
-- `DeepSeek`: code implementation worker
-- `Codex`: independent review, correction, and acceptance gate
+- `Hermes`：项目经理、任务分派器、phase owner。
+- `DeepSeek`：代码实现 worker。
+- `Codex`：独立 review、纠偏和验收 gate。
 
-This separation is mandatory for non-trivial project work. The same agent must
-not both implement and self-accept a phase conclusion without an explicit
-Codex review pass.
+非平凡项目工作必须保持该角色分离。同一个 agent 不能在没有 Codex review 的情况下同时实现并自我验收 phase 结论。
 
-## Role boundaries
+## 2. 角色边界
 
 ### Hermes
 
-Hermes owns:
+Hermes 负责：
 
-- phase selection and sequencing
-- task decomposition
-- scope and out-of-scope boundary
-- assignment to repo-local skills
-- progress tracking and next-step scheduling
-- packaging the coding brief for DeepSeek
-- collecting changed files, test evidence, and open risks
-- applying narrow factual doc corrections when no code/test/product conclusion
-  changes are involved
-- updating durable phase artifacts after Codex acceptance
+- phase 选择和排序。
+- 任务拆解。
+- scope / out-of-scope 边界。
+- 分派 repo-local skills。
+- 进度跟踪和下一步调度。
+- 为 DeepSeek 打包 coding brief。
+- 收集修改文件、测试证据和开放风险。
+- 在不涉及代码、测试、产品结论变化时，应用狭义事实性文档修正。
+- Codex accept 后更新持久化 phase artifacts。
 
-Hermes must not:
+Hermes 不得：
 
-- skip the ECC review gate for meaningful code changes
-- mark a phase complete from chat-only confidence
-- reopen a later phase while the current phase still has blocking review gaps
+- 对有意义的代码变更跳过 ECC review gate。
+- 仅凭聊天信心把 phase 标记为 complete。
+- 当前 phase 仍有阻塞 review gap 时开启后续 phase。
 
 ### DeepSeek
 
-DeepSeek owns:
+DeepSeek 负责：
 
-- code edits inside the current Hermes phase boundary
-- local implementation notes
-- returning exact changed files
-- returning commands run and raw pass/fail outcomes
-- surfacing uncertainty instead of silently widening scope
+- 在当前 Hermes phase 边界内修改代码。
+- 记录本地实现说明。
+- 返回精确修改文件。
+- 返回已运行命令和原始 pass/fail 结果。
+- 主动暴露不确定性，而不是静默扩大 scope。
 
-DeepSeek must not:
+DeepSeek 不得：
 
-- redefine the product boundary
-- claim phase completion without test evidence
-- bypass Codex review by treating self-tests as final acceptance
+- 重新定义产品边界。
+- 没有测试证据就声称 phase 完成。
+- 用自测结果绕过 Codex review。
 
 ### Codex
 
-Codex owns:
+Codex 负责：
 
-- validating the Hermes task split before or during implementation
-- checking whether the coding plan matches the active phase
-- reviewing changed files and claimed conclusions
-- judging whether tests are sufficient for the changed surface
-- detecting scope drift, unsupported assumptions, and documentation mismatch
-- issuing `accept`, `partial`, or `fail`
-- forcing rework when the implementation evidence does not support the claim
+- 验证 Hermes 任务拆解是否合理。
+- 检查 coding plan 是否匹配 active phase。
+- 审查修改文件和声称结论。
+- 判断测试是否覆盖本次触达面。
+- 发现 scope drift、无证据假设和文档不一致。
+- 给出 `accept`、`partial` 或 `fail`。
+- 当实现证据无法支撑结论时要求返工。
 
-Codex should prioritize:
+Codex 优先级：
 
-1. blocking bug or incorrect conclusion
-2. scope drift or product-boundary violation
-3. missing regression coverage
-4. documentation drift
+1. 阻塞 bug 或错误结论。
+2. scope drift 或产品边界违规。
+3. 缺少回归覆盖。
+4. 文档漂移。
 
-## Required execution loop
+## 3. 必需执行循环
 
-1. Hermes selects the phase and loads the relevant skills.
-   For cross-phase A-share work, start with `astock-rollout-orchestrator`.
-2. Hermes writes a coding brief for DeepSeek.
-   The brief must include:
-   - objective
-   - included scope
-   - excluded scope
-   - exact target files or module area
-   - tests to run
-   - acceptance criteria
-   - required docs updates
-3. DeepSeek implements only the scoped work and returns:
-   - changed files
-   - key behavior changes
-   - tests run
-   - pass/fail/skip results
-   - open risks and assumptions
-4. Codex performs the review gate using `ecc-readonly-review` or
-   `ecc-self-test`, depending on whether the acceptance is static or
-   execution-based.
-5. If Codex returns `partial` or `fail`, Hermes must create a correction brief
-   and send it back to DeepSeek.
-6. Only after Codex returns `accept` may Hermes:
-   - update `docs/phases/`
-   - update `docs/phases/README.md`
-   - update `docs/ASTOCK_CURRENT_STATUS.md` if repo status changed
-   - commit the approved changes to the Git repository
-   - record the final commit SHA
+1. Hermes 选择 phase 并加载相关 skills。跨 phase 的 A 股工作先加载 `tradingagents-core` 和 `astock-rollout-orchestrator`。
+2. Hermes 为 DeepSeek 编写 coding brief。brief 必须包含目标、包含范围、排除范围、目标文件或模块、测试命令、验收标准和文档更新项。
+3. DeepSeek 只实现 scoped work，并返回修改文件、关键行为变化、测试结果、开放风险和假设。
+4. Codex 使用 `ecc-readonly-review` 或 `ecc-self-test` 执行 review gate。
+5. 如果 Codex 返回 `partial` 或 `fail`，Hermes 必须生成 correction brief 并交回 DeepSeek。
+6. 只有 Codex 返回 `accept` 后，Hermes 才能更新 `docs/phases/`、`docs/phases/README.md`、`docs/ASTOCK_CURRENT_STATUS.md`，提交通过 review 的变更，并记录最终 commit SHA。
 
-## Fallback review gate
+## 4. skill 加载规则
 
-Codex remains the default reviewer. If Codex is unavailable in the current
-environment, Hermes may perform the acceptance review itself only under all of
-the following conditions:
+默认规则：
 
-- the blocking reason is concrete and external, such as auth failure, service
-  outage, repeated timeout, or explicit operator instruction to proceed
-- Hermes records that fallback review was used and why Codex was unavailable
-- Hermes applies the same ECC acceptance criteria it would have requested from
-  Codex: correctness, drift, regression coverage, and documentation alignment
-- Hermes does not fabricate a Codex verdict
+- 项目梳理、模块边界、WebUI 重构、策略、回测、风控、数据链路相关任务必须加载 `tradingagents-core`。
+- provider 交付使用 `astock-provider-delivery`。
+- interface / tools / analyst 接线使用 `astock-analyst-delivery`。
+- phase 控制使用 `astock-rollout-orchestrator`。
+- 静态 review 使用 `ecc-readonly-review`。
+- 回归执行使用 `ecc-self-test`。
 
-In fallback mode, Hermes should emit a verdict in the same shape:
+涉及策略开发时必须同步参考 `docs/ASTOCK_STRATEGY_DEVELOPMENT_GUIDE.md`。
+
+## 5. fallback review gate
+
+Codex 是默认 reviewer。如果当前环境中 Codex 不可用，Hermes 只有在满足以下全部条件时才能自行执行 acceptance review：
+
+- 阻塞原因明确且外部化，例如认证失败、服务不可用、重复超时或用户明确要求继续。
+- Hermes 记录 fallback review 被使用，以及 Codex 不可用的原因。
+- Hermes 使用与 Codex 相同的 ECC 验收标准：正确性、漂移、回归覆盖、文档一致性。
+- Hermes 不伪造 Codex verdict。
+
+fallback 模式下，Hermes 可以输出同形态 verdict：
 
 - `accept`
 - `partial`
 - `fail`
 
-and label it clearly as `Hermes fallback review`, not `Codex accept`.
+但必须明确标记为 `Hermes fallback review`，不能写成 `Codex accept`。
 
-### Narrow Hermes-only exception
+### 狭义 Hermes-only 例外
 
-Hermes may directly apply a doc-only factual correction before `Codex accept`
-when all of the following are true:
+当以下条件全部满足时，Hermes 可以在 Codex accept 前直接应用文档事实修正：
 
-- no Python source or tests change
-- no product boundary, acceptance conclusion, or status taxonomy changes
-- the edit only reconciles already-confirmed facts, such as:
-  - filling in a known commit SHA
-  - correcting a date, filename, or command reference
-  - fixing an archive field that is objectively inconsistent with `git log`
+- 不修改 Python source 或测试。
+- 不改变产品边界、验收结论或状态 taxonomy。
+- 只修正已确认事实，例如 commit SHA、日期、文件名、命令引用、与 `git log` 客观不一致的归档字段。
 
-This exception does not allow Hermes to:
+该例外不允许 Hermes：
 
-- mark a phase complete
-- add or imply a Codex `accept` verdict
-- change `docs/phases/README.md` status vocabulary
-- alter product decisions, scope, or acceptance criteria
+- 把 phase 标记为 complete。
+- 增加或暗示 Codex `accept` verdict。
+- 改变 `docs/phases/README.md` 的状态语义。
+- 修改产品决策、scope 或验收标准。
 
-If a requested doc update goes beyond factual reconciliation, return to the
-normal `Hermes -> DeepSeek -> Codex` loop, or `Hermes -> DeepSeek -> Hermes
-fallback review` only when the fallback conditions above are met.
+如果文档更新超出事实对齐范围，必须回到正常 `Hermes -> DeepSeek -> Codex` 循环；只有满足 fallback 条件时才允许 `Hermes -> DeepSeek -> Hermes fallback review`。
 
-The executable helper for the final step is:
+最终提交辅助命令：
 
 ```bash
 python3 scripts/hermes_codex_git_gate.py \
@@ -157,122 +134,106 @@ python3 scripts/hermes_codex_git_gate.py \
   path/to/file1 path/to/file2
 ```
 
-## Codex review gate
+## 6. Codex review gate
 
-Codex review is required when any of the following is true:
+以下任一条件成立时必须执行 Codex review：
 
-- Python source changed
-- tests changed
-- docs claim a phase result is complete
-- a phase archive is being updated
-- a runtime or schema contract changed
-- a provider or execution boundary changed
+- Python source 发生变化。
+- 测试发生变化。
+- docs 声称某个 phase 结果已完成。
+- phase archive 被更新。
+- runtime 或 schema contract 发生变化。
+- provider 或 execution 边界发生变化。
 
-Codex must produce a compact verdict with:
+Codex 必须输出紧凑 verdict：
 
-- what was checked
-- result: `accept`, `partial`, or `fail`
-- evidence
-- open risks
-- next required step
+- 检查范围。
+- 结论：`accept`、`partial` 或 `fail`。
+- 证据。
+- 开放风险。
+- 下一步。
 
-If Codex is unavailable and Hermes fallback review is used instead, Hermes
-must produce the same output shape and include one extra line:
+如果 Codex 不可用并使用 Hermes fallback review，Hermes 必须输出相同结构，并额外写明 fallback reason。
 
-- fallback reason
-
-## Handoff format
+## 7. handoff 格式
 
 ### Hermes -> DeepSeek
 
 ```text
-Phase:
-Objective:
-Included scope:
-Excluded scope:
-Files/modules:
-Tests to run:
-Acceptance criteria:
-Docs to update:
-Return format:
+Phase：
+目标：
+包含范围：
+排除范围：
+文件 / 模块：
+需要运行的测试：
+验收标准：
+需要更新的文档：
+返回格式：
 ```
 
 ### DeepSeek -> Codex
 
 ```text
-Changed files:
-Behavior summary:
-Tests run:
-Results:
-Open risks:
-Assumptions:
+已修改文件：
+行为摘要：
+已运行测试：
+结果：
+开放风险：
+假设：
 ```
 
 ### Codex -> Hermes
 
 ```text
-Review scope:
-Verdict: accept | partial | fail
-Evidence:
-Drift or defects:
-Required corrections:
+Review 范围：
+结论：accept | partial | fail
+证据：
+漂移或缺陷：
+必须修正项：
 ```
 
-## Direct Hermes command pattern
+## 8. Hermes 命令模式
 
-Hermes is installed on this machine and currently reports:
-
-- provider: `DeepSeek`
-- model: `deepseek-v4-flash`
-
-Recommended command shape for this repo:
+本仓库推荐命令形态：
 
 ```bash
-hermes chat -q "Phase objective here. Follow AGENTS.md and docs/HERMES_CODEX_DEEPSEEK_WORKFLOW.md. Use astock-rollout-orchestrator for phase control, use DeepSeek for coding, and prepare output for Codex review before phase acceptance." \
-  --skills astock-rollout-orchestrator,ecc-readonly-review
+hermes chat -q "Phase objective here. Follow AGENTS.md and docs/HERMES_CODEX_DEEPSEEK_WORKFLOW.md. Load tradingagents-core first. Use astock-rollout-orchestrator for phase control, use DeepSeek for coding, and prepare output for Codex review before phase acceptance." \
+  --skills tradingagents-core,astock-rollout-orchestrator,ecc-readonly-review
 ```
 
-When the task is implementation-heavy and requires regression execution:
+实现任务较重且需要回归时：
 
 ```bash
-hermes chat -q "Implement the scoped phase work only. Follow AGENTS.md and docs/HERMES_CODEX_DEEPSEEK_WORKFLOW.md. Return changed files, tests, risks, and unresolved assumptions for Codex review." \
-  --skills astock-rollout-orchestrator,ecc-self-test
+hermes chat -q "Implement the scoped phase work only. Follow AGENTS.md and docs/HERMES_CODEX_DEEPSEEK_WORKFLOW.md. Load tradingagents-core first. Return changed files, tests, risks, and unresolved assumptions for Codex review." \
+  --skills tradingagents-core,astock-rollout-orchestrator,ecc-self-test
 ```
 
-## Semi-automatic phase loop
+## 9. 半自动 phase loop
 
-For this repository, the preferred low-touch driver is:
+本仓库推荐低触达 driver：
 
 ```bash
 scripts/hermes_phase_loop.sh --mode continue
 ```
 
-Use it when you want Hermes to keep the current phase moving forward without
-rewriting the control prompt every time. The script runs Hermes in one-shot
-project-manager mode and forces one terminal state:
+适用场景：希望 Hermes 持续推进当前 phase，而不是每次重写 control prompt。脚本以 one-shot project-manager 模式运行 Hermes，并强制输出一个终态：
 
 - `PHASE_ADVANCED`
 - `BLOCKED_ON_CODEX`
 - `BLOCKED_ON_HUMAN_INPUT`
 - `BLOCKED_ON_ENVIRONMENT`
 
-The script also writes durable state into repo-local `.hermes/` so Codex and
-the user can consume the latest gate without reading cron stderr only:
+脚本会把持久化状态写入 `.hermes/`：
 
-- `.hermes/phase_loop_latest.txt`: latest full Hermes output
-- `.hermes/phase_loop_status.env`: latest terminal status and timestamp
-- `.hermes/codex_review_request.md`: latest Codex review packet when blocked on review
-- `.hermes/human_input_request.md`: latest human/environment request when blocked
-- `.hermes/runs/*.txt`: timestamped execution history
+- `.hermes/phase_loop_latest.txt`：最近一次完整 Hermes 输出。
+- `.hermes/phase_loop_status.env`：最近终态和时间戳。
+- `.hermes/codex_review_request.md`：阻塞在 review gate 时的 Codex review packet。
+- `.hermes/human_input_request.md`：阻塞在人类输入或环境问题时的请求。
+- `.hermes/runs/*.txt`：带时间戳的执行历史。
 
-When all numbered phases are already complete, the phase loop must
-automatically switch into backlog / maintenance mode instead of stopping
-simply because no `Phase 12` exists yet. In that mode, Hermes should continue
-from the highest-priority documented gap in `docs/ASTOCK_CURRENT_STATUS.md`,
-then from uncommitted or unpushed accepted work, and only then ask for a human
-decision.
+当所有编号 phase 已完成时，phase loop 必须自动进入 backlog / maintenance 模式，而不是因为不存在下一个 phase 就停止。此时 Hermes 应先处理 `docs/ASTOCK_CURRENT_STATUS.md` 中最高优先级 gap，再处理未提交或未推送的 accepted work，最后才请求人类决策。
 
-Recommended cron job:
+推荐 cron：
 
 ```bash
 hermes cron create \
@@ -282,43 +243,32 @@ hermes cron create \
   "every 30m"
 ```
 
-This keeps Hermes advancing the active phase until it reaches a real gate. When
-the terminal state is `BLOCKED_ON_CODEX`, hand the review packet to Codex
-unless the repo rules or operator instruction allow Hermes fallback review in
-the current environment. When the state is `BLOCKED_ON_HUMAN_INPUT` or
-`BLOCKED_ON_ENVIRONMENT`, only then is human intervention required.
+终态为 `BLOCKED_ON_CODEX` 时，把 review packet 交给 Codex。终态为 `BLOCKED_ON_HUMAN_INPUT` 或 `BLOCKED_ON_ENVIRONMENT` 时，才需要人类介入。
 
-## Repo-specific rules
+## 10. 仓库规则
 
-- The canonical phase archive remains `docs/phases/`.
-- `docs/HERMES_SKILLS_PLAYBOOK.md` remains the top-level skill dispatch
-  contract.
-- `docs/ASTOCK_CURRENT_STATUS.md` remains the current factual repo baseline.
-- A phase may not be closed on DeepSeek output alone.
-- A phase may not be closed on Hermes narration alone.
-- Codex review evidence is part of the default acceptance path, not an
-  optional extra.
-- If Codex is unavailable, Hermes fallback review is allowed only under the
-  explicit fallback gate above and must be labeled as such.
-- Hermes may directly apply doc-only factual reconciliations before acceptance
-  only under the narrow exception above.
-- After Codex accepts a committable change set with no blocking issues, Hermes
-  must create the Git commit before handoff.
-- Use `scripts/hermes_codex_git_gate.py` when you want the Codex-accept ->
-  Git-commit rule enforced by an executable gate instead of chat discipline.
+- `docs/phases/` 是 canonical phase archive。
+- `docs/HERMES_SKILLS_PLAYBOOK.md` 是顶层 skill dispatch contract。
+- `docs/ASTOCK_CURRENT_STATUS.md` 是当前事实基线。
+- `docs/ASTOCK_STRATEGY_DEVELOPMENT_GUIDE.md` 是策略开发规范。
+- `docs/hermes/` 只保存可复用模板，不保存运行态。
+- `docs/verification_provenance/` 保存 live provider 验证溯源。
+- phase 不能只基于 DeepSeek 输出关闭。
+- phase 不能只基于 Hermes narration 关闭。
+- Codex review evidence 是默认验收路径的一部分，不是 optional extra。
+- 如果 Codex 不可用，Hermes fallback review 必须满足上面的 fallback gate 并明确标注。
+- Codex accept 可提交变更后，Hermes 必须在 handoff 前创建 Git commit。
+- 原 TradingAgents 底层 AI 分析核心默认保留，不在 A 股功能重构中主动修改。
 
-## Correction policy
+## 11. 纠偏策略
 
-If Codex rejects the current result, Hermes must explicitly state:
+如果 Codex 拒绝当前结果，Hermes 必须明确说明：
 
-- which conclusion was unsupported
-- which files or tests were insufficient
-- whether the issue is scope drift, missing implementation, or weak evidence
-- what exact correction DeepSeek must make next
+- 哪个结论没有证据支撑。
+- 哪些文件或测试不足。
+- 问题属于 scope drift、缺少实现还是证据弱。
+- DeepSeek 下一步必须做什么修正。
 
-Pure doc-only factual reconciliation remains the only exception: when the fix
-does not change code, tests, product meaning, or acceptance status, Hermes may
-apply it directly and then return to Codex for review of the corrected record.
+只有纯文档事实对齐属于例外：如果修正不改变代码、测试、产品含义或验收状态，Hermes 可以直接应用，并随后把修正后的记录交回 Codex review。
 
-Do not continue to the next phase until the rejected issue is either corrected
-or explicitly re-scoped by the human owner.
+被拒绝的问题修正前，不要进入下一个 phase，除非 human owner 明确重新定义 scope。

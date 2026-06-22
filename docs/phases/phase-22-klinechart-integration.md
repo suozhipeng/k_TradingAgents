@@ -1,6 +1,6 @@
 # Phase 22: KLineChart 全功能集成 + 全站优化
 
-## Metadata
+## 元数据
 
 - Status: `implemented`
 - Implementation: `complete`
@@ -9,7 +9,7 @@
 - Git branch: `xg_dev`
 - Commits: `a0eb186`, `6a7cece`, `c94f8cd`, `23592c0`, `d049640`, `4297327`, `4007301`, `fb2d16b`, `624f088`, `f355a89`, `ad5f530`, `44c1b52`
 
-## 范围 Scope
+## 范围
 
 将 Research 页 K 线图从 lightweight-charts 迁移至 KLineChart，增加完整的技术指标和画线工具。同时修复全站 NaN JSON 序列化问题和多项 UI 缺陷。
 
@@ -60,7 +60,7 @@
 - KC Chart 独立页: `http://localhost:8080/kc_chart?symbol=600519.SH`
 - TV Pro 页（需 Charting Library 文件）: `http://localhost:8080/tv_chart?symbol=600519.SH`
 
-## 排除项 Out of Scope
+## 排除项
 
 - TradingView Charting Library 文件未下载（需用户从官网申请）
 - iwencai 语义搜索凭未配置
@@ -74,7 +74,7 @@
 | mootdx 分钟数据网络延迟 | 中 | 异步加载，超时 60s，失败不影响日线展示 |
 | Charting Library 后续集成 | 低 | Datafeed 适配器已就绪，只需放置文件 |
 
-## 下阶段准入条件 Next Entry Criteria
+## 下阶段准入条件
 
 1. TradingView Charting Library 文件下载就位
 2. 或确认 KLineChart 已满足全部需求，关闭方案 B

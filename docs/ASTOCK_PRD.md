@@ -144,7 +144,7 @@
 
 ## 7. 当前产品状态
 
-当前仓库已正式归档到 `Phase 21`，大部分产品能力已落地，包括：
+当前仓库已正式归档到 `Phase 29`，大部分产品能力已落地，包括：
 
 - 研究链
 - advisory 链
@@ -154,13 +154,38 @@
 - WebUI
 - 策略优化与绩效分析
 - 全仓回归稳定化
+- KLineChart、筛选器、板块/资金页面、动量轮动、AI Agent、专业交易页
 
 ## 8. 当前产品缺口
 
 - QMT 在 provider 口径上的能力定义仍不完全收口
-- trade quote / trade state 仍有 mock 成分
-- 专业交易页已进入代码，但尚未形成新的 phase 产品归档
+- trade state 属于 Paper Trading 路径，不代表真实账户状态
+- 实盘账户、订单、成交、撤单、拒单、部分成交和券商回报 reconciliation 尚未闭环
+- 策略、回测、优化、绩效、策略对比、动量轮动需要收敛为统一 Strategy Lab
+- AI Agent、研究报告、新闻/公告/研报解读需要收敛为统一 AI Research Center
+- 龙头相关入口需要收敛为一个顶层入口，内部用顶部 tab 切换动量、轮动、板块、资金线索和候选池
+- 数据质量、回测反偏差、组合级风控和审计链路仍需加强
 - 部分“模块已存在”和“产品能力完整”之间仍有差距
+
+## 8.1 实盘分析判断
+
+当前新功能可以支撑实盘前研究、盘中辅助观察、策略验证和受控执行试运行，但不应定义为完整实盘生产交易系统。
+
+可用于实盘辅助分析的能力：
+
+- 实时/准实时行情与 K 线展示
+- 新闻、公告、研报、F10、估值等多源数据辅助
+- AI research/advisory chain
+- 策略回测、优化、绩效和模拟盘验证
+- QMT managed mode / safety mode 的受控执行雏形
+
+进入完整实盘生产前仍需补齐：
+
+- 实盘账户、订单、成交和券商回报闭环
+- kill switch、硬风控、权限、审计和异常恢复
+- 数据质量分级、数据快照和可追溯 provenance
+- 回测反偏差、out-of-sample、walk-forward 和过拟合检测
+- 组合级风险、容量、流动性和绩效归因
 
 ## 9. 成功标准
 
@@ -168,10 +193,12 @@
 - 默认路径不触发自动实盘
 - WebUI/CLI/viewer 角色清晰
 - 回归稳定，产品迭代后可复验
+- 所有页面明确标注 research / paper / managed / live-ready 能力边界
 
 ## 10. 关联文档
 
 - `docs/ASTOCK_REQUIREMENTS.md`
 - `docs/ASTOCK_TECH_REQUIREMENTS.md`
 - `docs/ASTOCK_BACKLOG.md`
+- `docs/ASTOCK_BOUNDARY_AND_UI_REFACTOR_PLAN.md`
 - `docs/ASTOCK_CURRENT_STATUS.md`

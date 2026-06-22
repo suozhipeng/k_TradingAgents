@@ -10,6 +10,26 @@
 
 ## 2. P0
 
+### BL-000 建立实盘准入清单
+
+现状：
+
+- 当前系统已经能支撑投研分析、回测、模拟盘和 QMT 受控执行
+- 但专业金融系统的实盘生产闭环仍缺账户/订单/成交 reconciliation、审计、kill switch、数据质量和组合级风控门槛
+
+目标：
+
+- 建立 `Live Trading Readiness` checklist
+- 明确哪些能力属于 `research`、`paper`、`managed`、`live-ready`
+- 把实盘准入条件写入状态文档、技术文档和 phase 归档
+
+完成标准：
+
+- 有账户资产、持仓、委托、成交、撤单、拒单、部分成交、券商回报的状态模型要求
+- 有 kill switch、最大亏损、最大仓位、最大单笔金额、交易时段、手工确认的硬约束
+- 有审计要求：数据快照、AI prompt、模型版本、人工确认、订单回报全链路可追溯
+- 文档明确当前系统“可实盘辅助分析”，但“不等于完整自动实盘生产系统”
+
 ### BL-001 统一 QMT 能力边界
 
 现状：
@@ -78,6 +98,67 @@
 
 ## 3. P1
 
+### BL-100 Strategy Lab 模块整合
+
+现状：
+
+- 策略、回测、批量回测、优化、绩效、策略对比、动量轮动均已有实现
+- 当前能力分散在 execution、API、WebUI 和独立动量入口中
+- `docs/ASTOCK_STRATEGY_DEVELOPMENT_GUIDE.md` 已固化策略生命周期、注册点、复合评分和常见陷阱
+
+目标：
+
+- 将策略模块和回测能力统一到一个 Strategy Lab 产品/工程边界
+- 统一策略注册、参数 schema、结果 schema、成本模型、风控约束和绩效归因
+
+完成标准：
+
+- 有 `phase-30-strategy-lab-consolidation.md` 归档
+- 所有策略均可通过统一 registry 描述参数和适用场景
+- 单标的策略符合 `StrategyBase -> generate_signals` 规范
+- 动量轮动等组合策略明确使用 Standalone 模式或 StrategyBase 兼容模式
+- `_STRATEGY_REGISTRY`、`AVAILABLE_STRATEGIES` 和包级导出不再各自漂移
+- Backtest / Optimize / Compare / Performance / Momentum Rotation 在产品侧属于同一模块
+- 旧入口有明确兼容策略或迁移计划
+
+### BL-100A AI Research Center 模块整合
+
+现状：
+
+- AI Agent 页面、A 股 research runtime、报告中心、研究页面均已存在
+- AI 分析的上下文、prompt、模型、引用、报告归档和人工确认状态尚未统一
+
+目标：
+
+- 将 AI Agent、A 股研究报告、新闻/公告/研报解读、策略解释整合为 AI Research Center
+- 保持所有 AI 输出默认 advisory，不直接触发真实交易
+
+完成标准：
+
+- 有 `phase-31-ai-research-center.md` 归档
+- AI 任务记录模型、prompt、输入数据快照、引用来源、生成时间和人工确认状态
+- AI Research Center 可以调用行情、财务、公告、新闻、研报、策略结果和持仓风险作为上下文
+- 报告中心统一管理 Markdown/JSON/PPT/Web report
+
+### BL-100B 龙头相关单入口
+
+现状：
+
+- 龙头动量总览、动量轮动、龙虎榜、北向资金、板块页面已经存在
+- 入口分散，用户会把龙头、板块、资金和动量策略理解成不同产品线
+
+目标：
+
+- 顶层最多保留一个龙头相关入口
+- 在该入口内部用顶部 tab 切换不同子板块
+
+完成标准：
+
+- 有 `phase-32-market-leaders-entry.md` 归档
+- 顶层导航只出现一个 `Market Leaders` / `龙头决策` 入口
+- 内部 tab 至少覆盖：动量总览、轮动回测、板块强弱、资金线索、候选池
+- 旧的 `momentum_dashboard`、`momentum_rotation`、`dragon_tiger`、`northbound`、`sectors` 有兼容跳转或明确降级策略
+
 ### BL-101 明确专业交易页的产品定位
 
 候选定位：
@@ -118,6 +199,14 @@
 
 - 在 API、页面、状态文档里显式标注 mock / paper / real / managed
 
+### BL-105 数据质量与回测反偏差
+
+目标：
+
+- 建立交易日历、停复牌、涨跌停、复权、除权除息、ST、退市和 survivorship bias 的处理要求
+- 明确回测禁止 look-ahead bias 和未来函数
+- 为行情、财务、公告、新闻、研报建立数据质量分级和 provenance 记录
+
 ## 4. P2
 
 ### BL-201 补更清晰的模块需求追踪矩阵
@@ -144,17 +233,28 @@
 
 - 把真实执行前置条件写成 checklist，而不是散落在 phase 文档中
 
+### BL-205 组合级风险与绩效归因
+
+目标：
+
+- 增加行业暴露、个股集中度、相关性、Beta、流动性、换手、VaR、压力测试和回撤归因要求
+- 将单股/单策略分析升级为组合级投资工作台能力
+
 ## 5. 建议执行顺序
 
-1. `BL-001` 统一 QMT 能力边界
-2. `BL-002` 修正 `qmt/orders` 语义
-3. `BL-004` 为交易页建立正式归档 — ✅ 已完成
-4. `BL-101` 明确交易页定位 — ✅ 已完成（三模式共存）
-5. `BL-103` 收敛 phase 归档一致性
+1. `BL-000` 建立实盘准入清单
+2. `BL-001` 统一 QMT 能力边界
+3. `BL-002` 修正 `qmt/orders` 语义
+4. `BL-100` Strategy Lab 模块整合
+5. `BL-100A` AI Research Center 模块整合
+6. `BL-100B` 龙头相关单入口
+7. `BL-105` 数据质量与回测反偏差
+8. `BL-103` 收敛 phase 归档一致性
 
 ## 6. 关联文档
 
 - `docs/ASTOCK_REQUIREMENTS.md`
 - `docs/ASTOCK_PRD.md`
 - `docs/ASTOCK_TECH_REQUIREMENTS.md`
+- `docs/ASTOCK_BOUNDARY_AND_UI_REFACTOR_PLAN.md`
 - `docs/ASTOCK_CURRENT_STATUS.md`

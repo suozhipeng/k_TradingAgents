@@ -19,6 +19,7 @@
 - `docs/ASTOCK_PRD.md`：产品需求 PRD
 - `docs/ASTOCK_TECH_REQUIREMENTS.md`：技术需求与模块拆解
 - `docs/ASTOCK_BACKLOG.md`：待开发 backlog
+- `docs/ASTOCK_BOUNDARY_AND_UI_REFACTOR_PLAN.md`：专业金融缺口、文档/代码/WebUI 边界与设计图
 
 ## 2. 项目目标
 
@@ -30,7 +31,7 @@
 
 ## 3. 产品边界
 
-### 3.1 In Scope
+### 3.1 范围内
 
 - A 股五层数据能力
 - 多 Agent 研究链路
@@ -44,7 +45,7 @@
 - CLI 交互入口
 - 策略优化、绩效分析、策略对比
 
-### 3.2 Out of Scope
+### 3.2 范围外
 
 - 默认自动实盘
 - 无人工确认的真实交易放开
@@ -235,9 +236,9 @@ A 股研究与执行链必须遵守：
 
 截至当前仓库状态：
 
-- 正式归档已执行到 `Phase 21`
-- `Phase 0-21` 已在 `docs/ASTOCK_CURRENT_STATUS.md` 中标记完成
-- 全仓回归基线为 `786 passed, 9 skipped, 0 failed, 0 errors`
+- 正式归档已执行到 `Phase 29`
+- `Phase 0-29` 已在 `docs/ASTOCK_CURRENT_STATUS.md` 与 `docs/phases/README.md` 中标记完成
+- 当前专业评审口径以 `docs/ASTOCK_BOUNDARY_AND_UI_REFACTOR_PLAN.md` 为准：已完成能力不等同于完整实盘生产能力
 
 当前已大面积落地的需求：
 
@@ -252,6 +253,7 @@ A 股研究与执行链必须遵守：
 - 策略优化与绩效分析
 - 策略对比
 - 回归稳定化
+- KLineChart、AI Agent、筛选器、板块/资金页面、动量轮动、专业交易页
 
 ## 9. 当前未完全闭环项
 
@@ -260,18 +262,21 @@ A 股研究与执行链必须遵守：
 - QMT 作为五层 provider 的完整能力口径仍未完全收口
 - QMT fundamentals 仍是占位/不提供
 - `/api/v1/qmt/orders` 仍是 mock/read-only 响应
-- `/api/v1/trade/quote` 当前是 synthetic mock quote
-- `/api/v1/trade/state` 当前基于 `PaperTrader` + mock price 估值
-- `trading.html` 专业交易页已进入代码，但尚未形成新的 phase 归档
+- `/api/v1/trade/state` 属于 Paper Trading 路径，不代表真实账户状态
+- 实盘级账户、订单、成交、撤单、拒单、部分成交和券商回报 reconciliation 尚未闭环
+- 策略、回测、优化、绩效、动量轮动需要收敛到统一 Strategy Lab
+- AI Agent、研究报告、新闻/公告/研报解读需要收敛到统一 AI Research Center
+- 龙头相关页面需要收敛为最多一个顶层入口，并在入口内部通过顶部 tab 切换
 
 ## 10. 后续需求入口
 
 如果继续推进需求，优先顺序建议为：
 
 1. 统一 QMT / trade API 的真实能力边界
-2. 决定专业交易页是 paper trading 页还是受控执行控制台
-3. 补齐未归档的后续 phase 文档
-4. 把“模块存在但能力 mock”的部分从状态文档中明确标注
+2. 建立实盘准入 checklist：账户、订单、成交、风控、审计、kill switch、reconciliation
+3. 建立 `Strategy Lab` 模块边界，统一策略、回测、优化、绩效、动量轮动
+4. 建立 `AI Research Center` 模块边界，统一 AI 分析、研究报告、数据上下文和审计
+5. 建立 `Market Leaders` 单入口，收敛龙头动量、轮动、板块、资金线索和候选池
 
 ## 11. 关联文档
 
@@ -279,6 +284,7 @@ A 股研究与执行链必须遵守：
 - `docs/ASTOCK_PRD.md`
 - `docs/ASTOCK_TECH_REQUIREMENTS.md`
 - `docs/ASTOCK_BACKLOG.md`
+- `docs/ASTOCK_BOUNDARY_AND_UI_REFACTOR_PLAN.md`
 - `docs/ASTOCK_CURRENT_STATUS.md`
 - `docs/phases/README.md`
 - `docs/phases/phase-00-boundary-blueprint.md`

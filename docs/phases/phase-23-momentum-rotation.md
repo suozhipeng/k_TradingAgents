@@ -1,6 +1,6 @@
 # Phase 23: 龙头股动量轮动决策系统
 
-## Metadata
+## 元数据
 
 - Status: `implemented`
 - Implementation: `complete`
@@ -9,13 +9,13 @@
 - Git branch: `xg_dev`
 - Commits: `3255e84`, `86f540b`, `05731ab`, `9fbf875`
 
-## Objective
+## 目标
 
 构建龙头股（市场领涨股）动量轮动决策系统，包括标的池动态获取、多因子动量评分策略、独立看板和 WebUI 集成。
 
-## Scope
+## 范围
 
-### Included
+### 包含
 
 1. **龙头股策略模块**（`tradingagents/astock/execution/momentum_rotation.py`）：
    - 多因子动量评分（涨幅/成交量/换手率等）
@@ -38,16 +38,16 @@
    - Slidebar 链接：动量决策终端
    - `05731ab`
 
-### Excluded
+### 排除
 
 - 不涉及实盘执行（仅研究信号输出）
 - 不替换现有回测策略（独立模块）
 
-## Test Results
+## 测试结果
 
 A 股切片回归：472 passed, 1 skipped, 0 failed（Phase 21 基线，动量模块不增加新测试文件）
 
-## Risks
+## 风险
 
 - 龙头股定义可能随市场风格变化，标的池需定期维护
 - 动量因子在震荡市中可能失效

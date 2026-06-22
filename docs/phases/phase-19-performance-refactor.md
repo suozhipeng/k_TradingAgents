@@ -1,6 +1,6 @@
-# Phase 19: Performance Analysis + Data Refresh/Cache + Test Refactor
+# Phase 19：绩效分析 + 数据刷新/缓存 + 测试重构
 
-## Metadata
+## 元数据
 
 - Status: `complete`
 - Started: `2026-06-15`
@@ -9,13 +9,13 @@
 - Branch: `xg_dev`
 - Commits: `91c13b7`, `02aab36`, `6fc85d8`, `d75c734`, `957d159`
 
-## Product objective
+## 产品目标
 
 新增绩效分析 WebUI（Chart.js 可视化）、数据刷新/缓存管理 WebUI，修复 valuation 性能缺陷，重构测试架构消除假包污染。
 
-## Scope
+## 范围
 
-### Included
+### 包含
 
 1. **WebUI 绩效分析** `/performance`：
    - Chart.js 净值曲线 + 初始资金基线
@@ -59,23 +59,23 @@
    - `/api/v1/backtest/list` → `/api/v1/backtest/results`
    - `/api/v1/data/research` → `/api/v1/research`
 
-### Excluded
+### 排除
 
 - QMT 实盘部署（需外部环境）
 - 新市场扩展
 
-## Product decisions
+## 产品决策
 
 1. tencent 作为 valuation 首选源（速度快、数据质量好）
 2. 测试文件保留 `_load_submodule` 模式但改用真实父包导入
 3. Flask dev server 端口改为 8080（macOS 5000 被 AirPlay 占用）
 
-## Tests
+## 测试
 
 - 全仓回归：**739 passed, 9 skipped, 0 failed, 0 errors**
 - 测试文件重构：11 个文件修改，-281 +324 行
 
-## Risks
+## 风险
 
 - macOS 端口 5000 被 AirPlay 占用（需用 PORT=8080）
 - `test_astock_web.py` 测试与 Flask `:memory:` DuckDB 连接偶有冲突（已隔离分组通过）

@@ -1,64 +1,60 @@
-# Delivery Phase Archive
+# Delivery Phase 归档索引
 
-This directory is the canonical local archive for every A-share Delivery
-Phase. Chat output, commit messages, and standalone phase notes do not replace
-the archive record.
+本目录是 A 股 Delivery Phase 的本地权威归档。聊天记录、commit message 和零散 phase note 不能替代这里的归档记录。
 
-## Required workflow
+## 1. 必需流程
 
-For every phase:
+每个 phase 都必须：
 
-1. Create or update `phase-XX-<slug>.md`.
-2. Record the phase objective and product boundary before implementation.
-3. Record changed modules and behavior after implementation.
-4. Record exact test commands and results.
-5. Record unresolved risks and next-phase entry criteria.
-6. Add the final Git commit SHA after the phase commit is created.
-7. Update this index and `docs/ASTOCK_CURRENT_STATUS.md`.
+1. 创建或更新 `phase-XX-<slug>.md`。
+2. 实现前记录 phase 目标和产品边界。
+3. 实现后记录修改模块和行为变化。
+4. 记录精确测试命令和结果。
+5. 记录未解决风险和下一 phase 进入条件。
+6. phase commit 完成后补充最终 Git commit SHA。
+7. 同步更新本索引和 `docs/ASTOCK_CURRENT_STATUS.md`。
 
-A phase is not complete until its archive entry exists. If the commit SHA is
-not known before commit, use `pending` and update it in the next documentation
-checkpoint.
+如果 commit SHA 在提交前未知，可以先写 `pending`，并在下一个文档 checkpoint 更新。
 
-## Archive index
+## 2. 归档索引
 
-| Phase | Scope | Status | Archive / evidence |
+| Phase | 范围 | 状态 | 归档 / 证据 |
 |---|---|---|---|
-| 0 | Positioning, boundary, disclaimer | Complete | [Phase 0](phase-00-boundary-blueprint.md) |
-| 1 | Provider selection, routing, fallback, cache | Complete | [Phase 1](phase-01-provider-routing.md) |
-| 2 | Five-layer 18-capability matrix | Foundation complete | [Phase 2](phase-02-capability-matrix.md) |
-| 3 | Interface, tools, AStockAnalyst | Complete | [Phase 3](phase-03-interface-analyst.md) |
-| 4 | Research graph bridge | Complete | [Phase 4](phase-04-research-graph.md) |
-| 5 | Research runtime verification | Complete | [Phase 5](phase-05-research-runtime.md) |
-| 6 | Research-only entry dispatch | Complete | [Phase 6](phase-06-entry-dispatch.md) |
-| 7 | Display schema and CLI | Complete | [Phase 7](phase-07-schema-cli.md) |
-| 8 | Read-only UI and multi-market viewer | Complete | [Phase 8](phase-08-readonly-viewer.md) |
-| 9 | Trader, Risk, Portfolio Manager adaptation | Implementation complete — advisory chain wiring, CLI/UI rendering, runtime profiles, 62-test regression slice | [Phase 9](phase-09-trader-risk-portfolio.md) |
-| 10 | Backtest and paper trading | Complete | [Phase 10](phase-10-backtest-paper-trading.md) |
-|| 11 | QMT bridge — read-only to controlled execution | Complete | [Phase 11](phase-11-qmt-controlled-execution.md) |
-| 12 | DuckDB local database — 10 tables, CLI tool, import/export | Complete | [Phase 12](phase-12-duckdb-local-database.md) |
-| 13 | WebUI i18n + market switch — zh/en, LangSwitch, MarketSwitch | Complete | commit `02aee20` |
-| 14 | Six backtest strategies (2 bull / 2 oscillation / 2 bear) | Complete | [Phase 14](phase-14-strategy-expansion.md) |
-| 15 | Flask REST API + Chart.js + WebUI API client — 19 endpoints | Complete | commit `eff5d24` |
-| 16 | Batch backtest, market analyzer, scheduler, SSE — 36 tests | Complete | commit `0019dc9` |
-| 17 | Flask Jinja2 WebUI 9 pages + PPT reporting — 54 tests | Complete | commit `8f2423e` |
-| 18 | Strategy expansion + optimizer — MACD, Bollinger, Grid + grid-search optimizer | Complete | commit `88b57a4`, `a1520d4`, `2c37feb` |
-| 19 | Performance analysis + data refresh/cache + test refactor — Chart.js, 739/739 | Complete | commit `91c13b7`, `02aab36`, `957d159` |
-| 20 | Strategy comparison WebUI — compare API enhanced (equity_curve, rank), multi-strategy Chart.js overlay | Complete | commit `d128dc9` |
-|| 21 | Test stabilization — 786/795 passed, 0 failed, 0 errors, 4× consistent runs | Complete | [Phase 21](phase-21-test-stabilization.md) |
-|| — | WebUI risk/reports pages upgrade + mootdx verification + iwencai docs | Complete | Hotfix (post-Phase-21) |
-|| 22 | KLineChart full integration — lightweight-charts replacement, 27 indicators, 17 drawing tools, 6 periods, mootdx minute data, NaN serialization fix | Complete | [Phase 22](phase-22-klinechart-integration.md) |
-|| 23 | 龙头股动量轮动决策系统 — stock pool, momentum rotation strategy, Streamlit + WebUI | Complete | [Phase 23](phase-23-momentum-rotation.md) |
-|| 24 | AI Agent analysis page — ai_agent.html | Complete | [Phase 24](phase-24-ai-agent-page.md) |
-|| 25 | Stock screener + sector rotation — TradingView-style screener, ECharts treemap heatmap | Complete | [Phase 25](phase-25-screener-sectors.md) |
-|| 26 | WebUI full refactor — Strategy Hub (backtest+performance+compare merge), sidebar cleanup, Research v2, data-explosion prevention | Complete | [Phase 26](phase-26-webui-refactor.md) |
-|| 27 | DataCleaner — full-path NaN→None sanitization, _coerce_float fix, _clean_nan() helper | Complete | [Phase 27](phase-27-data-cleaner.md) |
-|| 28 | 5 new WebUI pages — momentum dashboard, momentum rotation, dragon_tiger, northbound, data_health | Complete | [Phase 28](phase-28-new-webui-pages.md) |
-|| 29 | Professional trading page — TradingView-style trading console, real-time quotes, order panel, KLineChart, positions | Complete | [Phase 29](phase-29-trading-page.md) |
+| 0 | 定位、边界、免责声明 | 完成 | [Phase 0](phase-00-boundary-blueprint.md) |
+| 1 | Provider 选型、路由、fallback、缓存 | 完成 | [Phase 1](phase-01-provider-routing.md) |
+| 2 | 五层 18 个能力点矩阵 | 基础完成 | [Phase 2](phase-02-capability-matrix.md) |
+| 3 | Interface、tools、AStockAnalyst | 完成 | [Phase 3](phase-03-interface-analyst.md) |
+| 4 | A 股研究链 graph bridge | 完成 | [Phase 4](phase-04-research-graph.md) |
+| 5 | Research runtime 验证 | 完成 | [Phase 5](phase-05-research-runtime.md) |
+| 6 | Research-only 入口分发 | 完成 | [Phase 6](phase-06-entry-dispatch.md) |
+| 7 | 展示 schema 与 CLI | 完成 | [Phase 7](phase-07-schema-cli.md) |
+| 8 | 只读 UI 与多市场 viewer | 完成 | [Phase 8](phase-08-readonly-viewer.md) |
+| 9 | Trader、Risk、Portfolio Manager A 股适配 | 完成：advisory chain 接线、CLI/UI 渲染、runtime profile、62 项回归切片 | [Phase 9](phase-09-trader-risk-portfolio.md) |
+| 10 | 回测与模拟盘 | 完成 | [Phase 10](phase-10-backtest-paper-trading.md) |
+| 11 | QMT 桥接：只读到受控执行 | 完成 | [Phase 11](phase-11-qmt-controlled-execution.md) |
+| 12 | DuckDB 本地数据库：10 表、CLI 工具、导入/导出 | 完成 | [Phase 12](phase-12-duckdb-local-database.md) |
+| 13 | WebUI 国际化与市场切换：zh/en、LangSwitch、MarketSwitch | 完成 | commit `02aee20` |
+| 14 | 六种回测策略：2 牛 / 2 震荡 / 2 熊 | 完成 | [Phase 14](phase-14-strategy-expansion.md) |
+| 15 | Flask REST API + Chart.js + WebUI API client：19 端点 | 完成 | commit `eff5d24` |
+| 16 | 批量回测、市场分析器、调度器、SSE：36 项测试 | 完成 | commit `0019dc9` |
+| 17 | Flask Jinja2 WebUI 9 页面 + PPT 报告：54 项测试 | 完成 | commit `8f2423e` |
+| 18 | 策略扩展 + 优化器：MACD、布林带、网格 + grid-search optimizer | 完成 | commit `88b57a4`, `a1520d4`, `2c37feb` |
+| 19 | 绩效分析 + 数据刷新/缓存 + 测试重构：Chart.js，739/739 | 完成 | commit `91c13b7`, `02aab36`, `957d159` |
+| 20 | 策略对比 WebUI：compare API 增强，多策略 Chart.js 叠加 | 完成 | commit `d128dc9` |
+| 21 | 测试稳定化：786/795 passed，0 failed，0 errors，4 次一致运行 | 完成 | [Phase 21](phase-21-test-stabilization.md) |
+| — | WebUI risk/reports 页面升级 + mootdx 验证 + iwencai 文档 | 完成 | Phase 21 后 hotfix |
+| 22 | KLineChart 全功能集成：替换 lightweight-charts，27 指标，17 画线工具，6 周期，mootdx 分钟数据，NaN 序列化修复 | 完成 | [Phase 22](phase-22-klinechart-integration.md) |
+| 23 | 龙头股动量轮动决策系统：标的池、动量轮动策略、Streamlit + WebUI | 完成 | [Phase 23](phase-23-momentum-rotation.md) |
+| 24 | AI Agent 分析页面：ai_agent.html | 完成 | [Phase 24](phase-24-ai-agent-page.md) |
+| 25 | 股票筛选器 + 板块轮动：TradingView 风格筛选器、ECharts treemap 热力图 | 完成 | [Phase 25](phase-25-screener-sectors.md) |
+| 26 | WebUI 全平台重构：Strategy Hub、sidebar 精简、Research v2、数据防爆 | 完成 | [Phase 26](phase-26-webui-refactor.md) |
+| 27 | DataCleaner：全路径 NaN -> None 清理、`_coerce_float` 修复、`_clean_nan()` helper | 完成 | [Phase 27](phase-27-data-cleaner.md) |
+| 28 | 新增 5 个 WebUI 页面：momentum dashboard、momentum rotation、dragon_tiger、northbound、data_health | 完成 | [Phase 28](phase-28-new-webui-pages.md) |
+| 29 | 专业交易页：TradingView 风格交易控制台、实时报价、订单面板、KLineChart、持仓 | 完成 | [Phase 29](phase-29-trading-page.md) |
 
-## Naming
+## 3. 命名规则
 
-Use lowercase ASCII filenames:
+文件名使用小写 ASCII：
 
 ```text
 phase-09-trader-risk-portfolio.md
@@ -67,13 +63,14 @@ phase-11-qmt-controlled-execution.md
 phase-12-duckdb-local-database.md
 ```
 
-Do not overwrite historical results. Append a dated correction section when
-later work changes an earlier conclusion.
+不要覆盖历史结果。后续工作改变早期结论时，应追加 dated correction section。
 
-## Operational governance
+## 4. 协作治理
 
-The phase archive is complemented by repo-level execution governance docs:
+phase 归档由仓库级执行治理文档补充：
 
 - [Hermes Skills Playbook](../HERMES_SKILLS_PLAYBOOK.md)
-- [Hermes, Codex, DeepSeek Workflow](../HERMES_CODEX_DEEPSEEK_WORKFLOW.md)
-- [Phase 09 Hermes Execution Brief](phase-09-hermes-execution-brief.md)
+- [Hermes / Codex / DeepSeek 协作流程](../HERMES_CODEX_DEEPSEEK_WORKFLOW.md)
+- [Phase 09 Hermes 执行 brief](phase-09-hermes-execution-brief.md)
+
+涉及策略、回测、优化器、动量轮动和 Strategy Lab 的新 phase，必须同时参考 [A 股策略开发规范](../ASTOCK_STRATEGY_DEVELOPMENT_GUIDE.md)。

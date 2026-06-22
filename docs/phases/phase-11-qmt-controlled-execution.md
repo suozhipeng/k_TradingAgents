@@ -1,6 +1,6 @@
-# Phase 11: QMT Bridge — Read-Only to Controlled Execution
+# Phase 11：QMT 桥接 — 从只读到受控执行
 
-## Metadata
+## 元数据
 
 - Status: `implemented`
 - Product specification: `complete`
@@ -11,7 +11,7 @@
 - Git branch: `xg_dev`
 - Commit SHA: `a7ad3df`
 
-## Product objective
+## 产品目标
 
 将当前占位的 `QMTAdapter`（所有方法返回 "unavailable"）替换为真实的 QMT 桥接层，在受控模式下实现：
 1. **只读数据接入**：通过 QMT（国金证券券商源）获取精确的实时/历史行情
@@ -20,9 +20,9 @@
 
 Phase 11 不是 "全自动实盘" — 默认模式是人工确认（safety mode），自动模式（auto mode）需要用户显式选择并承担风控后果。
 
-## Scope
+## 范围
 
-### Included
+### 包含
 
 1. **QMTAdapter 替换**：将当前占位实现替换为真实的 QMT 桥接。
    - `get_kline`：通过 xtdata 读取本地历史 K 线
@@ -54,7 +54,7 @@ Phase 11 不是 "全自动实盘" — 默认模式是人工确认（safety mode�
    - QMT 连接健康检查
    - 自动回退：QMT 不可用时自动走模拟盘路径
 
-### Excluded
+### 排除
 
 - 多券商支持 — 仅 QMT（国金证券）
 - 全自动无确认交易 — safety mode 是默认且强制的
@@ -63,7 +63,7 @@ Phase 11 不是 "全自动实盘" — 默认模式是人工确认（safety mode�
 - 非交易时段执行 — 仅交易时段可用
 - 策略层的实盘集成 — Phase 11 只做桥接和执行层，策略接入留给后续
 
-## Architecture mapping
+## 架构映射
 
 | Component | Path | Change |
 |---|---|---|
@@ -74,7 +74,7 @@ Phase 11 不是 "全自动实盘" — 默认模式是人工确认（safety mode�
 | Runtime profile | `tradingagents/astock/runtime_profile.py` | 扩展：production_execution |
 | Paper trader | `tradingagents/astock/execution/paper_trader.py` | 新增：与 QMT 执行层的接口 |
 
-## Product decisions
+## 产品决策
 
 1. **QMTAdapter 保持 `AStockAdapterBase` 接口**，不改变现有的五层 provider 路由逻辑。
 2. **桥接层不依赖外部 HTTP 框架**，使用 Python 标准库 `http.server` / `urllib.request` 实现。
@@ -82,9 +82,9 @@ Phase 11 不是 "全自动实盘" — 默认模式是人工确认（safety mode�
 4. **ATR 止损在本地计算**，不需要实时推送。每 tick 检查当前价格 vs 止损线。
 5. **QMT 不可用时自动降级到模拟盘路径**（Phase 10 PaperTrader），不中断现有分析链。
 
-## Implementation
+## 实现记录
 
-### Target files
+### 目标文件
 
 | File | Purpose |
 |---|---|
@@ -98,9 +98,9 @@ Phase 11 不是 "全自动实盘" — 默认模式是人工确认（safety mode�
 | `tests/test_astock_qmt_execution.py` | 新建：受控执行测试 |
 | `docs/phases/phase-11-qmt-controlled-execution.md` | 更新：实现归档 |
 
-## ECC acceptance
+## ECC 验收
 
-### Minimum tests
+### 最小测试
 
 ```bash
 python3 -m pytest -q \
@@ -108,7 +108,7 @@ python3 -m pytest -q \
   tests/test_astock_qmt_execution.py
 ```
 
-### A-share regression
+### A 股回归
 
 ```bash
 python3 -m pytest -q \
@@ -123,7 +123,7 @@ python3 -m pytest -q \
   tests/test_astock_qmt_execution.py
 ```
 
-### Required assertions
+### 必需断言
 
 1. QMTAdapter 不再返回 "unavailable"（至少 K 线和盘口数据可用）。
 2. Safety mode 下任何 `execute()` 调用必须等待 `confirmed=True`。
@@ -132,18 +132,18 @@ python3 -m pytest -q \
 5. Phase 0-10 所有测试在 Phase 11 代码存在下仍然通过。
 6. 无隐式的自动执行路径（必须人工确认或显式 auto mode）。
 
-## Risks and gaps
+## 风险与缺口
 
 - QMT 桥接依赖外部进程（qmt_bridge.py on Python 3.6.8），测试环境无法完整覆盖。
 - ATR 止损需要实时价格流；mock 测试无法验证延迟容忍度。
 - xttrader 下单在测试环境不可用，只能验证桥接协议和执行层逻辑。
 - safety mode 的人工确认机制在 CLI 下依赖 user input，在 Streamlit 下需待前端完成。
 
-## Next-phase entry criteria
+## 下一 phase 进入条件
 
 N/A — Phase 11 是当前 roadmap 最后一个 delivery phase。
 
-## Corrections
+## 修正记录
 
 - 2026-06-14: Created the product specification draft.
 - 2026-06-14: Implemented QMT bridge (HTTP client + mock mode), controlled

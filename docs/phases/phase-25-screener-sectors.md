@@ -1,6 +1,6 @@
 # Phase 25: 股票筛选器 + 板块轮动
 
-## Metadata
+## 元数据
 
 - Status: `implemented`
 - Implementation: `complete`
@@ -9,13 +9,13 @@
 - Git branch: `xg_dev`
 - Commits: `658d27f`, `eca4ba6`, `183876a`, `062ff3b`
 
-## Objective
+## 目标
 
 构建股票筛选器（TradingView 风格）和板块轮动页面（ECharts treemap 热力图）。
 
-## Scope
+## 范围
 
-### Included
+### 包含
 
 1. **股票筛选器**（`screener.html`）：
    - TradingView 风格筛选面板
@@ -35,11 +35,11 @@
 4. **数据源降级**：
    - EastMoney push2（交易时段）→ Sina-stock_sector_spot（非交易时段）→ Mock（兜底）
 
-### Excluded
+### 排除
 
 - 不修改现有数据源适配器（板块数据走独立 Sina 模块）
 - 不做行业分类深度学习
 
-## Test Results
+## 测试结果
 
 WebUI + API 切片：146 passed（含 screener/sectors 路由测试）

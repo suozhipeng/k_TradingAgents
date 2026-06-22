@@ -1,100 +1,91 @@
-# Phase 09 Hermes Execution Brief
+# Phase 09 Hermes 执行 Brief
 
-## Purpose
+## 1. 用途
 
-This document turns the current Phase 09 specification into an execution brief
-that Hermes can run directly without reopening scope or reinterpreting the
-product boundary.
+本文档把 Phase 09 规格转换为 Hermes 可以直接执行的 brief，避免重新打开 scope 或重新解释产品边界。
 
-Use this brief together with:
+配套阅读：
 
 - `docs/phases/phase-09-trader-risk-portfolio.md`
 - `docs/ASTOCK_CURRENT_STATUS.md`
 - `planning/codebase/ARCHITECTURE.md`
 - `docs/HERMES_SKILLS_PLAYBOOK.md`
 
-## Phase status
+## 2. Phase 状态
 
-- Delivery phase: `9`
-- Current status: `implementation_complete`
-- Implementation status: `complete`
-- Branch: `xg_dev`
-- Execution mode: `research_only`
-- Non-negotiable guardrail: `actionable=false`
+- Delivery phase：`9`
+- 当前状态：`implementation_complete`
+- 实现状态：`complete`
+- 分支：`xg_dev`
+- 执行模式：`research_only`
+- 不可协商 guardrail：`actionable=false`
 
-## Hermes dispatch
+## 3. Hermes 分派
 
-- Primary skill: `astock-rollout-orchestrator`
-- ECC validation skill: `ecc-self-test`
-- Delivery routing:
-  - schema and runtime profile work stay in `tradingagents/astock/`
-  - regression and acceptance stay in `tests/`
-  - durable delivery evidence stays in `docs/phases/`
+- 首要 skill：`tradingagents-core`
+- phase 控制 skill：`astock-rollout-orchestrator`
+- ECC 验证 skill：`ecc-self-test`
+- 交付路由：
+  - schema 和 runtime profile 工作保留在 `tradingagents/astock/`
+  - regression 和 acceptance 保留在 `tests/`
+  - 持久化交付证据保留在 `docs/phases/`
 
-## Task objective
+## 4. 任务目标
 
-Maintain and extend Delivery Phase 09 for A-share advisory-only Trader, Risk,
-and Portfolio outputs.
+维护并扩展 Delivery Phase 09：A 股 advisory-only Trader、Risk、Portfolio 输出。
 
-Hermes must extend the A-share runtime from research conclusions to portfolio
-advisory outputs without creating any execution path, signal-processing path,
-trade-memory write path, or QMT path.
+Hermes 必须把 A 股 runtime 从研究结论扩展到组合建议输出，但不得创建任何执行路径、信号处理路径、交易记忆写入路径或 QMT 路径。
 
-## Mandatory boundaries
+## 5. 强制边界
 
-Hermes must keep all of the following true:
+Hermes 必须始终保持：
 
-1. `actionable` remains `false` for every Phase 09 output.
-2. `execution_signal` remains `ResearchOnly`.
-3. `live_research` must fail closed if a real LLM client is unavailable.
-4. `live_research` must not fall back to `BridgeLLM`.
-5. No Phase 09 output may call signal processing.
-6. No Phase 09 output may write completed trade decisions into memory.
-7. No Phase 09 output may call QMT or any broker interface.
-8. Generic stock and crypto paths must remain behaviorally unchanged.
+1. 每个 Phase 09 输出的 `actionable` 都是 `false`。
+2. `execution_signal` 始终为 `ResearchOnly`。
+3. `live_research` 在真实 LLM client 不可用时必须 fail closed。
+4. `live_research` 不得回退到 `BridgeLLM`。
+5. Phase 09 输出不得调用 signal processing。
+6. Phase 09 输出不得把 completed trade decision 写入 memory。
+7. Phase 09 输出不得调用 QMT 或任何 broker interface。
+8. 通用股票和 crypto 路径行为不得变化。
 
-## Required deliverables
+## 6. 必需交付物
 
-Phase 09 now includes all items below as implemented baseline; follow-up work
-must preserve them:
+Phase 09 已把以下内容作为实现基线；后续工作必须保留：
 
-1. Add A-share-specific Phase 09 schemas in a dedicated module under
-   `tradingagents/astock/`.
-2. Add explicit runtime profile configuration for:
+1. 在 `tradingagents/astock/` 下新增 A 股专用 Phase 09 schema。
+2. 增加明确 runtime profile：
    - `deterministic_verification`
    - `live_research`
-3. Adapt the A-share research result into `ResearchConclusion`.
-4. Adapt Trader output into `TraderProposal`.
-5. Add structured synthesis for the three risk viewpoints into `RiskDecision`.
-6. Adapt Portfolio Manager output into `PortfolioDecision`.
-7. Extend the A-share report/runtime payload so Phase 09 advisory fields can be
-   rendered in read-only consumers.
-8. Add or update tests covering contracts, runtime profile isolation, and
-   research-only stop conditions.
-9. Update phase archive evidence after implementation.
+3. 将 A 股研究结果适配为 `ResearchConclusion`。
+4. 将 Trader 输出适配为 `TraderProposal`。
+5. 将三类风险观点结构化合成为 `RiskDecision`。
+6. 将 Portfolio Manager 输出适配为 `PortfolioDecision`。
+7. 扩展 A 股 report/runtime payload，使 Phase 09 advisory 字段可被只读消费者渲染。
+8. 增加或更新 contract、runtime profile 隔离、research-only stop condition 的测试。
+9. 实现后更新 phase archive 证据。
 
-## Suggested file targets
+## 7. 建议文件范围
 
-Hermes should prefer these targets unless code inspection reveals a better
-adjacent module inside `tradingagents/astock/`:
+除非代码检查发现 `tradingagents/astock/` 内有更合适的相邻模块，否则优先使用：
 
-- `tradingagents/astock/`:
-  - new Phase 09 contract module
+- `tradingagents/astock/`
+  - Phase 09 contract module
   - runtime profile configuration
   - graph/runtime adaptation
   - report schema extension
-- `tests/`:
+- `tests/`
   - `tests/test_astock_phase9_contracts.py`
   - `tests/test_astock_graph_runtime.py`
-  - any focused regression additions needed for advisory rendering
-- `docs/`:
-  - update `docs/phases/phase-09-trader-risk-portfolio.md`
-  - update `docs/phases/README.md`
-  - update `docs/ASTOCK_CURRENT_STATUS.md`
+  - advisory rendering 所需的聚焦回归
+- `docs/`
+  - `docs/phases/phase-09-trader-risk-portfolio.md`
+  - `docs/phases/README.md`
+  - `docs/ASTOCK_CURRENT_STATUS.md`
 
-## Acceptance tests
+## 8. 验收测试
 
-Minimum targeted tests:
+最小定向测试：
 
 ```bash
 python3 -m pytest -q \
@@ -102,7 +93,7 @@ python3 -m pytest -q \
   tests/test_astock_graph_runtime.py
 ```
 
-A-share regression:
+A 股回归：
 
 ```bash
 python3 -m pytest -q \
@@ -116,50 +107,49 @@ python3 -m pytest -q \
   tests/test_astock_ui_views.py
 ```
 
-Full regression if Phase 09 changes generic modules:
+如果 Phase 09 修改通用模块，运行全量回归：
 
 ```bash
 python3 -m pytest -q
 ```
 
-## Required assertions
+## 9. 必须断言
 
-Hermes must not mark the task complete unless all assertions below are true:
+Hermes 不得在以下断言不成立时标记任务完成：
 
-1. All four Phase 09 contracts reject `actionable=true`.
-2. `live_research` never falls back to `BridgeLLM`.
-3. A Phase 09 run stops before signal processing and QMT.
-4. No Phase 09 result is persisted as a completed trade decision.
-5. Missing provider data degrades into typed advisory results.
-6. Generic non-A-share flows remain unchanged.
+1. 四个 Phase 09 contract 都拒绝 `actionable=true`。
+2. `live_research` 不会回退到 `BridgeLLM`。
+3. Phase 09 run 在 signal processing 和 QMT 之前停止。
+4. Phase 09 result 不会作为 completed trade decision 持久化。
+5. provider 数据缺失时降级为 typed advisory result。
+6. 通用非 A 股流程保持不变。
 
-## Output format required from Hermes
+## 10. Hermes 输出格式
 
-Hermes should return one concise phase report containing:
+Hermes 应返回简洁 phase report，包含：
 
-- changed files
-- tests run
-- key assertions verified
-- open risks
-- next entry condition
-- final commit SHA
+- 已修改文件
+- 已运行测试
+- 已验证关键断言
+- 开放风险
+- 下一入口条件
+- 最终 commit SHA
 
-Hermes must also persist the durable result locally:
+Hermes 还必须持久化本地结果：
 
-1. update `docs/phases/phase-09-trader-risk-portfolio.md`
-2. update `docs/phases/README.md`
-3. update `docs/ASTOCK_CURRENT_STATUS.md`
-4. keep the final commit SHA in the archive
+1. 更新 `docs/phases/phase-09-trader-risk-portfolio.md`
+2. 更新 `docs/phases/README.md`
+3. 更新 `docs/ASTOCK_CURRENT_STATUS.md`
+4. 在归档中保留最终 commit SHA
 
-## Direct Hermes command
+## 11. 直接 Hermes 命令
 
 ```bash
-hermes chat -q "Continue Delivery Phase 09 in TradingAgents. Follow docs/phases/phase-09-trader-risk-portfolio.md and docs/phases/phase-09-hermes-execution-brief.md. Preserve the A-share advisory-only chain, keep actionable=false and execution_signal=ResearchOnly, extend Phase 09 rendering or validation only within scope, run ECC regression tests, update docs/phases archive plus docs/ASTOCK_CURRENT_STATUS.md, then commit on xg_dev." --skills astock-rollout-orchestrator,ecc-self-test
+hermes chat -q "Continue Delivery Phase 09 in TradingAgents. Follow docs/phases/phase-09-trader-risk-portfolio.md and docs/phases/phase-09-hermes-execution-brief.md. Load tradingagents-core first. Preserve the A-share advisory-only chain, keep actionable=false and execution_signal=ResearchOnly, extend Phase 09 rendering or validation only within scope, run ECC regression tests, update docs/phases archive plus docs/ASTOCK_CURRENT_STATUS.md, then commit on xg_dev." --skills tradingagents-core,astock-rollout-orchestrator,ecc-self-test
 ```
 
-## Corrections log
+## 12. 修正记录
 
-- 2026-06-13: Converted the existing Phase 09 specification into a Hermes
-  execution brief so implementation can start without scope ambiguity.
-- 2026-06-13: Corrected the direct Hermes invocation to the current `hermes chat`
-  CLI shape with `--skills`, replacing the invalid `--agent` form.
+- 2026-06-13：将 Phase 09 规格转换为 Hermes 执行 brief，使实现可以在无 scope 歧义的情况下开始。
+- 2026-06-13：修正直接 Hermes 调用方式为当前 `hermes chat` + `--skills` 形式，替换无效的 `--agent` 形式。
+- 2026-06-23：中文化本文档，并补充 `tradingagents-core` 作为首要 skill。

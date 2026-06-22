@@ -1,33 +1,33 @@
-# Phase 02: Five-Layer Capability Matrix
+# Phase 02：五层能力矩阵
 
-## Metadata
+## 元数据
 
 - Status: `partial`
 - Archive type: `reconstructed on 2026-06-13`
 - Evidence commits: `8d31a86`, `fa46b09`, `9c6cfec`
 
-## Product objective
+## 产品目标
 
 Represent the source material as 18 testable engineering capabilities across
 market, research, news, fundamentals, and announcements.
 
-## Delivered
+## 已交付
 
 - Capability catalog and route policy.
 - Unified facade methods.
 - Provider fixture coverage for the primary adapters.
 
-## Evidence
+## 证据
 
 - `tradingagents/astock/blueprint.py`
 - `tradingagents/astock/data_sources/router.py`
 - `tests/test_astock_data_sources.py`
 
-## Remaining risk
+## 剩余风险
 
 The matrix has a foundation implementation, but not every capability has equal
 live-provider quality or dated verification evidence.
 
-## Next entry criteria
+## 下一入口条件
 
 Stable upper-layer interface and analyst integration.

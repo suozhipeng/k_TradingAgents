@@ -1,6 +1,6 @@
 # Phase 26: WebUI 全平台重构 — Strategy Hub + Sidebar + Research v2
 
-## Metadata
+## 元数据
 
 - Status: `implemented`
 - Implementation: `complete`
@@ -9,13 +9,13 @@
 - Git branch: `xg_dev`
 - Commits: `87e5b73`, `8d8a6f9`, `964ef3c`, `f50bd3b`, `f854c9b`, `1960c65`, `44c1b52`
 
-## Objective
+## 目标
 
 全平台 WebUI 重构：合并 Backtest/Performance/Compare 到 Strategy Hub、Sidebar 精简去重、Research 页面 KLineChart v2、数据防爆。
 
-## Scope
+## 范围
 
-### Included
+### 包含
 
 1. **Strategy Hub（三位一体策略研究控制台）**：
    - `strategy_hub.html` 新页面
@@ -45,11 +45,11 @@
    - Chart.js y-axis 回调 `isFinite`
    - 红涨绿跌统一（#ef5350/#26a69a）
 
-### Excluded
+### 排除
 
 - 不删除旧模板文件（保留 backtest.html/comparison.html 文件，仅移除路由）
 - 不改 CLI/API 层
 
-## Test Results
+## 测试结果
 
 WebUI + API 切片：**146 passed, 0 failed, 0 errors**（更新测试断言后）

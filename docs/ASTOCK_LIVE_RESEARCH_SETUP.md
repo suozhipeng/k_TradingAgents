@@ -1,21 +1,18 @@
-# A-Stock Live Research Setup
+# A 股 live_research 环境配置
 
-This document describes the runnable environment for the A-share
-`live_research` runtime profile.
+本文档说明 A 股 `live_research` runtime profile 的可运行环境。它的目标是让 Phase 09 A 股 advisory chain 使用真实 LLM client，而不是 deterministic verification 模式下的 `BridgeLLM`。
 
-## Goal
+## 1. 目标
 
-Enable the Phase 09 A-share advisory chain to use real LLM clients instead of
-`BridgeLLM` while preserving:
+启用真实 LLM 时必须同时保留以下安全约束：
 
 - `actionable=false`
 - `execution_signal=ResearchOnly`
-- fail-closed behavior when any required live client is missing
+- 缺少任一必要 live client 时 fail-closed，不能静默降级为 `BridgeLLM`
 
-## Required environment
+## 2. 必需环境变量
 
-At minimum, set the provider, models, runtime profile, and matching API key in
-`.env` or your shell:
+至少需要在 `.env` 或当前 shell 中设置 provider、模型、runtime profile 和对应 API key：
 
 ```bash
 TRADINGAGENTS_LLM_PROVIDER=deepseek
@@ -25,82 +22,82 @@ TRADINGAGENTS_ASTOCK_RUNTIME_PROFILE=live_research
 DEEPSEEK_API_KEY=your_real_key
 ```
 
-Optional:
+可选配置：
 
 ```bash
 TRADINGAGENTS_LLM_BACKEND_URL=https://api.deepseek.com
-TRADINGAGENTS_OUTPUT_LANGUAGE=English
+TRADINGAGENTS_OUTPUT_LANGUAGE=Chinese
 TRADINGAGENTS_TEMPERATURE=0.0
 ```
 
-## Recommended repo-local flow
+## 3. 推荐本地流程
 
-1. Copy the example env file if needed:
+1. 如有需要，复制环境变量模板：
 
 ```bash
 cp .env.example .env
 ```
 
-2. Fill in the required variables above.
+2. 填入上面的必需变量。
 
-3. Validate the environment locally:
+3. 在仓库内校验环境：
 
 ```bash
 python3 scripts/check_astock_live_research_env.py
 ```
 
-4. Run the CLI with an A-share ticker:
+4. 通过 CLI 运行 A 股分析：
 
 ```bash
 python3 -m cli.main run-analysis
 ```
 
-When the ticker is A-share and `TRADINGAGENTS_ASTOCK_RUNTIME_PROFILE=live_research`,
-the CLI will build real LLM clients for:
+当 ticker 是 A 股，并且 `TRADINGAGENTS_ASTOCK_RUNTIME_PROFILE=live_research` 时，CLI 会为以下角色构建真实 LLM client：
 
-- Bull Researcher: quick-thinking model
-- Bear Researcher: quick-thinking model
-- Research Manager: deep-thinking model
+- Bull Researcher：quick-thinking 模型
+- Bear Researcher：quick-thinking 模型
+- Research Manager：deep-thinking 模型
 
-The Streamlit read-only viewer follows the same config path when launched in
-live runtime mode.
+Streamlit 只读 viewer 在 live runtime mode 下使用同一套配置路径。
 
-## Validation behavior
+## 4. 校验行为
 
-- If the runtime profile is `deterministic_verification`, missing LLM clients
-  are allowed and `BridgeLLM` is used.
-- If the runtime profile is `live_research`, missing provider configuration or
-  API keys cause startup failure before the run begins.
-- No `live_research` run may fall back to `BridgeLLM`.
+- `deterministic_verification` profile 允许缺少真实 LLM client，并使用 `BridgeLLM`。
+- `live_research` profile 如果缺少 provider 配置或 API key，必须在分析开始前失败。
+- `live_research` 运行不得回退到 `BridgeLLM`。
 
-## Data source notes
+## 5. 数据源说明
 
 ### mootdx（通达信）
 
-mootdx 0.11.7 已安装并在本地验证通过 —— 可直接连接通达信行情服务器获取实时 K 线和报价。无需额外配置。支持的 symbol 格式为不带后缀的数字代码（如 `600519`），`AStockDataRouter` 会自动转换。
+mootdx 0.11.7 已在本地验证通过，可连接通达信行情服务器获取实时 K 线和报价。无需额外配置。支持的 symbol 格式为不带后缀的数字代码，例如 `600519`；`AStockDataRouter` 会自动转换。
 
 ### iwencai（问财）
 
 pywencai 0.13.1 已安装，但需要设置 `ASTOCK_IWENCAI_COOKIE` 环境变量才能启用。
 
-**如何获取 iwencai cookie：**
-1. 用浏览器打开 https://iwencai.com 并登录你的账号
-2. 打开浏览器开发者工具（F12）→ "Application" / "Storage" 标签
-3. 在 Cookies → iwencai.com 下找到名为 `v` 或 `other_` 开头的 cookie 值
-4. 复制完整 cookie 字符串
-5. 设置到环境变量：
-   ```bash
-   export ASTOCK_IWENCAI_COOKIE="your_cookie_value_here"
-   ```
-   或者写入 `.env` 文件：
-   ```
-   ASTOCK_IWENCI_COOKIE=your_cookie_value_here
-   ```
+获取 iwencai cookie：
 
-配置后即可启用语义搜索和机构预期查询能力。
+1. 用浏览器打开 https://iwencai.com 并登录账号。
+2. 打开浏览器开发者工具，进入 Application / Storage。
+3. 在 Cookies -> iwencai.com 下找到名为 `v` 或 `other_` 开头的 cookie 值。
+4. 复制完整 cookie 字符串。
+5. 设置环境变量：
 
-## Current host note
+```bash
+export ASTOCK_IWENCAI_COOKIE="your_cookie_value_here"
+```
 
-This repo now has the `live_research` code path wired through config, CLI, and
-Streamlit. A real run still requires the matching provider key to be present in
-the environment of the current shell or app process.
+也可以写入 `.env`：
+
+```bash
+ASTOCK_IWENCAI_COOKIE=your_cookie_value_here
+```
+
+配置后可启用语义搜索和机构预期查询能力。
+
+## 6. 当前主机状态
+
+当前仓库已经把 `live_research` 路径接入 config、CLI 和 Streamlit。真实运行仍要求当前 shell 或 app 进程环境中存在匹配 provider 的有效 key。
+
+live provider 的历史验证证据保存在 `docs/verification_provenance/`。这些文件是 provider 可用性溯源，不等同于当前网络环境仍可用；重新验证需要运行 live provider 测试并追加新的 dated provenance。

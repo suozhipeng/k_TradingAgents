@@ -1,6 +1,6 @@
 # Phase 29: 专业交易页 — 多模式交易控制台
 
-## Metadata
+## 元数据
 
 - Status: `implemented`
 - Implementation: `complete`
@@ -9,7 +9,7 @@
 - Git branch: `xg_dev`
 - Commits: `268d326`, `c341034`, `f355a89`, `f948f2f`, `eca4ba6`, `87e5b73`, `1960c65`, `44c1b52`
 
-## Product Objective
+## 产品目标
 
 构建 TradingView 风格的专业交易控制台（trading.html），支持 **三种运行模式**：
 
@@ -21,9 +21,9 @@
 
 前端默认 Paper 模式，通过模式切换器在三种模式间切换。所有下单指令均携带 `actionable` / `execution_signal` / `decision_scope` 标记供后端风控校验。
 
-## Scope
+## 范围
 
-### Included
+### 包含
 
 1. **交易主页**（`trading.html`）：
    - 模式切换器（Paper / 实盘 / 研究），默认 Paper
@@ -50,12 +50,12 @@
 5. **搜索建议**（拼音/代码/名称）：
    - 全页面统一搜索建议组件
 
-### Excluded
+### 排除
 
 - QMT 实盘下单当前不可用（需 QMT bridge 运行），UI 模式切换器保留入口但标记"QMT 未连接"
 - 不包含高级订单类型（仅限限价/市价）
 
-## Product Positioning
+## 产品定位
 
 交易页同时承载三种定位，通过模式切换器统一入口：
 
@@ -73,7 +73,7 @@ source .venv/bin/activate && python -m pytest tests/test_astock_web.py tests/tes
 
 结果：**150 passed, 0 failed, 0 errors**（HEAD `975f5ee`）。
 
-## Risks
+## 风险
 
 - 实时报价依赖 EastMoney push2，非交易时段无更新（降级到 Sina 缓存）
 - 报价缓存 60s，高频操作可能看到过期价格

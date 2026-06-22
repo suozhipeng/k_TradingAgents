@@ -1,6 +1,6 @@
-# Phase 12: DuckDB Local Database — Structured Storage Layer
+# Phase 12：DuckDB 本地数据库 — 结构化存储层
 
-## Metadata
+## 元数据
 
 - Status: `complete`
 - Started: `2026-06-14`
@@ -9,13 +9,13 @@
 - Git branch: `xg_dev`
 - Commit SHA: `94d9fbe`
 
-## Product objective
+## 产品目标
 
 Add a DuckDB-backed local database (`AStockStore`) as the canonical local storage layer for all A-share data. Previously, all data lived transiently in in-memory caches or was discarded after each run. This phase introduces persistent, queryable storage with a dedicated CLI tool for import/export, inspection, and maintenance — enabling data retention across runs for backtest reuse, analyst inspection, and offline analysis.
 
-## Scope
+## 范围
 
-### Included
+### 包含
 
 1. **DuckDB storage schema** (`tradingagents/astock/store/schema.py`, 902 lines):
    - `AStockStore` class wrapping a DuckDB connection with thread-safe access
@@ -62,7 +62,7 @@ Add a DuckDB-backed local database (`AStockStore`) as the canonical local storag
 5. **Sample report payload** (`webui/public/sample.json`, 120 lines):
    - Live research sample: `600519.SH` (贵州茅台) with full advisory chain
 
-### Excluded
+### 排除
 
 - No changes to existing `AStockDataRouter`, `AStockInterface`, or provider adapter code
 - No provider-to-DuckDB auto-wiring (loaders exist but are opt-in)
@@ -70,7 +70,7 @@ Add a DuckDB-backed local database (`AStockStore`) as the canonical local storag
 - No schema migration system (schema is `CREATE IF NOT EXISTS`)
 - No index optimization beyond primary keys
 
-## Architecture mapping
+## 架构映射
 
 | ARCHITECTURE.md section | Module | Expected change |
 |---|---|---|
@@ -80,16 +80,16 @@ Add a DuckDB-backed local database (`AStockStore`) as the canonical local storag
 | Package init | `tradingagents/astock/__init__.py` | Re-export store types |
 | Config | `pyproject.toml` | Add duckdb dependency |
 
-## Product decisions
+## 产品决策
 
 - **DuckDB over SQLite**: DuckDB provides native Parquet support, vectorized execution, and better analytical query performance for time-series market data.
 - **`INSERT OR REPLACE` semantics**: All tables use upsert semantics keyed on `(symbol, trade_date, ...)` for idempotent re-insertion — no unique constraint violations on replay.
 - **Thread-safe connection**: Global lock via `threading.Lock` around DuckDB operations to support concurrent writer attempts (used by backtest/paper-trade paths).
 - **Default path in home directory**: `~/.tradingagents/astock/astock.duckdb` — survives repository deletion, follows XDG-adjacent convention.
 
-## Implementation
+## 实现记录
 
-### Changed files
+### 修改文件
 
 | File | Lines | Purpose |
 |---|---|---|
@@ -102,23 +102,23 @@ Add a DuckDB-backed local database (`AStockStore`) as the canonical local storag
 | `pyproject.toml` | +1 | Add duckdb>=1.2.0 dependency |
 | `webui/public/sample.json` | +120 | Live research sample payload |
 
-### Behavior contract
+### 行为契约
 
 - **Input**: DuckDB database path (default `~/.tradingagents/astock/astock.duckdb`) or factory function `init_astock_db(path)`
 - **Output**: Query results as `pandas.DataFrame`; insert returns row count; export writes file; import reads file
 - **Degradation**: Missing DuckDB package raises `ImportError` at class instantiation (not module import time)
 - **Safety boundary**: Default path is user-writeable home dir; `drop_all_tables()` is explicit (no auto-drop); `vacuum()` is explicit (no auto-vacuum)
 
-## ECC acceptance
+## ECC 验收
 
-### Commands
+### 命令
 
 ```bash
 cd /Users/szp/Desktop/Code/k-code/ai-lab/TradingAgents
 python3 -m pytest tests/test_astock_store.py -v --tb=short 2>&1
 ```
 
-### Results
+### 结果
 
 - Pass: `31`
 - Fail: `0`
@@ -127,16 +127,16 @@ python3 -m pytest tests/test_astock_store.py -v --tb=short 2>&1
 
 Codex verdict: `accept`
 
-## Risks and gaps
+## 风险与缺口
 
 1. **Threading model**: Global lock simplifies correctness but serializes concurrent insert paths. Acceptable for batch-oriented research use; revisit if high-frequency writes are needed.
 2. **No auto-migration**: Schema is `CREATE IF NOT EXISTS`. Table changes (new columns, constraints) require explicit migration or `drop_all_tables()` for dev environments.
 3. **Loader integration opt-in**: `KlineLoader`/`ValuationLoader` exist but are not wired into `AStockInterface` or the research pipeline — they must be called explicitly. Future phases may add auto-wiring.
 
-## Next-phase entry criteria
+## 下一 phase 进入条件
 
 Phase 12 is a standalone infrastructure layer. No dependencies on subsequent phases. The backlog / maintenance work that follows is documented in `docs/ASTOCK_CURRENT_STATUS.md` under P0/P1/P2, with the highest-priority uncommitted item being the WebUI i18n + A-stock report viewer alignment (P1 backlog).
 
-## Corrections
+## 修正记录
 
 _No corrections at time of writing._

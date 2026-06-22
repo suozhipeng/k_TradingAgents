@@ -1,6 +1,6 @@
-# Phase 09: A-Stock Trader, Risk, and Portfolio Contracts
+# Phase 09：A 股 Trader、Risk 与 Portfolio 合约
 
-## Metadata
+## 元数据
 
 - Status: `implemented`
 - Product specification: `complete`
@@ -13,15 +13,15 @@
 - Implementation commit SHA: `5b30d73`
 - Follow-up commit SHA: `01bae55`
 
-## Product objective
+## 产品目标
 
 Define the non-actionable A-share decision chain after Research Manager so the
 next implementation can add Trader, Risk, and Portfolio Manager behavior
 without accidentally creating an execution or order-placement path.
 
-## Scope
+## 范围
 
-### Included
+### 包含
 
 - A-share `ResearchConclusion`, `TraderProposal`, `RiskDecision`, and
   `PortfolioDecision` contracts.
@@ -31,7 +31,7 @@ without accidentally creating an execution or order-placement path.
 - Degradation behavior and ECC acceptance criteria.
 - Test matrix for the later implementation.
 
-### Excluded
+### 排除
 
 - Strategy selection and scoring.
 - Backtest and paper-trading engines.
@@ -39,7 +39,7 @@ without accidentally creating an execution or order-placement path.
 - QMT reads, order placement, or broker integration.
 - Any output with `actionable=true`.
 
-## Architecture mapping
+## 架构映射
 
 | ARCHITECTURE.md section | Module | Expected change |
 |---|---|---|
@@ -48,7 +48,7 @@ without accidentally creating an execution or order-placement path.
 | 11 Risk & Control Layer | future A-share control module | Express constraints without execution permission |
 | 13 Target data flow | A-share runtime state | Extend only through portfolio advisory; stop before strategy/execution |
 
-## Product decisions
+## 产品决策
 
 - Phase 9 is an advisory decision layer, not an execution layer.
 - Every contract must include `decision_scope` and `actionable`.
@@ -63,7 +63,7 @@ without accidentally creating an execution or order-placement path.
 - Hermes execution handoff is documented in
   `docs/phases/phase-09-hermes-execution-brief.md`.
 
-## Contract specification
+## 合约规格
 
 ### ResearchConclusion
 
@@ -143,14 +143,14 @@ without accidentally creating an execution or order-placement path.
 - May produce Phase 9 advisory contracts, always with `actionable=false`.
 - Must not fall back to `BridgeLLM`.
 
-### Forbidden in Phase 9
+### Phase 9 禁止项
 
 - `production_execution`
 - Automatic signal conversion.
 - Decision-memory writes representing completed trades.
 - QMT or broker calls.
 
-## Target state flow
+## 目标状态流
 
 ```text
 AStockGraphReport
@@ -164,7 +164,7 @@ AStockGraphReport
   -> STOP (ResearchOnly)
 ```
 
-## Failure and degradation semantics
+## 失败与降级语义
 
 - Missing five-layer sections produce `insufficient_data` or lower confidence.
 - Invalid structured output produces a typed degraded result, not free-text
@@ -175,7 +175,7 @@ AStockGraphReport
 - Any attempt to invoke signal processing, decision-memory writes, or QMT is a
   test failure.
 
-## Implementation plan
+## 实现计划
 
 1. Add A-share-specific schemas in a dedicated module rather than changing
    generic TradingAgents schemas.
@@ -187,7 +187,7 @@ AStockGraphReport
    read-only display compatibility.
 7. Add CLI/UI read-only rendering for advisory fields.
 
-### Implementation files
+### 实现文件
 
 | File | Purpose |
 |---|---|
@@ -199,7 +199,7 @@ AStockGraphReport
 | `tests/test_astock_graph_runtime.py` | Extended: `Phase09RuntimeProfileTests` (6 tests) for report integration |
 | `docs/phases/phase-09-trader-risk-portfolio.md` | Updated: implementation archive, commit SHA |
 
-### Implementation notes
+### 实现说明
 
 - Schemas use `Literal[False]` for `actionable` with a `field_validator` that
   rejects any truthy value, including `True`, `"true"`, `1`, `"yes"`.
@@ -223,9 +223,9 @@ AStockGraphReport
 - The A-share `live_research` entry is now wired through repo config, CLI,
   Streamlit, and an environment validation script.
 
-## ECC acceptance
+## ECC 验收
 
-### Minimum tests
+### 最小测试
 
 ```bash
 python3 -m pytest -q \
@@ -233,7 +233,7 @@ python3 -m pytest -q \
   tests/test_astock_graph_runtime.py
 ```
 
-### A-share regression
+### A 股回归
 
 ```bash
 python3 -m pytest -q \
@@ -247,7 +247,7 @@ python3 -m pytest -q \
   tests/test_astock_ui_views.py
 ```
 
-### Required assertions
+### 必需断言
 
 - All four contracts reject `actionable=true`.
 - `live_research` never falls back to `BridgeLLM`.
@@ -256,7 +256,7 @@ python3 -m pytest -q \
 - Generic stock/crypto paths remain unchanged.
 - Missing provider data produces deterministic degraded contracts.
 
-### Current result
+### 当前结果
 
 - Specification review: complete.
 - Implementation: complete.
@@ -272,7 +272,7 @@ python3 -m pytest -q \
 - live_research deployment regression: `48 passed` across env overlay,
   runtime builder, CLI live path, and Streamlit live path.
 
-## Risks and gaps
+## 风险与缺口
 
 - Generic Trader and Portfolio schemas contain executable trading language and
   cannot be reused without an A-share advisory adapter.
@@ -288,7 +288,7 @@ python3 -m pytest -q \
   The `46 passed` contract test was run with `importlib`-based bypass of the
   package `__init__.py` dependency chain.
 
-## Next-phase entry criteria
+## 下一 phase 进入条件
 
 1. Validate the A-share full regression slice in a Python 3.10+ environment.
 2. Deploy a runnable `live_research` environment for the A-share advisory
@@ -296,7 +296,7 @@ python3 -m pytest -q \
 3. Keep all Phase 9 outputs non-actionable.
 4. Preserve the `ResearchOnly` stop condition while Phase 10 starts.
 
-## Corrections
+## 修正记录
 
 - 2026-06-13: Created the product/development specification. Phase 9 remains
   unimplemented.

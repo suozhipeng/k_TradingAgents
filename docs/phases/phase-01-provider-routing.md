@@ -1,35 +1,35 @@
-# Phase 01: Provider Routing
+# Phase 01：Provider 路由
 
-## Metadata
+## 元数据
 
 - Status: `complete`
 - Archive type: `reconstructed on 2026-06-13`
 - Evidence commits: `fa46b09`, `9c6cfec`
 
-## Product objective
+## 产品目标
 
 Provide read-only A-share data access with deterministic routing, fallback,
 cache, and normalized error semantics.
 
-## Delivered
+## 已交付
 
 - Provider adapters and router.
 - Symbol normalization.
 - History, snapshot, and summary cache buckets.
 - Fixture and opt-in live provider tests.
 
-## Evidence
+## 证据
 
 - `tradingagents/astock/data_sources/`
 - `tests/test_astock_data_sources.py`
 - `tests/test_astock_provider_fixtures.py`
 - `planning/codebase/ASTOCK_PROVIDER_CONFIG.md`
 
-## Remaining risk
+## 剩余风险
 
 Live verification depends on optional packages, network access, and iwencai
 credentials.
 
-## Next entry criteria
+## 下一入口条件
 
 Expose all five layers as a stable capability matrix.

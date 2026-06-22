@@ -1,17 +1,17 @@
-# Phase 21: 测试清噪与全仓回归稳定化
+# Phase 21：测试清噪与全仓回归稳定化
 
 ## 范围
 
 把当前 TradingAgents 仓库的全仓 pytest 从"分组能过但整仓存在排序/导入污染"收敛为稳定、可重复、可解释的回归基线。
 
-### Included
+### 包含
 
 - `tests/` 下的测试隔离、fixture、mock、monkeypatch、import 清理
 - `tests/conftest.py` 测试辅助工具验证
 - 失败分桶与回归基线文档更新
 - 回归命令整理与结果归档
 
-### Excluded
+### 排除
 
 - 不开发新功能
 - 不修改 A 股 runtime / QMT / backtest / WebUI 的产品行为

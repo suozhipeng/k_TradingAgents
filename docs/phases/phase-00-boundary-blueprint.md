@@ -1,33 +1,33 @@
-# Phase 00: Boundary and Blueprint
+# Phase 00：边界与蓝图
 
-## Metadata
+## 元数据
 
 - Status: `complete`
 - Archive type: `reconstructed on 2026-06-13`
 - Evidence commit: `8d31a86`
 
-## Product objective
+## 产品目标
 
 Define the A-share customization direction, five-layer capability model, and
 non-execution boundary.
 
-## Delivered
+## 已交付
 
 - A-share capability blueprint.
 - Product disclaimer and staged delivery direction.
 - Separation between current implementation and target architecture.
 
-## Evidence
+## 证据
 
 - `tradingagents/astock/blueprint.py`
 - `planning/codebase/ASTOCK_RESOURCE_PLAN.md`
 - `planning/codebase/ARCHITECTURE.md`
 
-## Remaining risk
+## 剩余风险
 
 The original 13-interface wording was later normalized into 18 engineering
 capabilities.
 
-## Next entry criteria
+## 下一入口条件
 
 Provider routing and normalized data contracts.

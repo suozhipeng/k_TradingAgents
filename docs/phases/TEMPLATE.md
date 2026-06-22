@@ -1,6 +1,6 @@
-# Phase XX: Title
+# Phase XX：标题
 
-## Metadata
+## 元数据
 
 - Status: `planned | in_progress | partial | complete | blocked`
 - Started: `YYYY-MM-DD`
@@ -9,66 +9,66 @@
 - Git branch: `branch`
 - Commit SHA: `pending`
 
-## Product objective
+## 产品目标
 
 State the user-visible outcome and why this phase exists.
 
-## Scope
+## 范围
 
-### Included
-
-- Item
-
-### Excluded
+### 包含
 
 - Item
 
-## Architecture mapping
+### 排除
+
+- Item
+
+## 架构映射
 
 | ARCHITECTURE.md section | Module | Expected change |
 |---|---|---|
 | Section | Path | Behavior |
 
-## Product decisions
+## 产品决策
 
 - Decision and rationale.
 
-## Implementation
+## 实现记录
 
-### Changed files
+### 修改文件
 
 - `path`: purpose
 
-### Behavior contract
+### 行为契约
 
 - Input:
 - Output:
 - Degradation:
 - Safety boundary:
 
-## ECC acceptance
+## ECC 验收
 
-### Commands
+### 命令
 
 ```bash
 command
 ```
 
-### Results
+### 结果
 
 - Pass:
 - Fail:
 - Skip:
 - Environment gaps:
 
-## Risks and gaps
+## 风险与缺口
 
 - Risk
 
-## Next-phase entry criteria
+## 下一 phase 进入条件
 
 1. Criterion
 
-## Corrections
+## 修正记录
 
 Append dated corrections here. Do not rewrite historical evidence.
