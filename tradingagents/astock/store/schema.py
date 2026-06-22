@@ -651,11 +651,11 @@ class AStockStore:
     ) -> pd.DataFrame:
         if strategy_name:
             return self.conn.execute(
-                "SELECT * FROM backtest_results WHERE strategy_name = ? ORDER BY created_at",
+                "SELECT * FROM backtest_results WHERE strategy_name = ? ORDER BY created_at DESC",
                 [strategy_name],
             ).fetchdf()
         return self.conn.execute(
-            "SELECT * FROM backtest_results ORDER BY created_at"
+            "SELECT * FROM backtest_results ORDER BY created_at DESC"
         ).fetchdf()
 
     def clear_backtest_results(self) -> int:

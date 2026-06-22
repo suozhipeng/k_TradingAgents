@@ -10,6 +10,7 @@ from __future__ import annotations
 import importlib
 import inspect
 import json
+import math
 import os
 import re
 import time
@@ -61,7 +62,8 @@ def _coerce_float(value: Any) -> Optional[float]:
     if isinstance(value, bool):
         return float(value)
     if isinstance(value, (int, float)):
-        return float(value)
+        result = float(value)
+        return None if math.isnan(result) else result
     text = str(value).strip()
     if not text or text in {"-", "--", "None", "null", "nan"}:
         return None
@@ -530,7 +532,7 @@ class AkshareAdapter(AStockAdapterBase):
             for key, value in row.items():
                 if key in {"日期", "报告期", "period"}:
                     continue
-                normalized[str(key)] = _coerce_float(value) if _coerce_float(value) is not None else value
+                normalized[str(key)] = _coerce_float(value) if _coerce_float(value) is not None else None
             items.append(normalized)
         return {"items": items, "count": len(items)}
 
@@ -548,7 +550,7 @@ class AkshareAdapter(AStockAdapterBase):
             for key, value in row.items():
                 if key in {"代码", "股票代码", "名称", "股票简称", "研报数", "机构数"}:
                     continue
-                normalized[str(key)] = _coerce_float(value) if _coerce_float(value) is not None else value
+                normalized[str(key)] = _coerce_float(value) if _coerce_float(value) is not None else None
             items.append(normalized)
         return {"items": items, "count": len(items)}
 

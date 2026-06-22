@@ -63,6 +63,7 @@ class BacktestResult(BaseModel):
     fee_config_used: dict = Field(default_factory=dict)
     execution_signal: str = EXECUTION_SIGNAL
     decision_scope: str = "backtest_only"
+    run_id: str = ""
 
 
 # ---------------------------------------------------------------------------
@@ -223,6 +224,9 @@ class BacktestEngine:
                     "min_commission": self.fee_config.min_commission,
                 },
             )
+
+        # ── Force date range slice ──
+        df = df[(df.index >= pd.Timestamp(start_date)) & (df.index <= pd.Timestamp(end_date))]
 
         # --- Group by rebalance periods ---
         periods = df.resample(rebalance_freq.replace("M", "ME"))

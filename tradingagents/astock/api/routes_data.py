@@ -192,6 +192,32 @@ def get_news_live() -> tuple[Response, int]:
         return jsonify({"error": str(exc), "status": 500}), 500
 
 
+@bp.route("/news/stock")
+def get_stock_news_route() -> tuple[Response, int]:
+    """GET /api/v1/news/stock?symbol=600519.SH&limit=10
+    个股新闻，基于 akshare.stock_news_em（东方财富）
+    """
+    symbol = request.args.get("symbol", "")
+    if not symbol:
+        return jsonify({"error": "symbol is required", "status": 400}), 400
+    limit = _int_param("limit", 10)
+    try:
+        router = _router()
+        if not router:
+            return jsonify({"error": "data router not available", "status": 503}), 503
+        resp = router.get_stock_news(symbol, limit=limit)
+        if resp.status == "ok" and resp.data:
+            return jsonify({
+                "symbol": symbol,
+                "items": resp.data.get("items", []),
+                "count": resp.data.get("count", 0),
+            }), 200
+        return jsonify({"symbol": symbol, "items": [], "count": 0, "note": resp.error_message or "no data"}), 200
+    except Exception as exc:
+        logger.warning("stock news failed for %s: %s", symbol, exc)
+        return jsonify({"error": str(exc), "status": 500}), 500
+
+
 # ---------------------------------------------------------------------------
 # Trade tape (逐笔成交)
 # ---------------------------------------------------------------------------
@@ -319,7 +345,19 @@ def get_fundamentals() -> tuple[Response, int]:
             return jsonify({"error": "data router not available", "status": 503}), 503
         resp = router.get_fundamentals(symbol, limit=limit)
         if resp.status == "ok" and resp.data:
+            import math
+            import json as _json
             items = resp.data.get("items", [])
+            # 清除 NaN 值（Flask jsonify 不兼容 NaN）
+            def _clean(obj):
+                if isinstance(obj, dict):
+                    return {k: _clean(v) for k, v in obj.items()}
+                if isinstance(obj, list):
+                    return [_clean(v) for v in obj]
+                if isinstance(obj, float) and math.isnan(obj):
+                    return None
+                return obj
+            items = _clean(items)
             return jsonify({"symbol": symbol, "items": items, "count": len(items)}), 200
         return jsonify({"symbol": symbol, "items": [], "count": 0, "note": resp.error_message or "no data"}), 200
     except Exception as exc:
