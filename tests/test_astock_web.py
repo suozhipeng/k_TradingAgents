@@ -54,21 +54,24 @@ PAGE_ROUTES = [
     ("/", "trading"),
     ("/dashboard", "dashboard"),
     ("/research", "research"),
-    ("/backtest", "backtest"),
+    ("/strategy_hub", "strategy_hub"),
     ("/strategies", "strategies"),
     ("/paper", "paper"),
     ("/qmt", "qmt"),
     ("/risk", "risk"),
     ("/reports", "reports"),
-    ("/comparison", "comparison"),
     ("/screener", "screener"),
     ("/dragon_tiger", "dragon_tiger"),
     ("/sectors", "sectors"),
     ("/northbound", "northbound"),
     ("/data_health", "data_health"),
     ("/settings", "settings"),
-    ("/tv_chart", "tv_chart"),
+    ("/ai_agent", "ai_agent"),
+    ("/momentum_dashboard", "momentum_dashboard"),
+    ("/momentum_rotation", "momentum_rotation"),
+    ("/momentum_standalone", "momentum_standalone"),
     ("/kc_chart", "kc_chart"),
+    ("/tv_chart", "tv_chart"),
 ]
 
 
@@ -88,23 +91,28 @@ class TestWebBlueprintRegistration:
             "web.trading",
             "web.dashboard",
             "web.research",
-            "web.backtest",
+            "web.strategy_hub",
             "web.strategies",
             "web.paper",
             "web.qmt",
             "web.risk",
             "web.reports",
-            "web.comparison",
             "web.screener",
             "web.dragon_tiger",
             "web.sectors",
             "web.northbound",
             "web.data_health",
             "web.settings",
+            "web.ai_agent",
+            "web.momentum_dashboard",
+            "web.momentum_rotation",
+            "web.momentum_standalone",
+            "web.kc_chart",
+            "web.tv_chart",
         }
         missing = expected - endpoints
         assert not missing, f"Missing web endpoints: {missing}"
-        assert len(endpoints) >= 17
+        assert len(endpoints) >= 21
 
 
 class TestWebPageRendering:
@@ -132,7 +140,7 @@ class TestWebPageRendering:
         assert 'Trading' in html
         assert 'Dashboard' in html
         assert 'Research' in html
-        assert 'Backtest' in html
+        assert 'Strategy Hub' in html
         assert 'Strategies' in html
         assert 'Paper Trading' in html
         assert 'QMT Bridge' in html
@@ -141,8 +149,7 @@ class TestWebPageRendering:
         assert 'Dragon' in html and 'Tiger' in html
         assert 'Sectors' in html
         assert 'North' in html
-        assert 'Compare' in html
-        assert 'Performance' in html
+        assert 'AI Agent' in html
         assert 'Settings' in html
     @pytest.mark.parametrize("route,page_name", PAGE_ROUTES)
     def test_page_has_tailwind_cdn(self, client, route, page_name):
@@ -183,10 +190,11 @@ class TestWebSpecificPages:
         resp = client.get("/research")
         html = resp.data.decode("utf-8")
         assert "symbol-input" in html
-        assert "kline-chart" in html
-        assert "news-live-btn" in html
-        assert "analysis-live-btn" in html
+        assert "kc-chart-area" in html or "kline-iframe" in html
         assert "research-query" in html
+        assert "tab-news" in html
+        assert "tab-stocknews" in html
+        assert "tab-analysis" in html
 
     def test_kc_chart_has_loader_race_guards(self, client):
         resp = client.get("/kc_chart")
@@ -196,12 +204,13 @@ class TestWebSpecificPages:
         assert "scrollToRealTime" in html
 
     def test_backtest_has_run_button(self, client):
-        resp = client.get("/backtest")
+        resp = client.get("/strategy_hub")
         html = resp.data.decode("utf-8")
-        assert "bt-symbol" in html
-        assert "bt-strategy" in html
-        assert "bt-start" in html
-        assert "bt-end" in html
+        assert "sh-symbol" in html
+        assert "sh-strategy" in html or "sh-strat-list" in html
+        assert "sh-start" in html
+        assert "sh-end" in html
+        assert "sh-run-btn" in html
 
     def test_strategies_has_lists(self, client):
         resp = client.get("/strategies")
@@ -245,15 +254,13 @@ class TestWebSpecificPages:
         assert "saveSettings" in html
 
     def test_comparison_has_strategy_selection(self, client):
-        resp = client.get("/comparison")
+        resp = client.get("/strategy_hub")
         html = resp.data.decode("utf-8")
-        assert "cmp-strategies" in html
-        assert "cmp-symbol" in html
-        assert "cmp-start" in html
-        assert "cmp-end" in html
-        assert "cmp-mock" in html
-        assert "chart-equity-overlay" in html
-        assert "cmp-results" in html
+        assert "sh-strat-list" in html or "sh-strategy" in html
+        assert "sh-symbol" in html
+        assert "sh-start" in html
+        assert "sh-end" in html
+        assert "sh-run-btn" in html
 
     def test_screener_has_filter_panel(self, client):
         resp = client.get("/screener")
