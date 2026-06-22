@@ -45,8 +45,15 @@ checkpoint.
 | 18 | Strategy expansion + optimizer — MACD, Bollinger, Grid + grid-search optimizer | Complete | commit `88b57a4`, `a1520d4`, `2c37feb` |
 | 19 | Performance analysis + data refresh/cache + test refactor — Chart.js, 739/739 | Complete | commit `91c13b7`, `02aab36`, `957d159` |
 | 20 | Strategy comparison WebUI — compare API enhanced (equity_curve, rank), multi-strategy Chart.js overlay | Complete | commit `d128dc9` |
-| 21 | Test stabilization — 786/795 passed, 0 failed, 0 errors, 4× consistent runs | Complete | [Phase 21](phase-21-test-stabilization.md) |
-| — | WebUI risk/reports pages upgrade + mootdx verification + iwencai docs | Complete | Hotfix (post-Phase-21) |
+|| 21 | Test stabilization — 786/795 passed, 0 failed, 0 errors, 4× consistent runs | Complete | [Phase 21](phase-21-test-stabilization.md) |
+|| — | WebUI risk/reports pages upgrade + mootdx verification + iwencai docs | Complete | Hotfix (post-Phase-21) |
+|| 22 | KLineChart full integration — lightweight-charts replacement, 27 indicators, 17 drawing tools, 6 periods, mootdx minute data, NaN serialization fix | Complete | [Phase 22](phase-klinechart-integration.md) |
+|| 23 | 龙头股动量轮动决策系统 — stock pool, momentum rotation strategy, Streamlit + WebUI | Complete | [Phase 23](phase-23-momentum-rotation.md) |
+|| 24 | AI Agent analysis page — ai_agent.html | Complete | [Phase 24](phase-24-ai-agent-page.md) |
+|| 25 | Stock screener + sector rotation — TradingView-style screener, ECharts treemap heatmap | Complete | [Phase 25](phase-25-screener-sectors.md) |
+|| 26 | WebUI full refactor — Strategy Hub (backtest+performance+compare merge), sidebar cleanup, Research v2, data-explosion prevention | Complete | [Phase 26](phase-26-webui-refactor.md) |
+|| 27 | DataCleaner — full-path NaN→None sanitization, _coerce_float fix, _clean_nan() helper | Complete | [Phase 27](phase-27-data-cleaner.md) |
+|| 28 | 5 new WebUI pages — momentum dashboard, momentum rotation, dragon_tiger, northbound, data_health | Complete | [Phase 28](phase-28-new-webui-pages.md) |
 
 ## Naming
 
