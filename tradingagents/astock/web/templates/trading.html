@@ -332,10 +332,17 @@ function switchMode(mode) {
     b.style.background = isActive ? '#2962FF' : '#1c2030';
     b.style.color = isActive ? '#fff' : '#787b86';
   });
-  const labels = { paper: '📝 Paper Trading — 模拟盘模式', live: '🔴 实盘执行 — QMT 桥接模式', research: '🔍 研究辅助 — 只读模式' };
+  const labels = { paper: '📝 Paper Trading — 模拟盘模式', live: '🔴 实盘执行 — ⚠️ QMT 未连接', research: '🔍 研究辅助 — 只读模式' };
   const orderPanel = document.getElementById('order-panel');
   if (orderPanel) orderPanel.style.display = mode === 'research' ? 'none' : '';
   document.getElementById('mode-status').textContent = labels[mode] || labels.paper;
+  // 研究模式禁用轮询
+  if (mode === 'research') {
+    clearInterval(window._tradePollTimer);
+    window._tradePollTimer = null;
+  } else if (!window._tradePollTimer) {
+    window._tradePollTimer = setInterval(() => { loadTradingState(); }, 30000);
+  }
 }
 
 // ── 指数识别 ──
@@ -713,6 +720,10 @@ document.getElementById('order-qty').addEventListener('input', updateEstimate);
 
 // ── Submit Order ──
 async function submitOrder() {
+  // ── Mode guard ──
+  if (currentMode === 'research') { showToast('研究模式不支持下单', 'error'); return; }
+  if (currentMode === 'live') { showToast('QMT 桥接未连接，暂不支持实盘下单', 'error'); return; }
+
   const price = parseFloat(document.getElementById('order-price').value);
   const qty = parseInt(document.getElementById('order-qty').value);
   if (!price || price <= 0) { showToast('请输入有效价格', 'error'); return; }
@@ -732,6 +743,10 @@ async function submitOrder() {
         side: currentSide === 'buy' ? 'buy' : 'sell',
         price: price,
         quantity: qty,
+        mode: currentMode,
+        actionable: currentMode === 'paper',
+        execution_signal: currentMode === 'paper' ? 'PaperTrade' : 'ResearchOnly',
+        decision_scope: 'trading',
       }),
     });
     const data = await res.json();
@@ -845,7 +860,7 @@ function init() {
   loadTradingState();
   loadTradeHistory();
   // 定时器: 只刷新交易状态 (报价和K线由用户触发切换)
-  setInterval(() => {
+  window._tradePollTimer = setInterval(() => {
     loadTradingState();
   }, 30000);
 }
