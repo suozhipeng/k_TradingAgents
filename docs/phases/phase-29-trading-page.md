@@ -51,6 +51,14 @@
 
 当前交易页定位于 **Paper Trading 控制台**，提供研究辅助交易能力。所有下单走 PaperTrader 模拟盘路径，`actionable=false` / `execution_signal=ResearchOnly` 标记保持不变。
 
+## 测试
+
+```bash
+source .venv/bin/activate && python -m pytest tests/test_astock_web.py tests/test_astock_api.py -q
+```
+
+结果：**150 passed, 0 failed, 0 errors**（HEAD `975f5ee`）。
+
 ## Risks
 
 - 实时报价依赖 EastMoney push2，非交易时段无更新（降级到 Sina 缓存）

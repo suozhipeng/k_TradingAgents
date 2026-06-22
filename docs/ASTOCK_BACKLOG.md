@@ -70,7 +70,7 @@
 完成标准：
 
 - 有 scope — ✅ `phase-29-trading-page.md`
-- 有测试 — ✅ WebUI 测试 103 passed
+- 有测试 — ✅ WebUI + API 切片 150 passed
 - 有风险说明 — ✅ 实时报价依赖/缓存/持久化
 - 有 commit SHA — ✅ `268d326`, `87e5b73`, `1960c65` 等
 
