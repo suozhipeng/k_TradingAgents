@@ -15,6 +15,23 @@
 | 后续执行队列 | `docs/ASTOCK_BACKLOG.md` |
 | 专业缺口、代码边界、WebUI 重构设计 | `docs/ASTOCK_BOUNDARY_AND_UI_REFACTOR_PLAN.md` |
 | 金融产品优化路线图 | `docs/ASTOCK_PRODUCT_OPTIMIZATION_ROADMAP.md` |
+| 需求追踪矩阵 | `docs/ASTOCK_REQUIREMENTS_TRACEABILITY_MATRIX.md` |
+| 项目风险登记表 | `docs/ASTOCK_PROJECT_RISK_REGISTER.md` |
+| 架构决策记录 ADR | `docs/ASTOCK_ARCHITECTURE_DECISION_RECORDS.md` |
+| 产品指标与运维需求 | `docs/ASTOCK_PRODUCT_METRICS_AND_OPS_REQUIREMENTS.md` |
+| API 契约 | `docs/ASTOCK_API_CONTRACTS.md` |
+| 数据字典与血缘 | `docs/ASTOCK_DATA_DICTIONARY_AND_LINEAGE.md` |
+| 数据迁移与升级手册 | `docs/ASTOCK_DATA_MIGRATION_AND_UPGRADE.md` |
+| 数据源授权与使用边界 | `docs/ASTOCK_DATA_SOURCE_LICENSE_AND_USAGE.md` |
+| AI 模型治理 | `docs/ASTOCK_MODEL_GOVERNANCE.md` |
+| 实盘运行手册 | `docs/ASTOCK_LIVE_TRADING_RUNBOOK.md` |
+| 核心功能部署与环境 | `docs/ASTOCK_DEPLOYMENT_AND_ENVIRONMENT.md` |
+| 测试与验收计划 | `docs/ASTOCK_TEST_ACCEPTANCE_PLAN.md` |
+| 发布与变更管理 | `docs/ASTOCK_RELEASE_AND_CHANGE_MANAGEMENT.md` |
+| 风险披露与合规边界 | `docs/ASTOCK_RISK_DISCLOSURE_AND_COMPLIANCE.md` |
+| WebUI 产品规范 | `docs/ASTOCK_WEBUI_PRODUCT_SPEC.md` |
+| WebUI 页面级验收清单 | `docs/ASTOCK_WEBUI_PAGE_ACCEPTANCE_CHECKLIST.md` |
+| 文档范围登记 | `docs/ASTOCK_DOCUMENT_SCOPE_REGISTER.md` |
 | 策略开发规范 | `docs/ASTOCK_STRATEGY_DEVELOPMENT_GUIDE.md` |
 | live research 环境配置 | `docs/ASTOCK_LIVE_RESEARCH_SETUP.md` |
 | phase 归档索引 | `docs/phases/README.md` |
@@ -28,7 +45,23 @@
 - 当前状态只写入 `ASTOCK_CURRENT_STATUS.md`，不要散落到旧 phase 草稿。
 - 新需求先写入 `ASTOCK_REQUIREMENTS.md` 或 `ASTOCK_BACKLOG.md`。
 - 面向后续开发的产品优化拆解写入 `ASTOCK_PRODUCT_OPTIMIZATION_ROADMAP.md`。
+- 需求到模块、测试、phase 的映射写入 `ASTOCK_REQUIREMENTS_TRACEABILITY_MATRIX.md`。
+- 项目级技术、数据、交易、AI、UI、迁移风险写入 `ASTOCK_PROJECT_RISK_REGISTER.md`。
+- 重大架构或产品边界决策写入 `ASTOCK_ARCHITECTURE_DECISION_RECORDS.md`。
+- 产品成功指标、运行指标、告警和 Ops 需求写入 `ASTOCK_PRODUCT_METRICS_AND_OPS_REQUIREMENTS.md`。
+- 新增或修改 API schema、错误码、能力等级时，必须同步 `ASTOCK_API_CONTRACTS.md`。
+- 新增或修改 provider、store 字段、数据质量标签或血缘链路时，必须同步 `ASTOCK_DATA_DICTIONARY_AND_LINEAGE.md`。
+- 新增或修改 DuckDB、cache、schema、报告归档或回测结果结构时，必须同步 `ASTOCK_DATA_MIGRATION_AND_UPGRADE.md`。
+- 新增或修改数据源时，必须同步 `ASTOCK_DATA_SOURCE_LICENSE_AND_USAGE.md` 中的来源、用途和使用边界。
+- 新增或修改 AI provider、prompt、模型输出 schema 时，必须同步 `ASTOCK_MODEL_GOVERNANCE.md`。
+- 声明 `managed` 或 `live-ready` 能力前，必须同步 `ASTOCK_LIVE_TRADING_RUNBOOK.md` 和 `ASTOCK_RISK_DISCLOSURE_AND_COMPLIANCE.md`。
+- 修改核心功能启动、依赖、环境变量或健康检查时，必须同步 `ASTOCK_DEPLOYMENT_AND_ENVIRONMENT.md`。
+- 每个 phase 的测试命令、验收门槛和发布阻断条件写入 `ASTOCK_TEST_ACCEPTANCE_PLAN.md`。
+- API/data/AI/trading/UI 任一兼容性变化，必须同步 `ASTOCK_RELEASE_AND_CHANGE_MANAGEMENT.md`。
 - 代码和 UI 边界先写入 `ASTOCK_BOUNDARY_AND_UI_REFACTOR_PLAN.md`，再进入 phase 实施。
+- WebUI 页面状态、能力标签、顶层导航和旧入口迁移写入 `ASTOCK_WEBUI_PRODUCT_SPEC.md`。
+- 每个 WebUI 页面开发或重构完成后，必须按 `ASTOCK_WEBUI_PAGE_ACCEPTANCE_CHECKLIST.md` 补输入、输出、状态、错误态和截图证据。
+- 当前暂不纳入的外围模块只记录在 `ASTOCK_DOCUMENT_SCOPE_REGISTER.md`，不展开成需求模块。
 - 新增策略或重构 Strategy Lab 必须同步 `ASTOCK_STRATEGY_DEVELOPMENT_GUIDE.md`。
 - phase 证据只写入 `docs/phases/phase-XX-*.md`。
 - Hermes 运行态文件放 `.hermes/`；可复用模板才放 `docs/hermes/`。

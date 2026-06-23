@@ -64,6 +64,7 @@
 - 无风控、无确认的下单放开
 - 多券商统一抽象
 - 把所有前端入口合并成一套运行时 UI
+- 安全与隐私专项、SLA 与故障分级、用户角色/RBAC 当前只登记，不进入核心功能需求
 
 ## 5. 产品能力需求
 
@@ -194,6 +195,42 @@
 - WebUI/CLI/viewer 角色清晰
 - 回归稳定，产品迭代后可复验
 - 所有页面明确标注 research / paper / managed / live-ready 能力边界
+- 关键产品指标可被追踪，包括研究报告生成成功率、回测完成率、provider 可用率、任务失败率和审计事件覆盖率
+- 后续 Phase 30-38 的每项需求都能在需求追踪矩阵中定位到模块、页面/API、测试和 phase 证据
+- API、数据、运行、测试和风险披露均有独立文档约束，不依赖口头约定
+- 每个 live-ready 声明都能追溯到准入清单、运行手册、测试验收和风险披露
+- 商用交付前必须能回答“当前能力等级、数据来源、测试证据、失败处理、合规边界”五个问题
+
+## 9.1 后续产品路线
+
+后续路线以 `docs/ASTOCK_PRODUCT_OPTIMIZATION_ROADMAP.md` 为准：
+
+1. Phase 30：Live Trading Readiness
+2. Phase 31：Data Quality & Bias Control
+3. Phase 32：Strategy Lab
+4. Phase 33：AI Research Center
+5. Phase 34：Market Leaders
+6. Phase 35：Trading & Execution
+7. Phase 36：Portfolio Risk & Attribution
+8. Phase 37：Ops & Audit
+9. Phase 38：Product Navigation Cleanup
+
+## 9.2 商用生产级文档要求
+
+后续开发必须按以下文档闭环执行：
+
+- API 变更先更新 `docs/ASTOCK_API_CONTRACTS.md`，再进入代码实现。
+- 数据字段、provider、质量标签、血缘和快照变更先更新 `docs/ASTOCK_DATA_DICTIONARY_AND_LINEAGE.md`。
+- DuckDB、cache、schema、报告归档和回测结果结构变更先更新 `docs/ASTOCK_DATA_MIGRATION_AND_UPGRADE.md`。
+- 受控执行、QMT、订单、风控、故障处理和回滚流程先更新 `docs/ASTOCK_LIVE_TRADING_RUNBOOK.md`。
+- 每个 phase 必须按 `docs/ASTOCK_TEST_ACCEPTANCE_PLAN.md` 留存测试命令、结果和阻断项。
+- 页面、报告、AI 输出、回测结果和交易入口必须遵守 `docs/ASTOCK_RISK_DISCLOSURE_AND_COMPLIANCE.md`。
+- 核心功能启动、依赖和健康检查必须遵守 `docs/ASTOCK_DEPLOYMENT_AND_ENVIRONMENT.md`。
+- AI provider、prompt、模型输出和降级必须遵守 `docs/ASTOCK_MODEL_GOVERNANCE.md`。
+- WebUI 页面状态、能力标签和顶层导航必须遵守 `docs/ASTOCK_WEBUI_PRODUCT_SPEC.md`。
+- WebUI 页面输入、输出、状态、错误态和截图证据必须遵守 `docs/ASTOCK_WEBUI_PAGE_ACCEPTANCE_CHECKLIST.md`。
+- API/data/AI/trading/UI 兼容性变化必须遵守 `docs/ASTOCK_RELEASE_AND_CHANGE_MANAGEMENT.md`。
+- 当前暂不纳入范围必须以 `docs/ASTOCK_DOCUMENT_SCOPE_REGISTER.md` 为准，不得隐式扩展。
 
 ## 10. 关联文档
 
@@ -201,4 +238,20 @@
 - `docs/ASTOCK_TECH_REQUIREMENTS.md`
 - `docs/ASTOCK_BACKLOG.md`
 - `docs/ASTOCK_BOUNDARY_AND_UI_REFACTOR_PLAN.md`
+- `docs/ASTOCK_PRODUCT_OPTIMIZATION_ROADMAP.md`
+- `docs/ASTOCK_REQUIREMENTS_TRACEABILITY_MATRIX.md`
+- `docs/ASTOCK_PRODUCT_METRICS_AND_OPS_REQUIREMENTS.md`
+- `docs/ASTOCK_API_CONTRACTS.md`
+- `docs/ASTOCK_DATA_DICTIONARY_AND_LINEAGE.md`
+- `docs/ASTOCK_DATA_MIGRATION_AND_UPGRADE.md`
+- `docs/ASTOCK_DATA_SOURCE_LICENSE_AND_USAGE.md`
+- `docs/ASTOCK_MODEL_GOVERNANCE.md`
+- `docs/ASTOCK_LIVE_TRADING_RUNBOOK.md`
+- `docs/ASTOCK_DEPLOYMENT_AND_ENVIRONMENT.md`
+- `docs/ASTOCK_TEST_ACCEPTANCE_PLAN.md`
+- `docs/ASTOCK_RELEASE_AND_CHANGE_MANAGEMENT.md`
+- `docs/ASTOCK_RISK_DISCLOSURE_AND_COMPLIANCE.md`
+- `docs/ASTOCK_WEBUI_PRODUCT_SPEC.md`
+- `docs/ASTOCK_WEBUI_PAGE_ACCEPTANCE_CHECKLIST.md`
+- `docs/ASTOCK_DOCUMENT_SCOPE_REGISTER.md`
 - `docs/ASTOCK_CURRENT_STATUS.md`

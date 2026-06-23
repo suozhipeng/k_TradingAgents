@@ -33,14 +33,14 @@
 | 10 | 回测与模拟盘 | 完成 | [Phase 10](phase-10-backtest-paper-trading.md) |
 | 11 | QMT 桥接：只读到受控执行 | 完成 | [Phase 11](phase-11-qmt-controlled-execution.md) |
 | 12 | DuckDB 本地数据库：10 表、CLI 工具、导入/导出 | 完成 | [Phase 12](phase-12-duckdb-local-database.md) |
-| 13 | WebUI 国际化与市场切换：zh/en、LangSwitch、MarketSwitch | 完成 | commit `02aee20` |
+| 13 | WebUI 国际化与市场切换：zh/en、LangSwitch、MarketSwitch | 完成 | [Phase 13](phase-13-webui-i18n-market-switch.md) |
 | 14 | 六种回测策略：2 牛 / 2 震荡 / 2 熊 | 完成 | [Phase 14](phase-14-strategy-expansion.md) |
-| 15 | Flask REST API + Chart.js + WebUI API client：19 端点 | 完成 | commit `eff5d24` |
-| 16 | 批量回测、市场分析器、调度器、SSE：36 项测试 | 完成 | commit `0019dc9` |
-| 17 | Flask Jinja2 WebUI 9 页面 + PPT 报告：54 项测试 | 完成 | commit `8f2423e` |
-| 18 | 策略扩展 + 优化器：MACD、布林带、网格 + grid-search optimizer | 完成 | commit `88b57a4`, `a1520d4`, `2c37feb` |
-| 19 | 绩效分析 + 数据刷新/缓存 + 测试重构：Chart.js，739/739 | 完成 | commit `91c13b7`, `02aab36`, `957d159` |
-| 20 | 策略对比 WebUI：compare API 增强，多策略 Chart.js 叠加 | 完成 | commit `d128dc9` |
+| 15 | Flask REST API + Chart.js + WebUI API client：19 端点 | 完成 | [Phase 15](phase-15-flask-api-chart-webui-client.md) |
+| 16 | 批量回测、市场分析器、调度器、SSE：36 项测试 | 完成 | [Phase 16](phase-16-batch-backtest-scheduler-sse.md) |
+| 17 | Flask Jinja2 WebUI 9 页面 + PPT 报告：54 项测试 | 完成 | [Phase 17](phase-17-flask-jinja-reporting.md) |
+| 18 | 策略扩展 + 优化器：MACD、布林带、网格 + grid-search optimizer | 完成 | [Phase 18](phase-18-strategy-optimizer.md) |
+| 19 | 绩效分析 + 数据刷新/缓存 + 测试重构：Chart.js，739/739 | 完成 | [Phase 19](phase-19-performance-refactor.md) |
+| 20 | 策略对比 WebUI：compare API 增强，多策略 Chart.js 叠加 | 完成 | [Phase 20](phase-20-comparison-webui.md) |
 | 21 | 测试稳定化：786/795 passed，0 failed，0 errors，4 次一致运行 | 完成 | [Phase 21](phase-21-test-stabilization.md) |
 | — | WebUI risk/reports 页面升级 + mootdx 验证 + iwencai 文档 | 完成 | Phase 21 后 hotfix |
 | 22 | KLineChart 全功能集成：替换 lightweight-charts，27 指标，17 画线工具，6 周期，mootdx 分钟数据，NaN 序列化修复 | 完成 | [Phase 22](phase-22-klinechart-integration.md) |
