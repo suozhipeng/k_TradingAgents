@@ -8,6 +8,8 @@
 - P1：高价值增强
 - P2：后续优化
 
+更完整的金融产品优化路线图见 `docs/ASTOCK_PRODUCT_OPTIMIZATION_ROADMAP.md`。Backlog 负责记录执行队列，路线图负责说明为什么做、先做什么、每个模块如何达到金融产品可用口径。
+
 ## 2. P0
 
 ### BL-000 建立实盘准入清单
@@ -242,14 +244,17 @@
 
 ## 5. 建议执行顺序
 
-1. `BL-000` 建立实盘准入清单
-2. `BL-001` 统一 QMT 能力边界
-3. `BL-002` 修正 `qmt/orders` 语义
-4. `BL-100` Strategy Lab 模块整合
-5. `BL-100A` AI Research Center 模块整合
-6. `BL-100B` 龙头相关单入口
-7. `BL-105` 数据质量与回测反偏差
-8. `BL-103` 收敛 phase 归档一致性
+建议以 `docs/ASTOCK_PRODUCT_OPTIMIZATION_ROADMAP.md` 中的 phase 顺序作为后续主线：
+
+1. `Phase 30` / `BL-000`：Live Trading Readiness，先定实盘准入和能力口径
+2. `Phase 31` / `BL-105`：Data Quality & Bias Control，补数据可信和回测可信
+3. `Phase 32` / `BL-100`：Strategy Lab 模块整合
+4. `Phase 33` / `BL-100A`：AI Research Center 模块整合
+5. `Phase 34` / `BL-100B`：Market Leaders 龙头相关单入口
+6. `Phase 35` / `BL-001` + `BL-002`：Trading & Execution，统一 QMT 能力边界和订单语义
+7. `Phase 36` / `BL-205`：Portfolio Risk & Attribution，补组合级风险和绩效归因
+8. `Phase 37`：Ops & Audit，统一任务、错误、审计和健康状态
+9. `Phase 38` / `BL-203`：Product Navigation Cleanup，清理多入口和体验一致性
 
 ## 6. 关联文档
 
@@ -257,4 +262,5 @@
 - `docs/ASTOCK_PRD.md`
 - `docs/ASTOCK_TECH_REQUIREMENTS.md`
 - `docs/ASTOCK_BOUNDARY_AND_UI_REFACTOR_PLAN.md`
+- `docs/ASTOCK_PRODUCT_OPTIMIZATION_ROADMAP.md`
 - `docs/ASTOCK_CURRENT_STATUS.md`

@@ -14,6 +14,7 @@
 | 技术模块拆解 | `docs/ASTOCK_TECH_REQUIREMENTS.md` |
 | 后续执行队列 | `docs/ASTOCK_BACKLOG.md` |
 | 专业缺口、代码边界、WebUI 重构设计 | `docs/ASTOCK_BOUNDARY_AND_UI_REFACTOR_PLAN.md` |
+| 金融产品优化路线图 | `docs/ASTOCK_PRODUCT_OPTIMIZATION_ROADMAP.md` |
 | 策略开发规范 | `docs/ASTOCK_STRATEGY_DEVELOPMENT_GUIDE.md` |
 | live research 环境配置 | `docs/ASTOCK_LIVE_RESEARCH_SETUP.md` |
 | phase 归档索引 | `docs/phases/README.md` |
@@ -26,6 +27,7 @@
 
 - 当前状态只写入 `ASTOCK_CURRENT_STATUS.md`，不要散落到旧 phase 草稿。
 - 新需求先写入 `ASTOCK_REQUIREMENTS.md` 或 `ASTOCK_BACKLOG.md`。
+- 面向后续开发的产品优化拆解写入 `ASTOCK_PRODUCT_OPTIMIZATION_ROADMAP.md`。
 - 代码和 UI 边界先写入 `ASTOCK_BOUNDARY_AND_UI_REFACTOR_PLAN.md`，再进入 phase 实施。
 - 新增策略或重构 Strategy Lab 必须同步 `ASTOCK_STRATEGY_DEVELOPMENT_GUIDE.md`。
 - phase 证据只写入 `docs/phases/phase-XX-*.md`。

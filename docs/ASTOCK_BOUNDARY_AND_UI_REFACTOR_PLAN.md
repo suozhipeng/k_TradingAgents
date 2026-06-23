@@ -9,6 +9,8 @@
 - 模块边界：Strategy Lab、AI Research Center、Market Leaders、Live Trading Readiness、Data Quality 的目标边界。
 - WebUI 边界：顶层导航、页面归属、旧入口迁移和界面设计图。
 
+如果需要从金融产品经理视角直接拆后续开发任务，使用 `docs/ASTOCK_PRODUCT_OPTIMIZATION_ROADMAP.md`。本文负责固定边界，路线图负责把边界转成可执行 phase 顺序和验收标准。
+
 ## 1. 总体原则
 
 当前项目已经具备 A 股投研、策略验证、模拟盘和 QMT 受控执行雏形，但尚不等同于完整实盘生产交易系统。后续重构必须遵守：
@@ -435,11 +437,17 @@ flowchart TB
 
 ## 8. 实施顺序
 
-1. Phase 30：先写 Strategy Lab phase 文档，固定策略 registry、结果 schema、页面迁移表。
-2. Phase 31：写 AI Research Center phase 文档，固定 AI 审计模型和报告归档边界。
-3. Phase 32：写 Market Leaders phase 文档，固定单入口和顶部 tab 设计。
-4. Phase 33：写 Live Trading Readiness phase 文档，固定实盘准入 checklist 和订单生命周期模型。
-5. Phase 34：写 Data Quality & Bias Control phase 文档，固定交易日历、复权、停牌、涨跌停、回测反偏差。
+更新后的开发主线以 `docs/ASTOCK_PRODUCT_OPTIMIZATION_ROADMAP.md` 为准：
+
+1. Phase 30：Live Trading Readiness，固定实盘准入 checklist、能力等级和订单生命周期模型。
+2. Phase 31：Data Quality & Bias Control，固定交易日历、复权、停牌、涨跌停、ST/退市和回测反偏差。
+3. Phase 32：Strategy Lab，固定策略 registry、结果 schema、页面迁移表。
+4. Phase 33：AI Research Center，固定 AI 审计模型、上下文包和报告归档边界。
+5. Phase 34：Market Leaders，固定单入口、顶部 tab、候选池和资金线索归属。
+6. Phase 35：Trading & Execution，固定账户、订单、成交、撤单、拒单、reconciliation 和风控门。
+7. Phase 36：Portfolio Risk & Attribution，固定组合级风险、暴露、归因和压力测试。
+8. Phase 37：Ops & Audit，固定任务、错误、provider、模型、数据和人工确认审计。
+9. Phase 38：Product Navigation Cleanup，清理重复入口和统一终端体验。
 
 代码实施必须等对应 phase 文档明确以下内容后再开始：
 
@@ -456,3 +464,4 @@ flowchart TB
 - `docs/ASTOCK_TECH_REQUIREMENTS.md`
 - `docs/ASTOCK_BACKLOG.md`
 - `docs/ASTOCK_CURRENT_STATUS.md`
+- `docs/ASTOCK_PRODUCT_OPTIMIZATION_ROADMAP.md`
