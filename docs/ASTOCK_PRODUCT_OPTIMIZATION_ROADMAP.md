@@ -348,7 +348,7 @@ pytest tests/test_astock_paper_trader.py -q
 - 失败场景必须有 root cause 分析和修复计划
 - UAT 结果写入 ASTOCK_CURRENT_STATUS.md
 
-## 12. 直接开发前检查清单
+## 13. 直接开发前检查清单
 
 每个新 phase 开始前必须先回答：
 
@@ -370,7 +370,7 @@ pytest tests/test_astock_paper_trader.py -q
 
 如果以上问题没有答案，不应开始代码开发。
 
-## 12.1 生产级文档门槛
+## 13.1 生产级文档门槛
 
 后续 Phase 30-38 不只交付功能，还必须同步生产级文档：
 
@@ -390,7 +390,7 @@ pytest tests/test_astock_paper_trader.py -q
 - 架构决策变化：更新 `docs/ASTOCK_ARCHITECTURE_DECISION_RECORDS.md`，包括背景、决策、影响和关联文档。
 - 暂不纳入模块变化：先更新 `docs/ASTOCK_DOCUMENT_SCOPE_REGISTER.md`，未明确重新纳入前不得进入核心功能开发。
 
-## 13. 关联文档
+## 14. 关联文档
 
 - `docs/ASTOCK_BOUNDARY_AND_UI_REFACTOR_PLAN.md`
 - `docs/ASTOCK_BACKLOG.md`

@@ -36,7 +36,7 @@
 
 | ID | Hermes brief | DeepSeek allowed scope | Codex acceptance |
 |---|---|---|---|
-| 38-01 | 列出所有 template 页面。 | docs；templates 只读。 | 20+ 页面覆盖。 |
+| 38-01 | 列出所有 template 页面。 | docs；templates 只读。 | 22 页面覆盖。 |
 | 38-02 | 列出 sidebar/nav 入口。 | docs；base templates 只读。 | 无重复入口清单。 |
 | 38-03 | 定义目标顶层导航。 | WebUI spec、ADR。 | 7 个顶层模块。 |
 | 38-04 | 标记旧入口迁移策略。 | WebUI checklist、release/change。 | redirect/hidden/legacy 明确。 |

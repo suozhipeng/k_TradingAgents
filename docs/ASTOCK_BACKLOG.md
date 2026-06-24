@@ -135,7 +135,7 @@
 
 完成标准：
 
-- 有 `phase-30-strategy-lab-consolidation.md` 归档
+- 有 `phase-32-strategy-lab-consolidation.md` 归档
 - 所有策略均可通过统一 registry 描述参数和适用场景
 - 单标的策略符合 `StrategyBase -> generate_signals` 规范
 - 动量轮动等组合策略明确使用 Standalone 模式或 StrategyBase 兼容模式
@@ -157,7 +157,7 @@
 
 完成标准：
 
-- 有 `phase-31-ai-research-center.md` 归档
+- 有 `phase-33-ai-research-center.md` 归档
 - AI 任务记录模型、prompt、输入数据快照、引用来源、生成时间和人工确认状态
 - AI Research Center 可以调用行情、财务、公告、新闻、研报、策略结果和持仓风险作为上下文
 - 报告中心统一管理 Markdown/JSON/PPT/Web report
@@ -176,7 +176,7 @@
 
 完成标准：
 
-- 有 `phase-32-market-leaders-entry.md` 归档
+- 有 `phase-34-market-leaders-entry.md` 归档
 - 顶层导航只出现一个 `Market Leaders` / `龙头决策` 入口
 - 内部 tab 至少覆盖：动量总览、轮动回测、板块强弱、资金线索、候选池
 - 旧的 `momentum_dashboard`、`momentum_rotation`、`dragon_tiger`、`northbound`、`sectors` 有兼容跳转或明确降级策略
