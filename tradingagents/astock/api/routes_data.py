@@ -9,6 +9,7 @@ chain at module load time.
 from __future__ import annotations
 
 import logging
+import math
 from typing import Any
 
 from flask import Blueprint, Response, current_app, jsonify, request
@@ -40,6 +41,18 @@ def _int_param(name: str, default: int) -> int:
         return int(raw)
     except (ValueError, TypeError):
         return default
+
+
+# ── NaN 清洗工具（Flask jsonify 不兼容 NaN）──
+def _clean_nan(obj: Any) -> Any:
+    """Recursively replace NaN floats with None in dicts/lists/scalars."""
+    if isinstance(obj, dict):
+        return {k: _clean_nan(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_clean_nan(v) for v in obj]
+    if isinstance(obj, float) and math.isnan(obj):
+        return None
+    return obj
 
 
 # ---------------------------------------------------------------------------
@@ -345,19 +358,9 @@ def get_fundamentals() -> tuple[Response, int]:
             return jsonify({"error": "data router not available", "status": 503}), 503
         resp = router.get_fundamentals(symbol, limit=limit)
         if resp.status == "ok" and resp.data:
-            import math
-            import json as _json
             items = resp.data.get("items", [])
             # 清除 NaN 值（Flask jsonify 不兼容 NaN）
-            def _clean(obj):
-                if isinstance(obj, dict):
-                    return {k: _clean(v) for k, v in obj.items()}
-                if isinstance(obj, list):
-                    return [_clean(v) for v in obj]
-                if isinstance(obj, float) and math.isnan(obj):
-                    return None
-                return obj
-            items = _clean(items)
+            items = _clean_nan(items)
             return jsonify({"symbol": symbol, "items": items, "count": len(items)}), 200
         return jsonify({"symbol": symbol, "items": [], "count": 0, "note": resp.error_message or "no data"}), 200
     except Exception as exc:

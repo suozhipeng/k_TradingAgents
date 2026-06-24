@@ -15,11 +15,14 @@
 | 后续执行队列 | `docs/ASTOCK_BACKLOG.md` |
 | 专业缺口、代码边界、WebUI 重构设计 | `docs/ASTOCK_BOUNDARY_AND_UI_REFACTOR_PLAN.md` |
 | 金融产品优化路线图 | `docs/ASTOCK_PRODUCT_OPTIMIZATION_ROADMAP.md` |
+| 开发进度与 5 分钟任务拆解 | `docs/ASTOCK_DEVELOPMENT_PROGRESS_AND_5MIN_PLAN.md` |
+| Hermes 可执行任务包 | `docs/ASTOCK_HERMES_EXECUTION_TASK_PACKS.md` |
 | 需求追踪矩阵 | `docs/ASTOCK_REQUIREMENTS_TRACEABILITY_MATRIX.md` |
 | 项目风险登记表 | `docs/ASTOCK_PROJECT_RISK_REGISTER.md` |
 | 架构决策记录 ADR | `docs/ASTOCK_ARCHITECTURE_DECISION_RECORDS.md` |
 | 产品指标与运维需求 | `docs/ASTOCK_PRODUCT_METRICS_AND_OPS_REQUIREMENTS.md` |
 | API 契约 | `docs/ASTOCK_API_CONTRACTS.md` |
+| 后台 API 文档 | `docs/ASTOCK_BACKEND_API_REFERENCE.md` |
 | 数据字典与血缘 | `docs/ASTOCK_DATA_DICTIONARY_AND_LINEAGE.md` |
 | 数据迁移与升级手册 | `docs/ASTOCK_DATA_MIGRATION_AND_UPGRADE.md` |
 | 数据源授权与使用边界 | `docs/ASTOCK_DATA_SOURCE_LICENSE_AND_USAGE.md` |
@@ -45,11 +48,14 @@
 - 当前状态只写入 `ASTOCK_CURRENT_STATUS.md`，不要散落到旧 phase 草稿。
 - 新需求先写入 `ASTOCK_REQUIREMENTS.md` 或 `ASTOCK_BACKLOG.md`。
 - 面向后续开发的产品优化拆解写入 `ASTOCK_PRODUCT_OPTIMIZATION_ROADMAP.md`。
+- 后台/前台开发进度、API、真实数据源、测试验收和 5 分钟任务拆解写入 `ASTOCK_DEVELOPMENT_PROGRESS_AND_5MIN_PLAN.md`。
+- Hermes 可直接分派的任务 brief、允许范围、测试和回填要求写入 `ASTOCK_HERMES_EXECUTION_TASK_PACKS.md`。
 - 需求到模块、测试、phase 的映射写入 `ASTOCK_REQUIREMENTS_TRACEABILITY_MATRIX.md`。
 - 项目级技术、数据、交易、AI、UI、迁移风险写入 `ASTOCK_PROJECT_RISK_REGISTER.md`。
 - 重大架构或产品边界决策写入 `ASTOCK_ARCHITECTURE_DECISION_RECORDS.md`。
 - 产品成功指标、运行指标、告警和 Ops 需求写入 `ASTOCK_PRODUCT_METRICS_AND_OPS_REQUIREMENTS.md`。
 - 新增或修改 API schema、错误码、能力等级时，必须同步 `ASTOCK_API_CONTRACTS.md`。
+- 新增、删除或调整后台 endpoint、数据源、能力等级、测试验收时，必须同步 `ASTOCK_BACKEND_API_REFERENCE.md`。
 - 新增或修改 provider、store 字段、数据质量标签或血缘链路时，必须同步 `ASTOCK_DATA_DICTIONARY_AND_LINEAGE.md`。
 - 新增或修改 DuckDB、cache、schema、报告归档或回测结果结构时，必须同步 `ASTOCK_DATA_MIGRATION_AND_UPGRADE.md`。
 - 新增或修改数据源时，必须同步 `ASTOCK_DATA_SOURCE_LICENSE_AND_USAGE.md` 中的来源、用途和使用边界。

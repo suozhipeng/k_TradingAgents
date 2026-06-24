@@ -51,6 +51,15 @@
 | 27 | DataCleaner：全路径 NaN -> None 清理、`_coerce_float` 修复、`_clean_nan()` helper | 完成 | [Phase 27](phase-27-data-cleaner.md) |
 | 28 | 新增 5 个 WebUI 页面：momentum dashboard、momentum rotation、dragon_tiger、northbound、data_health | 完成 | [Phase 28](phase-28-new-webui-pages.md) |
 | 29 | 专业交易页：TradingView 风格交易控制台、实时报价、订单面板、KLineChart、持仓 | 完成 | [Phase 29](phase-29-trading-page.md) |
+| 30 | Live Trading Readiness：交易能力边界、capability、runbook、kill switch | planned | [Phase 30](phase-30-live-trading-readiness.md) |
+| 31 | Data Quality & Bias Control：数据质量、数据假设、回测反偏差 | planned | [Phase 31](phase-31-data-quality-bias-control.md) |
+| 32 | Strategy Lab：策略、回测、优化、绩效、对比、动量轮动统一 | planned | [Phase 32](phase-32-strategy-lab-consolidation.md) |
+| 33 | AI Research Center：AI Agent、研究、报告、模型审计统一 | planned | [Phase 33](phase-33-ai-research-center.md) |
+| 34 | Market Leaders：龙头、板块、资金、候选池单入口 | planned | [Phase 34](phase-34-market-leaders-entry.md) |
+| 35 | Trading & Execution：订单、成交、持仓、风控和 reconciliation | planned | [Phase 35](phase-35-trading-execution-control.md) |
+| 36 | Portfolio Risk & Attribution：组合风险和绩效归因 | planned | [Phase 36](phase-36-portfolio-risk-attribution.md) |
+| 37 | Ops & Audit Center：任务、错误、provider、模型和审计 | planned | [Phase 37](phase-37-ops-audit-center.md) |
+| 38 | Product Navigation Cleanup：WebUI 顶层导航和旧入口收敛 | planned | [Phase 38](phase-38-product-navigation-cleanup.md) |
 
 ## 3. 命名规则
 

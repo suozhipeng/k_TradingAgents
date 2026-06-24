@@ -1055,7 +1055,7 @@ async function searchResearch() {
 //  KC INDICATOR
 // ═══════════════════════════════════════════════════════════════════════════
 
-function toggleKCIndicator(name) {
+function toggleKCIndicator(name, event) {
   const btn = event.target;
   btn.classList.toggle('active');
   const kf = document.getElementById('kline-iframe');

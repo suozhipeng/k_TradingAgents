@@ -227,6 +227,18 @@ class BacktestEngine:
 
         # ── Force date range slice ──
         df = df[(df.index >= pd.Timestamp(start_date)) & (df.index <= pd.Timestamp(end_date))]
+        if df.empty:
+            return BacktestResult(
+                symbol=symbol,
+                start_date=start_date,
+                end_date=end_date,
+                fee_config_used={
+                    "commission_rate": self.fee_config.commission_rate,
+                    "stamp_tax_rate": self.fee_config.stamp_tax_rate,
+                    "slippage_rate": self.fee_config.slippage_rate,
+                    "min_commission": self.fee_config.min_commission,
+                },
+            )
 
         # --- Group by rebalance periods ---
         periods = df.resample(rebalance_freq.replace("M", "ME"))

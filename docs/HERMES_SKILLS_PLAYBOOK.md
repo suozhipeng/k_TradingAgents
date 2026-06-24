@@ -107,6 +107,8 @@
 - phase 归档：`docs/phases/`
 - 当前事实基线：`docs/ASTOCK_CURRENT_STATUS.md`
 - 需求和技术边界：`docs/ASTOCK_REQUIREMENTS.md`、`docs/ASTOCK_TECH_REQUIREMENTS.md`
+- Hermes 可执行任务包：`docs/ASTOCK_HERMES_EXECUTION_TASK_PACKS.md`
+- 开发进度与 5 分钟任务拆解：`docs/ASTOCK_DEVELOPMENT_PROGRESS_AND_5MIN_PLAN.md`
 - 策略规范：`docs/ASTOCK_STRATEGY_DEVELOPMENT_GUIDE.md`
 - Hermes 可复用模板：`docs/hermes/`
 - live provider 验证溯源：`docs/verification_provenance/`
