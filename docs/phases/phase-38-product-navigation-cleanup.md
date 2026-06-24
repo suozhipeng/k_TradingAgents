@@ -2,6 +2,10 @@
 
 | 状态：planned | 更新时间：2026-06-24 |
 
+## 0. 前置依赖
+
+- Phase 32-37：所有模块页面收敛、导航整合、旧入口迁移（依赖前面 phase 定义的页面归属和迁移策略）
+
 ## 1. Phase 目标
 
 收敛 WebUI 顶层信息架构、重复入口、页面状态、能力标签和旧入口迁移策略，形成清晰的金融终端产品体验。
@@ -42,6 +46,7 @@
 | 38-08 | 运行 WebUI/API slice。 | phase evidence。 | WebUI/API 测试有结果。 |
 | 38-09 | 如导航决策变化，更新 ADR。 | ADR。 | accepted/superseded 状态正确。 |
 | 38-10 | 更新当前状态文档。 | current status、phase doc。 | Phase 38 证据闭合。 |
+| 38-11 | 触发 Phase 39 端到端 UAT 准备。 | phase doc。 | UAT 场景表引用本 phase 收敛结果。 |
 
 ## 4. 测试命令
 

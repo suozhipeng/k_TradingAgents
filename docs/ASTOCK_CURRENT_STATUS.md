@@ -152,7 +152,7 @@ Phase 11 执行层增加了额外的安全边界：
 - **龙虎榜**（dragon_tiger.html）：个股主力资金追踪
 - **北向资金**（northbound.html）：沪深股通资金流
 - **数据健康页**（data_health.html）：数据源状态监控面板
-- **WebUI 总页面数**：20 个活跃页面（templates/ 目录）
+- **WebUI 总页面数**：22 个活跃页面（templates/ 目录）
 - **NaN 全路径防御**：adapters.py _coerce_float 修复、routes_data.py _clean_nan() 模块级防护、backtest 结果清洗
 
 ## 5. 当前缺口
@@ -194,6 +194,7 @@ Phase 11 执行层增加了额外的安全边界：
 - WebUI/Streamlit 角色已明确：WebUI 为产品端入口，Streamlit 为运行时 viewer
   后端。WebUI 已实现 AStockGraphReport 报告查看器组件（commit `f218e84`）。
   两者保持独立代码库，不做全技术合并。
+- `webui/` 目录下存在一个 React/TypeScript/Vite 前端实验项目（`webui/package.json`、`tsconfig`、`vite.config.ts`），当前未纳入产品主入口体系，定位为前端实验/迁移探索，不作为 Phase 30-38 验收范围。
 
 ### 历史 P2 — 口径说明
 

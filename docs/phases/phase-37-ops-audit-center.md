@@ -2,6 +2,10 @@
 
 | 状态：planned | 更新时间：2026-06-24 |
 
+## 0. 前置依赖
+
+- Phase 30-36：所有前述 Phase 的 schema 和 API（TaskRun/AuditEvent 覆盖全部模块：数据刷新、回测、AI research、报告生成、交易动作）
+
 ## 1. Phase 目标
 
 统一数据刷新、回测、AI research、报告生成、交易动作的任务和审计记录，形成 Ops & Audit Center。

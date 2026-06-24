@@ -33,13 +33,13 @@
 | `docs/ASTOCK_BOUNDARY_AND_UI_REFACTOR_PLAN.md` | 本文，固定文档/代码/UI 边界和设计图 | 不替代实际 phase 实施文档 |
 | `docs/phases/phase-XX-*.md` | 每个阶段的 scope、实现证据、测试、风险、commit SHA | 不作为总需求入口 |
 
-后续新增 phase 建议：
+后续新增 phase 建议（已按实际执行编号调整）：
 
-- `docs/phases/phase-30-strategy-lab-consolidation.md`
-- `docs/phases/phase-31-ai-research-center.md`
-- `docs/phases/phase-32-market-leaders-entry.md`
-- `docs/phases/phase-33-live-trading-readiness.md`
-- `docs/phases/phase-34-data-quality-bias-control.md`
+- `docs/phases/phase-30-live-trading-readiness.md`
+- `docs/phases/phase-31-data-quality-bias-control.md`
+- `docs/phases/phase-32-strategy-lab-consolidation.md`
+- `docs/phases/phase-33-ai-research-center.md`
+- `docs/phases/phase-34-market-leaders-entry.md`
 
 ## 3. 代码边界
 
@@ -76,7 +76,7 @@
 | `tradingagents/astock/store/` | 承载数据快照、回测结果、AI 审计、订单状态、运行日志 |
 | `tradingagents/astock/web/` | 重构 WebUI 信息架构和页面归属 |
 | `run.py` / `flask_app.py` / `momentum_dashboard.py` | 降级为开发/演示入口，产品入口收敛到 Flask WebUI |
-| `webui/` | 如保留，应作为独立前端实验或迁移目标，不能和 Flask WebUI 双主入口长期并行 |
+| `webui/` | React/TypeScript/Vite 前端实验项目，当前不作为产品主入口；如保留应作为独立前端实验或迁移目标，不能和 Flask WebUI 双主入口长期并行 |
 
 ## 4. 目标模块边界
 

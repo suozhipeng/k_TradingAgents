@@ -2,6 +2,10 @@
 
 | 状态：planned | 更新时间：2026-06-24 |
 
+## 0. 前置依赖
+
+- Phase 31：BacktestDataAssumption schema、DataQualityTag（回测结果必须展示数据假设和质量标签）
+
 ## 1. Phase 目标
 
 把策略、回测、优化、绩效、对比和动量轮动收敛为统一 Strategy Lab。要求保留现有策略能力，建立统一 registry、参数 schema、结果 schema 和页面入口。

@@ -2,6 +2,10 @@
 
 | 状态：planned | 更新时间：2026-06-24 |
 
+## 0. 前置依赖
+
+- 无前置 phase 依赖。Phase 30 是所有后续 phase 的基础（TradingMode enum、capability 标注、kill switch 定义）。
+
 ## 1. Phase 目标
 
 把当前 trading / paper / qmt / risk 能力从“页面和接口已存在”收敛为可验收的交易能力边界。当前 phase 不实现完整自动实盘，不把 QMT 纳入真实数据源要求，只定义 research / paper / managed / live-ready 的准入、API 标注、页面提示和测试证据。

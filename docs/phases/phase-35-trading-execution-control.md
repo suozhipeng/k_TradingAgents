@@ -2,6 +2,11 @@
 
 | 状态：planned | 更新时间：2026-06-24 |
 
+## 0. 前置依赖
+
+- Phase 30：TradingMode enum、capability 标注、kill switch 定义（订单/交易页必须复用 Phase 30 的能力标签）
+- Phase 34：LeaderPool schema（龙头交易上下文需要候选池信息）
+
 ## 1. Phase 目标
 
 在 Phase 30 能力边界基础上，补订单、成交、持仓、reconciliation、风控前置门和交易页闭环。当前 phase 仍不默认自动实盘。

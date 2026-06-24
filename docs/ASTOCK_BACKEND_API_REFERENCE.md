@@ -8,11 +8,131 @@
 
 - 基础前缀：`/api/v1`
 - 能力等级：`research` / `paper` / `managed` / `live-ready` / `mock`
+
+## 2. 请求/响应示例
+
+### 2.1 K 线查询
+
+**请求：**
+```bash
+curl -X GET "http://localhost:8080/api/v1/kline?symbol=600519.SH&start=2025-01-01&end=2025-06-01&interval=1d"
+```
+
+**响应：**
+```json
+{
+  "success": true,
+  "data": {
+    "bars": [
+      {"date": "2025-01-02", "open": 1700.5, "high": 1720.0, "low": 1695.0, "close": 1715.3, "volume": 12345, "provider": "mootdx"}
+    ]
+  },
+  "error": null,
+  "meta": {
+    "capability": "research",
+    "source": "provider",
+    "request_id": "abc-123",
+    "generated_at": "2026-06-25T10:00:00Z",
+    "freshness": "ok",
+    "quality": "ok"
+  }
+}
+```
+
+### 2.2 AI 分析
+
+**请求：**
+```bash
+curl -X POST "http://localhost:8080/api/v1/ai/analyze" \
+  -H "Content-Type: application/json" \
+  -d '{"symbol": "600519.SH", "mode": "live_research", "date": "2025-06-01"}'
+```
+
+**响应：**
+```json
+{
+  "success": true,
+  "data": {
+    "task_id": "task-xyz-789",
+    "status": "completed",
+    "report": {
+      "research_conclusion": {...},
+      "trader_proposal": {...},
+      "risk_decision": {...},
+      "portfolio_decision": {...}
+    }
+  },
+  "error": null,
+  "meta": {
+    "capability": "research",
+    "source": "provider",
+    "request_id": "def-456",
+    "generated_at": "2026-06-25T10:05:00Z",
+    "model": "deepseek-v4-flash",
+    "advisory_only": true
+  }
+}
+```
+
+### 2.3 回测运行
+
+**请求：**
+```bash
+curl -X POST "http://localhost:8080/api/v1/backtest/run" \
+  -H "Content-Type: application/json" \
+  -d '{"strategy": "macd_trend", "symbol": "600519.SH", "start": "2024-01-01", "end": "2025-06-01", "params": {"fast": 12, "slow": 26, "signal": 9}}'
+```
+
+**响应：**
+```json
+{
+  "success": true,
+  "data": {
+    "result_id": "bt-001",
+    "metrics": {"return": 0.15, "sharpe": 1.2, "drawdown": -0.08},
+    "data_assumption": {"adjust": "qfq", "cost_model": {...}, "t_plus_1": true}
+  },
+  "error": null,
+  "meta": {
+    "capability": "research",
+    "source": "duckdb",
+    "request_id": "ghi-789",
+    "generated_at": "2026-06-25T10:10:00Z"
+  }
+}
+```
+
+### 2.4 错误响应
+
+**请求：**
+```bash
+curl -X GET "http://localhost:8080/api/v1/kline?symbol=INVALID&start=2025-01-01"
+```
+
+**响应：**
+```json
+{
+  "success": false,
+  "data": null,
+  "error": {
+    "code": "INVALID_SYMBOL",
+    "message": "symbol is not a valid A-share code",
+    "category": "validation",
+    "retryable": false,
+    "details": {"provided": "INVALID"}
+  },
+  "meta": {
+    "capability": "research",
+    "request_id": "err-001",
+    "generated_at": "2026-06-25T10:15:00Z"
+  }
+}
+```
 - 当前不把 QMT 相关接口纳入真实数据源要求。
 - 数据类 API 必须逐步补齐：`source`、`provider`、`freshness`、`quality`、`fallback_path`、`snapshot_id`。
 - 长任务类 API 必须逐步补齐：`task_id`、`status`、`progress`、`audit_event_id`。
 
-## 2. Health / Dashboard
+## 3. Health / Dashboard
 
 | API | Method | 模块 | 能力 | 数据源 | 当前状态 | 测试 |
 |---|---|---|---|---|---|---|
@@ -24,7 +144,7 @@
 - 返回 capability、degraded services、latest task、latest audit summary。
 - Dashboard 不显示为 live-ready。
 
-## 3. Data & Ops API
+## 4. Data & Ops API
 
 | API | Method | 功能 | 能力 | 真实数据源 | 当前状态 | 测试 |
 |---|---|---|---|---|---|---|
@@ -63,7 +183,7 @@
 - Phase 31：统一返回 `DataQualityTag` 和 `BacktestDataAssumption`。
 - Phase 37：刷新任务返回 `TaskRun`。
 
-## 4. TradingView / KLine API
+## 5. TradingView / KLine API
 
 | API | Method | 功能 | 能力 | 数据源 | 当前状态 | 测试 |
 |---|---|---|---|---|---|---|
@@ -77,7 +197,7 @@
 - 返回数据延迟、fallback、复权口径。
 - KLine 页面显示 data quality 标签。
 
-## 5. Strategy Lab API
+## 6. Strategy Lab API
 
 | API | Method | 功能 | 能力 | 数据源 | 当前状态 | 测试 |
 |---|---|---|---|---|---|---|
@@ -95,7 +215,7 @@
 - Phase 32：统一 `StrategyRegistry`、`BacktestResult`、`OptimizeResult` schema。
 - 回测结果必须包含 benchmark、成本模型、数据假设和反偏差状态。
 
-## 6. Market Leaders API
+## 7. Market Leaders API
 
 | API | Method | 功能 | 能力 | 数据源 | 当前状态 | 测试 |
 |---|---|---|---|---|---|---|
@@ -113,7 +233,7 @@
 - Phase 34：统一 `LeaderPool` schema。
 - mock fallback 必须进入 `meta.source=mock` 或页面显著标签。
 
-## 7. AI Research API
+## 8. AI Research API
 
 | API | Method | 功能 | 能力 | 数据源 | 当前状态 | 测试 |
 |---|---|---|---|---|---|---|
@@ -133,7 +253,7 @@
 
 - 返回 model provider、model name、prompt version、input snapshot ids、advisory-only 标记。
 
-## 8. Paper / Trading / QMT API
+## 9. Paper / Trading / QMT API
 
 | API | Method | 功能 | 能力 | 数据源 / 状态源 | 当前状态 | 测试 |
 |---|---|---|---|---|---|---|
@@ -153,7 +273,7 @@
 - Phase 35：补 Order / Fill / Position / Reconciliation schema。
 - QMT 真实数据不纳入本文真实数据源要求。
 
-## 9. SSE / Ops API
+## 10. SSE / Ops API
 
 | API | Method | 功能 | 能力 | 数据源 | 当前状态 | 测试 |
 |---|---|---|---|---|---|---|
@@ -170,7 +290,7 @@
 | `/api/v1/audit/events` | GET | 查询审计事件 | research / paper / managed | 37 |
 | `/api/v1/audit/events/<event_id>` | GET | 查询审计详情 | research / paper / managed | 37 |
 
-## 10. 验收矩阵
+## 11. 验收矩阵
 
 | API 类别 | 必跑测试 | Phase |
 |---|---|---|
@@ -181,7 +301,7 @@
 | Trading & Execution | `tests/test_astock_paper_trader.py`, `tests/test_astock_execution_risk_gate.py`, `tests/test_astock_qmt_execution.py` | 30/35 |
 | Ops & Audit | `tests/test_astock_sse.py`, `tests/test_astock_api.py`, `tests/test_astock_web.py` | 37 |
 
-## 11. 更新规则
+## 12. 更新规则
 
 - 新增 endpoint 必须同步本文和 `docs/ASTOCK_API_CONTRACTS.md`。
 - 数据源变化必须同步 `docs/ASTOCK_DATA_SOURCE_LICENSE_AND_USAGE.md`。

@@ -2,6 +2,11 @@
 
 | 状态：planned | 更新时间：2026-06-24 |
 
+## 0. 前置依赖
+
+- Phase 32：BacktestResult schema、Strategy Registry（组合风险需要复用回测结果）
+- Phase 35：Order/Position/Fill schema、reconciliation（组合状态需要订单和持仓数据）
+
 ## 1. Phase 目标
 
 从单股/单策略升级到组合级风险和绩效归因，复用 Strategy Lab 回测结果与 Trading/Paper 状态。

@@ -15,7 +15,7 @@
 | Trading & Execution | 已有 paper、risk gate、trade quote/state、QMT managed 雏形 | 已有 trading、paper、risk、qmt | 可受控试运行，不是完整实盘生产 | Phase 30/35 |
 | Portfolio Workbench | 指标和绩效基础存在 | 无独立组合工作台 | 待开发 | Phase 36 |
 | Ops & Audit | 有 SSE、data health、phase/provenance | 无统一 Ops/Audit Center | 待开发 | Phase 37 |
-| WebUI Shell | 多页面已完成 | 20+ 模板可用 | 入口较多，需要导航收敛 | Phase 38 |
+| WebUI Shell | 多页面已完成 | 22 个模板可用 | 入口较多，需要导航收敛 | Phase 38 |
 
 ## 2. 后台模块拆分与 API 定义
 
@@ -360,7 +360,7 @@ flowchart LR
 
 | 序号 | 5 分钟任务 | 产物 | 验收 |
 |---|---|---|---|
-| 38-01 | 列出所有 template 页面 | 页面清单 | 20+ 页面覆盖 |
+| 38-01 | 列出所有 template 页面 | 页面清单 | 22 页面覆盖 |
 | 38-02 | 列出 sidebar/nav 入口 | 导航清单 | 无重复 |
 | 38-03 | 定义目标顶层导航 | 导航表 | 7 个顶层模块 |
 | 38-04 | 标记旧入口迁移策略 | 迁移表 | redirect/hidden/legacy |

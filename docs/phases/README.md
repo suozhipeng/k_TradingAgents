@@ -60,6 +60,7 @@
 | 36 | Portfolio Risk & Attribution：组合风险和绩效归因 | planned | [Phase 36](phase-36-portfolio-risk-attribution.md) |
 | 37 | Ops & Audit Center：任务、错误、provider、模型和审计 | planned | [Phase 37](phase-37-ops-audit-center.md) |
 | 38 | Product Navigation Cleanup：WebUI 顶层导航和旧入口收敛 | planned | [Phase 38](phase-38-product-navigation-cleanup.md) |
+| 39 | End-to-End UAT：端到端用户工作流验收 | planned | 在 Phase 38 完成后执行，场景见 `ASTOCK_PRODUCT_OPTIMIZATION_ROADMAP.md` §12.1 |
 
 ## 3. 命名规则
 

@@ -2,6 +2,11 @@
 
 | 状态：planned | 更新时间：2026-06-24 |
 
+## 0. 前置依赖
+
+- Phase 31：data_assumption 字段、DataQualityTag（AI 研究引用的数据必须标注质量和假设）
+- Phase 32：BacktestResult schema（AI 可复用回测结果作为上下文）
+
 ## 1. Phase 目标
 
 把 AI Agent、A 股研究 runtime、研究页、报告中心、新闻/公告/研报解读收敛为 AI Research Center。保留原 TradingAgents core，所有 AI 输出默认 advisory-only。

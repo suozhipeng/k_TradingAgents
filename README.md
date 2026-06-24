@@ -65,6 +65,18 @@ TradingAgents is a multi-agent trading framework that mirrors the dynamics of re
 
 > TradingAgents framework is designed for research purposes. Trading performance may vary based on many factors, including the chosen backbone language models, model temperature, trading periods, the quality of data, and other non-deterministic factors. [It is not intended as financial, investment, or trading advice.](https://tauric.ai/disclaimer/)
 
+## A 股定制模块
+
+本项目包含一个面向 A 股的定制模块 `TradingAgents-Astock`，在保留原 TradingAgents 底层 AI 分析能力的基础上，扩展了 A 股专属的数据源、研究链、回测引擎、模拟盘、QMT 受控执行和 WebUI。
+
+- **A 股文档入口**：详见 [`docs/README.md`](docs/README.md)，包含产品需求、技术架构、API 契约、数据字典、测试验收、风险披露等完整文档体系。
+- **快速上手**：参见 [`docs/QUICK_START.md`](docs/QUICK_START.md)。
+- **当前状态**：参见 [`docs/ASTOCK_CURRENT_STATUS.md`](docs/ASTOCK_CURRENT_STATUS.md)。
+- **WebUI 启动**：`PORT=8080 python run_webui.py`。
+- **环境配置**：参见 [`docs/ASTOCK_LIVE_RESEARCH_SETUP.md`](docs/ASTOCK_LIVE_RESEARCH_SETUP.md)。
+
+> A 股定制模块当前定位为投研分析 + 策略验证 + 模拟盘 + 受控执行试运行平台，不是完整自动实盘生产交易系统。详见 [`docs/ASTOCK_RISK_DISCLOSURE_AND_COMPLIANCE.md`](docs/ASTOCK_RISK_DISCLOSURE_AND_COMPLIANCE.md)。
+
 Our framework decomposes complex trading tasks into specialized roles.
 
 ### Analyst Team
@@ -111,7 +123,7 @@ cd TradingAgents
 
 Create a virtual environment in any of your favorite environment managers:
 ```bash
-conda create -n tradingagents python=3.13
+conda create -n tradingagents python=3.12
 conda activate tradingagents
 ```
 

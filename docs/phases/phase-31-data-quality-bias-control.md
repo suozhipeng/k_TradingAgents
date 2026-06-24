@@ -2,6 +2,10 @@
 
 | 状态：planned | 更新时间：2026-06-24 |
 
+## 0. 前置依赖
+
+- Phase 30：TradingMode enum、capability 标注规范（数据 API 也需要 capability 标签）
+
 ## 1. Phase 目标
 
 把数据可信、来源、延迟、fallback、回测反偏差和数据假设从文档要求落到 API/schema/UI 验收口径。重点处理 akshare、mootdx、Tencent、iwencai、EastMoney、Sina 等非 QMT 数据源。
