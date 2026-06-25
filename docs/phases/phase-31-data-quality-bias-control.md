@@ -1,6 +1,6 @@
 # Phase 31 Data Quality & Bias Control 需求与 Hermes 任务包
 
-| 状态：planned | 更新时间：2026-06-24 |
+| 状态：delivered | 验收状态：Codex accept ✅ | 更新时间：2026-06-25 |
 
 ## 0. 前置依赖
 
@@ -58,6 +58,9 @@ API：
 pytest tests/test_astock_data_sources.py -q
 pytest tests/test_astock_provider_fixtures.py -q
 pytest tests/test_astock_tv_routes.py -q
+pytest tests/test_astock_calendar.py -q
+pytest tests/test_astock_adjustment.py -q
+pytest tests/test_astock_backtest.py -q
 ```
 
 ## 5. 完成标准
@@ -65,3 +68,29 @@ pytest tests/test_astock_tv_routes.py -q
 - 数据输出有 source/freshness/quality/fallback/snapshot 口径。
 - 回测结果可展示数据假设和反偏差状态。
 - live provider 测试有 guard，不伪造成稳定通过。
+
+---
+
+## 6. 交付总结（2026-06-25）
+
+### 已完成
+
+| 任务 | 文件 | Commit |
+|------|------|--------|
+| 31-01 DataQualityTag schema + router/API/UI 集成 | `quality.py`, `router.py`, `routes_data.py`, `routes_data_health.py`, `data_health.html` | `f8ded44`, `72a276a`, `2efdc18` |
+| 31-02 交易日历 + API + backtest 集成 | `calendar.py`, `routes_market_data.py`, `backtest_engine.py` | `70cc10d`, `c902808` |
+| 31-03 停复牌 schema | 无稳定数据源，标记为 planned | — |
+| 31-05 复权处理 | `adjustment.py` | `07cd0d1` |
+| 31-08 BacktestResult.data_assumption | `backtest_engine.py` | `ff18573` |
+| 31-10 交易日校验（回测约束） | `backtest_engine.py`（交易日验证）| `c902808` |
+| 全量回归 | 578 passed, 13 skipped | `07cd0d1` |
+
+### 测试增量
+
+- 新增 18 个测试：calendar(9) + adjustment(6) + quality-tag(3)
+- 全量 astock 测试从 560 → 578
+
+### Codex 验收
+
+- 31-01/02/05 均通过独立 Codex review (accept)
+- BacktestDataAssumption populate 修复经 Codex 重审确认 (ff18573)
