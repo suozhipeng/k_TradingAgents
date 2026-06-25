@@ -1,38 +1,26 @@
 # .hermes/dev-loop.yaml
 project: 'Phase 35 — Trading Execution 实装'
 started_at: '2026-06-25T23:30:00+08:00'
-phase: code
-current_task_index: 0
+phase: done
+current_task_index: -1
 
 tasks:
   - id: 1
-    description: '35-01: PaperTrader 返回 Order/Fill Pydantic 对象'
-    status: pending
-    notes: 'execute_order() 返回值 dict → Order/Fill schema'
+    description: '35-01: PaperTrader 返回 Order/Fill Pydantic'
+    status: committed
 
   - id: 2
     description: '35-02: Trade API 接收 Order schema'
-    status: pending
-    notes: 'routes_trade.py submit_order 返回 Order JSON'
+    status: committed
 
   - id: 3
-    description: '35-03: RiskGate 接入订单流 — Order.risk_status 联动'
-    status: pending
-    notes: 'submit 前必经 RiskGate.check(), Order.risk_status 联动'
+    description: '35-03: RiskGate 接入订单流'
+    status: committed
 
   - id: 4
-    description: '35-04: Trading 页面 capability 标注 + mode 切换'
-    status: pending
-    notes: 'trading.html 展示 paper/managed 标签'
+    description: '35-04: Trading 页面 capability 标注'
+    status: committed
 
   - id: 5
     description: '35-05: 证据文档 + 测试验证'
-    status: pending
-    notes: '更新 evidence doc, 跑 paper/risk 测试切片'
-
-next_actions:
-  - '35-01: PaperTrader → Order/Fill'
-  - '35-02: Trade API → Order'
-  - '35-03: RiskGate 订单流'
-  - '35-04: Trading 页面标注'
-  - '35-05: 证据+测试'
+    status: committed

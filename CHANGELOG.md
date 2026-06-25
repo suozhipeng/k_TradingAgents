@@ -6,6 +6,45 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes within the 0.x line are called out explicitly.
 
+## A 股定制模块 — Phase 0–38 交付摘要
+
+> 以下 A 股定制模块的交付记录按 phase 归档，详细变更见各 phase 文档。当前版本 HEAD 为 `xg_dev` 分支。
+
+- **Phase 38** — Product Navigation Cleanup：7 模块 Sidebar 精简、旧入口 redirect、文档口径回补（partial）
+- **Phase 37** — Ops & Audit Center：SSE TaskRun 标准化、Ops Audit 页面、统一审计持久化（partial）
+- **Phase 36** — Portfolio Risk & Attribution：Portfolio 页与 schema 落地、深层风险/归因能力未闭环（partial）
+- **Phase 35** — Trading Execution Control：schema + trade/QMT/UI 接线已落地、API 契约与真实回报闭环未完成（partial）
+- **Phase 34** — Market Leaders Entry：`/market_leaders` 单入口已落地、旧页面兼容访问保留（partial）
+- **Phase 33** — AI Research Center：ResearchTask + Audit schema、AI 页面、多标的支持、降级标识、报告对比、advisory-only（completed）
+- **Phase 32** — Strategy Lab Consolidation：策略实验室整合 + 参数优化 tab（completed）
+- **Phase 31** — Data Quality & Bias Control：幸存者偏差/前瞻偏差检测已修复、页面展示待补齐（partial）
+- **Phase 30** — Live Trading Readiness：实盘准入清单与证据（planned）
+- **Phase 29** — 专业交易页：TradingView 风格交易控制台、实时报价、订单面板、KLineChart、仓位管理、PaperTrader 桥接（completed）
+- **Phase 28** — 动量决策终端 / 动量轮动独立看板 / 龙虎榜 / 北向资金 / 数据健康页面（completed）
+- **Phase 27** — 统一数据清洗层 DataCleaner：全路径 NaN→None 清理（completed）
+- **Phase 26** — WebUI 全平台重构：Strategy Hub 三位一体、Sidebar 精简、Research v2、数据防爆（completed）
+- **Phase 25** — 股票筛选器 + 板块轮动：TradingView 风格筛选面板、ECharts treemap 热力图（completed）
+- **Phase 24** — AI Agent 分析页面（completed）
+- **Phase 23** — 龙头股动量轮动决策系统：标的池动态获取、动量轮动策略、Streamlit 看板、WebUI 集成（completed）
+- **Phase 22** — KLineChart 全功能集成：27 技术指标、17 画线工具、6 周期切换、mootdx 分钟数据（completed）
+- **Phase 21** — 测试清噪与全仓回归稳定化：786 passed, 9 skipped, 0 failed（completed）
+- **Phase 20** — 策略对比 WebUI：多策略同参数运行、净值曲线叠加（completed）
+- **Phase 19** — 绩效分析 WebUI + 数据刷新/缓存管理 + 测试重构全回归 739/739（completed）
+- **Phase 18** — 策略扩展 + 参数优化器：3 新策略 + grid search + API + WebUI（completed）
+- **Phase 17** — Flask Jinja2 WebUI 10 页面 + PPT 报告生成（completed）
+- **Phase 16** — 批量回测 + 市场分析器 + 调度器 + SSE（completed）
+- **Phase 15** — Flask REST API + Chart.js + WebUI API 客户端（57 端点）（completed）
+- **Phase 14** — 十种回测策略（completed）
+- **Phase 13** — WebUI 国际化 + 市场切换（completed）
+- **Phase 12** — DuckDB 本地数据库 10 表（completed）
+- **Phase 11** — QMT 桥接与受控执行（completed）
+- **Phase 10** — 回测与模拟盘（completed）
+- **Phase 0–9** — 只读研究与展示链路（completed）
+
+当前代码规模：25 个 WebUI 模板 / 28 个 Jinja2 页面、57 个 Flask REST API handler、14 个 routes 模块。
+
+---
+
 ## [0.2.5] — 2026-05-11
 
 ### Added

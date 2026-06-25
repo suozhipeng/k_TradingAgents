@@ -1,7 +1,7 @@
 # STACK
 
 ## Python 版本
-- `pyproject.toml` 指定：`requires-python = ">=3.10"`
+- `pyproject.toml` 指定：`requires-python = ">=3.12"`
 - Docker/容器相关默认镜像未在 `docker-compose.yml` 明示 Python 小版本；`terminal.docker_image` 属于 Hermes 配置，不属于本项目，故这里不引用。
 - 若生产部署要求固定到 `3.10.x / 3.11.x`，当前仓库内未看到锁定信息，**需人工确认**。
 
@@ -193,8 +193,9 @@ AStockDataRouter
   -> Phase 9 Advisory Chain
   |    (ResearchConclusion -> TraderProposal -> RiskDecision -> PortfolioDecision)
   -> AStockGraphReport
-  -> { CLI | Streamlit read-only viewer }
+  -> { CLI | Streamlit read-only viewer | WebUI (Jinja2 / React) }
   -> { BacktestEngine | PaperTrader | QmtExecution (managed) }
+  -> { DuckDB Store | EventBus (SSE) | ReportGenerator (PPTX) }
 ```
 
 所有 A 股执行输出保持 `decision_scope=research_only`、`actionable=false`、`execution_signal=ResearchOnly`，除非 safety mode 下人工确认。
@@ -208,12 +209,119 @@ AStockDataRouter
 | QMT 降级 | QMT 桥接不可用时自动走模拟盘路径 |
 | `actionable=false` | 所有输出保持非可执行标记，直到人工确认 |
 
+### A 股扩展栈（Phase 12–38 交付后）
+
+#### DuckDB 本地数据库（Phase 12）
+| 模块 | 路径 | 职责 |
+|---|---|---|
+| Store | `tradingagents/astock/store/` | `AStockStore` + 10 张表（kline_bars, valuations, order_book_snapshots 等） |
+| Loader | `tradingagents/astock/store/loader.py` | `KlineLoader` / `ValuationLoader` / `BatchLoader` |
+| CLI 工具 | `scripts/astock_db_tool.py` | list-tables / stats / export / import / query / vacuum |
+
+#### Flask REST API（Phase 15）
+| 模块 | 路径 | 职责 |
+|---|---|---|
+| Factory | `tradingagents/astock/api/__init__.py` | `create_app()` + CORS + 14 blueprints 注册 |
+| Data CRUD | `routes_data.py` | kline / valuation / orderbook / news / research / announcements |
+| Backtest | `routes_backtest.py` | 运行回测 / 查询结果 / 多策略对比 |
+| Paper Trading | `routes_paper.py` | 模拟盘状态 / 交易记录 / 单次调仓 |
+| Market | `routes_market.py` | 市场概览 / 策略列表 |
+| QMT | `routes_qmt.py` | QMT 健康检查 / 持仓 / 委托 |
+| SSE | `routes_sse.py` | 事件流推送 |
+| Reports | `routes_reports.py` | 报告归档 |
+| Dashboard | `routes_dashboard.py` | Dashboard 数据 |
+| Screener | `routes_screener.py` | 股票筛选 |
+| Market Data | `routes_market_data.py` | 龙虎榜 / 板块 / 北向资金 / 动量轮动 |
+| Data Health | `routes_data_health.py` | 数据健康检查 |
+| Trade | `routes_trade.py` | 交易委托 / 报价 |
+| TV Chart | `routes_tv.py` | TradingView 兼容 datafeed |
+
+#### Jinja2 WebUI（Phase 17+）
+| 模块 | 路径 | 职责 |
+|---|---|---|
+| Blueprint | `tradingagents/astock/web/__init__.py` | 28 个 route，25 个 HTML 模板 |
+| 页面 | `templates/` | dashboard / research / strategy_hub / paper / risk / reports / screener / tv_chart / kc_chart / momentum_rotation / market_leaders / momentum_dashboard / portfolio / ops_audit / ai_agent / dragon_tiger / sectors / northbound / data_health / settings / momentum_standalone / backtest / comparison / performance |
+
+#### 策略与优化（Phase 14, 18, 20）
+| 模块 | 路径 | 职责 |
+|---|---|---|
+| 策略基类 | `tradingagents/astock/execution/strategy_base.py` | 10 种策略（2 牛 / 2 震荡 / 2 熊 + MACD / 布林带 / 网格） |
+| 注册表 | `execution/strategy_registry.py` | 策略注册与查询 |
+| 优化器 | `execution/optimizer.py` | `StrategyOptimizer` grid search |
+| 批量回测 | `execution/batch_backtest.py` | `BatchBacktestRunner` |
+| 动量轮动 | `execution/momentum_rotation.py` | 龙头股动量轮动策略 |
+
+#### 执行层增强（Phase 16+）
+| 模块 | 路径 | 职责 |
+|---|---|---|
+| Kill Switch | `execution/kill_switch.py` | 全局紧急停止 |
+| Scheduler | `execution/scheduler.py` | `PaperTradeScheduler` 定时调度 |
+| EventBus | `execution/event_bus.py` | 内存环形缓冲区 SSE 推送 |
+| Leader Pool | `execution/leader_pool.py` | 龙头股候选池 |
+| Risk Gate | `execution/risk_gate.py` | ATR 止损 + 跟踪止盈 |
+
+#### 数据质量与清洗（Phase 27, 31）
+| 模块 | 路径 | 职责 |
+|---|---|---|
+| Cleaner | `tradingagents/astock/data_sources/cleaner.py` | `DataCleaner` 全路径 NaN→None |
+| Quality | `data_sources/quality.py` | `DataQualityTag` / `FreshnessInfo` |
+| Calendar | `data_sources/calendar.py` | 交易日历工具 |
+| Eastmoney | `data_sources/eastmoney.py` | 东方财富数据（龙虎榜 / 行业对比 / 港股通） |
+| Sina Sectors | `data_sources/sina_sectors.py` | 新浪板块数据 |
+| Adjustment | `data_sources/adjustment.py` | 复权因子 |
+| Suspension | `data_sources/suspension.py` | 停牌 / 涨跌停 |
+
+#### 分析与报告（Phase 17, 19）
+| 模块 | 路径 | 职责 |
+|---|---|---|
+| Market Analyzer | `tradingagents/astock/analysis/` | 4 维度加权市场体制分析 |
+| Report Generator | `tradingagents/astock/reporting/` | PPTX 报告生成（5 页 dark theme） |
+
+#### Phase 32-37 Schemas
+| 模块 | 路径 | 职责 |
+|---|---|---|
+| Trading Execution | `astock/schemas/trading_execution.py` | Order / Fill / Position / Reconciliation |
+| Portfolio | `astock/schemas/portfolio.py` | Portfolio / RiskExposure / Attribution |
+| Research Task | `astock/schemas/research_task.py` | ResearchTask / ResearchAudit |
+| Research Context | `astock/schemas/research_context.py` | DataSourceMeta / StockInfoData / MarketSummaryData |
+| Optimization | `astock/schemas/optimization.py` | OptimizeResult |
+| Ops Audit | `astock/schemas/ops_audit.py` | TaskType / TaskRun / AuditEvent |
+| Report Archive | `astock/schemas/report_archive.py` | ReportFormat / ReportItem / ReportArchive |
+
+#### React/TS 实验前端（Phase 26+）
+| 模块 | 路径 | 职责 |
+|---|---|---|
+| App | `webui/src/App.tsx` | 6 个导航标签（Dashboard / Module Map / Agent Flow / Task Center / Reports / Settings） |
+| Modules | `webui/src/data/modules.json` | 30 个模块静态记录 |
+| API Client | `webui/src/hooks/useApi.ts` | Flask REST API 客户端（已就绪但未接线到 UI） |
+| Types | `webui/src/types.ts` | ModuleType / ModuleRecord / AStockGraphReport |
+
+#### 测试基础设施
+| 模块 | 路径 | 职责 |
+|---|---|---|
+| Conftest | `tests/conftest.py` | unit/integration/smoke markers + `_dummy_api_keys` fixture |
+| Fixtures | `tests/fixtures/astock_providers/` | 15 个 JSON 测试样本 |
+| 测试文件 | `tests/` | ~67 个测试文件，~13,709 行 |
+
 ## 总结
 这是一个：
-- **Python 3.10+**
+- **Python 3.12+**
 - 以 **LangGraph + LangChain** 为核心
 - 通过 **多类 LLM Provider + 多数据源路由** 完成
 - 带 **交互式 CLI** 与 **Docker/Ollama 运行方式**
-- A 股扩展层包含 **五层数据路由、统一接口、research-only runtime、Phase 9 advisory chain、回测/模拟盘/QMT 桥接执行层**
+- A 股扩展层包含：
+  - **五层数据路由**（行情/研报/新闻/基础数据/公告）
+  - **统一接口**与 AStockAnalyst
+  - **Research-only runtime** + Phase 9 advisory chain
+  - **回测/模拟盘/QMT 桥接**执行层
+  - **DuckDB 本地数据库**（10 表）
+  - **Flask REST API**（57 端点 / 14 模块）
+  - **Jinja2 WebUI**（25 模板 / 28 页面）
+  - **React/TS 实验前端**（6 标签页）
+  - **10 种回测策略** + 参数优化器
+  - **统一数据清洗层** + 数据质量标签
+  - **龙头股动量轮动**系统
+  - **KLineChart**（27 指标 + 17 画线工具）
+  - **AI Research Center** + Portfolio + Ops Audit
 - 输出"分析报告 + 投资建议 + 风控讨论 + 最终决策 + 可选执行路径"的
 **多 Agent 金融研究/交易决策框架**（A 股标的研究 → advisory → 受控执行完整闭环）。
