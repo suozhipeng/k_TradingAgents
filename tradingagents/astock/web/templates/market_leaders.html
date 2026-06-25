@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}市场龙头 — AStock Pro{% endblock %}
+{% block head_extra %}
+<style>
+/* ════════════════════════════════════════════════════════════
+   Market Leaders — 统一市场龙头入口 v2
+   ════════════════════════════════════════════════════════════ */
+.ml-wrap { max-width: 1440px; margin: 0 auto; }
+.ml-header { margin-bottom: 16px; }
+.ml-header h1 { font-size: 22px; font-weight: 700; color: #d1d4dc; margin: 0; }
+.ml-header p { font-size: 12px; color: #787b86; margin: 4px 0 0 0; }
+
+/* ── Tab bar ── */
+.ml-tabs {
+  display: flex; gap: 0; border-bottom: 1px solid #2a2e39;
+  margin-bottom: 16px; overflow-x: auto;
+}
+.ml-tab {
+  padding: 8px 16px; font-size: 12px; font-weight: 500; color: #787b86;
+  cursor: pointer; border-bottom: 2px solid transparent;
+  transition: all .15s; white-space: nowrap; user-select: none;
+}
+.ml-tab:hover { color: #d1d4dc; background: rgba(42,46,57,0.5); }
+.ml-tab.active { color: #2962FF; border-bottom-color: #2962FF; }
+
+/* ── Tab content iframes ── */
+.ml-iframe-wrap { border-radius: 6px; overflow: hidden; background: #1e222d; }
+.ml-iframe-wrap iframe { width: 100%; height: calc(100vh - 200px); border: none; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="ml-wrap">
+  <div class="ml-header">
+    <h1>🐉 市场龙头 Market Leaders</h1>
+    <p>龙头决策 · 板块强弱 · 资金线索 · 动量轮动 · 龙虎榜</p>
+  </div>
+
+  <div class="ml-tabs" id="ml-tabs">
+    <div class="ml-tab active" data-url="/momentum_dashboard">🥇 龙头决策</div>
+    <div class="ml-tab" data-url="/sectors">📊 板块强弱</div>
+    <div class="ml-tab" data-url="/northbound">💰 北向资金</div>
+    <div class="ml-tab" data-url="/dragon_tiger">🐅 龙虎榜</div>
+    <div class="ml-tab" data-url="/momentum_rotation">🔄 动量轮动</div>
+  </div>
+
+  <div class="ml-iframe-wrap">
+    <iframe id="ml-iframe" src="/momentum_dashboard"></iframe>
+  </div>
+</div>
+
+<script>
+(function() {
+  const tabs = document.querySelectorAll('.ml-tab');
+  const iframe = document.getElementById('ml-iframe');
+
+  tabs.forEach(tab => {
+    tab.addEventListener('click', function() {
+      tabs.forEach(t => t.classList.remove('active'));
+      this.classList.add('active');
+      iframe.src = this.dataset.url;
+    });
+  });
+})();
+</script>
+{% endblock %}

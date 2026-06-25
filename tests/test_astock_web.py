@@ -146,9 +146,7 @@ class TestWebPageRendering:
         assert 'QMT Bridge' in html
         assert 'Risk' in html
         assert 'Screener' in html
-        assert 'Dragon' in html and 'Tiger' in html
-        assert 'Sectors' in html
-        assert 'North' in html
+        assert 'Market Leaders' in html
         assert 'AI Agent' in html
         assert 'Settings' in html
     @pytest.mark.parametrize("route,page_name", PAGE_ROUTES)

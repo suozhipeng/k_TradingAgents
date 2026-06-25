@@ -7,12 +7,12 @@
 ## 1. 治理对象
 
 | 对象 | 示例 | 治理要求 |
-|---|---|---|
+||---|---|---|
 | 模型 provider | OpenAI、其他 LLM provider、本地模型 | 记录 provider、模型、版本和调用模式 |
 | prompt | research prompt、debate prompt、report prompt | 版本化、可追溯、可回滚 |
-| 上下文数据 | 行情、财务、公告、新闻、研报、回测结果 | 保留 source、snapshot、freshness |
-| 输出 | 研究报告、advisory、解释、摘要 | 标注 advisory，不直接触发真实交易 |
-| 失败模式 | 超时、限流、空输出、幻觉风险 | fail closed 或降级到非 AI 输出 |
+| 上下文数据 | 行情、财务、公告、新闻、研报、回测结果 | 保留 source、snapshot、freshness；使用 `ResearchContext` schema + provenance 元数据 |
+| 输出 | 研究报告、advisory、解释、摘要 | 标注 advisory，不直接触发真实交易；使用 `ReportArchive` schema 统一归档 |
+| 失败模式 | 超时、限流、空输出、幻觉风险 | fail closed 或降级到非 AI 输出；API 返回 `status: degraded` + `llm_error` |
 
 ## 2. AI Research Task
 

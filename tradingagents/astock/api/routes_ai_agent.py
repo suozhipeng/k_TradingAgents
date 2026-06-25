@@ -1,11 +1,20 @@
-"""AI Agent analysis API routes."""
+"""AI Agent analysis API routes — Phase 33 AI Research Center.
+
+Each analysis response includes ResearchTask and ResearchAudit metadata
+for traceability.  All AI outputs default to ``advisory: true``.
+"""
 
 from __future__ import annotations
 
 import logging
+import uuid
+from datetime import datetime
 from typing import Any
 
 from flask import Blueprint, Response, jsonify, request
+
+from tradingagents.astock.phase33_37_schemas import ResearchAudit, ResearchTask
+from tradingagents.astock.schemas import ResearchContext
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +28,14 @@ def ai_analyze() -> tuple[Response, int]:
     JSON body:
         symbol (str) — A-share stock symbol, e.g. "600519.SH"
         analysis_type (str) — "full" (default), "technical", "fundamental", "news"
+        prompt_version (str, optional) — override prompt version tag
+
+    Returns a JSON object with:
+        - symbol, analysis_type, timestamp (existing)
+        - context (existing, enriched with provenance meta)
+        - llm_analysis (existing, or degraded fallback)
+        - task_id, status, advisory (Phase 33 ResearchTask metadata)
+        - audit (Phase 33 ResearchAudit metadata)
     """
     body = request.get_json(silent=True) or {}
     symbol = str(body.get("symbol", "")).strip()
@@ -28,39 +45,120 @@ def ai_analyze() -> tuple[Response, int]:
         symbol += ".SH"
 
     try:
-        result = _run_analysis(symbol, body.get("analysis_type", "full"))
+        result = _run_analysis(
+            symbol,
+            body.get("analysis_type", "full"),
+            body.get("prompt_version", ""),
+        )
         return jsonify(result), 200
     except Exception as exc:
         logger.warning("AI analysis failed for %s: %s", symbol, exc)
         return jsonify({"error": str(exc), "status": 500}), 500
 
 
-def _run_analysis(symbol: str, analysis_type: str = "full") -> dict[str, Any]:
-    """Run analysis pipeline and return structured results."""
+def _generate_task_id() -> str:
+    """Generate a unique ResearchTask ID."""
+    return f"ai-{uuid.uuid4().hex[:12]}"
+
+
+def _build_audit(
+    symbol: str,
+    task_id: str,
+    model: str,
+    provider: str,
+    prompt_version: str,
+    input_snapshot: dict[str, Any] | None,
+    output_summary: str,
+) -> ResearchAudit:
+    """Build a ResearchAudit record for the analysis."""
+    return ResearchAudit(
+        audit_id=f"audit-{uuid.uuid4().hex[:12]}",
+        task_id=task_id,
+        symbol=symbol,
+        model=model,
+        prompt_text="",  # Full prompt not returned in API response by default
+        prompt_version=prompt_version or "v1",
+        input_snapshot=input_snapshot or {},
+        output_summary=output_summary[:500] if output_summary else "",
+        advisory=True,
+        generated_at=datetime.now().isoformat(),
+    )
+
+
+def _run_analysis(
+    symbol: str,
+    analysis_type: str = "full",
+    prompt_version: str = "",
+) -> dict[str, Any]:
+    """Run analysis pipeline and return structured results with audit trail."""
     from datetime import datetime
 
+    task_id = _generate_task_id()
+    now = datetime.now().isoformat()
+
     # ── Gather context data ──
-    context = _gather_context(symbol)
+    raw_context = _gather_context(symbol)
+    ctx = ResearchContext.from_gathered_dict(symbol, raw_context, gathered_at=now)
 
     # ── Try LLM reasoning (optional) ──
     llm_analysis = ""
-    try:
-        llm_analysis = _try_llm_analysis(symbol, context, analysis_type)
-    except Exception as exc:
-        llm_analysis = f"LLM analysis unavailable: {exc}"
+    model_name = ""
+    provider_name = ""
+    llm_error: str | None = None
 
-    # ── Build response ──
+    try:
+        llm_result = _try_llm_analysis(symbol, ctx, analysis_type)
+        llm_analysis = llm_result.get("text", "")
+        model_name = llm_result.get("model", "")
+        provider_name = llm_result.get("provider", "")
+    except Exception as exc:
+        llm_error = str(exc)
+        llm_analysis = f"LLM analysis unavailable: {exc}"
+        logger.info("LLM analysis degraded for %s: %s", symbol, exc)
+
+    # ── Build audit trail ──
+    audit = _build_audit(
+        symbol=symbol,
+        task_id=task_id,
+        model=model_name,
+        provider=provider_name,
+        prompt_version=prompt_version,
+        input_snapshot=ctx.model_dump() if hasattr(ctx, "model_dump") else {},
+        output_summary=llm_analysis,
+    )
+
+    # ── Build response (backward-compatible + Phase 33 metadata) ──
     return {
+        # Existing fields (backward-compatible)
         "symbol": symbol,
         "analysis_type": analysis_type,
-        "timestamp": datetime.now().isoformat(),
-        "context": context,
+        "timestamp": now,
+        "context": raw_context,
         "llm_analysis": llm_analysis,
+        # Phase 33 ResearchTask fields
+        "task_id": task_id,
+        "status": "success" if not llm_error else "degraded",
+        "advisory": True,
+        "llm_error": llm_error,
+        # Phase 33 ResearchAudit fields
+        "audit": {
+            "audit_id": audit.audit_id,
+            "model": audit.model,
+            "provider": provider_name,
+            "prompt_version": audit.prompt_version,
+            "advisory": audit.advisory,
+            "generated_at": audit.generated_at,
+        },
     }
 
 
 def _gather_context(symbol: str) -> dict[str, Any]:
-    """Gather market data context for the symbol."""
+    """Gather market data context for the symbol (returns ad-hoc dict).
+
+    The result is consumed by ``ResearchContext.from_gathered_dict()``
+    for structured processing, and also passed through in the raw form
+    for backward compatibility.
+    """
     import json
     import urllib.request
 
@@ -81,9 +179,15 @@ def _gather_context(symbol: str) -> dict[str, Any]:
 
 
 def _try_llm_analysis(
-    symbol: str, context: dict[str, Any], analysis_type: str
-) -> str:
-    """Try to run LLM-based analysis. Returns analysis text or raises."""
+    symbol: str, context: ResearchContext, analysis_type: str
+) -> dict[str, str]:
+    """Try to run LLM-based analysis.
+
+    Returns a dict with ``text``, ``model``, ``provider`` keys, or raises.
+
+    Structured ``ResearchAudit`` is built by the caller with the returned
+    model/provider info.
+    """
     import os
 
     provider = os.environ.get("TRADINGAGENTS_LLM_PROVIDER", "")
@@ -99,11 +203,15 @@ def _try_llm_analysis(
     client = create_llm_client(provider, model)
     llm = client.get_llm()
 
-    # Format context
-    info = context.get("stock_info") or {}
-    info_text = f"名称: {info.get('name','?')} ({info.get('code','?')})\n行业: {info.get('industry','?')}\n板块: {info.get('board','?')}"
+    # Format context from structured ResearchContext
+    info = context.stock_info.raw or {}
+    info_text = (
+        f"名称: {info.get('name','?')} ({info.get('code','?')})"
+        f"\n行业: {info.get('industry','?')}"
+        f"\n板块: {info.get('board','?')}"
+    )
 
-    bars = (context.get("kline_latest") or {}).get("bars", [])
+    bars = (context.kline_latest.raw or {}).get("bars", [])
     if bars:
         last = bars[-1]
         kline_text = f"最新价: {last.get('close','?')}  涨跌幅: {last.get('change_pct', 0):+.2f}%"
@@ -132,4 +240,10 @@ def _try_llm_analysis(
 请用中文回答，简洁专业。"""
 
     response = llm.invoke(prompt)
-    return response.content if hasattr(response, "content") else str(response)
+    text = response.content if hasattr(response, "content") else str(response)
+
+    return {
+        "text": text,
+        "model": model,
+        "provider": provider,
+    }

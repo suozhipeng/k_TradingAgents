@@ -208,6 +208,12 @@ def momentum_rotation() -> str:
     return render_template("momentum_rotation.html")
 
 
+@bp.route("/market_leaders")
+def market_leaders() -> str:
+    """统一市场龙头入口（整合龙头/板块/资金/轮动/龙虎榜）"""
+    return render_template("market_leaders.html")
+
+
 @bp.route("/momentum_dashboard")
 def momentum_dashboard() -> str:
     """Streamlit 嵌入版决策看板"""
