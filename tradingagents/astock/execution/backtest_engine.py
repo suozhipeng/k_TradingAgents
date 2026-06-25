@@ -82,6 +82,10 @@ class BacktestDataAssumption(BaseModel):
     data_quality: str = "normal"
     survivorship_bias_risk: bool = False
     look_ahead_bias_risk: bool = False
+    volume_cap_pct: float = Field(
+        default=25.0,
+        description="成交量容量约束：单笔交易量不超过当日成交量的百分比。0=不限制。",
+    )
     notes: list[str] = Field(default_factory=list)
 
     def to_dict(self) -> dict:
@@ -95,6 +99,7 @@ class BacktestDataAssumption(BaseModel):
             "data_quality": self.data_quality,
             "survivorship_bias_risk": self.survivorship_bias_risk,
             "look_ahead_bias_risk": self.look_ahead_bias_risk,
+            "volume_cap_pct": self.volume_cap_pct,
             "notes": list(self.notes),
         }
 
@@ -407,6 +412,16 @@ class BacktestEngine:
                     if net_cost <= cash:
                         break
                     buy_shares = (cash - fees.get("total", 0)) / close_at_end
+                # Apply volume capacity constraint
+                volume_cap = data_assumption.get("volume_cap_pct", 25.0)
+                if volume_cap > 0:
+                    daily_volume = float(period_data["volume"].iloc[-1])
+                    volume_max_shares = daily_volume * (volume_cap / 100.0)
+                    if buy_shares > volume_max_shares:
+                        buy_shares = volume_max_shares
+                        cap_note = f"volume_cap_{volume_cap}pct_applied"
+                        if cap_note not in data_assumption.get("notes", []):
+                            data_assumption.setdefault("notes", []).append(cap_note)
                 if buy_shares > 0.001:
                     fees = calculate_fees(close_at_end, buy_shares, is_buy=True, config=self.fee_config)
                     net_cost = buy_shares * close_at_end + fees["total"]

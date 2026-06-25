@@ -1,60 +1,75 @@
 # .hermes/dev-loop.yaml
-project: 'Phase 33 — AI Research Center 详细实现 → 后续 Phase 34-38'
-started_at: '2026-06-25T15:30:00+08:00'
-phase: break        # break | code | test | review | commit | next | done
+project: 'TODO_FEATURE_MODULES.md 详细实现'
+started_at: '2026-06-25T18:00:00+08:00'
+phase: code
 current_task_index: 0
 
-tasks:
-  - id: 34-01
-    description: 'Market Leaders 顶层入口 — 整合5个分散入口为统一页面'
-    status: pending
-    commit_sha: ~
-    review_verdict: ~
-    notes: 'momentum_dashboard/dragon_tiger/northbound/sectors/momentum_rotation → Market Leaders tab'
-
-  - id: 34-02
-    description: 'LeaderPool Schema 完善 — 确保 source/reason/score/entry_exit 字段完整'
-    status: pending
-    commit_sha: ~
-    review_verdict: ~
-    notes: '检查 leader_pool.py 已有 schema'
-
-  - id: 34-03
-    description: '旧入口迁移策略 — keep/redirect/deprecate 结论'
-    status: pending
-    commit_sha: ~
-    review_verdict: ~
-    notes: 'docs + navigation mapping'
-
-  - id: 34-04
-    description: 'Fallback 语义标注 — EastMoney/Sina/mock 显著标注'
-    status: pending
-    commit_sha: ~
-    review_verdict: ~
-    notes: 'data source layer + API response'
-
-  - id: 34-05
-    description: '文档与测试 — Phase 34 归档文档 + 测试验证'
-    status: pending
-    commit_sha: ~
-    review_verdict: ~
-    notes: 'pytest + evidence doc'
-
 completed_phases:
-  - phase: '33-detail'
-    description: 'AI Research Center 详细实现 — schemas/API/docs'
-    files:
-      - tradingagents/astock/schemas/research_context.py
-      - tradingagents/astock/schemas/report_archive.py
-      - tradingagents/astock/api/routes_ai_agent.py (updated)
-      - docs/phases/phase-33-evidence-ai-research.md (updated)
-      - docs/ASTOCK_MODEL_GOVERNANCE.md (updated)
-    tests: '264 passed, 4 skipped, 0 failed'
+  - phase: '30-32-schema'
     status: done
+    note: 'Schema 层全部完成并通过 Codex。TODO doc 未同步标记。'
+  - phase: '33-detailed'
+    commit: 'e8f37d2 + b813224'
+    status: done
+    note: 'ResearchContext/ReportArchive/advisory/LLM降级 — 已实现并通过 opencode+Codex'
+  - phase: '34-detailed'
+    commit: 'e8f37d2 + 157e0a4'
+    status: done
+    note: 'Market Leaders sidebar consolidation — 已实现并通过 opencode+Codex'
+
+tasks:
+  - id: '31-10'
+    description: '回测约束补全 — T+1、成交量容量、滑点模型可配置'
+    status: pending
+    notes: 'backtest_engine.py configurable slippage + T+1 check + volume cap'
+
+  - id: '32-02'
+    description: 'BacktestResult 成本模型明细 — commission/stamp_tax/slippage 分项'
+    status: pending
+    notes: 'fee_model.py 已有 → 整合到 BacktestResult'
+
+  - id: '33-01'
+    description: 'Multi-symbol ResearchTask + AI Agent 页面上下文统一'
+    status: pending
+    notes: 'ResearchTask.symbol → list[str] support'
+
+  - id: '34-01'
+    description: '旧入口重定向 + Phase 34 归档文档'
+    status: pending
+    notes: 'web/__init__.py redirect + evidence doc'
+
+  - id: '36-01'
+    description: 'Portfolio/RiskExposure/Attribution 独立 schema 文件 + 暴露计算'
+    status: pending
+    notes: '从 phase33_37_schemas.py 拆分到独立文件'
+
+  - id: '36-02'
+    description: 'Portfolio Workbench 页面 + 压力测试'
+    status: pending
+    notes: 'portfolio.html template'
+
+  - id: '37-01'
+    description: 'TaskRun/AuditEvent 独立 schema 文件 + SSE 标准化'
+    status: pending
+    notes: '从 phase33_37_schemas.py 拆分到独立文件'
+
+  - id: '37-02'
+    description: 'Ops Dashboard 页面 — 任务中心 + 错误中心'
+    status: pending
+    notes: 'ops_audit.html template'
+
+  - id: '38-01'
+    description: 'Navigation 清点 + 目标导航 + 旧入口迁移 + 全量文档测试'
+    status: pending
+    notes: 'base.html + evidence + tests'
 
 next_actions:
-  - '34-01: 市场龙头页面入口整合 — 检查现有 leader_pool.py 和页面文件'
-  - '34-02: LeaderPool schema review'
-  - '34-03: 旧入口迁移映射'
-  - '34-04: Fallback 标注'
-  - '34-05: 文档与测试'
+  - '31-10: 回测约束补全（T+1/成交量/滑点）'
+  - '32-02: 成本模型明细'
+  - '33-01: Multi-symbol ResearchTask'
+  - '34-01: 旧入口重定向'
+  - '36-01: Schema 拆分'
+  - '36-02: Portfolio 页面'
+  - '37-01: Schema 拆分 + SSE'
+  - '37-02: Ops 页面'
+  - '38-01: 导航 + 文档'
