@@ -146,6 +146,21 @@ def data_health() -> tuple[Response, int]:
 
     clean_stats = get_clean_stats()
 
+    # Data quality estimate based on adapter availability
+    quality_tags = []
+    for a in adapters:
+        name = a.get("name", "")
+        if a.get("mock"):
+            quality_tags.append("mock")
+        elif a.get("available"):
+            quality_tags.append("normal")
+        else:
+            quality_tags.append("degraded")
+
+    # Overall quality: worst-case tag among all adapters
+    quality_priority = {"normal": 0, "fallback": 1, "degraded": 2, "mock": 3, "stale": 4, "partial": 5}
+    overall_quality = max(quality_tags, key=lambda t: quality_priority.get(t, 0)) if quality_tags else "normal"
+
     return jsonify(
         {
             "sources": adapters,
@@ -154,6 +169,7 @@ def data_health() -> tuple[Response, int]:
                 "available": available,
                 "degraded": degraded,
             },
+            "quality_overall": overall_quality,
             "cleaning": clean_stats,
         }
     ), 200

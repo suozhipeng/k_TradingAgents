@@ -10,11 +10,12 @@
   </div>
 
   <!-- Summary Cards -->
-  <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6" id="health-summary">
+  <div class="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6" id="health-summary">
     <div class="card"><div class="stat-label">数据源总数</div><div class="stat-value" id="h-total">--</div></div>
     <div class="card"><div class="stat-label">可用</div><div class="stat-value text-emerald-400" id="h-available">--</div></div>
     <div class="card"><div class="stat-label">异常</div><div class="stat-value text-red-400" id="h-degraded">--</div></div>
     <div class="card"><div class="stat-label">健康率</div><div class="stat-value" id="h-rate">--</div></div>
+    <div class="card"><div class="stat-label">数据质量</div><div class="stat-value" id="h-quality">--</div></div>
     <div class="card"><div class="stat-label">🧹 清洗统计</div><div class="stat-value" id="h-cleaning">--</div></div>
   </div>
 
@@ -57,6 +58,13 @@ async function loadHealth() {
     document.getElementById('h-cleaning').textContent = cleanCount > 0 ? cleanCount + ' 批' : '✅ 无异常';
     document.getElementById('h-cleaning').className = 'stat-value ' +
       (cleanCount > 0 ? 'text-amber-400' : 'text-emerald-400');
+
+    // Data quality
+    const quality = data.quality_overall || 'unknown';
+    const qualityEl = document.getElementById('h-quality');
+    qualityEl.textContent = quality;
+    const qualityColors = {normal: 'text-emerald-400', fallback: 'text-amber-400', degraded: 'text-red-400', mock: 'text-yellow-400', stale: 'text-orange-400', partial: 'text-orange-300'};
+    qualityEl.className = 'stat-value ' + (qualityColors[quality] || 'text-gray-400');
 
     // Table
     const sources = data.sources || [];
