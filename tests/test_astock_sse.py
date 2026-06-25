@@ -170,5 +170,64 @@ class TestSseBlueprint(unittest.TestCase):
             self.fail(f"Events endpoint test failed: {e}")
 
 
+class TestTaskRunWrapping(unittest.TestCase):
+    """Validate that raw events are wrapped with TaskRun fields."""
+
+    def setUp(self):
+        from tradingagents.astock.api.routes_sse import _to_task_run
+        self._to_task_run = _to_task_run
+
+    def test_cycle_start_has_task_run_fields(self):
+        e = self._to_task_run({"type": "cycle_start", "cycle": 1,
+                               "timestamp": "2026-06-25T12:00:00"})
+        self.assertEqual(e["task_type"], "research")
+        self.assertEqual(e["status"], "running")
+        self.assertIn("task_id", e)
+        self.assertIn("progress", e)
+        self.assertIsNone(e["finished_at"])
+
+    def test_error_has_failure_fields(self):
+        e = self._to_task_run({"type": "error", "message": "fail",
+                               "timestamp": "2026-06-25T12:00:00"})
+        self.assertEqual(e["status"], "failed")
+        self.assertIsNotNone(e["error"])
+        self.assertEqual(e["error"]["message"], "fail")
+        self.assertIsNotNone(e["finished_at"])
+
+    def test_idle_has_idle_status(self):
+        e = self._to_task_run({"type": "idle", "timestamp": 12345.0})
+        self.assertEqual(e["status"], "idle")
+        self.assertEqual(e["task_type"], "data_refresh")
+
+    def test_unknown_event_preserved(self):
+        e = self._to_task_run({"type": "my_event", "custom": 42})
+        self.assertEqual(e["custom"], 42)
+        self.assertIn("task_id", e)
+        self.assertIn("status", e)
+
+    def test_events_endpoint_returns_task_run_fields(self):
+        from flask import Flask
+        from tradingagents.astock.api import routes_sse as _sse
+
+        EventBus.clear()
+        EventBus.publish({"type": "cycle_start", "cycle": 99})
+        EventBus.publish({"type": "error", "message": "oops"})
+
+        app = Flask(__name__)
+        app.register_blueprint(_sse.bp, url_prefix="/api/v1")
+        with app.test_client() as client:
+            resp = client.get("/api/v1/sse/events")
+            data = json.loads(resp.data.decode("utf-8"))
+            self.assertEqual(len(data), 2)
+            for entry in data:
+                self.assertIn("task_id", entry)
+                self.assertIn("task_type", entry)
+                self.assertIn("status", entry)
+                self.assertIn("progress", entry)
+            # Second event should be failed
+            self.assertEqual(data[1]["status"], "failed")
+            self.assertEqual(data[1]["error"]["message"], "oops")
+
+
 if __name__ == "__main__":
     unittest.main()
