@@ -2,7 +2,7 @@
 project: 'TODO_FEATURE_MODULES.md 详细实现'
 started_at: '2026-06-25T18:00:00+08:00'
 phase: code
-current_task_index: 0
+current_task_index: 2
 
 completed_phases:
   - phase: '30-32-schema'
@@ -19,9 +19,10 @@ completed_phases:
 
 tasks:
   - id: '31-10'
-    description: '回测约束补全 — T+1、成交量容量、滑点模型可配置'
-    status: pending
-    notes: 'backtest_engine.py configurable slippage + T+1 check + volume cap'
+    description: '回测约束补全 — 成交量容量约束'
+    status: done
+    commit_sha: '983022c'
+    notes: 'BacktestDataAssumption.volume_cap_pct added, enforcement in buy logic, note dedup fix'
 
   - id: '32-02'
     description: 'BacktestResult 成本模型明细 — commission/stamp_tax/slippage 分项'
