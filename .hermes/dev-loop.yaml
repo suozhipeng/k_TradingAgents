@@ -1,76 +1,46 @@
 # .hermes/dev-loop.yaml
-project: 'TODO_FEATURE_MODULES.md 详细实现'
-started_at: '2026-06-25T18:00:00+08:00'
-phase: code
-current_task_index: 2
+project: 'Phase 32-02/34-01/33-01 待完成项'
+started_at: '2026-06-25T22:00:00+08:00'
+phase: review-codex
+current_task_index: 0
 
 completed_phases:
-  - phase: '30-32-schema'
+  - phase: '31-01~10'
     status: done
-    note: 'Schema 层全部完成并通过 Codex。TODO doc 未同步标记。'
-  - phase: '33-detailed'
-    commit: 'e8f37d2 + b813224'
+  - phase: '32-01/03/04'
     status: done
-    note: 'ResearchContext/ReportArchive/advisory/LLM降级 — 已实现并通过 opencode+Codex'
-  - phase: '34-detailed'
-    commit: 'e8f37d2 + 157e0a4'
+  - phase: '33-02~06'
     status: done
-    note: 'Market Leaders sidebar consolidation — 已实现并通过 opencode+Codex'
+  - phase: '36-schema-portfolio'
+    status: done
+  - phase: '37-sse-ops'
+    status: done
+  - phase: '38-navigation'
+    status: done
 
 tasks:
-  - id: '31-10'
-    description: '回测约束补全 — 成交量容量约束'
-    status: done
-    commit_sha: '983022c'
-    notes: 'BacktestDataAssumption.volume_cap_pct added, enforcement in buy logic, note dedup fix'
-
-  - id: '32-02'
-    description: 'BacktestResult 成本模型明细 — commission/stamp_tax/slippage 分项'
+  - id: 1
+    description: '32-02: BacktestResult 添加费用分项 (total_fees/commission/stamp_tax/slippage)'
     status: pending
-    notes: 'fee_model.py 已有 → 整合到 BacktestResult'
+    commit_sha: ~
+    review_verdict: ~
+    notes: 'backtest_engine.py BacktestResult 新增 cost_breakdown dict 字段，run() 末尾累加汇总'
 
-  - id: '33-01'
-    description: 'Multi-symbol ResearchTask + AI Agent 页面上下文统一'
+  - id: 2
+    description: '34-01: 旧入口重定向 (/backtest→/strategy_hub 等)'
     status: pending
-    notes: 'ResearchTask.symbol → list[str] support'
+    commit_sha: ~
+    review_verdict: ~
+    notes: 'web/__init__.py 添加 @bp.route 重定向，保留 anchor/tab 参数'
 
-  - id: '34-01'
-    description: '旧入口重定向 + Phase 34 归档文档'
+  - id: 3
+    description: '33-01: AI Agent 页面多标的支持 (symbols 多选/切换)'
     status: pending
-    notes: 'web/__init__.py redirect + evidence doc'
-
-  - id: '36-01'
-    description: 'Portfolio/RiskExposure/Attribution 独立 schema 文件 + 暴露计算'
-    status: pending
-    notes: '从 phase33_37_schemas.py 拆分到独立文件'
-
-  - id: '36-02'
-    description: 'Portfolio Workbench 页面 + 压力测试'
-    status: pending
-    notes: 'portfolio.html template'
-
-  - id: '37-01'
-    description: 'TaskRun/AuditEvent 独立 schema 文件 + SSE 标准化'
-    status: pending
-    notes: '从 phase33_37_schemas.py 拆分到独立文件'
-
-  - id: '37-02'
-    description: 'Ops Dashboard 页面 — 任务中心 + 错误中心'
-    status: pending
-    notes: 'ops_audit.html template'
-
-  - id: '38-01'
-    description: 'Navigation 清点 + 目标导航 + 旧入口迁移 + 全量文档测试'
-    status: pending
-    notes: 'base.html + evidence + tests'
+    commit_sha: ~
+    review_verdict: ~
+    notes: 'ai_agent.html 前端多选输入 + routes_ai_agent.py 接收 list[str]'
 
 next_actions:
-  - '31-10: 回测约束补全（T+1/成交量/滑点）'
-  - '32-02: 成本模型明细'
-  - '33-01: Multi-symbol ResearchTask'
-  - '34-01: 旧入口重定向'
-  - '36-01: Schema 拆分'
-  - '36-02: Portfolio 页面'
-  - '37-01: Schema 拆分 + SSE'
-  - '37-02: Ops 页面'
-  - '38-01: 导航 + 文档'
+  - '任务 1: BacktestResult 费用分项'
+  - '任务 2: 旧入口重定向'
+  - '任务 3: AI Agent 多标的'

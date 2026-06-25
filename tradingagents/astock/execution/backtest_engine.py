@@ -191,6 +191,15 @@ class BacktestResult(BaseModel):
     benchmark_max_drawdown: float = 0.0
     alpha: float = 0.0
     beta: float = 0.0
+    cost_breakdown: dict = Field(
+        default_factory=lambda: {
+            "total_fees": 0.0,
+            "commission": 0.0,
+            "stamp_tax": 0.0,
+            "slippage": 0.0,
+        },
+        description="Cost breakdown summed from all trades: total_fees, commission, stamp_tax, slippage.",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -426,6 +435,25 @@ class BacktestEngine:
             pass
         return False, ""
 
+    def _check_external_price_limit(
+        self, symbol: str, trade_date: str,
+    ) -> tuple[bool, str]:
+        """Check price limit via external data sources (akshare / EastMoney).
+
+        Uses :func:`is_at_price_limit_external` which fetches real-time
+        涨停/跌停 pools with akshare → EastMoney fallback.
+
+        Returns (is_limited, direction_reason).
+        """
+        try:
+            from tradingagents.astock.data_sources.suspension import is_at_price_limit_external
+            limited, direction = is_at_price_limit_external(symbol, trade_date)
+            if limited:
+                return True, f"external_{direction}"
+        except Exception:
+            pass
+        return False, ""
+
     def run(
         self,
         symbol: str,
@@ -551,12 +579,17 @@ class BacktestEngine:
                 # Check constraints before buying
                 price_limit, limit_reason = self._is_at_price_limit(period_data, data_assumption.get("st_stock", False))
                 suspended, suspend_reason = self._is_suspended(period_data)
+                trade_date_str = str(period_data.index[-1].date()) if hasattr(period_data.index[-1], 'date') else str(period_data.index[-1])
                 # Also check external suspension data source
                 if not suspended:
-                    trade_date_str = str(period_data.index[-1].date()) if hasattr(period_data.index[-1], 'date') else str(period_data.index[-1])
                     ext_susp, ext_reason = self._check_external_suspension(symbol, trade_date_str)
                     if ext_susp:
                         suspended, suspend_reason = ext_susp, ext_reason
+                # Also check external price limit data source (akshare 涨停/跌停 pools)
+                if not price_limit:
+                    ext_pl, ext_pl_reason = self._check_external_price_limit(symbol, trade_date_str)
+                    if ext_pl:
+                        price_limit, limit_reason = ext_pl, ext_pl_reason
                 constraint_notes = []
                 if data_assumption.get("price_limit_check", True) and price_limit:
                     constraint_notes.append(f"buy_skipped_{limit_reason}")
@@ -605,6 +638,9 @@ class BacktestEngine:
                         "price": close_at_end,
                         "shares": round(buy_shares, 4),
                         "fees": fees["total"],
+                        "commission": fees["commission"],
+                        "stamp_tax": fees["stamp_tax"],
+                        "slippage": fees["slippage"],
                         "pnl": 0.0,
                     }
                     if buy_constraint:
@@ -614,12 +650,17 @@ class BacktestEngine:
                 # Check constraints before selling
                 price_limit, limit_reason = self._is_at_price_limit(period_data, data_assumption.get("st_stock", False))
                 suspended, suspend_reason = self._is_suspended(period_data)
+                trade_date_str = str(period_data.index[-1].date()) if hasattr(period_data.index[-1], 'date') else str(period_data.index[-1])
                 # Also check external suspension data source
                 if not suspended:
-                    trade_date_str = str(period_data.index[-1].date()) if hasattr(period_data.index[-1], 'date') else str(period_data.index[-1])
                     ext_susp, ext_reason = self._check_external_suspension(symbol, trade_date_str)
                     if ext_susp:
                         suspended, suspend_reason = ext_susp, ext_reason
+                # Also check external price limit data source (akshare 涨停/跌停 pools)
+                if not price_limit:
+                    ext_pl, ext_pl_reason = self._check_external_price_limit(symbol, trade_date_str)
+                    if ext_pl:
+                        price_limit, limit_reason = ext_pl, ext_pl_reason
                 constraint_notes = []
                 if data_assumption.get("price_limit_check", True) and price_limit:
                     constraint_notes.append(f"sell_skipped_{limit_reason}")
@@ -646,6 +687,9 @@ class BacktestEngine:
                     "price": close_at_end,
                     "shares": round(shares, 4),
                     "fees": fees["total"],
+                    "commission": fees["commission"],
+                    "stamp_tax": fees["stamp_tax"],
+                    "slippage": fees["slippage"],
                     "pnl": round(proceeds - (shares * close_at_end), 4),
                 }
                 if sell_constraint:
@@ -674,6 +718,23 @@ class BacktestEngine:
         metrics = summarize_metrics(equity, trades)
         total_return = float(equity.iloc[-1] / equity.iloc[0] - 1)
 
+        # Accumulate cost breakdown from all trades
+        cost_breakdown = {
+            "total_fees": 0.0,
+            "commission": 0.0,
+            "stamp_tax": 0.0,
+            "slippage": 0.0,
+        }
+        for t in trades:
+            fees = t.get("fees", 0)
+            if isinstance(fees, (int, float)):
+                cost_breakdown["total_fees"] += fees
+            # If trade has detailed fee keys, use them directly
+            for key in ("commission", "stamp_tax", "slippage"):
+                val = t.get(key)
+                if isinstance(val, (int, float)):
+                    cost_breakdown[key] += val
+
         return BacktestResult(
             symbol=symbol,
             start_date=start_date,
@@ -693,4 +754,5 @@ class BacktestEngine:
                 "min_commission": self.fee_config.min_commission,
             },
             data_assumption=data_assumption,
+            cost_breakdown=cost_breakdown,
         )

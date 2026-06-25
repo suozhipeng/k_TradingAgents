@@ -23,6 +23,23 @@ from .errors import AStockDataError, AStockNoDataError, AStockRouteNote, AStockS
 from .quality import DataQualityTag, FreshnessInfo, DataQualityMetadata
 from .router import AStockDataFacade, AStockDataRouter, CAPABILITY_TO_METHOD, DEFAULT_ELIMINATED_SOURCES, DEFAULT_ROUTE_POLICY
 from .schema import AStockRequest, AStockResponse, normalize_capability_payload
+from .suspension import (
+    PriceLimitRecord,
+    SuspensionRecord,
+    fetch_price_limit_pool,
+    fetch_price_limit_pool_via_akshare,
+    fetch_price_limit_via_eastmoney_push2,
+    fetch_suspension_list,
+    fetch_suspension_via_akshare,
+    fetch_suspension_via_eastmoney,
+    get_price_limit_pct,
+    get_price_limit_prices,
+    get_price_limited_symbols,
+    is_at_price_limit_external,
+    is_suspended,
+    is_symbol_suspended_akshare,
+    is_symbol_suspended_via_trading_pool,
+)
 from .symbols import astock_code, normalize_astock_symbol, split_astock_symbol
 
 __all__ = [
@@ -54,6 +71,21 @@ __all__ = [
     "AStockRequest",
     "AStockResponse",
     "normalize_capability_payload",
+    "PriceLimitRecord",
+    "SuspensionRecord",
+    "fetch_price_limit_pool",
+    "fetch_price_limit_pool_via_akshare",
+    "fetch_price_limit_via_eastmoney_push2",
+    "fetch_suspension_list",
+    "fetch_suspension_via_akshare",
+    "fetch_suspension_via_eastmoney",
+    "get_price_limit_pct",
+    "get_price_limit_prices",
+    "get_price_limited_symbols",
+    "is_at_price_limit_external",
+    "is_suspended",
+    "is_symbol_suspended_akshare",
+    "is_symbol_suspended_via_trading_pool",
     "astock_code",
     "normalize_astock_symbol",
     "split_astock_symbol",

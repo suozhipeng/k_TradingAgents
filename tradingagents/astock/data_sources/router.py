@@ -37,6 +37,8 @@ DEFAULT_ROUTE_POLICY = {
     "stock_news": ("akshare", "tencent"),
     "flash_news": ("akshare", "tencent"),
     "global_news": ("akshare", "tencent"),
+    # 涨跌停层
+    "price_limit": ("akshare", "eastmoney"),
     # 基础数据层
     "quarterly_financials": ("akshare", "mootdx"),
     "f10": ("mootdx", "akshare"),
@@ -61,6 +63,7 @@ CAPABILITY_TO_METHOD = {
     "stock_news": "get_stock_news",
     "flash_news": "get_flash_news",
     "global_news": "get_global_news",
+    "price_limit": "get_price_limit_status",
     "quarterly_financials": "get_quarterly_financials",
     "f10": "get_f10",
     "fundamentals": "get_fundamentals",
@@ -473,6 +476,9 @@ class AStockDataRouter(object):
     def get_announcement_summary(self, symbol: str, **kwargs: Any) -> AStockResponse:
         return self.query("announcement_summary", symbol, **kwargs)
 
+    def get_price_limit_status(self, symbol: str, **kwargs: Any) -> AStockResponse:
+        return self.query("price_limit", symbol, **kwargs)
+
 
 class AStockDataFacade(object):
     """Thin convenience wrapper that keeps the upper layers router-agnostic."""
@@ -539,3 +545,6 @@ class AStockDataFacade(object):
 
     def get_announcement_summary(self, symbol: str, **kwargs: Any) -> AStockResponse:
         return self.router.get_announcement_summary(symbol, **kwargs)
+
+    def get_price_limit_status(self, symbol: str, **kwargs: Any) -> AStockResponse:
+        return self.router.get_price_limit_status(symbol, **kwargs)

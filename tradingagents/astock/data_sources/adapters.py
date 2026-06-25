@@ -738,6 +738,27 @@ class AkshareAdapter(AStockAdapterBase):
     def get_fundamentals(self, request: AStockRequest):
         return self.get_quarterly_financials(request)
 
+    def get_price_limit_status(self, request: AStockRequest):
+        """Check if a symbol is at its daily price limit.
+
+        Delegates to :func:`suspension.is_at_price_limit_external` which
+        uses akshare's EastMoney 涨停/跌停 pools with fallback to the
+        EastMoney push2 real-time API.
+
+        Returns a dict with ``is_limited`` and ``direction``.
+        """
+        from .suspension import is_at_price_limit_external
+        limited, direction = is_at_price_limit_external(
+            request.symbol,
+            date=request.start_date or None,
+        )
+        return {
+            "symbol": request.symbol,
+            "is_limited": limited,
+            "direction": direction,
+            "source": self.name,
+        }
+
     # ------------------------------------------------------------------
     # 快讯 & 全球新闻 — 多源实时财经快讯
     # ------------------------------------------------------------------

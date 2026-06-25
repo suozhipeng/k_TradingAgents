@@ -78,6 +78,9 @@ _make_symbol = _susp._make_symbol
 fetch_suspension_list = _susp.fetch_suspension_list
 get_price_limit_pct = _susp.get_price_limit_pct
 get_price_limit_prices = _susp.get_price_limit_prices
+PriceLimitRecord = _susp.PriceLimitRecord
+_retry = _susp._retry
+AStockSourceUnavailableError = _susp.AStockSourceUnavailableError
 BacktestEngine = _be.BacktestEngine
 
 # ---------------------------------------------------------------------------
@@ -423,6 +426,313 @@ class TestBacktestSuspensionIntegration(unittest.TestCase):
 
         result = engine.run("SUSP.EMPTY", "2024-01-02", "2024-01-05", MovingAverageTrendStrategy())
         self.assertIsInstance(result.total_return, float)
+
+
+# ---------------------------------------------------------------------------
+# Tests: PriceLimitRecord schema
+# ---------------------------------------------------------------------------
+
+
+class TestPriceLimitRecord(unittest.TestCase):
+    """PriceLimitRecord serialization and defaults."""
+
+    def test_to_dict_includes_all_fields(self) -> None:
+        rec = PriceLimitRecord(
+            symbol="600519.SH",
+            code="600519",
+            name="贵州茅台",
+            price=1500.0,
+            change_pct=10.0,
+            direction="up",
+            consecutive=2,
+            source="akshare",
+        )
+        d = rec.to_dict()
+        self.assertEqual(d["symbol"], "600519.SH")
+        self.assertEqual(d["code"], "600519")
+        self.assertEqual(d["name"], "贵州茅台")
+        self.assertEqual(d["price"], 1500.0)
+        self.assertEqual(d["change_pct"], 10.0)
+        self.assertEqual(d["direction"], "up")
+        self.assertEqual(d["consecutive"], 2)
+        self.assertEqual(d["source"], "akshare")
+
+    def test_default_values(self) -> None:
+        rec = PriceLimitRecord(symbol="000001.SZ", code="000001")
+        d = rec.to_dict()
+        self.assertEqual(d["direction"], "up")
+        self.assertEqual(d["consecutive"], 0)
+        self.assertEqual(d["source"], "akshare")
+        # name defaults to None, serialized as ""
+        self.assertEqual(d["name"], "")
+        self.assertIsNone(d["price"])
+        self.assertIsNone(d["change_pct"])
+
+
+# ---------------------------------------------------------------------------
+# Tests: _retry helper
+# ---------------------------------------------------------------------------
+
+
+class TestRetryHelper(unittest.TestCase):
+    """_retry with exponential backoff."""
+
+    def test_success_first_try(self) -> None:
+        result = _retry(lambda: 42, max_attempts=3)
+        self.assertEqual(result, 42)
+
+    def test_retry_on_failure(self) -> None:
+        call_count = [0]
+
+        def _flaky():
+            call_count[0] += 1
+            if call_count[0] < 2:
+                raise ConnectionError("transient")
+            return "success"
+
+        result = _retry(_flaky, max_attempts=3, base_delay=0.01)
+        self.assertEqual(result, "success")
+        self.assertEqual(call_count[0], 2)
+
+    def test_exhaust_retries_raises(self) -> None:
+        def _always_fails():
+            raise ConnectionError("always fail")
+
+        with self.assertRaises(AStockSourceUnavailableError):
+            _retry(_always_fails, max_attempts=2, base_delay=0.01)
+
+    def test_non_retryable_exception_bubbles(self) -> None:
+        def _bad():
+            raise ValueError("not retryable")
+
+        with self.assertRaises(ValueError):
+            _retry(_bad, max_attempts=3, base_delay=0.01)
+
+
+# ---------------------------------------------------------------------------
+# Tests: is_symbol_suspended_via_trading_pool
+# ---------------------------------------------------------------------------
+
+
+class TestTradingPoolSuspension(unittest.TestCase):
+    """is_symbol_suspended_via_trading_pool — mock-based."""
+
+    @patch.object(_susp, "_retry")
+    def test_symbol_not_in_pool_return_suspended(self, mock_retry) -> None:
+        """Symbol not found in any pool → likely suspended."""
+        # Use a weekday date (Monday 2024-06-03)
+        mock_retry.return_value = pd.DataFrame({"代码": ["000001", "000002"]})
+        suspended, reason = _susp.is_symbol_suspended_via_trading_pool("600519.SH", "2024-06-03")
+        # 600519 not in pool → suspended
+        self.assertTrue(suspended)
+        self.assertIn("trading_pool", reason or "")
+
+    @patch.object(_susp, "_retry")
+    def test_symbol_in_pool_not_suspended(self, mock_retry) -> None:
+        """Symbol found in pool → not suspended."""
+        mock_retry.return_value = pd.DataFrame({"代码": ["600519", "000002"]})
+        suspended, _ = _susp.is_symbol_suspended_via_trading_pool("600519.SH", "2024-06-03")
+        self.assertFalse(suspended)
+
+    def test_weekend_returns_not_suspended(self) -> None:
+        """Weekends should skip pool check."""
+        # Saturday 2024-06-01 is a Saturday
+        from datetime import date
+        sat = date(2024, 6, 1)
+        if sat.weekday() >= 5:
+            suspended, _ = _susp.is_symbol_suspended_via_trading_pool("600519.SH", "2024-06-01")
+            self.assertFalse(suspended)
+
+    def test_invalid_code_returns_not_suspended(self) -> None:
+        suspended, _ = _susp.is_symbol_suspended_via_trading_pool("INVALID", "2024-06-03")
+        self.assertFalse(suspended)
+
+
+# ---------------------------------------------------------------------------
+# Tests: is_at_price_limit_external (mocked)
+# ---------------------------------------------------------------------------
+
+
+class TestIsAtPriceLimitExternal(unittest.TestCase):
+    """is_at_price_limit_external — mock fetch_price_limit_pool."""
+
+    @patch.object(_susp, "fetch_price_limit_pool")
+    def test_symbol_in_limit_up_pool(self, mock_fetch) -> None:
+        mock_fetch.return_value = [
+            PriceLimitRecord(symbol="600519.SH", code="600519", direction="up", source="akshare"),
+        ]
+        limited, direction = _susp.is_at_price_limit_external("600519.SH", "2024-06-03")
+        self.assertTrue(limited)
+        self.assertEqual(direction, "price_limit_up")
+
+    @patch.object(_susp, "fetch_price_limit_pool")
+    def test_symbol_in_limit_down_pool(self, mock_fetch) -> None:
+        mock_fetch.return_value = [
+            PriceLimitRecord(symbol="000001.SZ", code="000001", direction="down", source="akshare"),
+        ]
+        limited, direction = _susp.is_at_price_limit_external("000001.SZ", "2024-06-03")
+        self.assertTrue(limited)
+        self.assertEqual(direction, "price_limit_down")
+
+    @patch.object(_susp, "fetch_price_limit_pool")
+    def test_symbol_not_in_pool(self, mock_fetch) -> None:
+        mock_fetch.return_value = [
+            PriceLimitRecord(symbol="600519.SH", code="600519", direction="up", source="akshare"),
+        ]
+        limited, _ = _susp.is_at_price_limit_external("000001.SZ", "2024-06-03")
+        self.assertFalse(limited)
+
+    @patch.object(_susp, "fetch_price_limit_pool")
+    def test_empty_pool_returns_false(self, mock_fetch) -> None:
+        mock_fetch.return_value = []
+        limited, _ = _susp.is_at_price_limit_external("600519.SH", "2024-06-03")
+        self.assertFalse(limited)
+
+    @patch.object(_susp, "fetch_price_limit_pool")
+    def test_invalid_code_returns_false(self, mock_fetch) -> None:
+        mock_fetch.return_value = []
+        limited, _ = _susp.is_at_price_limit_external("BAD", "2024-06-03")
+        self.assertFalse(limited)
+
+
+# ---------------------------------------------------------------------------
+# Tests: get_price_limited_symbols
+# ---------------------------------------------------------------------------
+
+
+class TestGetPriceLimitedSymbols(unittest.TestCase):
+    """get_price_limited_symbols — build lookup set from pool."""
+
+    @patch.object(_susp, "fetch_price_limit_pool")
+    def test_both_directions(self, mock_fetch) -> None:
+        mock_fetch.return_value = [
+            PriceLimitRecord(symbol="600519.SH", code="600519", direction="up", source="akshare"),
+            PriceLimitRecord(symbol="000001.SZ", code="000001", direction="down", source="akshare"),
+        ]
+        symbols = _susp.get_price_limited_symbols("2024-06-03")
+        self.assertEqual(symbols, {"600519.SH", "000001.SZ"})
+
+    @patch.object(_susp, "fetch_price_limit_pool")
+    def test_filter_up_only(self, mock_fetch) -> None:
+        mock_fetch.return_value = [
+            PriceLimitRecord(symbol="600519.SH", code="600519", direction="up", source="akshare"),
+            PriceLimitRecord(symbol="000001.SZ", code="000001", direction="down", source="akshare"),
+        ]
+        symbols = _susp.get_price_limited_symbols("2024-06-03", direction="up")
+        self.assertEqual(symbols, {"600519.SH"})
+
+    @patch.object(_susp, "fetch_price_limit_pool")
+    def test_filter_down_only(self, mock_fetch) -> None:
+        mock_fetch.return_value = [
+            PriceLimitRecord(symbol="600519.SH", code="600519", direction="up", source="akshare"),
+            PriceLimitRecord(symbol="000001.SZ", code="000001", direction="down", source="akshare"),
+        ]
+        symbols = _susp.get_price_limited_symbols("2024-06-03", direction="down")
+        self.assertEqual(symbols, {"000001.SZ"})
+
+
+# ---------------------------------------------------------------------------
+# Tests: fetch_price_limit_pool (fallback chain mock)
+# ---------------------------------------------------------------------------
+
+
+class TestFetchPriceLimitPool(unittest.TestCase):
+    """fetch_price_limit_pool — primary → fallback semantics."""
+
+    @patch.object(_susp, "fetch_price_limit_pool_via_akshare")
+    def test_primary_akshare_returns_data(self, mock_ak) -> None:
+        mock_ak.return_value = [
+            PriceLimitRecord(symbol="600519.SH", code="600519", direction="up", source="akshare"),
+        ]
+        records = _susp.fetch_price_limit_pool("2024-06-03", source="akshare")
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0].symbol, "600519.SH")
+
+    @patch.object(_susp, "fetch_price_limit_pool_via_akshare")
+    @patch.object(_susp, "fetch_price_limit_via_eastmoney_push2")
+    def test_akshare_fails_uses_eastmoney_fallback(
+        self, mock_em, mock_ak,
+    ) -> None:
+        mock_ak.side_effect = ConnectionError("akshare down")
+        mock_em.return_value = [
+            PriceLimitRecord(symbol="000001.SZ", code="000001", direction="down", source="eastmoney"),
+        ]
+        records = _susp.fetch_price_limit_pool("2024-06-03", source="akshare")
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0].source, "eastmoney")
+
+    @patch.object(_susp, "fetch_price_limit_pool_via_akshare")
+    @patch.object(_susp, "fetch_price_limit_via_eastmoney_push2")
+    def test_both_fail_returns_empty(self, mock_em, mock_ak) -> None:
+        mock_ak.side_effect = ConnectionError("akshare down")
+        mock_em.side_effect = ConnectionError("eastmoney down")
+        records = _susp.fetch_price_limit_pool("2024-06-03")
+        self.assertEqual(records, [])
+
+
+# ---------------------------------------------------------------------------
+# Tests: _check_external_price_limit in backtest engine
+# ---------------------------------------------------------------------------
+
+
+class TestExternalPriceLimitWiring(unittest.TestCase):
+    """_check_external_price_limit wiring in backtest engine."""
+
+    def setUp(self) -> None:
+        self.engine = BacktestEngine(use_mock_data=True)
+
+    @patch.object(_be, "is_at_price_limit_external", create=True)
+    def test_external_price_limit_detected(self, mock_pl) -> None:
+        mock_pl.return_value = (True, "price_limit_up")
+        from tradingagents.astock.execution.strategy_base import (
+            MovingAverageTrendStrategy,
+        )
+        result = self.engine.run("600519.SH", "2024-01-02", "2024-01-10", MovingAverageTrendStrategy())
+        self.assertIsNotNone(result)
+
+    def test_external_price_limit_network_fail_graceful(self) -> None:
+        """If external API fails, backtest continues without crashing."""
+        from tradingagents.astock.execution.strategy_base import (
+            MovingAverageTrendStrategy,
+        )
+        result = self.engine.run("000001.SZ", "2024-01-02", "2024-01-10", MovingAverageTrendStrategy())
+        self.assertIsInstance(result.total_return, float)
+
+
+# ---------------------------------------------------------------------------
+# Tests: fetch_price_limit_pool_via_akshare (mocked)
+# ---------------------------------------------------------------------------
+
+
+class TestFetchPriceLimitPoolAkshare(unittest.TestCase):
+    """fetch_price_limit_pool_via_akshare with mocked DataFrames."""
+
+    @patch.object(_susp, "_retry")
+    def test_parse_zt_pool_up(self, mock_retry) -> None:
+        """Parse 涨停 pool DataFrame correctly."""
+        # First call returns up pool, second call returns empty (down pool)
+        mock_retry.side_effect = [
+            pd.DataFrame({
+                "代码": ["600519"],
+                "名称": ["贵州茅台"],
+                "最新价": [1500.0],
+                "涨跌幅": [10.0],
+                "连板数": [2],
+            }),
+            pd.DataFrame(),  # empty down pool
+        ]
+        records = _susp.fetch_price_limit_pool_via_akshare("2024-06-03")
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0].direction, "up")
+        self.assertEqual(records[0].code, "600519")
+        self.assertEqual(records[0].consecutive, 2)
+
+    @patch.object(_susp, "_retry")
+    def test_both_pools_empty_returns_empty(self, mock_retry) -> None:
+        """Empty DataFrames from both pools."""
+        mock_retry.return_value = pd.DataFrame()
+        records = _susp.fetch_price_limit_pool_via_akshare("2024-06-03")
+        self.assertEqual(records, [])
 
 
 if __name__ == "__main__":
