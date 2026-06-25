@@ -94,6 +94,14 @@ class BacktestDataAssumption(BaseModel):
         default=True,
         description="是否启用停牌不可成交约束（默认开启）。",
     )
+    st_stock: bool = Field(
+        default=False,
+        description="是否为 ST/*ST 股票（5% 涨跌幅限制）。",
+    )
+    delisted: bool = Field(
+        default=False,
+        description="是否为已退市股票（数据截断点标记）。",
+    )
     notes: list[str] = Field(default_factory=list)
 
     def to_dict(self) -> dict:
@@ -110,6 +118,8 @@ class BacktestDataAssumption(BaseModel):
             "volume_cap_pct": self.volume_cap_pct,
             "price_limit_check": self.price_limit_check,
             "suspension_check": self.suspension_check,
+            "st_stock": self.st_stock,
+            "delisted": self.delisted,
             "notes": list(self.notes),
         }
 
@@ -325,10 +335,41 @@ class BacktestEngine:
         return risks
 
     @staticmethod
-    def _is_at_price_limit(period_data: pd.DataFrame) -> tuple[bool, str]:
+    def _detect_st_delisted(df: pd.DataFrame, symbol: str, start_date: str, end_date: str) -> dict[str, bool]:
+        """Detect if a stock is ST/*ST or delisted based on available data.
+
+        Returns
+        -------
+        dict
+            Keys ``st_stock`` and ``delisted``.
+        """
+        result: dict[str, bool] = {"st_stock": False, "delisted": False}
+        if df.empty:
+            return result
+
+        # Delisted detection: data ends well before the requested end_date
+        end_ts = pd.Timestamp(end_date)
+        last_bar_date = df.index.max()
+        if isinstance(last_bar_date, pd.Timestamp) and last_bar_date < end_ts:
+            trading_days_missing = len(pd.bdate_range(last_bar_date, end_ts))
+            if trading_days_missing > 60:
+                result["delisted"] = True
+
+        # ST detection: check symbol prefix patterns
+        st_patterns = ("ST", "*ST", "SST", "S*ST")
+        name = symbol.upper()
+        if any(name.startswith(p) for p in st_patterns):
+            result["st_stock"] = True
+
+        return result
+
+    @staticmethod
+    def _is_at_price_limit(period_data: pd.DataFrame, st_stock: bool = False) -> tuple[bool, str]:
         """Check if the close price is at the daily price limit.
 
         For A-shares the default limit is ±10% from the previous close.
+        ST/*ST stocks have a ±5% limit.
+
         Returns (is_limited, reason).
         """
         if len(period_data) < 2:
@@ -337,11 +378,12 @@ class BacktestEngine:
         curr_close = float(period_data["close"].iloc[-1])
         if prev_close <= 0:
             return False, ""
-        change_pct = (curr_close - prev_close) / prev_close
-        if change_pct >= 0.095:
-            return True, "price_limit_up"
-        elif change_pct <= -0.095:
-            return True, "price_limit_down"
+        change_pct = abs(curr_close - prev_close) / prev_close
+        threshold = 0.045 if st_stock else 0.095
+        if change_pct >= threshold:
+            direction = "up" if curr_close >= prev_close else "down"
+            prefix = "st_" if st_stock else ""
+            return True, f"{prefix}price_limit_{direction}"
         return False, ""
 
     @staticmethod
@@ -402,11 +444,14 @@ class BacktestEngine:
             data_assumption = BacktestDataAssumption.mock().to_dict()
         else:
             bias_risks = self._detect_bias(df, start_date, end_date)
+            st_delisted = self._detect_st_delisted(df, symbol, start_date, end_date)
             data_assumption = BacktestDataAssumption(
                 data_source="real_facade",
                 data_quality="normal",
                 survivorship_bias_risk=bias_risks["survivorship_bias_risk"],
                 look_ahead_bias_risk=bias_risks["look_ahead_bias_risk"],
+                st_stock=st_delisted["st_stock"],
+                delisted=st_delisted["delisted"],
             ).to_dict()
 
         # Validate trading calendar
@@ -483,7 +528,7 @@ class BacktestEngine:
 
             if signal == 1 and cash > 0:
                 # Check constraints before buying
-                price_limit, limit_reason = self._is_at_price_limit(period_data)
+                price_limit, limit_reason = self._is_at_price_limit(period_data, data_assumption.get("st_stock", False))
                 suspended, suspend_reason = self._is_suspended(period_data)
                 constraint_notes = []
                 if data_assumption.get("price_limit_check", True) and price_limit:
@@ -531,7 +576,7 @@ class BacktestEngine:
                     })
             elif signal == -1 and shares > 0:
                 # Check constraints before selling
-                price_limit, limit_reason = self._is_at_price_limit(period_data)
+                price_limit, limit_reason = self._is_at_price_limit(period_data, data_assumption.get("st_stock", False))
                 suspended, suspend_reason = self._is_suspended(period_data)
                 constraint_notes = []
                 if data_assumption.get("price_limit_check", True) and price_limit:
