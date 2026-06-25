@@ -73,6 +73,8 @@ PAGE_ROUTES = [
     ("/tv_chart", "tv_chart"),
     ("/kc_chart", "kc_chart"),
     ("/market_leaders", "market_leaders"),
+    ("/portfolio", "portfolio"),
+    ("/ops_audit", "ops_audit"),
 ]
 
 
@@ -110,10 +112,13 @@ class TestWebBlueprintRegistration:
             "web.momentum_standalone",
             "web.kc_chart",
             "web.tv_chart",
+            "web.market_leaders",
+            "web.portfolio",
+            "web.ops_audit",
         }
         missing = expected - endpoints
         assert not missing, f"Missing web endpoints: {missing}"
-        assert len(endpoints) >= 21
+        assert len(endpoints) >= 24
 
 
 class TestWebPageRendering:

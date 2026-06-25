@@ -561,19 +561,28 @@ class BacktestEngine:
                         cap_note = f"volume_cap_{volume_cap}pct_applied"
                         if cap_note not in data_assumption.get("notes", []):
                             data_assumption.setdefault("notes", []).append(cap_note)
+                # Determine active constraints for this trade
+                buy_constraint = None
+                if price_limit and data_assumption.get("price_limit_check", True):
+                    buy_constraint = limit_reason
+                elif volume_cap > 0 and buy_shares < max_shares - 0.001:
+                    buy_constraint = "volume_cap"
                 if buy_shares > 0.001:
                     fees = calculate_fees(close_at_end, buy_shares, is_buy=True, config=self.fee_config)
                     net_cost = buy_shares * close_at_end + fees["total"]
                     shares += buy_shares
                     cash -= net_cost
-                    trades.append({
+                    trade = {
                         "date": str(period_data.index[-1].date()),
                         "type": "buy",
                         "price": close_at_end,
                         "shares": round(buy_shares, 4),
                         "fees": fees["total"],
                         "pnl": 0.0,
-                    })
+                    }
+                    if buy_constraint:
+                        trade["constraint"] = buy_constraint
+                    trades.append(trade)
             elif signal == -1 and shares > 0:
                 # Check constraints before selling
                 price_limit, limit_reason = self._is_at_price_limit(period_data, data_assumption.get("st_stock", False))
@@ -595,14 +604,20 @@ class BacktestEngine:
                 proceeds = sell_value - fees["total"]
                 pnl = proceeds - (shares * close_at_end - sell_value)  # simplified P&L
                 cash += proceeds
-                trades.append({
+                sell_constraint = None
+                if price_limit and data_assumption.get("price_limit_check", True):
+                    sell_constraint = limit_reason
+                trade = {
                     "date": str(period_data.index[-1].date()),
                     "type": "sell",
                     "price": close_at_end,
                     "shares": round(shares, 4),
                     "fees": fees["total"],
                     "pnl": round(proceeds - (shares * close_at_end), 4),
-                })
+                }
+                if sell_constraint:
+                    trade["constraint"] = sell_constraint
+                trades.append(trade)
                 shares = 0.0
 
             end_val = cash + shares * close_at_end
