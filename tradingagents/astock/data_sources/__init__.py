@@ -21,6 +21,16 @@ from .adapters import (
 from .cache import AStockCachePolicy, FileAStockCache, InMemoryAStockCache
 from .errors import AStockDataError, AStockNoDataError, AStockRouteNote, AStockSchemaError, AStockSourceUnavailableError
 from .quality import DataQualityTag, FreshnessInfo, DataQualityMetadata
+from .adjustment import (
+    fetch_adjust_factors,
+    fetch_adjust_via_eastmoney,
+    fetch_adjust_via_akshare_hist,
+    adjust_series,
+    adjust_bars,
+    _adjust_factor_for_date,
+    _set_duckdb,
+    clear_cache,
+)
 from .router import AStockDataFacade, AStockDataRouter, CAPABILITY_TO_METHOD, DEFAULT_ELIMINATED_SOURCES, DEFAULT_ROUTE_POLICY
 from .schema import AStockRequest, AStockResponse, normalize_capability_payload
 from .suspension import (
@@ -86,6 +96,11 @@ __all__ = [
     "is_suspended",
     "is_symbol_suspended_akshare",
     "is_symbol_suspended_via_trading_pool",
+    "fetch_adjust_factors",
+    "fetch_adjust_via_eastmoney",
+    "fetch_adjust_via_akshare_hist",
+    "adjust_series",
+    "adjust_bars",
     "astock_code",
     "normalize_astock_symbol",
     "split_astock_symbol",

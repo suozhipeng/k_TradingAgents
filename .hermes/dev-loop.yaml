@@ -1,29 +1,20 @@
 # .hermes/dev-loop.yaml
-project: 'Phase 32-02/34-01/33-01 待完成项'
-started_at: '2026-06-25T22:00:00+08:00'
+project: 'Backlog 修复 — 除权除息因子 + 文档同步'
+started_at: '2026-06-25T23:00:00+08:00'
 phase: review-codex
-current_task_index: 2
+current_task_index: 0
 
 tasks:
   - id: 1
-    description: '32-02: BacktestResult 添加费用分项 (total_fees/commission/stamp_tax/slippage)'
-    status: committed
-    commit_sha: 'de17f45'
-    review_verdict: 'Codex: accept'
-    notes: 'cost_breakdown dict 字段 + trade 明细 + run() 累加。'
+    description: '31-05-02: 除权除息因子修复 — 东财数据源 + DuckDB 持久化'
+    status: pending
+    notes: 'ak.stock_zh_a_adjust 已移除 → 东财 datacenter API 替换 + retry + 持久化'
 
   - id: 2
-    description: '34-01: 旧入口重定向 (/backtest→/strategy_hub 等)'
-    status: committed
-    commit_sha: '0588c68'
-    review_verdict: 'Codex: accept'
-    notes: 'web/__init__.py 4条301重定向路由。curl验证通过。'
-
-  - id: 3
-    description: '33-01: AI Agent 页面多标的支持 (symbols 多选/切换)'
+    description: '38-02~10: 文档同步 — phases/README 索引 + evidence commit SHA 补全'
     status: pending
-    commit_sha: ~
-    review_verdict: ~
+    notes: 'Phase 30-38 状态 planned→完成, 补全 evidence 文档链接和 SHA'
 
 next_actions:
-  - '任务 3: AI Agent 多标的'
+  - '任务 1: 除权除息因子修复'
+  - '任务 2: 文档同步'
