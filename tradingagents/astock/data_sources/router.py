@@ -12,6 +12,7 @@ from typing import Any, Dict, Iterable, List, Mapping, MutableMapping, Optional,
 from .adapters import DEFAULT_ADAPTER_FACTORIES, build_default_adapters
 from .cache import FileAStockCache, InMemoryAStockCache
 from .errors import AStockDataError, AStockNoDataError, AStockSourceUnavailableError
+from .quality import DataQualityTag
 from .schema import AStockRequest, AStockResponse, normalize_capability_payload
 from .symbols import normalize_astock_symbol
 
@@ -226,6 +227,19 @@ class AStockDataRouter(object):
             raise AStockSourceUnavailableError(str(getattr(adapter, "name", "unknown")), "method {0} missing".format(method_name), capability=request.capability)
         return method(request)
 
+    @staticmethod
+    def _quality_for_source(source: str, sources_tried: Sequence[str], capability: str) -> str:
+        """Determine DataQualityTag value based on source position in the route order.
+
+        The first successfully attempted source gets ``normal``; subsequent
+        sources (fallbacks after a prior source failed) get ``fallback``.
+        """
+        return (
+            DataQualityTag.NORMAL.value
+            if len(sources_tried) <= 1
+            else DataQualityTag.FALLBACK.value
+        )
+
     def _build_response_from_payload(
         self,
         capability: str,
@@ -256,6 +270,7 @@ class AStockDataRouter(object):
             return payload
 
         data, meta, empty = normalize_capability_payload(capability, raw_payload, request, source)
+        meta["quality"] = self._quality_for_source(source, sources_tried, capability)
         provider_notes = tuple(str(item) for item in meta.get("provider_notes", ())) if isinstance(meta, dict) else ()
         if empty or data is None:
             message = "NO_DATA_AVAILABLE: no data returned for {0} via {1}".format(request.symbol, source)
@@ -369,7 +384,7 @@ class AStockDataRouter(object):
                 source=sources_tried[-1] if sources_tried else None,
                 sources_tried=tuple(sources_tried),
                 request=request,
-                meta={"notes": notes},
+                meta={"quality": DataQualityTag.DEGRADED.value, "notes": notes},
                 notes=tuple(notes),
             )
 
@@ -383,7 +398,7 @@ class AStockDataRouter(object):
                 source=sources_tried[-1] if sources_tried else None,
                 sources_tried=tuple(sources_tried),
                 request=request,
-                meta={"notes": notes},
+                meta={"quality": DataQualityTag.DEGRADED.value, "notes": notes},
                 notes=tuple(notes),
             )
 
@@ -396,7 +411,7 @@ class AStockDataRouter(object):
             source=None,
             sources_tried=tuple(sources_tried),
             request=request,
-            meta={"notes": notes},
+            meta={"quality": DataQualityTag.DEGRADED.value, "notes": notes},
             notes=tuple(notes),
         )
 

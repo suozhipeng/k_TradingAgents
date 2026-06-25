@@ -286,6 +286,51 @@ class AStockDataSourceTests(unittest.TestCase):
         # All Phase 30-38 work is complete — todo list is empty
         self.assertEqual(payload["data_entrypoint"].get("todo", None), [])
 
+    def test_quality_tag_normal_on_primary_source(self):
+        """Primary source success gets quality=normal."""
+        adapter = FakeAdapter(
+            "akshare",
+            {"get_kline": lambda r: {"bars": [{"date": "2026-01-02", "open": 100, "high": 105, "low": 99, "close": 103, "volume": 1000}]}},
+        )
+        router = AStockDataRouter(adapters={"akshare": adapter}, route_policy={"kline": ["akshare"]})
+        response = router.get_kline("600519")
+
+        self.assertEqual(response.status, "ok")
+        self.assertEqual(response.source, "akshare")
+        self.assertEqual(response.meta.get("quality"), "normal")
+
+    def test_quality_tag_fallback_on_secondary_source(self):
+        """Fallback source success after primary fails gets quality=fallback."""
+        fail_adapter = FakeAdapter(
+            "mootdx",
+            {"get_kline": lambda r: (_ for _ in ()).throw(AStockSourceUnavailableError("mootdx", "offline", capability=r.capability))},
+        )
+        ok_adapter = FakeAdapter(
+            "tencent",
+            {"get_kline": lambda r: {"bars": [{"date": "2026-01-02", "open": 100, "high": 105, "low": 99, "close": 103, "volume": 1000}]}},
+        )
+        router = AStockDataRouter(
+            adapters={"mootdx": fail_adapter, "tencent": ok_adapter},
+            route_policy={"kline": ["mootdx", "tencent"]},
+        )
+        response = router.get_kline("600519")
+
+        self.assertEqual(response.status, "ok")
+        self.assertEqual(response.source, "tencent")
+        self.assertEqual(response.meta.get("quality"), "fallback")
+
+    def test_quality_tag_degraded_on_error(self):
+        """Error response gets quality=degraded."""
+        adapter = FakeAdapter(
+            "akshare",
+            {"get_stock_news": lambda r: (_ for _ in ()).throw(AStockSourceUnavailableError("akshare", "network down", capability=r.capability))},
+        )
+        router = AStockDataRouter(adapters={"akshare": adapter}, route_policy={"stock_news": ["akshare"]})
+        response = router.get_stock_news("600519")
+
+        self.assertEqual(response.status, "error")
+        self.assertEqual(response.meta.get("quality"), "degraded")
+
 
 if __name__ == "__main__":
     unittest.main()
