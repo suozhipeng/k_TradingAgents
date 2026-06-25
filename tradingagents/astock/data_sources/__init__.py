@@ -20,6 +20,7 @@ from .adapters import (
 )
 from .cache import AStockCachePolicy, FileAStockCache, InMemoryAStockCache
 from .errors import AStockDataError, AStockNoDataError, AStockRouteNote, AStockSchemaError, AStockSourceUnavailableError
+from .quality import DataQualityTag, FreshnessInfo, DataQualityMetadata
 from .router import AStockDataFacade, AStockDataRouter, CAPABILITY_TO_METHOD, DEFAULT_ELIMINATED_SOURCES, DEFAULT_ROUTE_POLICY
 from .schema import AStockRequest, AStockResponse, normalize_capability_payload
 from .symbols import astock_code, normalize_astock_symbol, split_astock_symbol
@@ -42,6 +43,9 @@ __all__ = [
     "AStockRouteNote",
     "AStockSchemaError",
     "AStockSourceUnavailableError",
+    "DataQualityTag",
+    "FreshnessInfo",
+    "DataQualityMetadata",
     "AStockDataFacade",
     "AStockDataRouter",
     "CAPABILITY_TO_METHOD",

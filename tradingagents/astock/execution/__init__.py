@@ -8,7 +8,7 @@ without going through the ``QmtExecutionEngine`` safety gates.
 
 from __future__ import annotations
 
-from .backtest_engine import BacktestEngine, BacktestResult
+from .backtest_engine import BacktestEngine, BacktestResult, BacktestDataAssumption
 from .fee_model import AStockFeeConfig, calculate_fees
 from .metrics import (
     calculate_max_drawdown,
@@ -62,6 +62,7 @@ __all__ = [
     "calculate_fees",
     "BacktestEngine",
     "BacktestResult",
+    "BacktestDataAssumption",
     "calculate_returns",
     "calculate_sharpe",
     "calculate_max_drawdown",

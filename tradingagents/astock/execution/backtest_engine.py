@@ -8,7 +8,8 @@ from __future__ import annotations
 
 import math
 from datetime import datetime, timedelta
-from typing import Any
+from enum import Enum
+from typing import Any, Optional
 
 import pandas as pd
 from pydantic import BaseModel, Field
@@ -18,6 +19,101 @@ from .metrics import summarize_metrics
 from .strategy_base import StrategyBase
 
 EXECUTION_SIGNAL: str = "ResearchOnly"
+
+# ---------------------------------------------------------------------------
+# Backtest data assumptions
+# ---------------------------------------------------------------------------
+
+
+class AdjustmentMethod(str, Enum):
+    """复权方法"""
+    NONE = "none"          # 未复权
+    FORWARD = "forward"    # 前复权
+    BACKWARD = "backward"  # 后复权
+
+
+class CostModel(str, Enum):
+    """成本模型"""
+    DEFAULT = "default"       # 默认（千分之一印花税 + 万分之一佣金）
+    CUSTOM = "custom"         # 自定义费率
+    ZERO = "zero"             # 零成本（仅 mock/测试）
+
+
+class SettlementConstraint(str, Enum):
+    """成交约束"""
+    T_PLUS_0 = "t+0"        # T+0
+    T_PLUS_1 = "t+1"        # T+1（A 股默认）
+    T_PLUS_0_TREASURY = "t+0_treasury"  # T+0 国债
+
+
+class BacktestDataAssumption(BaseModel):
+    """回测数据假设 — 说明回测使用的数据配置和约束。
+
+    Attributes
+    ----------
+    adjustment : AdjustmentMethod
+        复权方法（默认 forward）。
+    cost_model : CostModel
+        成本模型（默认 default）。
+    settlement : SettlementConstraint
+        成交约束（默认 t+1）。
+    slippage_bps : float
+        滑点（基点，默认 0 = 无滑点）。
+    sample_out : bool
+        是否使用样本外数据（默认 False）。
+    data_source : str
+        数据来源描述（如 ``"duckdb_live"``, ``"mock_deterministic"``）。
+    data_quality : str
+        数据质量标签（如 ``"normal"``, ``"mock"``, ``"partial"``）。
+    survivorship_bias_risk : bool
+        是否存在幸存者偏差风险（默认 False）。
+    look_ahead_bias_risk : bool
+        是否存在前视偏差风险（默认 False）。
+    notes : list[str]
+        额外的假设说明。
+    """
+
+    adjustment: AdjustmentMethod = AdjustmentMethod.FORWARD
+    cost_model: CostModel = CostModel.DEFAULT
+    settlement: SettlementConstraint = SettlementConstraint.T_PLUS_1
+    slippage_bps: float = 0.0
+    sample_out: bool = False
+    data_source: str = ""
+    data_quality: str = "normal"
+    survivorship_bias_risk: bool = False
+    look_ahead_bias_risk: bool = False
+    notes: list[str] = Field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        return {
+            "adjustment": self.adjustment.value,
+            "cost_model": self.cost_model.value,
+            "settlement": self.settlement.value,
+            "slippage_bps": self.slippage_bps,
+            "sample_out": self.sample_out,
+            "data_source": self.data_source,
+            "data_quality": self.data_quality,
+            "survivorship_bias_risk": self.survivorship_bias_risk,
+            "look_ahead_bias_risk": self.look_ahead_bias_risk,
+            "notes": list(self.notes),
+        }
+
+    @classmethod
+    def mock(cls) -> BacktestDataAssumption:
+        """Pre-built mock/test assumption."""
+        return cls(
+            adjustment=AdjustmentMethod.FORWARD,
+            cost_model=CostModel.ZERO,
+            settlement=SettlementConstraint.T_PLUS_1,
+            slippage_bps=0.0,
+            sample_out=False,
+            data_source="mock_deterministic",
+            data_quality="mock",
+            survivorship_bias_risk=True,
+            look_ahead_bias_risk=False,
+            notes=["Mock data — not suitable for live decisions"],
+        )
+
 
 # ---------------------------------------------------------------------------
 # BacktestResult model
@@ -64,6 +160,7 @@ class BacktestResult(BaseModel):
     execution_signal: str = EXECUTION_SIGNAL
     decision_scope: str = "backtest_only"
     run_id: str = ""
+    data_assumption: dict = Field(default_factory=dict)
 
 
 # ---------------------------------------------------------------------------
