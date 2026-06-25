@@ -26,7 +26,7 @@ class ResearchTask(BaseModel):
     """An AI research task — represents a single research execution."""
 
     task_id: str = ""
-    symbol: str = ""
+    symbols: list[str] = Field(default_factory=list)
     mode: str = "live_research"
     status: ResearchTaskStatus = ResearchTaskStatus.QUEUED
     prompt_version: str = ""

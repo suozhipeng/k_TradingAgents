@@ -15,7 +15,8 @@ class TestPhase33ResearchTask(unittest.TestCase):
             FAILED = "failed"; CANCELLED = "cancelled"
 
         class ResearchTask(BaseModel):
-            task_id: str = ""; symbol: str = ""; mode: str = "live_research"
+            task_id: str = ""; symbols: list[str] = Field(default_factory=list)
+            mode: str = "live_research"
             status: ResearchTaskStatus = ResearchTaskStatus.QUEUED
             prompt_version: str = ""; provider: str = ""; model: str = ""
             snapshot: dict = Field(default_factory=dict)
@@ -36,6 +37,12 @@ class TestPhase33ResearchTask(unittest.TestCase):
         t = self.ResearchTask()
         self.assertEqual(t.status, self.ResearchTaskStatus.QUEUED)
         self.assertEqual(t.mode, "live_research")
+        self.assertEqual(t.symbols, [])
+
+    def test_task_symbols(self):
+        t = self.ResearchTask(symbols=["600519.SH", "000858.SZ"])
+        self.assertEqual(len(t.symbols), 2)
+        self.assertIn("600519.SH", t.symbols)
 
     def test_audit_advisory_true(self):
         a = self.ResearchAudit()
