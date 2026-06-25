@@ -370,3 +370,38 @@ def _mock_stock_blocks(symbol: str) -> dict[str, Any]:
             {"name": "沪深300", "code": "BK0500", "change_pct": 0.4, "lead_stock": "贵州茅台"},
         ],
     }
+
+
+# ---------------------------------------------------------------------------
+# Trading calendar
+# ---------------------------------------------------------------------------
+
+
+@bp.route("/calendar")
+def get_calendar() -> tuple[Response, int]:
+    """GET /api/v1/market/calendar?start=2026-01-01&end=2026-06-30
+
+    Returns a list of trading days and their status in the requested range.
+    """
+    from datetime import date as date_type
+
+    from tradingagents.astock.data_sources.calendar import is_trading_day, trading_days_between
+
+    raw_start = request.args.get("start", "")
+    raw_end = request.args.get("end", "")
+    try:
+        start = date_type.fromisoformat(raw_start) if raw_start else date_type.today()
+        end = date_type.fromisoformat(raw_end) if raw_end else start
+    except (ValueError, TypeError):
+        return jsonify({"error": "invalid date format, use YYYY-MM-DD", "status": 400}), 400
+
+    if end < start:
+        return jsonify({"error": "end must be >= start", "status": 400}), 400
+
+    days = trading_days_between(start, end)
+    return jsonify({
+        "start": start.isoformat(),
+        "end": end.isoformat(),
+        "total_days": len(days),
+        "days": [d.isoformat() for d in days],
+    }), 200
