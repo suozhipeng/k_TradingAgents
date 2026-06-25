@@ -283,7 +283,8 @@ class AStockDataSourceTests(unittest.TestCase):
 
         self.assertIn("data_entrypoint", payload)
         self.assertEqual(payload["data_entrypoint"]["class"], "AStockDataFacade")
-        self.assertIn("TODO", " ".join(payload["data_entrypoint"]["todo"]))
+        # All Phase 30-38 work is complete — todo list is empty
+        self.assertEqual(payload["data_entrypoint"].get("todo", None), [])
 
 
 if __name__ == "__main__":

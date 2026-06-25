@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 from typing import Any, Mapping
 
-ROOT = Path("/Users/szp/Desktop/Code/k-code/ai-lab/TradingAgents")
+ROOT = Path(__file__).resolve().parent.parent
 AGENT_UTILS_PATH = ROOT / "tradingagents" / "agents" / "utils" / "agent_utils.py"
 COND_LOGIC_PATH = ROOT / "tradingagents" / "graph" / "conditional_logic.py"
 SETUP_PATH = ROOT / "tradingagents" / "graph" / "setup.py"
