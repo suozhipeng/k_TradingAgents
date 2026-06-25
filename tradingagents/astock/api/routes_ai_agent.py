@@ -13,7 +13,7 @@ from typing import Any
 
 from flask import Blueprint, Response, jsonify, request
 
-from tradingagents.astock.phase33_37_schemas import ResearchAudit, ResearchTask
+from tradingagents.astock.phase33_37_schemas import ResearchAudit
 from tradingagents.astock.schemas import ResearchContext
 
 logger = logging.getLogger(__name__)
@@ -91,7 +91,6 @@ def _run_analysis(
     prompt_version: str = "",
 ) -> dict[str, Any]:
     """Run analysis pipeline and return structured results with audit trail."""
-    from datetime import datetime
 
     task_id = _generate_task_id()
     now = datetime.now().isoformat()
