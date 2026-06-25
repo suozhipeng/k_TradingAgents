@@ -195,12 +195,11 @@ class TestPaperTraderPlaceOrder(unittest.TestCase):
 
     def test_place_buy_order(self) -> None:
         result = self.trader.place_order("600519.SH", "buy", 500.0, 100)
-        self.assertTrue(result["filled"])
-        self.assertEqual(result["symbol"], "600519.SH")
-        self.assertEqual(result["side"], "buy")
-        self.assertEqual(result["price"], 500.0)
-        self.assertEqual(result["quantity"], 100)
-        self.assertAlmostEqual(result["total"], 50000.0)
+        self.assertEqual(result.status.value, "filled")
+        self.assertEqual(result.symbol, "600519.SH")
+        self.assertEqual(result.side.value, "buy")
+        self.assertEqual(result.price, 500.0)
+        self.assertEqual(result.quantity, 100.0)
 
     def test_place_buy_order_updates_cash(self) -> None:
         initial_cash = self.trader._state.cash
@@ -213,9 +212,9 @@ class TestPaperTraderPlaceOrder(unittest.TestCase):
         # Buy first
         self.trader.place_order("600519.SH", "buy", 100.0, 200)
         result = self.trader.place_order("600519.SH", "sell", 120.0, 100)
-        self.assertTrue(result["filled"])
-        self.assertEqual(result["side"], "sell")
-        self.assertEqual(result["quantity"], 100)
+        self.assertEqual(result.status.value, "filled")
+        self.assertEqual(result.side.value, "sell")
+        self.assertEqual(result.quantity, 100.0)
         # Position should be reduced
         self.assertAlmostEqual(self.trader._state.positions["600519.SH"], 100)
 

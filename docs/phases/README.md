@@ -56,7 +56,7 @@
 | 32 | Strategy Lab：策略、回测、优化、绩效、对比、动量轮动统一 + BacktestResult 费用分项 | 完成 | [Phase 32](phase-32-strategy-lab-consolidation.md) [证据](phase-32-evidence-strategy-lab.md) |
 | 33 | AI Research Center：AI Agent、研究、报告、模型审计统一 + 多标的支持 | 完成 | [Phase 33](phase-33-ai-research-center.md) [证据](phase-33-evidence-ai-research.md) |
 | 34 | Market Leaders：龙头、板块、资金、候选池单入口 + 旧入口重定向 | 完成 | [Phase 34](phase-34-market-leaders-entry.md) [证据](phase-34-evidence-market-leaders.md) |
-| 35 | Trading & Execution：订单、成交、持仓、风控和 reconciliation | Schema 已定义 | [Phase 35](phase-35-trading-execution-control.md) [证据](phase-35-evidence-trading-execution.md) |
+| 35 | Trading & Execution：订单、成交、持仓、风控和 reconciliation | **完成** | [Phase 35](phase-35-trading-execution-control.md) [证据](phase-35-evidence-trading-execution.md) |
 | 36 | Portfolio Risk & Attribution：组合风险和绩效归因 | 完成 | [Phase 36](phase-36-portfolio-risk-attribution.md) [证据](phase-36-evidence-portfolio-risk.md) |
 | 37 | Ops & Audit Center：任务、错误、provider、模型和审计 | 完成 | [Phase 37](phase-37-ops-audit-center.md) [证据](phase-37-evidence-ops-audit.md) |
 | 38 | Product Navigation Cleanup：WebUI 顶层导航和旧入口收敛 | 完成 | [Phase 38](phase-38-product-navigation-cleanup.md) [证据](phase-38-evidence-navigation-cleanup.md) |

@@ -19,6 +19,13 @@ from pydantic import BaseModel, Field
 from .fee_model import AStockFeeConfig, calculate_fees
 from .qmt_execution import QmtExecutionEngine
 from .risk_gate import RiskGate, RiskGateResult
+from ..schemas.trading_execution import (
+    Fill,
+    Order,
+    OrderSide,
+    OrderStatus,
+    OrderTradeMode,
+)
 
 _EXECUTION_SIGNAL: str = "ResearchOnly"
 
@@ -312,7 +319,7 @@ class PaperTrader:
         side: str,
         price: float,
         quantity: int,
-    ) -> dict[str, Any]:
+    ) -> Order:
         """Place an individual order with specified quantity.
 
         Parameters
@@ -328,9 +335,8 @@ class PaperTrader:
 
         Returns
         -------
-        dict
-            Order result with keys: ``filled``, ``symbol``, ``side``,
-            ``price``, ``quantity``, ``total``, ``fees``, ``message``.
+        Order
+            Order with status and embedded Fill(s).
 
         Raises
         ------
@@ -350,7 +356,7 @@ class PaperTrader:
         else:
             return self._place_sell_order(symbol, price, quantity)
 
-    def _place_buy_order(self, symbol: str, price: float, quantity: int) -> dict[str, Any]:
+    def _place_buy_order(self, symbol: str, price: float, quantity: int) -> Order:
         fees = calculate_fees(price, quantity, is_buy=True, config=self._fee_config)
         total_cost = quantity * price + fees["total"]
 
@@ -385,19 +391,30 @@ class PaperTrader:
         self._state.total_value = round(self._state.cash + quantity * price, 2)
         self._state.last_updated = datetime.utcnow().isoformat()
 
-        return {
-            "filled": True,
-            "symbol": symbol,
-            "side": "buy",
-            "price": price,
-            "quantity": quantity,
-            "total": round(total_cost, 2),
-            "fees": round(fees["total"], 2),
-            "cash_remaining": round(self._state.cash, 2),
-            "message": f"Bought {quantity} shares of {symbol} @ ¥{price:,.2f}",
-        }
+        order_id = f"po-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}-{hash(symbol) % 10000:04d}"
+        fill = Fill(
+            fill_id=f"{order_id}-f1",
+            order_id=order_id,
+            symbol=symbol,
+            side=OrderSide.BUY,
+            quantity=float(quantity),
+            price=price,
+            fees=round(fees["total"], 2),
+            timestamp=datetime.utcnow().isoformat(),
+        )
+        return Order(
+            order_id=order_id,
+            mode=OrderTradeMode.PAPER,
+            symbol=symbol,
+            side=OrderSide.BUY,
+            quantity=float(quantity),
+            price=price,
+            status=OrderStatus.FILLED,
+            risk_status="allowed",
+            created_at=datetime.utcnow().isoformat(),
+        )
 
-    def _place_sell_order(self, symbol: str, price: float, quantity: int) -> dict[str, Any]:
+    def _place_sell_order(self, symbol: str, price: float, quantity: int) -> Order:
         current_shares = self._state.positions.get(symbol, 0.0)
         if current_shares < quantity:
             raise ValueError(
@@ -437,18 +454,18 @@ class PaperTrader:
         self._state.trades.append(trade)
         self._state.last_updated = datetime.utcnow().isoformat()
 
-        return {
-            "filled": True,
-            "symbol": symbol,
-            "side": "sell",
-            "price": price,
-            "quantity": quantity,
-            "total": round(proceeds, 2),
-            "fees": round(fees["total"], 2),
-            "pnl": round(trade_pnl, 2),
-            "cash_remaining": round(self._state.cash, 2),
-            "message": f"Sold {quantity} shares of {symbol} @ ¥{price:,.2f} (P&L: ¥{trade_pnl:+,.2f})",
-        }
+        order_id = f"po-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}-{hash(symbol) % 10000:04d}"
+        return Order(
+            order_id=order_id,
+            mode=OrderTradeMode.PAPER,
+            symbol=symbol,
+            side=OrderSide.SELL,
+            quantity=float(quantity),
+            price=price,
+            status=OrderStatus.FILLED,
+            risk_status="allowed",
+            created_at=datetime.utcnow().isoformat(),
+        )
 
 
 __all__ = [

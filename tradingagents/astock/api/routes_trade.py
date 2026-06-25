@@ -186,8 +186,24 @@ def place_order() -> tuple[Response, int]:
 
     try:
         trader = _get_trader()
+        # RiskGate pre-check
+        from ..execution.risk_gate import RiskGate
+        proposal = {
+            "symbol": symbol,
+            "signal": 1 if side == "buy" else -1,
+            "actionable": False,
+            "decision_scope": "webui_trade",
+        }
+        gate_result = RiskGate.check(proposal=proposal)
+        if not gate_result.allowed:
+            return jsonify({
+                "error": f"Risk gate blocked: {gate_result.reason}",
+                "status": 403,
+                "blocked_by": gate_result.blocked_by,
+            }), 403
+
         result = trader.place_order(symbol, side, float(price), int(quantity))
-        return jsonify({"status": "ok", "order": result}), 200
+        return jsonify({"status": "ok", "order": result.model_dump()}), 200
     except ValueError as exc:
         return jsonify({"error": str(exc), "status": 400}), 400
     except Exception as exc:
@@ -263,6 +279,7 @@ def trade_state() -> tuple[Response, int]:
                 "market_value": mkt_val,
                 "pnl": pnl,
                 "pnl_pct": pnl_pct,
+                "quantity": round(shares, 4),
             })
 
         return jsonify({
