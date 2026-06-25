@@ -48,7 +48,7 @@ from .phase9_schemas import (
     degraded_research_conclusion,
     degraded_trader_proposal,
 )
-from .phase33_37_schemas import (  # noqa: F401
+from .schemas import (  # noqa: F401
     Attribution,
     AuditEvent,
     Fill,

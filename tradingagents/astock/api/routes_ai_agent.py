@@ -13,7 +13,7 @@ from typing import Any
 
 from flask import Blueprint, Response, jsonify, request
 
-from tradingagents.astock.phase33_37_schemas import ResearchAudit
+from tradingagents.astock.schemas.research_task import ResearchAudit
 from tradingagents.astock.schemas import ResearchContext
 
 logger = logging.getLogger(__name__)
