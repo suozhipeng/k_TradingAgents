@@ -62,6 +62,11 @@
 
 {% block scripts %}
 <script>
+// ── XSS guard ──
+function escapeHtml(s) {
+  return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
 // ── Stock Info ──
 async function updateStockInfo(symbol) {
   const el = document.getElementById('ai-stock-info');
@@ -120,10 +125,11 @@ async function runAIAnalysis() {
 
     let bannerHtml = '';
     if (isDegraded) {
+      const safeError = escapeHtml(data.llm_error || '');
       bannerHtml += '<div class="tv-card p-3 mb-3" style="border-left:4px solid #ff9800;background:#1a1a2e;">' +
         '<div class="text-orange-400 font-semibold text-sm mb-1">⚠️ LLM 降级状态</div>' +
         '<div class="text-xs tv-muted">AI 分析引擎未完全可用。仅展示市场数据上下文。' +
-        (data.llm_error ? `<br>错误: ${data.llm_error}` : '') + '</div></div>';
+        (safeError ? '<br>错误: ' + safeError : '') + '</div></div>';
     }
     if (isAdvisory && !isDegraded) {
       bannerHtml += '<div class="tv-card p-2 mb-3" style="border-left:4px solid #2962FF;background:#0a1628;">' +
