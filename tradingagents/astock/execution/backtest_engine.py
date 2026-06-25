@@ -309,6 +309,16 @@ class BacktestEngine:
         BacktestResult
         """
         df = self._fetch_data(symbol, start_date, end_date)
+
+        # Build data assumption — reflects whether mock or real data was used
+        if self._use_mock_data:
+            data_assumption = BacktestDataAssumption.mock().to_dict()
+        else:
+            data_assumption = BacktestDataAssumption(
+                data_source="real_facade",
+                data_quality="normal",
+            ).to_dict()
+
         if df.empty:
             return BacktestResult(
                 symbol=symbol,
@@ -320,6 +330,7 @@ class BacktestEngine:
                     "slippage_rate": self.fee_config.slippage_rate,
                     "min_commission": self.fee_config.min_commission,
                 },
+                data_assumption=data_assumption,
             )
 
         # ── Force date range slice ──
@@ -335,6 +346,7 @@ class BacktestEngine:
                     "slippage_rate": self.fee_config.slippage_rate,
                     "min_commission": self.fee_config.min_commission,
                 },
+                data_assumption=data_assumption,
             )
 
         # --- Group by rebalance periods ---
@@ -440,4 +452,5 @@ class BacktestEngine:
                 "slippage_rate": self.fee_config.slippage_rate,
                 "min_commission": self.fee_config.min_commission,
             },
+            data_assumption=data_assumption,
         )
