@@ -114,6 +114,32 @@ async function runAIAnalysis() {
       return;
     }
 
+    // ── Degradation / Advisory banner ──
+    const isDegraded = data.status === 'degraded' || data.llm_error;
+    const isAdvisory = data.advisory !== false;
+
+    let bannerHtml = '';
+    if (isDegraded) {
+      bannerHtml += '<div class="tv-card p-3 mb-3" style="border-left:4px solid #ff9800;background:#1a1a2e;">' +
+        '<div class="text-orange-400 font-semibold text-sm mb-1">⚠️ LLM 降级状态</div>' +
+        '<div class="text-xs tv-muted">AI 分析引擎未完全可用。仅展示市场数据上下文。' +
+        (data.llm_error ? `<br>错误: ${data.llm_error}` : '') + '</div></div>';
+    }
+    if (isAdvisory && !isDegraded) {
+      bannerHtml += '<div class="tv-card p-2 mb-3" style="border-left:4px solid #2962FF;background:#0a1628;">' +
+        '<span class="text-xs" style="color:#82b1ff;">🔒 仅供参考 (Advisory-Only) · 不构成交易建议</span></div>';
+    }
+
+    // ── Audit metadata ──
+    const audit = data.audit || {};
+    let auditHtml = '';
+    if (audit.model) {
+      auditHtml = '<div class="text-xs tv-muted mt-2" style="border-top:1px solid #2a2e39;padding-top:8px;">' +
+        `模型: ${audit.model} · 版本: ${audit.prompt_version || '-'} · ` +
+        `生成于: ${audit.generated_at || '-'} · ` +
+        (audit.advisory ? '🔒 Advisory' : '') + '</div>';
+    }
+
     // ── Context Data ──
     const ctx = data.context || {};
     const info = ctx.stock_info || {};
@@ -144,11 +170,21 @@ async function runAIAnalysis() {
     }
 
     if (Object.keys(summary).length) {
-      ctxHtml += '<div class="tv-label">市场摘要</div>';
+      ctxHtml += '<div class="tv-label mt-3">市场摘要</div>';
       ctxHtml += '<div class="text-xs tv-muted">' + JSON.stringify(summary).substring(0, 300) + '</div>';
     }
 
-    ctxEl.innerHTML = ctxHtml || '<p class="tv-muted">暂无数据</p>';
+    // ── Data source quality metadata ──
+    const meta = data.context?.meta || {};
+    if (meta.provider || meta.quality) {
+      ctxHtml += '<div class="tv-label mt-3">数据质量</div>' +
+        '<div class="text-xs" style="color:#787b86;">' +
+        `来源: ${meta.provider || '-'} · 质量: ${meta.quality || '-'}` +
+        (meta.generated_at ? ` · 生成: ${meta.generated_at}` : '') +
+        (meta.freshness ? ` · 新鲜度: ${meta.freshness}` : '') + '</div>';
+    }
+
+    ctxEl.innerHTML = (bannerHtml + ctxHtml + auditHtml) || '<p class="tv-muted">暂无数据</p>';
 
     // ── LLM Analysis ──
     if (data.llm_analysis) {

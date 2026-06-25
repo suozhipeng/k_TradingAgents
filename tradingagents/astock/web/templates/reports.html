@@ -85,9 +85,19 @@
         <option value="research">📊 Research</option>
         <option value="backtest">🔄 Backtest</option>
       </select>
+      <button id="rpt-compare-btn" onclick="showCompareView()" class="tv-btn tv-btn-secondary tv-btn-sm hidden">🔍 对比选中</button>
     </div>
     <div id="reports-history" class="text-gray-400 text-sm max-h-80 overflow-y-auto">Loading...</div>
   </div>
+</div>
+
+<!-- Compare View -->
+<div id="compare-view" class="card mb-6 hidden">
+  <div class="flex justify-between items-center mb-3">
+    <h3 class="tv-card-title" style="margin:0;">🔍 报告对比 Compare</h3>
+    <button onclick="closeCompare()" class="tv-btn tv-btn-secondary tv-btn-sm">✕ 关闭</button>
+  </div>
+  <div id="compare-content" class="text-gray-400 text-sm"></div>
 </div>
 
 <!-- Row 2: Download Panel -->
@@ -303,11 +313,14 @@ function renderReports(reports) {
   }
   el.innerHTML = reports.map(r => {
     const typeIcon = r.type === 'research' ? '📊' : r.type === 'backtest' ? '🔄' : '📈';
-    return `<div class="py-3 px-3 bg-dark-bg rounded-lg mb-2 cursor-pointer hover:bg-dark-hover transition-colors" onclick="showReportDetail('${r.symbol}')">
+    return `<div class="py-3 px-3 bg-dark-bg rounded-lg mb-2 transition-colors hover:bg-dark-hover">
       <div class="flex justify-between items-start">
-        <div class="flex-1 min-w-0">
-          <p class="text-sm text-gray-200 font-medium">${typeIcon} ${r.symbol}</p>
-          <p class="text-xs text-gray-500 truncate mt-0.5">${r.summary || ''}</p>
+        <div class="flex items-center gap-2 flex-1 min-w-0">
+          <input type="checkbox" class="rpt-compare-cb cursor-pointer" value="${r.symbol}|${r.date}" onclick="updateCompareBtn()">
+          <div class="cursor-pointer flex-1 min-w-0" onclick="showReportDetail('${r.symbol}')">
+            <p class="text-sm text-gray-200 font-medium">${typeIcon} ${r.symbol}</p>
+            <p class="text-xs text-gray-500 truncate mt-0.5">${r.summary || ''}</p>
+          </div>
         </div>
         <div class="text-right flex-shrink-0 ml-2">
           <span class="badge ${r.status === 'ok' ? 'badge-success' : 'badge-warning'}">${r.status}</span>
@@ -316,6 +329,47 @@ function renderReports(reports) {
       </div>
     </div>`;
   }).join('');
+}
+
+function updateCompareBtn() {
+  const checked = document.querySelectorAll('.rpt-compare-cb:checked');
+  const btn = document.getElementById('rpt-compare-btn');
+  btn.classList.toggle('hidden', checked.length < 2);
+  btn.textContent = checked.length >= 2 ? `🔍 对比 ${checked.length} 份` : '🔍 对比选中';
+}
+
+function showCompareView() {
+  const checked = document.querySelectorAll('.rpt-compare-cb:checked');
+  const ids = Array.from(checked).map(cb => cb.value);
+  if (ids.length < 2) return;
+
+  const reports = ids.map(id => {
+    const [symbol, date] = id.split('|');
+    return generatedReports.find(r => r.symbol === symbol && r.date === date);
+  }).filter(Boolean);
+
+  if (reports.length < 2) return;
+
+  const el = document.getElementById('compare-content');
+  el.innerHTML = `<table class="tv-table w-full" style="font-size:12px;">
+    <thead><tr><th>字段</th>${reports.map((_, i) => `<th>报告 ${i + 1}</th>`).join('')}</tr></thead>
+    <tbody>
+      ${['symbol', 'type', 'date', 'status'].map(key =>
+        `<tr><td class="font-semibold">${key}</td>${
+          reports.map(r => `<td>${r[key] || '-'}</td>`).join('')
+        }</tr>`
+      ).join('')}
+      <tr><td class="font-semibold">摘要</td>${
+        reports.map(r => `<td class="text-xs">${(r.summary || '').substring(0, 100)}</td>`).join('')
+      }</tr>
+    </tbody>
+  </table>`;
+
+  document.getElementById('compare-view').classList.remove('hidden');
+}
+
+function closeCompare() {
+  document.getElementById('compare-view').classList.add('hidden');
 }
 
 function filterReports() {
