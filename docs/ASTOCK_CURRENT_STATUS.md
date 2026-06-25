@@ -1,6 +1,6 @@
 # A 股二次定制开发基线
 
-|更新时间：2026-06-23 (Phase 0-29 + KLineChart + 动量轮动 + AI Agent + 筛选器 + WebUI 重构 + DataCleaner + 专业边界设计) |
+|更新时间：2026-06-25 (Phase 0-38 主体完成 + 944 tests passed) |
 
 本文档是 A 股二次定制开发的当前事实基线。后续 Hermes 调度、ECC
 验收和阶段推进优先以本文档为准。
@@ -103,6 +103,15 @@ Phase 11 执行层增加了额外的安全边界：
 | 27 | 统一数据清洗层 (DataCleaner) — 全路径 NaN→None 清理, _coerce_float 修复, _parse_financials 修复 | 完成 |
 | 28 | 动量决策终端 / 动量轮动独立看板 / 龙虎榜 / 北向资金 / 数据健康页面 — 5 个新增 WebUI 页面 | 完成 |
 | 29 | 专业交易页 — TradingView 风格交易控制台, 实时报价, 订单面板, KLineChart, 仓位管理, PaperTrader 桥接 | 完成 |
+| 30 | Live Trading Readiness — 实盘准入清单与证据 | planned |
+| 31 | Data Quality & Bias Control — 数据质量与回测反偏差 | 大部分完成（31-03/04 数据源不稳定 marked planned） |
+| 32 | Strategy Lab Consolidation — 策略实验室整合 | 完成（含参数优化 tab） |
+| 33 | AI Research Center — AI 研究中枢 | 完成（含降级横幅、报告对比、advisory-only） |
+| 34 | Market Leaders Entry — 龙头股单入口 | planned |
+| 35 | Trading Execution Control — 交易执行控制 | schema 已定义，实现 planned |
+| 36 | Portfolio Risk & Attribution — 组合风险与归因 | 完成（schema + Portfolio 页面） |
+| 37 | Ops & Audit Center — 运维审计中心 | 完成（SSE TaskRun 标准化 + Ops Audit 页面） |
+| 38 | Product Navigation Cleanup — 产品导航清理 | 完成（7 模块 sidebar） |
 
 ## 4. 已完成能力
 
@@ -154,6 +163,70 @@ Phase 11 执行层增加了额外的安全边界：
 - **数据健康页**（data_health.html）：数据源状态监控面板
 - **WebUI 总页面数**：22 个活跃页面（templates/ 目录）
 - **NaN 全路径防御**：adapters.py _coerce_float 修复、routes_data.py _clean_nan() 模块级防护、backtest 结果清洗
+
+## 4. 当前状态快照（2026-06-25）
+
+### 基本信息
+- **分支**: `xg_dev`，已同步远程 `origin/xg_dev`，领先 37 个提交
+- **工作区**: 干净，无待提交修改
+- **测试**: **944 passed, 14 skipped, 0 failed** — 全量回归稳定
+- **WebUI**: 22 个活跃页面，Flask REST API 30+ 端点
+- **交付阶段**: Phase 0-38，其中 Phase 30-38 大部分已完成
+
+### 已完成的核心能力（Phase 0-29 + 30-38 大部分）
+- ✅ 五层数据路由（行情/研报/新闻/基础数据/公告）
+- ✅ A 股分析师 + Bull/Bear 辩论 + Advisory Chain
+- ✅ 回测引擎（10 策略 + 参数优化 + 涨跌停/停牌/ST/退市约束）
+- ✅ 模拟盘引擎（定时调度 + 虚拟成交 + SSE 推送）
+- ✅ QMT 桥接（安全模式默认 + 人工确认）
+- ✅ WebUI 22 页面 + Flask REST API 30+ 端点
+- ✅ KLineChart 全功能（27 技术指标 + 17 画线工具）
+- ✅ 动量轮动系统 + 股票筛选器 + 板块热力图
+- ✅ 统一数据清洗层（DataCleaner）
+- ✅ AI Research Center（ResearchTask + Audit + 降级标识 + 报告对比）
+- ✅ 策略中心（Strategy Hub + 参数优化）
+
+### 待开发项
+
+#### 🔴 P0 — 数据源相关（planned，阻塞中）
+| 任务 | 说明 |
+|------|------|
+| **31-03 停复牌处理** | 数据源不稳定，需自定义 adapter |
+| **31-04 涨跌停处理** | 数据源不稳定，需自定义 adapter |
+| **31-05-02 除权除息因子记录** | 数据源受限 |
+| **31-07-03 幸存者偏差回测页面展示** | 后端检测已完成，前端待实现 |
+| **31-08-03 前瞻偏差回测页面展示** | 后端检测已完成，前端待实现 |
+
+#### 🟡 P1 — 功能完善
+| 任务 | 说明 |
+|------|------|
+| **38-02~10 文档同步** | 导航清理后 wiki 更新 |
+| **NFR-05~NFR-19** | 非功能性需求（可观测性/API契约/数据字典/测试发布门槛/合规/模型治理/WebUI一致性/数据迁移/页面验收/风险管理/ADR）— 全部 marked `planned` |
+
+#### 🟢 P2 — 路线图后续阶段（Product Roadmap Stage，未开始）
+| Phase | 范围 | 状态 |
+|-------|------|------|
+| **Phase 34** Market Leaders 单入口 | 龙头动量/轮动/板块强弱/资金线索/候选池整合 | `planned` |
+| **Phase 35** Trading Execution 闭环 | 订单/成交/持仓/对账 schema 已定义，实现待开发 | `planned` |
+| **Phase 36** Portfolio Risk & Attribution | 组合风险/归因 schema 已完成，页面待完善 | `partial` |
+| **Phase 37** Ops & Audit Center | SSE TaskRun 标准化已完成，审计页面待增强 | `partial` |
+| **Phase 38** Product Navigation Cleanup | 导航清理已完成，文档同步待完成 | `partial` |
+
+#### ⚪ P3 — 实盘相关（暂不处理）
+| 任务 | 说明 |
+|------|------|
+| **BL-000~BL-004** | 实盘账户/持仓/委托/成交/撤单/拒单 — 明确暂不处理 |
+
+### 总结
+当前项目**主体功能已基本完成**，剩余待开发项主要集中在：
+1. **数据源不稳定导致的阻塞项**（停复牌、涨跌停、除权因子）— 等待可靠数据源
+2. **前端展示补齐**（幸存者偏差/前瞻偏差页面）
+3. **非功能性需求**（15+ 项 NFR，属于工程质量类）
+4. **实盘相关**（BL-000~BL-004）明确暂缓
+
+整体来看，系统已达到**投研分析 + 回测验证 + 模拟盘试跑**的完整闭环，具备从研究到受控执行的能力。
+
+---
 
 ## 5. 当前缺口
 
