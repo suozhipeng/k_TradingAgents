@@ -319,6 +319,25 @@ class BacktestEngine:
                 data_quality="normal",
             ).to_dict()
 
+        # Validate trading calendar
+        try:
+            from datetime import date as date_type
+            from tradingagents.astock.data_sources.calendar import is_trading_day
+
+            sd = date_type.fromisoformat(start_date)
+            ed = date_type.fromisoformat(end_date)
+            cal_notes = []
+            if not is_trading_day(sd):
+                cal_notes.append("start_date {0} is not a trading day".format(start_date))
+            if not is_trading_day(ed):
+                cal_notes.append("end_date {0} is not a trading day".format(end_date))
+            if cal_notes:
+                notes = list(data_assumption.get("notes", []))
+                notes.extend(cal_notes)
+                data_assumption["notes"] = notes
+        except Exception:
+            pass
+
         if df.empty:
             return BacktestResult(
                 symbol=symbol,
