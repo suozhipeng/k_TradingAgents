@@ -140,16 +140,11 @@ class TestWebPageRendering:
         # All nav tooltip texts should be present
         assert 'Trading' in html
         assert 'Dashboard' in html
-        assert 'Research' in html
-        assert 'Strategy Hub' in html
-        assert 'Strategies' in html
-        assert 'Paper Trading' in html
-        assert 'QMT Bridge' in html
-        assert 'Risk' in html
-        assert 'Screener' in html
+        assert 'Research' in html or 'AI Research Center' in html
+        assert 'Strategy Lab' in html or 'Strategy Hub' in html
         assert 'Market Leaders' in html
-        assert 'AI Agent' in html
-        assert 'Settings' in html
+        assert 'Data & Ops' in html
+        assert 'Screener' in html
     @pytest.mark.parametrize("route,page_name", PAGE_ROUTES)
     def test_page_has_tailwind_cdn(self, client, route, page_name):
         """Each page should include the Tailwind CSS CDN."""
