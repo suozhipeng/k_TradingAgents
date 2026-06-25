@@ -66,15 +66,31 @@
 ## 4. API 能力矩阵
 
 | 模块 | API 范围 | 能力等级 | 生产级要求 |
-|---|---|---|---|
+|------|----------|----------|-----------|
 | Data & Ops | `/api/v1/data/*`, `/api/v1/cache/*`, `/api/v1/data-health/*` | `research` | 返回 provider、freshness、quality、fallback |
 | AI Research | `/api/v1/research/*`, `/api/v1/ai-agent/*`, `/api/v1/reports/*` | `research` | 返回模型、prompt、数据快照、引用来源 |
 | Strategy Lab | `/api/v1/backtest/*`, `/api/v1/market/strategies` | `research` / `paper` | 返回数据假设、成本模型、benchmark、样本外状态 |
 | Market Leaders | `/api/v1/market-data/*`, screener/sector endpoints | `research` | 返回候选池来源、入池/出池理由、刷新时间 |
-| Paper Trading | `/api/v1/paper/*` | `paper` | 明确虚拟成交、虚拟资金、虚拟持仓 |
-| QMT Managed | `/api/v1/qmt/*` | `managed` | 未接真实环境时必须标注 mock/read-only |
-| Trading | `/api/v1/trade/*` | `paper` / `managed` / `live-ready` | 返回模式、风控、确认、订单状态和审计 |
+| **Paper Trading** | `/api/v1/paper/*` | `paper` | 明确虚拟成交、虚拟资金、虚拟持仓 |
+| **QMT Managed** | `/api/v1/qmt/*` | `managed` (mock) | 未接真实环境时必须标注 mock/read-only |
+| **Trading** | `/api/v1/trade/*` | `paper` / `managed` / `live-ready` | 返回模式、风控、确认、订单状态和审计 |
 | SSE / Tasks | `/api/v1/sse/*` | `research` / `paper` | 返回 task lifecycle、错误和进度 |
+
+### 4.1 实际 endpoint 能力等级（Phase 30）
+
+| Endpoint | 当前能力 | 说明 |
+|----------|----------|------|
+| `POST /api/v1/trade/order` | `paper` | 虚拟下单，走 PaperTrader |
+| `GET /api/v1/trade/quote` | `research` | 真实市场行情（EastMoney/Sina） |
+| `GET /api/v1/trade/state` | `paper` | PaperTrader 虚拟持仓 |
+| `POST /api/v1/paper/cycle` | `paper` | 虚拟策略周期执行 |
+| `GET /api/v1/paper/state` | `paper` | 虚拟账户状态 |
+| `GET /api/v1/paper/trades` | `paper` | 虚拟成交记录 |
+| `GET /api/v1/qmt/health` | `managed` (mock) | Mock QMT 健康检查 |
+| `GET /api/v1/qmt/positions` | `managed` (mock) | Mock QMT 持仓 |
+| `GET /api/v1/qmt/orders` | `managed` (mock) | Mock QMT 订单 |
+| `GET /api/v1/kline` | `research` | 历史 K 线数据 |
+| `GET /api/v1/data/health` | `research` | 数据源健康状态 |
 
 ## 5. 关键 schema
 

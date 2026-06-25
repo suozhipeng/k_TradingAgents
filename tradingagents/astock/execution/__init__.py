@@ -25,9 +25,11 @@ from .risk_gate import (
     ATRStopLoss,
     RiskGate,
     RiskGateResult,
+    RiskReasonCode,
     TrailingStop,
     calculate_atr,
 )
+from .kill_switch import KillSwitch, kill_switch
 from .strategy_base import (
     BollingerBandsReversionStrategy,
     BullTrendStrategy,
@@ -69,6 +71,7 @@ __all__ = [
     "PaperTrader",
     "RiskGate",
     "RiskGateResult",
+    "RiskReasonCode",
     "ATRStopLoss",
     "TrailingStop",
     "calculate_atr",
@@ -77,4 +80,6 @@ __all__ = [
     "QmtExecutionConfig",
     "QmtExecutionEngine",
     "ExecutionMode",
+    "KillSwitch",
+    "kill_switch",
 ]

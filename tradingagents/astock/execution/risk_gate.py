@@ -13,6 +13,7 @@ Wilder, J. Welles. *New Concepts in Technical Trading Systems* (1978).
 
 from __future__ import annotations
 
+from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
 
 from pydantic import BaseModel, Field
@@ -31,7 +32,55 @@ _KNOWN_CONSTRAINTS = frozenset({
     "circuit_breaker",
     "max_drawdown_hit",
     "earnings_blackout",
+    "kill_switch_active",
+    "actionable_flag",
 })
+
+
+class RiskReasonCode(str, Enum):
+    """Standardised risk reason codes for frontend display.
+
+    Each code maps to a machine-readable identifier and a human-friendly
+    display template that the frontend can localise.
+    """
+
+    POSITION_LIMIT = "position_limit"
+    CONCENTRATION = "concentration"
+    MISSING_DATA = "missing_data"
+    VOLATILITY_SPIKE = "volatility_spike"
+    LIQUIDITY_LOW = "liquidity_low"
+    GAP_RISK = "gap_risk"
+    HALTED_STOCK = "halted_stock"
+    ST_RISK = "st_risk"
+    CIRCUIT_BREAKER = "circuit_breaker"
+    MAX_DRAWDOWN_HIT = "max_drawdown_hit"
+    EARNINGS_BLACKOUT = "earnings_blackout"
+    KILL_SWITCH_ACTIVE = "kill_switch_active"
+    ACTIONABLE_FLAG = "actionable_flag"
+    ATR_STOP_LOSS = "atr_stop_loss"
+    UNRECOGNISED = "unrecognised"
+
+    @property
+    def display_label(self) -> str:
+        """Human-readable label for the frontend."""
+        labels = {
+            "position_limit": "持仓限制",
+            "concentration": "集中度限制",
+            "missing_data": "数据缺失",
+            "volatility_spike": "波动率异常",
+            "liquidity_low": "流动性不足",
+            "gap_risk": "跳空风险",
+            "halted_stock": "停牌",
+            "st_risk": "ST/风险警示",
+            "circuit_breaker": "熔断",
+            "max_drawdown_hit": "最大回撤触发",
+            "earnings_blackout": "财报静默期",
+            "kill_switch_active": "全局紧急停止",
+            "actionable_flag": "不可执行信号",
+            "atr_stop_loss": "ATR止损触发",
+            "unrecognised": "未知风险",
+        }
+        return labels.get(self.value, self.value)
 
 
 class RiskGateResult(BaseModel):

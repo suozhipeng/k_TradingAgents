@@ -64,6 +64,7 @@ from .runtime_profile import (
     require_live_research_clients,
     resolve_profile,
 )
+from .trading_mode import ExecutionCapability, TradingMode
 from .execution import (
     BacktestEngine,
     BacktestResult,
@@ -171,6 +172,12 @@ __all__ = [
     "PaperTrader",
     "RiskGate",
     "RiskGateResult",
+    # Phase 30 trading readiness
+    "TradingMode",
+    "ExecutionCapability",
+    "KillSwitch",
+    "kill_switch",
+    "RiskReasonCode",
     # Phase 12 DuckDB store
     "AStockStore",
     "init_astock_db",
