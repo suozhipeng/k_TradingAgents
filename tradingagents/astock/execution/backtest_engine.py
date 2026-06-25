@@ -286,6 +286,35 @@ class BacktestEngine:
                 df[col] = pd.to_numeric(df[col], errors="coerce")
         return df
 
+    def _detect_bias(self, df: pd.DataFrame, start_date: str, end_date: str) -> dict[str, bool]:
+        """Detect survivorship and look-ahead bias risks in the loaded data.
+
+        Returns
+        -------
+        dict
+            Keys ``survivorship_bias_risk`` and ``look_ahead_bias_risk``.
+        """
+        risks: dict[str, bool] = {
+            "survivorship_bias_risk": False,
+            "look_ahead_bias_risk": False,
+        }
+        if df.empty:
+            return risks
+
+        # Survivorship bias: bars don't cover the full requested range →
+        # the dataset may have dropped delisted symbols.
+        end_ts = pd.Timestamp(end_date)
+        last_bar_date = df.index.max()
+        if isinstance(last_bar_date, pd.Timestamp) and last_bar_date < end_ts:
+            risks["survivorship_bias_risk"] = True
+
+        # Look-ahead bias: if using akshare stock_zh_a_hist it returns
+        # forward-adjusted prices (adjustment factors depend on future events).
+        if not self._use_mock_data:
+            risks["look_ahead_bias_risk"] = True
+
+        return risks
+
     def run(
         self,
         symbol: str,
@@ -324,9 +353,12 @@ class BacktestEngine:
         if self._use_mock_data:
             data_assumption = BacktestDataAssumption.mock().to_dict()
         else:
+            bias_risks = self._detect_bias(df, start_date, end_date)
             data_assumption = BacktestDataAssumption(
                 data_source="real_facade",
                 data_quality="normal",
+                survivorship_bias_risk=bias_risks["survivorship_bias_risk"],
+                look_ahead_bias_risk=bias_risks["look_ahead_bias_risk"],
             ).to_dict()
 
         # Validate trading calendar

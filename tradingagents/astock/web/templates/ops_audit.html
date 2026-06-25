@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Ops Audit — AStock WebUI{% endblock %}
+{% block content %}
+<h2 class="tv-section-title">🔍 运维审计 Ops & Audit</h2>
+
+<ul class="flex gap-4 mb-6 border-b border-gray-700 pb-2 text-sm">
+  <li><a href="#" class="text-blue-400 font-semibold tab-link" data-tab="tasks">📋 任务中心</a></li>
+  <li><a href="#" class="text-gray-400 hover:text-white tab-link" data-tab="events">📜 事件审计</a></li>
+  <li><a href="#" class="text-gray-400 hover:text-white tab-link" data-tab="health">💚 Provider 健康</a></li>
+</ul>
+
+<!-- 任务中心 -->
+<div id="tab-tasks" class="tab-panel">
+  <div class="tv-card">
+    <div class="tv-section-title mb-3">📋 最近任务</div>
+    <table class="tv-table w-full">
+      <thead>
+        <tr><th>任务 ID</th><th>类型</th><th>状态</th><th>进度</th><th>开始</th><th>结束</th></tr>
+      </thead>
+      <tbody id="task-table-body">
+        <tr><td colspan="6" class="text-gray-500 text-center py-4">🚧 SSE 任务流待接入</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- 事件审计 -->
+<div id="tab-events" class="tab-panel hidden">
+  <div class="tv-card">
+    <div class="flex justify-between items-center mb-3">
+      <span class="tv-section-title">📜 事件日志</span>
+      <button onclick="clearEvents()" class="text-xs bg-red-700 hover:bg-red-600 px-3 py-1 rounded">🗑 清除</button>
+    </div>
+    <table class="tv-table w-full">
+      <thead>
+        <tr><th>时间</th><th>事件</th><th>数据</th></tr>
+      </thead>
+      <tbody id="event-table-body">
+        <tr><td colspan="3" class="text-gray-500 text-center py-4">暂无事件</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Provider 健康 -->
+<div id="tab-health" class="tab-panel hidden">
+  <div class="tv-card">
+    <div class="tv-section-title mb-3">💚 数据源健康</div>
+    <table class="tv-table w-full">
+      <thead>
+        <tr><th>Provider</th><th>状态</th><th>备注</th></tr>
+      </thead>
+      <tbody id="health-table-body">
+        <tr><td colspan="3" class="text-gray-500 text-center py-4">🚧 待接入</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+// Tab switching
+document.querySelectorAll('.tab-link').forEach(el => {
+  el.addEventListener('click', e => {
+    e.preventDefault();
+    const tab = el.dataset.tab;
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+    document.getElementById('tab-' + tab).classList.remove('hidden');
+    document.querySelectorAll('.tab-link').forEach(l => {
+      l.classList.remove('text-blue-400', 'font-semibold');
+      l.classList.add('text-gray-400');
+    });
+    el.classList.add('text-blue-400', 'font-semibold');
+    el.classList.remove('text-gray-400');
+  });
+});
+
+// Load events
+async function loadEvents() {
+  try {
+    const resp = await fetch('/api/v1/sse/events');
+    if (!resp.ok) return;
+    const events = await resp.json();
+    const tbody = document.getElementById('event-table-body');
+    if (!events || events.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="3" class="text-gray-500 text-center py-4">暂无事件</td></tr>';
+      return;
+    }
+    tbody.innerHTML = events.slice(-50).reverse().map(e => {
+      const ts = e.timestamp ? new Date(e.timestamp * 1000).toLocaleTimeString() : '-';
+      const data = JSON.stringify(Object.keys(e).length > 0 ? e : '');
+      return `<tr><td class="text-xs">${ts}</td><td>${e.type || '-'}</td><td class="text-xs truncate max-w-xs">${data.slice(0, 80)}</td></tr>`;
+    }).join('');
+  } catch (e) { console.error(e); }
+}
+
+async function clearEvents() {
+  try {
+    const resp = await fetch('/api/v1/sse/events', { method: 'DELETE' });
+    if (resp.ok) loadEvents();
+  } catch (e) { console.error(e); }
+}
+
+loadEvents();
+setInterval(loadEvents, 3000);
+</script>
+{% endblock %}

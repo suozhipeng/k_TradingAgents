@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}Portfolio — AStock WebUI{% endblock %}
+{% block content %}
+<h2 class="tv-section-title">📊 组合工作台 Portfolio</h2>
+
+<div class="tv-grid-4 mb-6">
+  <div class="tv-card">
+    <div class="tv-stat-label">💰 净资产 NAV</div>
+    <div class="tv-stat-value" id="p-nav">--</div>
+  </div>
+  <div class="tv-card">
+    <div class="tv-stat-label">💵 现金 Cash</div>
+    <div class="tv-stat-value" id="p-cash">--</div>
+  </div>
+  <div class="tv-card">
+    <div class="tv-stat-label">📈 总盈亏 P&L</div>
+    <div class="tv-stat-value" id="p-pnl">--</div>
+  </div>
+  <div class="tv-card">
+    <div class="tv-stat-label">📊 持仓 Holdings</div>
+    <div class="tv-stat-value" id="p-holdings">--</div>
+  </div>
+</div>
+
+<div class="tv-grid-2 mb-6">
+  <div class="tv-card">
+    <div class="tv-section-title mb-3">🧩 持仓明细</div>
+    <table class="tv-table w-full">
+      <thead>
+        <tr><th>Symbol</th><th>数量</th><th>均价</th><th>现价</th><th>市值</th><th>盈亏</th></tr>
+      </thead>
+      <tbody id="position-table-body">
+        <tr><td colspan="6" class="text-gray-500 text-center py-4">🚧 数据待加载</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="tv-card">
+    <div class="tv-section-title mb-3">⚠️ 风险敞口</div>
+    <div id="risk-exposure-section">
+      <div class="text-gray-500 text-center py-4">🚧 待接入风险归因</div>
+    </div>
+  </div>
+</div>
+
+<div class="tv-card">
+  <div class="tv-section-title mb-3">📉 归因分析 Attribution</div>
+  <div class="tv-grid-4" id="attribution-cards">
+    <div class="tv-stat-label">基准收益</div><div class="tv-stat-value" id="attr-benchmark">--</div>
+    <div class="tv-stat-label">选股效应</div><div class="tv-stat-value" id="attr-selection">--</div>
+    <div class="tv-stat-label">择时效应</div><div class="tv-stat-value" id="attr-timing">--</div>
+    <div class="tv-stat-label">成本影响</div><div class="tv-stat-value" id="attr-cost">--</div>
+  </div>
+</div>
+
+<script>
+async function loadPortfolio() {
+  try {
+    const resp = await fetch('/api/v1/paper/state');
+    if (!resp.ok) return;
+    const data = await resp.json();
+    if (data.error) return;
+
+    // NAV / Cash / P&L
+    const nav = data.portfolio_value || 0;
+    const cash = data.cash || 0;
+    document.getElementById('p-nav').textContent = nav.toFixed(2);
+    document.getElementById('p-cash').textContent = cash.toFixed(2);
+    const pnl = nav - (data.initial_capital || nav);
+    document.getElementById('p-pnl').textContent = (pnl >= 0 ? '+' : '') + pnl.toFixed(2);
+
+    // Holdings
+    const positions = data.positions || [];
+    document.getElementById('p-holdings').textContent = positions.length;
+    const tbody = document.getElementById('position-table-body');
+    if (positions.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-gray-500 text-center py-4">暂无持仓</td></tr>';
+    } else {
+      tbody.innerHTML = positions.map(p => {
+        const pnlVal = (p.pnl || 0);
+        const cls = pnlVal >= 0 ? 'text-green-400' : 'text-red-400';
+        return `<tr>
+          <td>${p.symbol || '-'}</td>
+          <td>${(p.quantity || 0).toFixed(0)}</td>
+          <td>${(p.avg_cost || 0).toFixed(2)}</td>
+          <td>${(p.current_price || 0).toFixed(2)}</td>
+          <td>${(p.market_value || 0).toFixed(2)}</td>
+          <td class="${cls}">${(pnlVal >= 0 ? '+' : '') + pnlVal.toFixed(2)}</td>
+        </tr>`;
+      }).join('');
+    }
+  } catch (e) {
+    console.error('loadPortfolio error:', e);
+  }
+}
+loadPortfolio();
+</script>
+{% endblock %}

@@ -226,6 +226,18 @@ def momentum_standalone() -> str:
     return render_template("momentum_dashboard.html")
 
 
+@bp.route("/portfolio")
+def portfolio() -> str:
+    """组合工作台"""
+    return render_template("portfolio.html")
+
+
+@bp.route("/ops_audit")
+def ops_audit() -> str:
+    """运维审计面板"""
+    return render_template("ops_audit.html")
+
+
 @bp.route("/ai_agent")
 def ai_agent() -> str:
     return render_template("ai_agent.html")
