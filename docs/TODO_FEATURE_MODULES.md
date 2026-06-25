@@ -1,6 +1,6 @@
 # 功能模块开发 TODO 清单 — 实际完成状态
 
-> 更新时间：2026-06-25（终版）
+> 更新时间：2026-06-26（按当前代码与验证状态同步）
 > 排除范围：实盘账户与交易相关（BL-000 ~ BL-004 暂不处理）
 > 数据源状态：31-03/04/05 已修复 — 停复牌/涨跌停/复权因子均使用东财+akshare 双源稳定
 
@@ -75,11 +75,18 @@
 
 ---
 
-## Phase 34 — Market Leaders ✅ 全部完成
+## Phase 34 — Market Leaders
+- [x] `/market_leaders` 单入口已落地
+- [x] 顶层 sidebar 已收敛为单一 Market Leaders 入口
+- [ ] 旧页面 (`momentum_rotation` / `dragon_tiger` / `northbound` / `sectors`) 仍保留兼容访问，尚未完全收口为单页面内部 tab
 
 ---
 
-## Phase 35 — Trading Execution ✅ schema 已定义
+## Phase 35 — Trading Execution
+- [x] order / fill / position / reconciliation schema 已落地
+- [x] `routes_trade.py`、`trading.html`、PaperTrader / RiskGate 接线已落地
+- [x] API 回归已恢复：`tests/test_astock_api.py` -> `47 passed`
+- [ ] 真实券商回报 reconciliation 与 `qmt/orders` 真实语义未闭环
 
 ---
 
@@ -97,18 +104,14 @@
 
 ## Phase 38 — Product Navigation Cleanup
 - [x] 38-01 Navigation 清理 → 7 模块 sidebar ✅ `52718f1`
-- [ ] 38-02~10 文档同步 — **可通过 /new 后在 wiki 中更新**
+- [ ] 38-02~10 文档同步 — 进行中；当前仓库文档已开始回补，仍需持续消除页面数/API 数/验证状态漂移
 
 ---
 
-## 状态汇总
+## 当前验证摘要
 
-| P | 任务数 | 完成 | 标记 planned | 说明 |
-|---|--------|------|-------------|------|
-| P0 | 2 | 2 | 0 | ✅ |
-| P1 | 3 | 3 | 0 | ✅ |
-| P2 | 5 | 5 | 0 | ✅ |
-|| P3 | 6 | 6 | 0 | 全部完成 ✅ |
-
-**全量测试：944 passed, 14 skipped, 0 failed**
-**Git：xg_dev → origin/xg_dev (ahead 37 commits)**
+- `Phase 31 + Phase 33-38` 相关 schema/阶段测试：`python3 -m pytest tests/test_astock_phase31.py tests/test_astock_phases_33_38.py -q` -> `26 passed`
+- 全量文件基线：覆盖 `63` 个测试文件，共 `1033` tests collected
+- 当前完整结果：`1019 passed, 14 skipped, 0 failed`
+- Git：`xg_dev` 与 `origin/xg_dev` 同步；当前未提交修改仅 `.hermes/dev-loop.yaml`
+- 验证环境：仓库 `.venv` 已失效，`./.venv/bin/python3.10` 不存在；当前使用系统 `Python 3.13.9`

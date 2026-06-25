@@ -1,6 +1,6 @@
 # TradingAgents-Astock 文档入口
 
-| 更新时间：2026-06-23 |
+| 更新时间：2026-06-26 |
 
 本文是 `docs/` 目录入口，用于减少重复文档和过时入口。
 
@@ -40,12 +40,17 @@
 | phase 归档索引 | `docs/phases/README.md` |
 | Hermes / Codex / DeepSeek 协作流程 | `docs/HERMES_CODEX_DEEPSEEK_WORKFLOW.md` |
 | Hermes skill 分派规则 | `docs/HERMES_SKILLS_PLAYBOOK.md` |
-| Hermes 持久化模板 | `docs/hermes/README.md` |
 | live provider 验证溯源 | `docs/verification_provenance/README.md` |
+| 术语表 | `docs/GLOSSARY.md` |
+| 常见问题 | `docs/FAQ.md` |
+| 用户手册 | `docs/USER_MANUAL.md` |
+| 隐私政策 | `docs/PRIVACY_POLICY.md` |
+| A 股变更日志 | `docs/ASTOCK_CHANGELOG.md` |
+| 待开发功能清单 | `docs/TODO_FEATURE_MODULES.md` |
 
 ## 文档维护规则
 
-- 当前状态只写入 `ASTOCK_CURRENT_STATUS.md`，不要散落到旧 phase 草稿。
+- 当前状态只写入 `ASTOCK_CURRENT_STATUS.md`，不要散落到旧 phase 草稿；其中“当前验证”必须区分历史全量基线与本次仓库实测结果。
 - 新需求先写入 `ASTOCK_REQUIREMENTS.md` 或 `ASTOCK_BACKLOG.md`。
 - 面向后续开发的产品优化拆解写入 `ASTOCK_PRODUCT_OPTIMIZATION_ROADMAP.md`。
 - 后台/前台开发进度、API、真实数据源、测试验收和 5 分钟任务拆解写入 `ASTOCK_DEVELOPMENT_PROGRESS_AND_5MIN_PLAN.md`。

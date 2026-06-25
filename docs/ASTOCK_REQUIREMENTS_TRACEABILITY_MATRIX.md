@@ -1,6 +1,6 @@
 # A 股需求追踪矩阵
 
-| 更新时间：2026-06-23 |
+| 更新时间：2026-06-26 |
 
 本文用于把产品需求、模块边界、API/WebUI、测试和 phase 归档串成闭环。后续每个 phase 开发前，应先在本文确认需求 ID、模块归属和验收证据位置；开发完成后，更新状态和测试/phase 证据。
 
@@ -47,21 +47,21 @@
 | NFR-18 | 项目风险管理 | Project Governance | risk register docs | N/A | `docs/ASTOCK_PROJECT_RISK_REGISTER.md` | 30-38 | planned |
 | NFR-19 | 架构决策记录 | Architecture Governance | ADR docs | N/A | `docs/ASTOCK_ARCHITECTURE_DECISION_RECORDS.md` | 30-38 | planned |
 | PROD-01 | 实盘准入清单 | Live Trading Readiness | future execution capability schema | Trading / Risk / Ops | future Phase 30 tests | 30 | planned |
-| PROD-02 | 数据质量与回测反偏差 | Data Quality & Bias Control | future data quality / calendar / constraints schema | Data & Ops / Strategy Lab | future Phase 31 tests | 31 | planned |
-| PROD-03 | Strategy Lab 模块整合 | Strategy Lab | strategy registry / backtest result schema | Strategy Lab tabs | future Phase 32 tests | 32 | planned |
-| PROD-04 | AI Research Center 模块整合 | AI Research Center | research task / audit schema | AI Research tabs | future Phase 33 tests | 33 | planned |
-| PROD-05 | Market Leaders 单入口 | Market Leaders | leader pool / capital clue schema | Market Leaders tabs | future Phase 34 tests | 34 | planned |
-| PROD-06 | Trading & Execution 闭环 | Trading & Execution | order/fill/position/reconciliation schema | Trading tabs | future Phase 35 tests | 35 | planned |
-| PROD-07 | Portfolio Risk & Attribution | Portfolio Workbench | portfolio risk / attribution schema | Portfolio / Strategy / Trading | future Phase 36 tests | 36 | planned |
-| PROD-08 | Ops & Audit Center | Data & Ops | audit event / task run schema | Ops Dashboard | future Phase 37 tests | 37 | planned |
-| PROD-09 | Product Navigation Cleanup | WebUI Shell | route/nav/template cleanup | 全局导航 | future Phase 38 tests | 38 | planned |
+| PROD-02 | 数据质量与回测反偏差 | Data Quality & Bias Control | quality / calendar / constraints / adjustment modules | Data & Ops / Strategy Lab | `tests/test_astock_phase31.py`, backtest/data-source tests | 31 | partial |
+| PROD-03 | Strategy Lab 模块整合 | Strategy Lab | strategy registry / backtest result schema | Strategy Lab tabs | strategy/backtest/optimizer tests | 32 | done |
+| PROD-04 | AI Research Center 模块整合 | AI Research Center | research task / audit schema | AI Research tabs | `tests/test_astock_phases_33_38.py`, research/runtime tests | 33 | done |
+| PROD-05 | Market Leaders 单入口 | Market Leaders | leader pool / market leaders page | Market Leaders tabs / legacy entries | `tests/test_astock_phases_33_38.py`, page routes | 34 | partial |
+| PROD-06 | Trading & Execution 闭环 | Trading & Execution | order/fill/position/reconciliation schema | Trading tabs | `tests/test_astock_phases_33_38.py`, `tests/test_astock_api.py` | 35 | partial |
+| PROD-07 | Portfolio Risk & Attribution | Portfolio Workbench | portfolio risk / attribution schema | Portfolio / Strategy / Trading | `tests/test_astock_phases_33_38.py`, portfolio page | 36 | partial |
+| PROD-08 | Ops & Audit Center | Data & Ops | audit event / task run schema | Ops Dashboard | `tests/test_astock_phases_33_38.py`, `tests/test_astock_sse.py` | 37 | partial |
+| PROD-09 | Product Navigation Cleanup | WebUI Shell | route/nav/template cleanup | 全局导航 | web route inventory / docs sync | 38 | partial |
 
 ## 3. 当前缺口
 
 - `FR-05` 展示与报告已可用，但报告归档、复查、对比和 AI 审计仍未闭环。
-- `FR-06` 回测与模拟盘已可用，但 Strategy Lab 的统一 registry、统一结果 schema 和反偏差标记仍未闭环。
-- `FR-07` 受控执行已有 managed/QMT 雏形，但订单、成交、撤单、拒单、部分成交和券商回报 reconciliation 未闭环。
-- `FR-09` WebUI 页面很多，但顶层产品信息架构仍需 Phase 38 收敛。
+- `FR-06` 回测与模拟盘已可用；Strategy Lab 主入口已落地，但 survivorship/look-ahead bias 的前端展示尚未补齐。
+- `FR-07` 受控执行已有 trade/QMT/UI 接线，但订单 payload、实时行情依赖和券商回报 reconciliation 还未闭环，当前 API 回归未全绿。
+- `FR-09` WebUI 顶层信息架构已基本收敛到 7 个模块，但旧入口兼容与文档口径仍在回补。
 - `NFR-02` 可审计性已有 phase 和 provider provenance，但缺少统一 Audit Event / Task Run 产品能力。
 - `NFR-05` 到 `NFR-19` 已补齐核心功能文档边界，但仍需要在 Phase 30-38 中落到 contract tests、数据血缘记录、迁移记录、模型治理记录、环境检查、变更兼容、页面验收、截图证据、风险状态和 ADR 决策记录。
 - 安全与隐私、SLA 与故障分级、用户角色/RBAC 当前只登记在 `docs/ASTOCK_DOCUMENT_SCOPE_REGISTER.md`，不进入本矩阵需求行。

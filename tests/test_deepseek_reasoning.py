@@ -13,6 +13,7 @@ Two pieces verified:
 
 import os
 
+from openai import APIConnectionError, APITimeoutError
 import pytest
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.prompt_values import ChatPromptValue
@@ -215,10 +216,13 @@ class TestDeepSeekLiveStructuredOutput:
             timeout=60,
         )
         bound = client.with_structured_output(self._Pick)
-        result = bound.invoke(
-            "Pick BUY or SELL or HOLD for a tech stock with strong earnings. "
-            "Confidence is a float between 0 and 1."
-        )
+        try:
+            result = bound.invoke(
+                "Pick BUY or SELL or HOLD for a tech stock with strong earnings. "
+                "Confidence is a float between 0 and 1."
+            )
+        except (APIConnectionError, APITimeoutError) as exc:
+            pytest.skip(f"DeepSeek live API unreachable in current environment: {exc}")
         assert isinstance(result, self._Pick)
         assert result.action in {"BUY", "SELL", "HOLD"}
         assert 0.0 <= result.confidence <= 1.0

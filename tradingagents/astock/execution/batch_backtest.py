@@ -33,9 +33,11 @@ class BatchBacktestRunner:
         self,
         store: Any,
         fee_config: AStockFeeConfig | None = None,
+        use_mock_data: bool = False,
     ) -> None:
         self._store = store
         self._fee_config = fee_config or AStockFeeConfig()
+        self._use_mock_data = use_mock_data
 
     # ------------------------------------------------------------------
     # Public API
@@ -73,7 +75,10 @@ class BatchBacktestRunner:
             Columns: ``symbol``, ``strategy_name``, ``total_return``,
             ``sharpe``, ``max_drawdown``, ``win_rate``, ``total_trades``.
         """
-        engine = BacktestEngine(fee_config=self._fee_config)
+        engine = BacktestEngine(
+            fee_config=self._fee_config,
+            use_mock_data=self._use_mock_data,
+        )
         records: list[dict[str, Any]] = []
 
         for symbol in symbols:

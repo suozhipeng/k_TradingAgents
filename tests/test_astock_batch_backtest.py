@@ -74,7 +74,7 @@ class TestBatchBacktestRunner(unittest.TestCase):
     def setUp(self):
         self.store = MagicMock()
         self.store.store_backtest_result.return_value = 1
-        self.runner = BatchBacktestRunner(store=self.store)
+        self.runner = BatchBacktestRunner(store=self.store, use_mock_data=True)
         self.symbols = ["600519.SH", "000858.SZ", "000300.SH"]
         self.strategies = [
             MovingAverageTrendStrategy(),
@@ -194,7 +194,7 @@ class TestBatchBacktestRunner(unittest.TestCase):
     def test_store_results_false(self):
         """When store_results=False, store_backtest_result is not called."""
         store = MagicMock()
-        runner = BatchBacktestRunner(store=store)
+        runner = BatchBacktestRunner(store=store, use_mock_data=True)
         runner.run_batch(
             symbols=["600519.SH"],
             strategies=[self.strategies[0]],

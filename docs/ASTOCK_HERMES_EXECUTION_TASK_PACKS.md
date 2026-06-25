@@ -266,7 +266,7 @@ Common inputs:
 
 | Task ID | Hermes brief | Allowed scope | Tests | Acceptance |
 |---|---|---|---|---|
-| 38-01 | 列出所有 template 页面。 | docs; templates read-only unless implementation phase | docs check | 22 页面覆盖 |
+| 38-01 | 列出所有 template 页面。 | docs; templates read-only unless implementation phase | docs check | 25 HTML 模板（23 页面模板 + 2 基础模板）覆盖 |
 | 38-02 | 列出 sidebar/nav 入口。 | docs; base templates read-only unless approved | docs check | 无重复入口清单 |
 | 38-03 | 定义目标顶层导航。 | WebUI spec, ADR | docs check | 7 个顶层模块 |
 | 38-04 | 标记旧入口迁移策略。 | WebUI checklist, release/change | docs check | redirect/hidden/legacy 明确 |

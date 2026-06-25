@@ -1,6 +1,6 @@
 # Phase 38 Product Navigation Cleanup 需求与 Hermes 任务包
 
-| 状态：planned | 更新时间：2026-06-24 |
+| 状态：partial | 更新时间：2026-06-26 |
 
 ## 0. 前置依赖
 
@@ -36,7 +36,7 @@
 
 | ID | Hermes brief | DeepSeek allowed scope | Codex acceptance |
 |---|---|---|---|
-| 38-01 | 列出所有 template 页面。 | docs；templates 只读。 | 22 页面覆盖。 |
+| 38-01 | 列出所有 template 页面。 | docs；templates 只读。 | 25 HTML 模板（23 页面模板 + 2 基础模板）覆盖。 |
 | 38-02 | 列出 sidebar/nav 入口。 | docs；base templates 只读。 | 无重复入口清单。 |
 | 38-03 | 定义目标顶层导航。 | WebUI spec、ADR。 | 7 个顶层模块。 |
 | 38-04 | 标记旧入口迁移策略。 | WebUI checklist、release/change。 | redirect/hidden/legacy 明确。 |

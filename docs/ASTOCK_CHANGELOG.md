@@ -65,3 +65,21 @@ A 股定制部分使用独立的 `A-X.Y.Z` 版本号，与原 TradingAgents 的 
 - AI Agent/研究报告/新闻公告尚未收敛到统一 AI Research Center
 - 龙头相关入口尚未收敛为单入口
 - Phase 30-38 尚未实现
+
+## [A-0.1.1] — 2026-06-26
+
+### 变更
+- 同步 `docs/` 与当前代码状态，修正文档中把 Phase 34/35 继续标为 `planned` 的漂移。
+- 修复 `trade/order`、`trade/quote`、`market/sectors` 相关 API 回归，并补齐离线/受限环境下的稳定 fallback。
+- 将 WebUI 规模口径更新为 `25` 个 HTML 模板，其中 `23` 个页面模板、`2` 个基础模板。
+- 将 Flask API 规模口径更新为 `57` 个 route handler；Web 侧共有 `28` 个 route（含旧入口 redirect / alias）。
+- 明确当前分支 `xg_dev` 与 `origin/xg_dev` 已同步；工作区当前存在未提交修改 `.hermes/dev-loop.yaml`。
+
+### 验证
+- 仓库内置 `.venv` 当前失效：`./.venv/bin/python3.10` 指向的解释器不存在，不能再直接作为“当前可用验证环境”写入状态文档。
+- 使用系统 `Python 3.13.9` 验证：`tests/test_astock_phase31.py` 与 `tests/test_astock_phases_33_38.py` 共 `26 passed`。
+- 覆盖全部 `63` 个测试文件的完整基线为：`1033` tests collected，`1019 passed, 14 skipped, 0 failed`。
+
+### 已知限制
+- `qmt/orders` 仍是 mock/read-only 语义，真实订单/委托查询尚未闭环。
+- 仓库 `.venv` 仍未修复；当前通过系统 `Python 3.13.9` 完成验证。

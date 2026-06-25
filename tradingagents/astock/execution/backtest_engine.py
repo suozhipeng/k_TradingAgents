@@ -424,6 +424,8 @@ class BacktestEngine:
 
         Returns (is_suspended, reason).
         """
+        if self._use_mock_data:
+            return False, ""
         try:
             from tradingagents.astock.data_sources.suspension import is_suspended
             suspended, reason = is_suspended(symbol, source="akshare", date=trade_date)
@@ -445,6 +447,8 @@ class BacktestEngine:
 
         Returns (is_limited, direction_reason).
         """
+        if self._use_mock_data:
+            return False, ""
         try:
             from tradingagents.astock.data_sources.suspension import is_at_price_limit_external
             limited, direction = is_at_price_limit_external(symbol, trade_date)

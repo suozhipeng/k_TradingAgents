@@ -1,6 +1,6 @@
 # A 股二次定制开发基线
 
-|更新时间：2026-06-25 (Phase 0-38 主体完成 + 944 tests passed) |
+|更新时间：2026-06-26（按当前代码、Git 状态与本次验证结果同步）|
 
 本文档是 A 股二次定制开发的当前事实基线。后续 Hermes 调度、ECC
 验收和阶段推进优先以本文档为准。
@@ -104,14 +104,14 @@ Phase 11 执行层增加了额外的安全边界：
 | 28 | 动量决策终端 / 动量轮动独立看板 / 龙虎榜 / 北向资金 / 数据健康页面 — 5 个新增 WebUI 页面 | 完成 |
 | 29 | 专业交易页 — TradingView 风格交易控制台, 实时报价, 订单面板, KLineChart, 仓位管理, PaperTrader 桥接 | 完成 |
 | 30 | Live Trading Readiness — 实盘准入清单与证据 | planned |
-| 31 | Data Quality & Bias Control — 数据质量与回测反偏差 | 大部分完成（31-03/04 数据源不稳定 marked planned） |
+| 31 | Data Quality & Bias Control — 数据质量与回测反偏差 | 部分完成（31-03/04/05 已修复；31-07/08 页面展示待补齐） |
 | 32 | Strategy Lab Consolidation — 策略实验室整合 | 完成（含参数优化 tab） |
 | 33 | AI Research Center — AI 研究中枢 | 完成（含降级横幅、报告对比、advisory-only） |
-| 34 | Market Leaders Entry — 龙头股单入口 | planned |
-| 35 | Trading Execution Control — 交易执行控制 | schema 已定义，实现 planned |
-| 36 | Portfolio Risk & Attribution — 组合风险与归因 | 完成（schema + Portfolio 页面） |
-| 37 | Ops & Audit Center — 运维审计中心 | 完成（SSE TaskRun 标准化 + Ops Audit 页面） |
-| 38 | Product Navigation Cleanup — 产品导航清理 | 完成（7 模块 sidebar） |
+| 34 | Market Leaders Entry — 龙头股单入口 | 部分完成（`/market_leaders` 单入口已落地，旧页面仍保留兼容访问） |
+| 35 | Trading Execution Control — 交易执行控制 | 部分完成（schema + trade/QMT/UI 接线已落地，当前 API 回归已恢复全绿，真实券商闭环未完成） |
+| 36 | Portfolio Risk & Attribution — 组合风险与归因 | 部分完成（schema + Portfolio 页面已落地，更深层归因/风险指标未闭环） |
+| 37 | Ops & Audit Center — 运维审计中心 | 部分完成（SSE TaskRun 标准化 + Ops Audit 页面已落地，统一审计持久化未闭环） |
+| 38 | Product Navigation Cleanup — 产品导航清理 | 部分完成（7 模块 sidebar + 旧入口 redirect 已落地，文档口径正在回补） |
 
 ## 4. 已完成能力
 
@@ -161,56 +161,63 @@ Phase 11 执行层增加了额外的安全边界：
 - **龙虎榜**（dragon_tiger.html）：个股主力资金追踪
 - **北向资金**（northbound.html）：沪深股通资金流
 - **数据健康页**（data_health.html）：数据源状态监控面板
-- **WebUI 总页面数**：22 个活跃页面（templates/ 目录）
+- **WebUI 模板规模**：25 个 HTML 模板（23 个页面模板 + 2 个基础模板）
 - **NaN 全路径防御**：adapters.py _coerce_float 修复、routes_data.py _clean_nan() 模块级防护、backtest 结果清洗
 
-## 4. 当前状态快照（2026-06-25）
+## 4. 当前状态快照（2026-06-26）
 
 ### 基本信息
-- **分支**: `xg_dev`，已同步远程 `origin/xg_dev`，领先 37 个提交
-- **工作区**: 干净，无待提交修改
-- **测试**: **944 passed, 14 skipped, 0 failed** — 全量回归稳定
-- **WebUI**: 22 个活跃页面，Flask REST API 30+ 端点
-- **交付阶段**: Phase 0-38，其中 Phase 30-38 大部分已完成
+- **分支**: `xg_dev`，与 `origin/xg_dev` 当前同步（ahead/behind = `0/0`）
+- **工作区**: 非干净；当前仅见未提交修改 `.hermes/dev-loop.yaml`
+- **验证环境**: 仓库 `.venv` 已失效，`./.venv/bin/python3.10` 不存在；本次改用系统 `Python 3.13.9`
+- **测试**:
+  - 定向阶段验证：`python3 -m pytest tests/test_astock_phase31.py tests/test_astock_phases_33_38.py -q` -> `26 passed`
+  - 全量文件基线：覆盖 `63` 个测试文件，合计 `1033` tests collected
+  - 当前完整结果：`1019 passed, 14 skipped, 0 failed`
+  - 跳过项主要来自 `tests/test_astock_live_providers.py`（需 `ASTOCK_RUN_LIVE_TESTS=1`）、`tests/test_astock_ppt.py`（本机未安装 `python-pptx`）、`tests/test_astock_store.py`（需 `TEST_PYDANTIC_BT=1`）、`tests/test_deepseek_reasoning.py` 的真实联网调用（当前环境不可达时自动 skip）
+- **WebUI / API 规模**:
+  - `tradingagents/astock/web/templates/` 下共 `25` 个 HTML 模板，其中 `23` 个页面模板、`2` 个基础模板
+  - `tradingagents/astock/web/__init__.py` 当前暴露 `28` 个 Web route（含旧入口 redirect / alias）
+  - `tradingagents/astock/api/routes_*.py` 当前共 `14` 个 routes 模块、`57` 个 Flask REST API handler
+  - `tradingagents/astock/api/__init__.py` 健康端点返回版本 `0.1.0`（注意：与 pyproject.toml 的 `0.2.5` 不一致）
+- **交付阶段**: Phase 0-33 主体完成；Phase 34-38 均已有代码落地，但仍需按产品闭环标准继续收口
 
-### 已完成的核心能力（Phase 0-29 + 30-38 大部分）
+### 已完成或已落地主路径的核心能力
 - ✅ 五层数据路由（行情/研报/新闻/基础数据/公告）
 - ✅ A 股分析师 + Bull/Bear 辩论 + Advisory Chain
 - ✅ 回测引擎（10 策略 + 参数优化 + 涨跌停/停牌/ST/退市约束）
 - ✅ 模拟盘引擎（定时调度 + 虚拟成交 + SSE 推送）
 - ✅ QMT 桥接（安全模式默认 + 人工确认）
-- ✅ WebUI 22 页面 + Flask REST API 30+ 端点
+- ✅ WebUI 页面骨架与 API 面已成型（23 页面模板 / 57 API routes）
 - ✅ KLineChart 全功能（27 技术指标 + 17 画线工具）
 - ✅ 动量轮动系统 + 股票筛选器 + 板块热力图
 - ✅ 统一数据清洗层（DataCleaner）
-- ✅ AI Research Center（ResearchTask + Audit + 降级标识 + 报告对比）
+- ✅ AI Research Center 骨架（ResearchTask + Audit schema、AI 页面、多标的支持、降级标识）
 - ✅ 策略中心（Strategy Hub + 参数优化）
 
 ### 待开发项
 
-#### 🔴 P0 — 数据源相关（planned，阻塞中）
+#### 🔴 P0 — 当前必须修正的真实问题
 | 任务 | 说明 |
 |------|------|
-| **31-03 停复牌处理** | 数据源不稳定，需自定义 adapter |
-| **31-04 涨跌停处理** | 数据源不稳定，需自定义 adapter |
-| **31-05-02 除权除息因子记录** | 数据源受限 |
+| **验证环境修复** | 仓库 `.venv` 指向失效的 `python3.10`，当前不能再作为默认验证路径 |
 | **31-07-03 幸存者偏差回测页面展示** | 后端检测已完成，前端待实现 |
 | **31-08-03 前瞻偏差回测页面展示** | 后端检测已完成，前端待实现 |
 
 #### 🟡 P1 — 功能完善
 | 任务 | 说明 |
 |------|------|
-| **38-02~10 文档同步** | 导航清理后 wiki 更新 |
-| **NFR-05~NFR-19** | 非功能性需求（可观测性/API契约/数据字典/测试发布门槛/合规/模型治理/WebUI一致性/数据迁移/页面验收/风险管理/ADR）— 全部 marked `planned` |
+| **Phase 34-38 文档同步** | 需持续消除页面数/API 数/测试结论漂移 |
+| **NFR-05~NFR-19** | 文档层已铺开，但需要继续把 contract tests、数据血缘、迁移记录、页面验收和 ADR 证据做实 |
 
-#### 🟢 P2 — 路线图后续阶段（Product Roadmap Stage，未开始）
+#### 🟢 P2 — 路线图后续收口（已启动但未闭环）
 | Phase | 范围 | 状态 |
 |-------|------|------|
-| **Phase 34** Market Leaders 单入口 | 龙头动量/轮动/板块强弱/资金线索/候选池整合 | `planned` |
-| **Phase 35** Trading Execution 闭环 | 订单/成交/持仓/对账 schema 已定义，实现待开发 | `planned` |
-| **Phase 36** Portfolio Risk & Attribution | 组合风险/归因 schema 已完成，页面待完善 | `partial` |
-| **Phase 37** Ops & Audit Center | SSE TaskRun 标准化已完成，审计页面待增强 | `partial` |
-| **Phase 38** Product Navigation Cleanup | 导航清理已完成，文档同步待完成 | `partial` |
+| **Phase 34** Market Leaders 单入口 | 单入口已加，旧页面兼容与内部 tab 收口未闭环 | `partial` |
+| **Phase 35** Trading Execution 闭环 | trade/QMT/UI 已接线，真实券商回报与对账闭环未完成 | `partial` |
+| **Phase 36** Portfolio Risk & Attribution | Portfolio 页与 schema 已有，深层风险/归因能力未闭环 | `partial` |
+| **Phase 37** Ops & Audit Center | Ops Audit 页与 TaskRun 基础已落地，审计持久化/指标未闭环 | `partial` |
+| **Phase 38** Product Navigation Cleanup | 7 模块导航已落地，旧入口与文档口径仍在收口 | `partial` |
 
 #### ⚪ P3 — 实盘相关（暂不处理）
 | 任务 | 说明 |
@@ -218,13 +225,11 @@ Phase 11 执行层增加了额外的安全边界：
 | **BL-000~BL-004** | 实盘账户/持仓/委托/成交/撤单/拒单 — 明确暂不处理 |
 
 ### 总结
-当前项目**主体功能已基本完成**，剩余待开发项主要集中在：
-1. **数据源不稳定导致的阻塞项**（停复牌、涨跌停、除权因子）— 等待可靠数据源
-2. **前端展示补齐**（幸存者偏差/前瞻偏差页面）
-3. **非功能性需求**（15+ 项 NFR，属于工程质量类）
-4. **实盘相关**（BL-000~BL-004）明确暂缓
+当前项目的判断应拆成两层：
+1. **代码交付层**：A 股投研、回测、模拟盘、受控执行、Market Leaders、Portfolio、Ops Audit、导航收敛都已有落地代码，不应再按“尚未实现”表述。
+2. **产品闭环层**：Phase 34-38 仍存在兼容入口、环境验证失效、审计/归因/实盘语义未闭环等问题，不能直接等同于“产品闭环完成”。
 
-整体来看，系统已达到**投研分析 + 回测验证 + 模拟盘试跑**的完整闭环，具备从研究到受控执行的能力。
+整体来看，当前 HEAD 已可表述为：**代码层全量测试在当前环境下稳定通过（1019 passed, 14 skipped, 0 failed）**，且具备**投研分析 + 回测验证 + 模拟盘试跑 + 受控执行入口**的主干能力；但产品与实盘闭环仍未完成。
 
 ---
 
