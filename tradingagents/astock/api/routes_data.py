@@ -55,6 +55,13 @@ def _clean_nan(obj: Any) -> Any:
     return obj
 
 
+def _with_meta(payload: dict, resp: Any) -> dict:
+    """Merge ``resp.meta`` (quality tag, source info) into a JSON payload."""
+    if hasattr(resp, "meta") and resp.meta:
+        payload["meta"] = dict(resp.meta)
+    return payload
+
+
 # ---------------------------------------------------------------------------
 # Kline bars
 # ---------------------------------------------------------------------------
@@ -100,7 +107,7 @@ def get_kline() -> tuple[Response, int]:
                                 for item in items:
                                     if "date" in item and "trade_date" not in item:
                                         item["trade_date"] = item.pop("date")
-                                return jsonify({"symbol": symbol, "interval": interval, "bars": items}), 200
+                                return jsonify(_with_meta({"symbol": symbol, "interval": interval, "bars": items}, resp)), 200
                 except Exception:
                     logger.warning("live intraday kline fetch failed for %s interval=%s", symbol, interval, exc_info=True)
 
@@ -220,11 +227,11 @@ def get_stock_news_route() -> tuple[Response, int]:
             return jsonify({"error": "data router not available", "status": 503}), 503
         resp = router.get_stock_news(symbol, limit=limit)
         if resp.status == "ok" and resp.data:
-            return jsonify({
+            return jsonify(_with_meta({
                 "symbol": symbol,
                 "items": resp.data.get("items", []),
                 "count": resp.data.get("count", 0),
-            }), 200
+            }, resp)), 200
         return jsonify({"symbol": symbol, "items": [], "count": 0, "note": resp.error_message or "no data"}), 200
     except Exception as exc:
         logger.warning("stock news failed for %s: %s", symbol, exc)
@@ -249,7 +256,7 @@ def get_trade_tape() -> tuple[Response, int]:
             return jsonify({"error": "data router not available", "status": 503}), 503
         resp = router.get_trade_tape(symbol, limit=limit)
         if resp.status == "ok" and resp.data:
-            return jsonify({"symbol": symbol, "ticks": resp.data.get("items", []), "count": resp.data.get("count", 0)}), 200
+            return jsonify(_with_meta({"symbol": symbol, "ticks": resp.data.get("items", []), "count": resp.data.get("count", 0)}, resp)), 200
         return jsonify({"symbol": symbol, "ticks": [], "count": 0, "note": resp.error_message or "no data"}), 200
     except Exception as exc:
         logger.warning("trade_tape failed for %s: %s", symbol, exc)
@@ -310,7 +317,7 @@ def get_research_expectation() -> tuple[Response, int]:
             return jsonify({"error": "data router not available", "status": 503}), 503
         resp = router.get_institution_expectation(symbol, limit=limit)
         if resp.status == "ok" and resp.data:
-            return jsonify({"symbol": symbol, "items": resp.data.get("items", []), "count": resp.data.get("count", 0)}), 200
+            return jsonify(_with_meta({"symbol": symbol, "items": resp.data.get("items", []), "count": resp.data.get("count", 0)}, resp)), 200
         return jsonify({"symbol": symbol, "items": [], "count": 0, "note": resp.error_message or "no data"}), 200
     except Exception as exc:
         logger.warning("research expectation failed for %s: %s", symbol, exc)
@@ -333,7 +340,7 @@ def get_research_search() -> tuple[Response, int]:
             return jsonify({"error": "data router not available", "status": 503}), 503
         resp = router.search_research(symbol, query=query, limit=limit)
         if resp.status == "ok" and resp.data:
-            return jsonify({"symbol": symbol, "query": query, "items": resp.data.get("items", []), "count": resp.data.get("count", 0)}), 200
+            return jsonify(_with_meta({"symbol": symbol, "query": query, "items": resp.data.get("items", []), "count": resp.data.get("count", 0)}, resp)), 200
         return jsonify({"symbol": symbol, "query": query, "items": [], "count": 0, "note": resp.error_message or "no data"}), 200
     except Exception as exc:
         logger.warning("research search failed for %s: %s", symbol, exc)
@@ -361,8 +368,8 @@ def get_fundamentals() -> tuple[Response, int]:
             items = resp.data.get("items", [])
             # 清除 NaN 值（Flask jsonify 不兼容 NaN）
             items = _clean_nan(items)
-            return jsonify({"symbol": symbol, "items": items, "count": len(items)}), 200
-        return jsonify({"symbol": symbol, "items": [], "count": 0, "note": resp.error_message or "no data"}), 200
+            return jsonify(_with_meta({"symbol": symbol, "items": items, "count": len(items)}, resp)), 200
+        return jsonify({"symbol": symbol, "items": [], "note": resp.error_message or "no data"}), 200
     except Exception as exc:
         logger.warning("fundamentals failed for %s: %s", symbol, exc)
         return jsonify({"error": str(exc), "status": 500}), 500
@@ -380,7 +387,7 @@ def get_f10() -> tuple[Response, int]:
             return jsonify({"error": "data router not available", "status": 503}), 503
         resp = router.get_f10(symbol)
         if resp.status == "ok" and resp.data:
-            return jsonify({"symbol": symbol, "f10": resp.data}), 200
+            return jsonify(_with_meta({"symbol": symbol, "f10": resp.data}, resp)), 200
         return jsonify({"error": resp.error_message or "no f10 data"}), 404
     except Exception as exc:
         logger.warning("f10 failed for %s: %s", symbol, exc)
