@@ -9,9 +9,9 @@
     <h3 class="tv-card-title">⚙️ 分析设置</h3>
     <div class="space-y-3">
       <div>
-        <label class="tv-label">股票代码 Symbol</label>
+        <label class="tv-label">股票代码 Symbol(s)</label>
         <div class="search-wrap">
-          <input type="text" id="ai-symbol" value="600519.SH" class="tv-input w-full" placeholder="600519.SH">
+          <input type="text" id="ai-symbol" value="600519.SH" class="tv-input w-full" placeholder="600519.SH,000001.SZ (逗号分隔多标的)">
         </div>
         <div id="ai-stock-info" class="text-xs tv-muted mt-1" style="min-height:1.2em;"></div>
       </div>
@@ -94,15 +94,20 @@ updateStockInfo('600519.SH');
 
 // ── AI Analysis ──
 async function runAIAnalysis() {
-  let symbol = document.getElementById('ai-symbol').value.trim();
-  if (!symbol.includes('.')) symbol += '.SH';
+  const input = document.getElementById('ai-symbol').value.trim();
+  // Parse comma-separated symbols
+  const rawSymbols = input.split(/[,，\s]+/).filter(Boolean);
+  if (rawSymbols.length === 0) { document.getElementById('ai-status').textContent = '❌ 请输入至少一个股票代码'; return; }
+  // Normalize each: auto-append .SH if no suffix
+  const symbols = rawSymbols.map(s => s.includes('.') ? s.toUpperCase() : s + '.SH');
+  const primary = symbols[0];
   const type = document.getElementById('ai-type').value;
   const status = document.getElementById('ai-status');
   const ctxEl = document.getElementById('ai-context');
   const resultEl = document.getElementById('ai-result');
   const cardEl = document.getElementById('ai-result-card');
 
-  status.textContent = '⏳ 分析中...';
+  status.textContent = `⏳ 分析中 (${symbols.length} 只标的)...`;
   ctxEl.innerHTML = '<p class="tv-muted">正在获取数据...</p>';
   cardEl.style.display = 'none';
 
@@ -110,7 +115,7 @@ async function runAIAnalysis() {
     const res = await fetch('/api/v1/ai/analyze', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ symbol, analysis_type: type }),
+      body: JSON.stringify({ symbol: primary, symbols, analysis_type: type }),
     });
     const data = await res.json();
 
@@ -124,6 +129,10 @@ async function runAIAnalysis() {
     const isAdvisory = data.advisory !== false;
 
     let bannerHtml = '';
+    // Show requested symbols
+    const allSymbols = data.symbols || [data.symbol];
+    bannerHtml += '<div class="text-xs mb-2" style="color:#787b86;">标的: ' +
+      allSymbols.join(', ') + '</div>';
     if (isDegraded) {
       const safeError = escapeHtml(data.llm_error || '');
       bannerHtml += '<div class="tv-card p-3 mb-3" style="border-left:4px solid #ff9800;background:#1a1a2e;">' +

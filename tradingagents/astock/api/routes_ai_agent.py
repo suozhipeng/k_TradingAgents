@@ -23,36 +23,56 @@ bp = Blueprint("ai_agent", __name__)
 
 @bp.route("/ai/analyze", methods=["POST"])
 def ai_analyze() -> tuple[Response, int]:
-    """Run AI agent analysis on a stock symbol.
+    """Run AI agent analysis on one or more stock symbols.
 
     JSON body:
-        symbol (str) — A-share stock symbol, e.g. "600519.SH"
+        symbol (str, optional) — single A-share stock symbol, e.g. "600519.SH"
+        symbols (list[str] or str, optional) — multi-symbol override
         analysis_type (str) — "full" (default), "technical", "fundamental", "news"
         prompt_version (str, optional) — override prompt version tag
 
     Returns a JSON object with:
         - symbol, analysis_type, timestamp (existing)
-        - context (existing, enriched with provenance meta)
-        - llm_analysis (existing, or degraded fallback)
+        - symbols (list) — full list of requested symbols
+        - context, llm_analysis (existing)
         - task_id, status, advisory (Phase 33 ResearchTask metadata)
         - audit (Phase 33 ResearchAudit metadata)
     """
     body = request.get_json(silent=True) or {}
-    symbol = str(body.get("symbol", "")).strip()
-    if not symbol:
-        return jsonify({"error": "symbol is required", "status": 400}), 400
-    if not symbol.endswith((".SH", ".SZ")):
-        symbol += ".SH"
+    single_symbol = str(body.get("symbol", "")).strip()
+    symbols_raw = body.get("symbols", [])
+
+    # Resolve symbol list
+    symbols: list[str] = []
+    if single_symbol:
+        symbols.append(single_symbol)
+    if isinstance(symbols_raw, str):
+        symbols.extend([s.strip() for s in symbols_raw.replace("，", ",").split(",") if s.strip()])
+    elif isinstance(symbols_raw, list):
+        symbols.extend([str(s).strip() for s in symbols_raw if str(s).strip()])
+
+    if not symbols:
+        return jsonify({"error": "symbol or symbols is required", "status": 400}), 400
+
+    # Normalize each symbol
+    symbols = [
+        s if s.endswith((".SH", ".SZ")) else s + ".SH"
+        for s in symbols
+    ]
+
+    # Primary symbol for analysis (first one)
+    primary = symbols[0]
 
     try:
         result = _run_analysis(
-            symbol,
+            primary,
             body.get("analysis_type", "full"),
             body.get("prompt_version", ""),
+            symbols=symbols,
         )
         return jsonify(result), 200
     except Exception as exc:
-        logger.warning("AI analysis failed for %s: %s", symbol, exc)
+        logger.warning("AI analysis failed for %s: %s", symbols, exc)
         return jsonify({"error": str(exc), "status": 500}), 500
 
 
@@ -89,6 +109,7 @@ def _run_analysis(
     symbol: str,
     analysis_type: str = "full",
     prompt_version: str = "",
+    symbols: list[str] | None = None,
 ) -> dict[str, Any]:
     """Run analysis pipeline and return structured results with audit trail."""
 
@@ -127,9 +148,11 @@ def _run_analysis(
     )
 
     # ── Build response (backward-compatible + Phase 33 metadata) ──
+    all_symbols = list(dict.fromkeys(symbols or [symbol]))
     return {
         # Existing fields (backward-compatible)
         "symbol": symbol,
+        "symbols": all_symbols,
         "analysis_type": analysis_type,
         "timestamp": now,
         "context": raw_context,
