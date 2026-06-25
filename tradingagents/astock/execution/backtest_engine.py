@@ -390,6 +390,9 @@ class BacktestEngine:
     def _is_suspended(period_data: pd.DataFrame) -> tuple[bool, str]:
         """Check if the stock is suspended (no trading volume).
 
+        Primary detection uses OHLCV data heuristics (volume == 0).
+        Falls back to akshare/EastMoney suspension list when available.
+
         Returns (is_suspended, reason).
         """
         if period_data.empty:
@@ -403,6 +406,24 @@ class BacktestEngine:
         close = float(period_data["close"].iloc[-1])
         if high == low == close and daily_volume == 0:
             return True, "suspended_flat_price"
+        return False, ""
+
+    def _check_external_suspension(self, symbol: str, trade_date: str) -> tuple[bool, str]:
+        """Check suspension via external data sources (akshare / EastMoney).
+
+        Uses the trade_date parameter for historical backtest support.
+
+        Returns (is_suspended, reason).
+        """
+        try:
+            from tradingagents.astock.data_sources.suspension import is_suspended
+            suspended, reason = is_suspended(symbol, source="akshare", date=trade_date)
+            if suspended:
+                if reason:
+                    return True, f"suspended_external_{reason}"
+                return True, "suspended_external"
+        except Exception:
+            pass
         return False, ""
 
     def run(
@@ -530,6 +551,12 @@ class BacktestEngine:
                 # Check constraints before buying
                 price_limit, limit_reason = self._is_at_price_limit(period_data, data_assumption.get("st_stock", False))
                 suspended, suspend_reason = self._is_suspended(period_data)
+                # Also check external suspension data source
+                if not suspended:
+                    trade_date_str = str(period_data.index[-1].date()) if hasattr(period_data.index[-1], 'date') else str(period_data.index[-1])
+                    ext_susp, ext_reason = self._check_external_suspension(symbol, trade_date_str)
+                    if ext_susp:
+                        suspended, suspend_reason = ext_susp, ext_reason
                 constraint_notes = []
                 if data_assumption.get("price_limit_check", True) and price_limit:
                     constraint_notes.append(f"buy_skipped_{limit_reason}")
@@ -587,6 +614,12 @@ class BacktestEngine:
                 # Check constraints before selling
                 price_limit, limit_reason = self._is_at_price_limit(period_data, data_assumption.get("st_stock", False))
                 suspended, suspend_reason = self._is_suspended(period_data)
+                # Also check external suspension data source
+                if not suspended:
+                    trade_date_str = str(period_data.index[-1].date()) if hasattr(period_data.index[-1], 'date') else str(period_data.index[-1])
+                    ext_susp, ext_reason = self._check_external_suspension(symbol, trade_date_str)
+                    if ext_susp:
+                        suspended, suspend_reason = ext_susp, ext_reason
                 constraint_notes = []
                 if data_assumption.get("price_limit_check", True) and price_limit:
                     constraint_notes.append(f"sell_skipped_{limit_reason}")

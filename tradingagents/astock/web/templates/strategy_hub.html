@@ -823,6 +823,29 @@ function shRenderSingleResults(btData, ad) {
     return '<div class="sh-metric"><div class="lbl">' + m.lbl + '</div><div class="val ' + m.cls + '">' + m.val + '</div><div class="sub">' + m.sub + '</div></div>';
   }).join('');
 
+  // ── Bias / Data Assumption flags ──
+  var da = btData.data_assumption || {};
+  var biasFlags = [];
+  if (da.survivorship_bias_risk) biasFlags.push('📛 幸存者偏差');
+  if (da.look_ahead_bias_risk) biasFlags.push('🔮 前视偏差');
+  if (da.delisted) biasFlags.push('⚠️ 已退市');
+  if (da.st_stock) biasFlags.push('📉 ST/*ST');
+  if (da.price_limit_check === false) biasFlags.push('🎯 涨跌停约束关闭');
+  if (da.suspension_check === false) biasFlags.push('⏸️ 停牌约束关闭');
+  if (biasFlags.length > 0) {
+    var biasEl = document.getElementById('sh-bias-flags');
+    if (!biasEl) {
+      biasEl = document.createElement('div');
+      biasEl.id = 'sh-bias-flags';
+      biasEl.className = 'sh-metrics';
+      biasEl.style.marginTop = '6px';
+      document.getElementById('sh-single-metrics').after(biasEl);
+    }
+    biasEl.innerHTML = biasFlags.map(function(f) {
+      return '<div class="sh-metric" style="background:#1a1a2e;"><div class="lbl" style="font-size:11px;color:#ff9800;">' + f + '</div></div>';
+    }).join('');
+  }
+
   var sv = document.getElementById('sh-start').value;
   var ev = document.getElementById('sh-end').value;
   var db = document.getElementById('sh-single-datebar');
