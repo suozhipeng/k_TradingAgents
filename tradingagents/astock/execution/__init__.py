@@ -31,6 +31,7 @@ from .risk_gate import (
     calculate_atr,
 )
 from .kill_switch import KillSwitch, kill_switch
+from .leader_pool import LeaderPoolEntry
 from .strategy_base import (
     BollingerBandsReversionStrategy,
     BullTrendStrategy,
@@ -89,4 +90,5 @@ __all__ = [
     "get_strategy",
     "list_strategies",
     "register",
+    "LeaderPoolEntry",
 ]

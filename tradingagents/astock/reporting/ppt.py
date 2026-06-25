@@ -26,6 +26,11 @@ try:
 
     HAS_PPTX = True
 except ImportError:
+    from pptx import Presentation  # type: ignore
+    from pptx.util import Inches, Pt, Emu  # type: ignore
+    from pptx.dml.color import RGBColor  # type: ignore
+    from pptx.enum.text import PP_ALIGN, MSO_ANCHOR  # type: ignore
+
     HAS_PPTX = False
 
 # ---------------------------------------------------------------------------
