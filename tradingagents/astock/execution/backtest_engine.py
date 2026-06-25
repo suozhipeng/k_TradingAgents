@@ -86,6 +86,14 @@ class BacktestDataAssumption(BaseModel):
         default=25.0,
         description="成交量容量约束：单笔交易量不超过当日成交量的百分比。0=不限制。",
     )
+    price_limit_check: bool = Field(
+        default=True,
+        description="是否启用涨跌停价格约束（默认开启）。",
+    )
+    suspension_check: bool = Field(
+        default=True,
+        description="是否启用停牌不可成交约束（默认开启）。",
+    )
     notes: list[str] = Field(default_factory=list)
 
     def to_dict(self) -> dict:
@@ -100,6 +108,8 @@ class BacktestDataAssumption(BaseModel):
             "survivorship_bias_risk": self.survivorship_bias_risk,
             "look_ahead_bias_risk": self.look_ahead_bias_risk,
             "volume_cap_pct": self.volume_cap_pct,
+            "price_limit_check": self.price_limit_check,
+            "suspension_check": self.suspension_check,
             "notes": list(self.notes),
         }
 
@@ -301,8 +311,7 @@ class BacktestEngine:
         if df.empty:
             return risks
 
-        # Survivorship bias: bars don't cover the full requested range →
-        # the dataset may have dropped delisted symbols.
+        # Survivorship bias: bars don't cover the full requested range
         end_ts = pd.Timestamp(end_date)
         last_bar_date = df.index.max()
         if isinstance(last_bar_date, pd.Timestamp) and last_bar_date < end_ts:
@@ -314,6 +323,45 @@ class BacktestEngine:
             risks["look_ahead_bias_risk"] = True
 
         return risks
+
+    @staticmethod
+    def _is_at_price_limit(period_data: pd.DataFrame) -> tuple[bool, str]:
+        """Check if the close price is at the daily price limit.
+
+        For A-shares the default limit is ±10% from the previous close.
+        Returns (is_limited, reason).
+        """
+        if len(period_data) < 2:
+            return False, ""
+        prev_close = float(period_data["close"].iloc[-2])
+        curr_close = float(period_data["close"].iloc[-1])
+        if prev_close <= 0:
+            return False, ""
+        change_pct = (curr_close - prev_close) / prev_close
+        if change_pct >= 0.095:
+            return True, "price_limit_up"
+        elif change_pct <= -0.095:
+            return True, "price_limit_down"
+        return False, ""
+
+    @staticmethod
+    def _is_suspended(period_data: pd.DataFrame) -> tuple[bool, str]:
+        """Check if the stock is suspended (no trading volume).
+
+        Returns (is_suspended, reason).
+        """
+        if period_data.empty:
+            return False, ""
+        daily_volume = float(period_data["volume"].iloc[-1])
+        if daily_volume <= 0:
+            return True, "suspended_no_volume"
+        # Also check: if high==low==close (flat price) with zero volume
+        high = float(period_data["high"].iloc[-1])
+        low = float(period_data["low"].iloc[-1])
+        close = float(period_data["close"].iloc[-1])
+        if high == low == close and daily_volume == 0:
+            return True, "suspended_flat_price"
+        return False, ""
 
     def run(
         self,
@@ -341,7 +389,7 @@ class BacktestEngine:
             Pandas offset alias for rebalance periods (default ``"M"`` =
             monthly).
         initial_cash : float
-            Starting cash (default 100 000).
+            Starting cash (default 100000).
 
         Returns
         -------
@@ -434,6 +482,20 @@ class BacktestEngine:
             period_start_val = cash + shares * close_at_end
 
             if signal == 1 and cash > 0:
+                # Check constraints before buying
+                price_limit, limit_reason = self._is_at_price_limit(period_data)
+                suspended, suspend_reason = self._is_suspended(period_data)
+                constraint_notes = []
+                if data_assumption.get("price_limit_check", True) and price_limit:
+                    constraint_notes.append(f"buy_skipped_{limit_reason}")
+                if data_assumption.get("suspension_check", True) and suspended:
+                    constraint_notes.append(f"buy_skipped_{suspend_reason}")
+                if constraint_notes:
+                    for n in constraint_notes:
+                        if n not in data_assumption.get("notes", []):
+                            data_assumption.setdefault("notes", []).append(n)
+                    continue
+
                 # Buy: invest all cash minus fees
                 max_shares = cash / close_at_end
                 # Iteratively reduce shares until net_cost ≤ cash
@@ -468,6 +530,20 @@ class BacktestEngine:
                         "pnl": 0.0,
                     })
             elif signal == -1 and shares > 0:
+                # Check constraints before selling
+                price_limit, limit_reason = self._is_at_price_limit(period_data)
+                suspended, suspend_reason = self._is_suspended(period_data)
+                constraint_notes = []
+                if data_assumption.get("price_limit_check", True) and price_limit:
+                    constraint_notes.append(f"sell_skipped_{limit_reason}")
+                if data_assumption.get("suspension_check", True) and suspended:
+                    constraint_notes.append(f"sell_skipped_{suspend_reason}")
+                if constraint_notes:
+                    for n in constraint_notes:
+                        if n not in data_assumption.get("notes", []):
+                            data_assumption.setdefault("notes", []).append(n)
+                    continue
+
                 # Sell: liquidate all shares
                 sell_value = shares * close_at_end
                 fees = calculate_fees(close_at_end, shares, is_buy=False, config=self.fee_config)
