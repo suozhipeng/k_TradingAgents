@@ -19,6 +19,7 @@ from .metrics import (
 )
 from .optimizer import StrategyOptimizer, optimize_strategy
 from .paper_trader import PaperTradeState, PaperTrader
+from .strategy_registry import StrategyRegistryEntry, get_registry, get_strategy, list_strategies, register
 from .qmt_bridge import QmtBridge, QmtBridgeConfig
 from .qmt_execution import ExecutionMode, QmtExecutionConfig, QmtExecutionEngine
 from .risk_gate import (
@@ -83,4 +84,9 @@ __all__ = [
     "ExecutionMode",
     "KillSwitch",
     "kill_switch",
+    "StrategyRegistryEntry",
+    "get_registry",
+    "get_strategy",
+    "list_strategies",
+    "register",
 ]
