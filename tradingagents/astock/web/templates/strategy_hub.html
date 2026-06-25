@@ -286,8 +286,9 @@
 
     <div class="sh-tabs">
       <button class="sh-tab active" data-tab="single" onclick="shSwitchTab('single')">🛠️ 1. 单策略回测</button>
-      <button class="sh-tab" data-tab="diagnosis" onclick="shSwitchTab('diagnosis')">📊 2. 深度绩效诊断</button>
-      <button class="sh-tab" data-tab="compare" onclick="shSwitchTab('compare')">⚔️ 3. 多策略横向对比</button>
+      <button class="sh-tab" data-tab="optimize" onclick="shSwitchTab('optimize')">🎯 2. 参数优化</button>
+      <button class="sh-tab" data-tab="diagnosis" onclick="shSwitchTab('diagnosis')">📊 3. 深度绩效诊断</button>
+      <button class="sh-tab" data-tab="compare" onclick="shSwitchTab('compare')">⚔️ 4. 多策略横向对比</button>
     </div>
 
     <!-- ── Tab 1: 单策略回测 ── -->
@@ -321,7 +322,27 @@
       </div>
     </div>
 
-    <!-- ── Tab 2: 深度绩效诊断 ── -->
+    <!-- ── Tab 2: 参数优化 ── -->
+    <div class="sh-panel" id="panel-optimize">
+      <div id="sh-opt-placeholder">
+        <div class="sh-empty">
+          <div class="icon">🎯</div>
+          <div class="text">选择策略和参数搜索空间后点击「优化」</div>
+          <div class="hint">自动组合参数 → 评分排序 → 展示 Top-N 结果</div>
+        </div>
+      </div>
+      <div id="sh-opt-content" style="display:none;">
+        <div class="sh-metrics" id="sh-opt-metrics"></div>
+        <div class="sh-log-section">
+          <div class="sh-section-title">🏆 优化结果 Top-N</div>
+          <div class="sh-trade-table" id="sh-opt-table">
+            <div class="sh-empty" style="padding:20px;"><div class="icon">🎯</div><div class="text">暂无结果</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Tab 3: 深度绩效诊断 ── -->
     <div class="sh-panel" id="panel-diagnosis">
       <div id="sh-diag-placeholder">
         <div class="sh-empty">
@@ -427,6 +448,11 @@ let allStrategies = [];
 let _eqLabels = [];
 let _eqValues = [];
 let shActiveTab = 'single';
+
+// ── XSS guard ──
+function escapeHtml(s) {
+  return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
 
 const CHART_COLORS = [
   { line: '#818cf8', bg: 'rgba(129,140,248,0.15)' },
@@ -595,6 +621,10 @@ function shSwitchTab(tabId) {
   shActiveTab = tabId;
   document.querySelectorAll('.sh-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tabId));
   document.querySelectorAll('.sh-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + tabId));
+  // Update run button text
+  const btn = document.getElementById('sh-run-btn');
+  const labels = {single: '▶ 运行回测', optimize: '🎯 开始优化', diagnosis: '📊 绩效诊断', compare: '⚔️ 对比策略'};
+  btn.textContent = labels[tabId] || '▶ 运行';
 
   // Adapt strategy selection
   const singleWrap = document.getElementById('sh-strat-single-wrap');
@@ -635,8 +665,72 @@ async function shRunBacktest() {
 
   if (shActiveTab === 'compare') {
     await shRunMultiCompare(symbol, start, end, statusEl);
+  } else if (shActiveTab === 'optimize') {
+    await shRunOptimize(symbol, start, end, statusEl);
   } else {
     await shRunSingle(symbol, start, end, statusEl);
+  }
+}
+
+async function shRunOptimize(symbol, start, end, statusEl) {
+  const strategy = document.getElementById('sh-strategy').value;
+  const paramGrids = {
+    MACDTrend: {fast_period: [8,12,16], slow_period: [20,26,32]},
+    MovingAverageTrend: {fast_ma: [5,10,20], mid_ma: [20,30,50]},
+    BollingerBands: {period: [15,20,25], std_dev: [2.0,2.5,3.0]},
+    MeanReversion: {ma_period: [10,20], std_multiplier: [2.0,2.5]},
+    BullTrend: {fast_ma: [5,10], mid_ma: [20]},
+  };
+  const paramGrid = paramGrids[strategy] || {fast_period: [12], slow_period: [26]};
+
+  statusEl.textContent = '⏳ 优化中... (可能较慢)';
+  try {
+    const res = await fetch('/api/v1/backtest/optimize', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({strategy, symbol, start_date: start, end_date: end, param_grid: paramGrid, top_n: 5}),
+    });
+    const data = await res.json();
+    if (data.error) { statusEl.textContent = '❌ ' + data.error; return; }
+
+    // Show result
+    const metricsEl = document.getElementById('sh-opt-metrics');
+    const tableEl = document.getElementById('sh-opt-table');
+
+    // Best score card
+    metricsEl.innerHTML = `
+      <div class="sh-metric"><div class="value" style="color:#089981;font-size:20px;">${(data.score || 0).toFixed(4)}</div><div class="label">最佳评分 Score</div></div>
+      <div class="sh-metric"><div class="value" style="color:#2962FF;font-size:20px;">${data.parameter_count || 0}</div><div class="label">Top-N 结果数</div></div>
+      <div class="sh-metric"><div class="value" style="font-size:20px;">${data.strategy_name || strategy}</div><div class="label">策略</div></div>
+    `;
+
+    // Top-N table
+    const topN = data.top_n || [];
+    if (topN.length > 0) {
+      tableEl.innerHTML = '<table class="w-full"><thead><tr>' +
+        '<th>排名</th><th>参数</th><th>评分</th><th>收益</th><th>夏普</th><th>最大回撤</th><th>交易次数</th></tr></thead><tbody>' +
+        topN.map(r => {
+          const m = r.metrics || {};
+          const paramsStr = Object.entries(r.params || {}).map(([k,v]) => `${k}=${v}`).join(', ');
+          return `<tr>
+            <td><span class="rank-badge rank-${r.rank || 1}">#${r.rank || '-'}</span></td>
+            <td class="font-mono" style="font-size:10px;">${escapeHtml(paramsStr)}</td>
+            <td class="text-right font-mono">${(r.score || 0).toFixed(4)}</td>
+            <td class="text-right font-mono ${(m.total_return||0) >= 0 ? 'tv-up' : 'tv-down'}">${((m.total_return||0)*100).toFixed(2)}%</td>
+            <td class="text-right font-mono">${(m.sharpe_ratio || 0).toFixed(2)}</td>
+            <td class="text-right font-mono tv-down">${((m.max_drawdown||0)*100).toFixed(2)}%</td>
+            <td class="text-right font-mono">${m.total_trades || 0}</td>
+          </tr>`;
+        }).join('') + '</tbody></table>';
+    } else {
+      tableEl.innerHTML = '<div class="sh-empty"><div class="icon">🎯</div><div class="text">无优化结果</div></div>';
+    }
+
+    document.getElementById('sh-opt-placeholder').style.display = 'none';
+    document.getElementById('sh-opt-content').style.display = 'block';
+    statusEl.textContent = '✅ 优化完成 — 最佳评分 ' + (data.score || 0).toFixed(4);
+  } catch (e) {
+    statusEl.textContent = '❌ 优化失败: ' + e.message;
   }
 }
 
