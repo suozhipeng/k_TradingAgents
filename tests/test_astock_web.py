@@ -70,8 +70,9 @@ PAGE_ROUTES = [
     ("/momentum_dashboard", "momentum_dashboard"),
     ("/momentum_rotation", "momentum_rotation"),
     ("/momentum_standalone", "momentum_standalone"),
-    ("/kc_chart", "kc_chart"),
     ("/tv_chart", "tv_chart"),
+    ("/kc_chart", "kc_chart"),
+    ("/market_leaders", "market_leaders"),
 ]
 
 

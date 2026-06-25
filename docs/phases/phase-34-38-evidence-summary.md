@@ -6,7 +6,7 @@
 |------|------|------|
 | LeaderPool schema | ✅ | `execution/leader_pool.py` — symbol/name/reason/score/source/refreshed_at/entry_reason/exit_reason 全部字段 |
 | Sidebar consolidation | ✅ | 5 个旧入口（dragon_tiger/sectors/northbound/momentum_dashboard/momentum_rotation）→ 1 个 Market Leaders |
-| Route `/market_leaders` | ✅ | Flask route + `market_leaders.html` 统一页面，4 个 tab（龙头/板块/北向/龙虎榜/动量轮动） |
+| Route `/market_leaders` | ✅ | Flask route + `market_leaders.html` 统一页面，5 个 tab（龙头/板块/北向/龙虎榜/动量轮动） |
 | Old routes preserved | ✅ | `/dragon_tiger`、`/sectors`、`/northbound`、`/momentum_dashboard`、`/momentum_rotation` 仍可访问 |
 | Fallback semantic (data source) | ✅ | LeaderPoolEntry 已有 `source` 字段标注数据来源 |
 
