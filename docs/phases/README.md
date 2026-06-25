@@ -51,15 +51,15 @@
 | 27 | DataCleaner：全路径 NaN -> None 清理、`_coerce_float` 修复、`_clean_nan()` helper | 完成 | [Phase 27](phase-27-data-cleaner.md) |
 | 28 | 新增 5 个 WebUI 页面：momentum dashboard、momentum rotation、dragon_tiger、northbound、data_health | 完成 | [Phase 28](phase-28-new-webui-pages.md) |
 | 29 | 专业交易页：TradingView 风格交易控制台、实时报价、订单面板、KLineChart、持仓 | 完成 | [Phase 29](phase-29-trading-page.md) |
-| 30 | Live Trading Readiness：交易能力边界、capability、runbook、kill switch | planned | [Phase 30](phase-30-live-trading-readiness.md) |
-| 31 | Data Quality & Bias Control：数据质量、数据假设、回测反偏差 | planned | [Phase 31](phase-31-data-quality-bias-control.md) |
-| 32 | Strategy Lab：策略、回测、优化、绩效、对比、动量轮动统一 | planned | [Phase 32](phase-32-strategy-lab-consolidation.md) |
-| 33 | AI Research Center：AI Agent、研究、报告、模型审计统一 | planned | [Phase 33](phase-33-ai-research-center.md) |
-| 34 | Market Leaders：龙头、板块、资金、候选池单入口 | planned | [Phase 34](phase-34-market-leaders-entry.md) |
-| 35 | Trading & Execution：订单、成交、持仓、风控和 reconciliation | planned | [Phase 35](phase-35-trading-execution-control.md) |
-| 36 | Portfolio Risk & Attribution：组合风险和绩效归因 | planned | [Phase 36](phase-36-portfolio-risk-attribution.md) |
-| 37 | Ops & Audit Center：任务、错误、provider、模型和审计 | planned | [Phase 37](phase-37-ops-audit-center.md) |
-| 38 | Product Navigation Cleanup：WebUI 顶层导航和旧入口收敛 | planned | [Phase 38](phase-38-product-navigation-cleanup.md) |
+| 30 | Live Trading Readiness：交易能力边界、capability、runbook、kill switch | 完成 | [Phase 30](phase-30-live-trading-readiness.md) [证据](phase-30-evidence-field-inventory.md) [验收](phase-30-evidence-acceptance-checklist.md) |
+| 31 | Data Quality & Bias Control：数据质量、数据假设、回测反偏差 + 停复牌/涨跌停数据源稳定 | 完成 | [Phase 31](phase-31-data-quality-bias-control.md) [证据](phase-31-evidence-data-constraints.md) [验收](phase-31-evidence-acceptance-checklist.md) |
+| 32 | Strategy Lab：策略、回测、优化、绩效、对比、动量轮动统一 + BacktestResult 费用分项 | 完成 | [Phase 32](phase-32-strategy-lab-consolidation.md) [证据](phase-32-evidence-strategy-lab.md) |
+| 33 | AI Research Center：AI Agent、研究、报告、模型审计统一 + 多标的支持 | 完成 | [Phase 33](phase-33-ai-research-center.md) [证据](phase-33-evidence-ai-research.md) |
+| 34 | Market Leaders：龙头、板块、资金、候选池单入口 + 旧入口重定向 | 完成 | [Phase 34](phase-34-market-leaders-entry.md) [证据](phase-34-evidence-market-leaders.md) |
+| 35 | Trading & Execution：订单、成交、持仓、风控和 reconciliation | Schema 已定义 | [Phase 35](phase-35-trading-execution-control.md) [证据](phase-35-evidence-trading-execution.md) |
+| 36 | Portfolio Risk & Attribution：组合风险和绩效归因 | 完成 | [Phase 36](phase-36-portfolio-risk-attribution.md) [证据](phase-36-evidence-portfolio-risk.md) |
+| 37 | Ops & Audit Center：任务、错误、provider、模型和审计 | 完成 | [Phase 37](phase-37-ops-audit-center.md) [证据](phase-37-evidence-ops-audit.md) |
+| 38 | Product Navigation Cleanup：WebUI 顶层导航和旧入口收敛 | 完成 | [Phase 38](phase-38-product-navigation-cleanup.md) [证据](phase-38-evidence-navigation-cleanup.md) |
 | 39 | End-to-End UAT：端到端用户工作流验收 | planned | 在 Phase 38 完成后执行，场景见 `ASTOCK_PRODUCT_OPTIMIZATION_ROADMAP.md` §12.1 |
 
 ## 3. 命名规则
