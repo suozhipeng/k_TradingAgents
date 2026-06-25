@@ -474,6 +474,9 @@ def optimize_strategy_api() -> tuple[Response, int]:
       "param_grid": {"fast_period": [8,12,16], "slow_period": [20,26,32]},
       "top_n": 5
     }
+
+    Returns an ``OptimizeResult`` JSON body (see
+    ``tradingagents.astock.schemas.optimization.OptimizeResult``).
     """
     body = request.get_json(force=True, silent=True) or {}
     strategy_name = body.get("strategy", "")
@@ -497,20 +500,27 @@ def optimize_strategy_api() -> tuple[Response, int]:
     try:
         OptimizerCls = _get_optimizer()
         optimizer = OptimizerCls(strategy_name)
-        results = optimizer.optimize(
+        raw_results = optimizer.optimize(
             symbol=symbol,
             start_date=start_date,
             end_date=end_date,
             param_grid=param_grid,
             top_n=top_n,
         )
-        return jsonify({
-            "strategy": strategy_name,
-            "symbol": symbol,
-            "start_date": start_date,
-            "end_date": end_date,
-            "total_trials": len(results),
-            "results": results,
-        }), 200
+        from tradingagents.astock.schemas.optimization import OptimizeResult
+        best = raw_results[0] if raw_results else {}
+        best_score = best.get("score", 0.0)
+        result = OptimizeResult(
+            strategy_name=strategy_name,
+            symbol=symbol,
+            score=best_score,
+            top_n=raw_results,
+            parameter_count=len(raw_results),
+            notes=[
+                "in_sample/out_sample/walk_forward/benchmark/alpha: "
+                "not yet split — requires sample-partition aware optimizer."
+            ],
+        )
+        return jsonify(result.model_dump()), 200
     except Exception as exc:
         return jsonify({"error": str(exc), "status": 500}), 500
