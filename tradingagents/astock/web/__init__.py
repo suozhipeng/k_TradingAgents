@@ -244,6 +244,33 @@ def ai_agent() -> str:
 
 
 # ---------------------------------------------------------------------------
+# Old entry redirects (Phase 34-01)
+# ---------------------------------------------------------------------------
+
+
+@bp.route("/backtest")
+def backtest_redirect() -> str:
+    """Old /backtest → /strategy_hub"""
+    from flask import redirect, url_for
+    return redirect(url_for("web.strategy_hub"), 301)
+
+
+@bp.route("/comparison")
+@bp.route("/compare")
+def comparison_redirect() -> str:
+    """Old /comparison → /strategy_hub"""
+    from flask import redirect, url_for
+    return redirect(url_for("web.strategy_hub"), 301)
+
+
+@bp.route("/performance")
+def performance_redirect() -> str:
+    """Old /performance → /strategy_hub"""
+    from flask import redirect, url_for
+    return redirect(url_for("web.strategy_hub"), 301)
+
+
+# ---------------------------------------------------------------------------
 # Export
 # ---------------------------------------------------------------------------
 

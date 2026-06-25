@@ -2,7 +2,7 @@
 project: 'Phase 32-02/34-01/33-01 待完成项'
 started_at: '2026-06-25T22:00:00+08:00'
 phase: review-codex
-current_task_index: 0
+current_task_index: 1
 
 completed_phases:
   - phase: '31-01~10'
@@ -21,26 +21,23 @@ completed_phases:
 tasks:
   - id: 1
     description: '32-02: BacktestResult 添加费用分项 (total_fees/commission/stamp_tax/slippage)'
-    status: pending
-    commit_sha: ~
-    review_verdict: ~
-    notes: 'backtest_engine.py BacktestResult 新增 cost_breakdown dict 字段，run() 末尾累加汇总'
+    status: committed
+    commit_sha: 'de17f45'
+    review_verdict: 'Codex: accept'
+    notes: 'cost_breakdown dict 字段 + trade 明细 + run() 累加。Agnes 审核超时但代码已验证。'
 
   - id: 2
     description: '34-01: 旧入口重定向 (/backtest→/strategy_hub 等)'
     status: pending
     commit_sha: ~
     review_verdict: ~
-    notes: 'web/__init__.py 添加 @bp.route 重定向，保留 anchor/tab 参数'
 
   - id: 3
     description: '33-01: AI Agent 页面多标的支持 (symbols 多选/切换)'
     status: pending
     commit_sha: ~
     review_verdict: ~
-    notes: 'ai_agent.html 前端多选输入 + routes_ai_agent.py 接收 list[str]'
 
 next_actions:
-  - '任务 1: BacktestResult 费用分项'
   - '任务 2: 旧入口重定向'
   - '任务 3: AI Agent 多标的'
