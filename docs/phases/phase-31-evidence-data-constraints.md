@@ -33,3 +33,6 @@
 | R-001 | Survivorship Bias | 使用回测数据时，退市股票不在数据集中 | Phase 31-07 |
 | R-002 | Look-ahead Bias | 使用未来数据生成信号 | Phase 31-07 |
 | R-003 | Data Staleness | 离线数据超过 4 小时未更新 | Phase 31-02 |
+
+---
+**Commit SHA**: b410074

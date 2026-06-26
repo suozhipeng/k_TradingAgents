@@ -74,3 +74,6 @@
 ### 范围排除
 - QMT 桥接 (`qmt_bridge.py`, `qmt_execution.py`) 保留接口占位，不纳入真实数据源
 - 见 `.hermes/backlog.md` vNext 项 QMT-1/QMT-2
+
+---
+**Commit SHA**: b410074

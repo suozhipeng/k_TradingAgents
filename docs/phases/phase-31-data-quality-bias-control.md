@@ -94,3 +94,6 @@ pytest tests/test_astock_backtest.py -q
 
 - 31-01/02/05 均通过独立 Codex review (accept)
 - BacktestDataAssumption populate 修复经 Codex 重审确认 (ff18573)
+
+---
+**Commit SHA**: b410074

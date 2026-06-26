@@ -89,3 +89,6 @@
 | rejected | 已拒绝 | 红色 |
 | expired | 已过期 | 黄色 |
 | error | 异常 | 红色 |
+
+---
+**Commit SHA**: b410074

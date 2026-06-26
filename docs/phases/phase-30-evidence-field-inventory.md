@@ -271,3 +271,6 @@
 6. **数据语义** ── paper 状态未充分标注 ResearchOnly 语义
 
 这些缺口将在 Phase 30-02 ~ 30-08 逐步填补，为 Phase 35（Trading & Execution）建立基础。
+
+---
+**Commit SHA**: b410074

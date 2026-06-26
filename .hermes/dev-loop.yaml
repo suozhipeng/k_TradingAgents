@@ -1,57 +1,32 @@
 # .hermes/dev-loop.yaml
 project: 'Complete Project Fix Loop — P0/P1 items from audit'
 started_at: '2026-06-26T10:30:00+08:00'
-phase: code
-current_task_index: 0
+phase: review
+current_task_index: 2
 
 tasks:
   - id: 1
-    description: 'Fix 2 failing tests in test_suspension.py (external suspension reason prefix)'
+    description: 'Fix 2 failing tests in test_suspension.py'
+    status: committed
+    commit_sha: b410074
+
+  - id: 2
+    description: 'Add commit SHAs to Phase 30-38 docs + test commands'
     status: coding
     commit_sha: ~
     review_verdict: ~
 
-  - id: 2
-    description: 'Add commit SHAs to Phase 30-38 main docs'
-    status: pending
-    commit_sha: ~
-    review_verdict: ~
-
   - id: 3
-    description: 'Add commit SHAs to Phase 30-38 evidence docs'
-    status: pending
+    description: 'Base.html deprecation + web routes + CURRENT_STATUS + traceability updates'
+    status: coding
     commit_sha: ~
     review_verdict: ~
 
   - id: 4
-    description: 'Add test commands to phase docs 00-08, 13, 15-20, 22-28'
-    status: pending
-    commit_sha: ~
-    review_verdict: ~
-
-  - id: 5
-    description: 'Add completion criteria to phase docs 00-14, 21, 29'
-    status: pending
-    commit_sha: ~
-    review_verdict: ~
-
-  - id: 6
-    description: 'Fix outdated Phase 31 status in CURRENT_STATUS (31-07/08 already done)'
-    status: pending
-    commit_sha: ~
-    review_verdict: ~
-
-  - id: 7
-    description: 'BL-102: Document QMT fundamentals fallback strategy'
-    status: pending
-    commit_sha: ~
-    review_verdict: ~
-
-  - id: 8
-    description: 'BL-104: Add mock/real state labels to trade API endpoints'
+    description: 'Fix phase status in CURRENT_STATUS + NFR evidence'
     status: pending
     commit_sha: ~
     review_verdict: ~
 
 next_actions:
-  - 'Task 1: Fix test_suspension.py failures'
+  - 'All doc changes: review → commit → done'

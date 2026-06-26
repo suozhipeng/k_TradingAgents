@@ -314,7 +314,13 @@
 
   <!-- Main area -->
   <div class="tv-content">
-    <!-- Top bar -->
+  <!-- Deprecation banner (for legacy entry points) -->
+  {% if legacy_redirect %}
+  <div style="background:#1a1a2e;border-bottom:1px solid #ff9800;padding:6px 16px;font-size:12px;color:#ff9800;display:flex;align-items:center;gap:8px;">
+    ⚠️ 此页面已整合到 <a href="{{ legacy_redirect }}" style="color:#2962FF;text-decoration:underline;">新入口</a>，请使用新版访问。
+  </div>
+  {% endif %}
+  <!-- Top bar -->
     <div class="tv-topbar">
       <div class="tv-topbar-brand">AStock <span>Pro</span></div>
       <div class="tv-topbar-sep"></div>

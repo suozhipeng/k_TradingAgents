@@ -30,3 +30,6 @@
 
 - TaskRun 和 AuditEvent schema 明确 ✅
 - 关键动作可追溯 ✅
+
+---
+**Commit SHA**: b410074

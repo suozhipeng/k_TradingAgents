@@ -135,7 +135,7 @@ def create_app(
     # -- Health check ---------------------------------------------------------
     @app.route("/api/v1/health")
     def health() -> tuple[Any, int]:
-        return jsonify({"status": "ok", "version": "0.1.0"}), 200
+        return jsonify({"status": "ok", "version": "0.2.5"}), 200
 
     return app
 

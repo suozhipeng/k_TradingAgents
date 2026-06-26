@@ -67,3 +67,6 @@ pytest tests/test_astock_api.py -q
 - 新增策略只需注册一次即可被 API、WebUI、优化器识别。
 - 回测结果可被策略对比、绩效归因、AI Research 复用。
 - 动量轮动归属清晰，不破坏 standalone 组合策略能力。
+
+---
+**Commit SHA**: b410074

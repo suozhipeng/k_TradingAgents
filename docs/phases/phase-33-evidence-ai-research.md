@@ -97,3 +97,6 @@ from tradingagents.astock.schemas import (
 | 每个 AI 结论可追溯模型、prompt、输入数据快照和引用 | ✅ (ResearchAudit + ResearchContext) |
 | AI 输出 advisory-only | ✅ (schema + API 双 enforce) |
 | 报告中心具备归档、复查、对比的产品边界 | ✅ (ReportArchive schema 定义) |
+
+---
+**Commit SHA**: b410074

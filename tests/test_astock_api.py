@@ -155,7 +155,7 @@ def test_health_endpoint(app):
     assert resp.status_code == 200
     data = resp.get_json()
     assert data["status"] == "ok"
-    assert data["version"] == "0.1.0"
+    assert data["version"] == "0.2.5"
 
 
 # ---------------------------------------------------------------------------

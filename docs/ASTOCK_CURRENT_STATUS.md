@@ -104,7 +104,7 @@ Phase 11 执行层增加了额外的安全边界：
 | 28 | 动量决策终端 / 动量轮动独立看板 / 龙虎榜 / 北向资金 / 数据健康页面 — 5 个新增 WebUI 页面 | 完成 |
 | 29 | 专业交易页 — TradingView 风格交易控制台, 实时报价, 订单面板, KLineChart, 仓位管理, PaperTrader 桥接 | 完成 |
 | 30 | Live Trading Readiness — 实盘准入清单与证据 | planned |
-| 31 | Data Quality & Bias Control — 数据质量与回测反偏差 | 部分完成（31-03/04/05 已修复；31-07/08 页面展示待补齐） |
+| 31 | Data Quality & Bias Control — 数据质量与回测反偏差 | 部分完成（31-03/04/05/07/08 已修复；前端 bias flags 已展示） |
 | 32 | Strategy Lab Consolidation — 策略实验室整合 | 完成（含参数优化 tab） |
 | 33 | AI Research Center — AI 研究中枢 | 完成（含降级横幅、报告对比、advisory-only） |
 | 34 | Market Leaders Entry — 龙头股单入口 | 部分完成（`/market_leaders` 单入口已落地，旧页面仍保留兼容访问） |
@@ -198,11 +198,8 @@ Phase 11 执行层增加了额外的安全边界：
 ### 待开发项
 
 #### 🔴 P0 — 当前必须修正的真实问题
-| 任务 | 说明 |
-|------|------|
-| **验证环境修复** | 仓库 `.venv` 指向失效的 `python3.10`，当前不能再作为默认验证路径 |
-| **31-07-03 幸存者偏差回测页面展示** | 后端检测已完成，前端待实现 |
-| **31-08-03 前瞻偏差回测页面展示** | 后端检测已完成，前端待实现 |
+
+✅ 全部已解决（见上方 P0 项状态）
 
 #### 🟡 P1 — 功能完善
 | 任务 | 说明 |
@@ -213,11 +210,11 @@ Phase 11 执行层增加了额外的安全边界：
 #### 🟢 P2 — 路线图后续收口（已启动但未闭环）
 | Phase | 范围 | 状态 |
 |-------|------|------|
-| **Phase 34** Market Leaders 单入口 | 单入口已加，旧页面兼容与内部 tab 收口未闭环 | `partial` |
-| **Phase 35** Trading Execution 闭环 | trade/QMT/UI 已接线，真实券商回报与对账闭环未完成 | `partial` |
-| **Phase 36** Portfolio Risk & Attribution | Portfolio 页与 schema 已有，深层风险/归因能力未闭环 | `partial` |
-| **Phase 37** Ops & Audit Center | Ops Audit 页与 TaskRun 基础已落地，审计持久化/指标未闭环 | `partial` |
-| **Phase 38** Product Navigation Cleanup | 7 模块导航已落地，旧入口与文档口径仍在收口 | `partial` |
+| **Phase 34** Market Leaders 单入口 | 单入口已加，旧页面兼容已标注 deprecation（橙色 banner 引导到 market_leaders），内部 tab 收口待完善 | `partial` |
+| **Phase 35** Trading Execution 闭环 | trade/QMT/UI 已接线，真实券商回报与对账闭环未完成（明确暂不处理） | `partial` |
+| **Phase 36** Portfolio Risk & Attribution | Portfolio 页与 schema 已有，深层风险/归因能力（行业暴露/VaR/压力测试）未闭环 | `partial` |
+| **Phase 37** Ops & Audit Center | Ops Audit 页与 TaskRun 基础已落地，审计持久化/指标聚合未闭环 | `partial` |
+| **Phase 38** Product Navigation Cleanup | 7 模块导航已落地，旧入口 redirect 已验证，deprecation banner 已添加；文档口径同步中 | `partial` |
 
 #### ⚪ P3 — 实盘相关（暂不处理）
 | 任务 | 说明 |

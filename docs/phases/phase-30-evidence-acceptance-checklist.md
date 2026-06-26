@@ -76,3 +76,6 @@
 - 截图保存在 `docs/phases/phase-30-evidence-screenshots/`（如有图形界面）
 - 如无截图条件，记录 Python 测试输出或 curl 命令结果
 - Phase 30 完成时所有验收点应有 "通过/失败/暂不适用" 标记
+
+---
+**Commit SHA**: b410074

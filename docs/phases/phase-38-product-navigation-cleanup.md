@@ -54,9 +54,14 @@
 pytest tests/test_astock_web.py -q
 pytest tests/test_astock_api.py -q
 ```
+---
+**Commit SHA**: `52718f1` (Phase 38 navigation cleanup), incremental in `e33b362`
 
 ## 5. 完成标准
 
 - 顶层导航收敛到目标模块。
 - 旧入口迁移策略明确。
 - 所有核心页面有输入、输出、状态、错误态和截图/替代证据要求。
+
+---
+**Commit SHA**: b410074

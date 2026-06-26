@@ -62,3 +62,6 @@
 | `momentum_rotation.html` | 重定向到 Market Leaders | Phase 34 |
 | `strategies.html` standalone | 合并到 Strategy Hub | Phase 38 |
 | 各 standalone strategy API | 统一 registry 入口 | Phase 38 |
+
+---
+**Commit SHA**: b410074

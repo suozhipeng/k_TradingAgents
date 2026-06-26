@@ -1,6 +1,6 @@
 # Phase 36 Portfolio Risk & Attribution 需求与 Hermes 任务包
 
-| 状态：planned | 更新时间：2026-06-24 |
+| 状态：partial | 更新时间：2026-06-26 |
 
 ## 0. 前置依赖
 
@@ -47,9 +47,14 @@ pytest tests/test_astock_backtest.py -q
 pytest tests/test_astock_paper_trader.py -q
 pytest tests/test_astock_api.py -q
 ```
+---
+**Commit SHA**: `22f2a71` (Phase 36 portfolio page), incremental in `e33b362`
 
 ## 5. 完成标准
 
 - 组合风险 schema 可复用回测和 paper 状态。
 - 风险暴露、VaR、压力测试、归因字段明确。
 - 前台 Portfolio Workbench 有页面验收清单。
+
+---
+**Commit SHA**: b410074

@@ -1,6 +1,6 @@
 # Phase 37 Ops & Audit Center 需求与 Hermes 任务包
 
-| 状态：planned | 更新时间：2026-06-24 |
+| 状态：partial | 更新时间：2026-06-26 |
 
 ## 0. 前置依赖
 
@@ -48,9 +48,14 @@ pytest tests/test_astock_sse.py -q
 pytest tests/test_astock_api.py -q
 pytest tests/test_astock_web.py -q
 ```
+---
+**Commit SHA**: `3057979` (Phase 37 SSE standardization), incremental in `e33b362`
 
 ## 5. 完成标准
 
 - TaskRun 和 AuditEvent schema 明确。
 - Ops 页面能回答任务、错误、provider、数据、模型状态。
 - 关键动作可追溯。
+
+---
+**Commit SHA**: b410074

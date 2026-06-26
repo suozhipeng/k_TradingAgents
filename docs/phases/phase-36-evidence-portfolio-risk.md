@@ -30,3 +30,6 @@
 | `timing_effect` | 择时效应 |
 | `cost_impact` | 成本影响 |
 | `slippage_impact` | 滑点影响 |
+
+---
+**Commit SHA**: b410074

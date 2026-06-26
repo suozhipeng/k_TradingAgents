@@ -110,3 +110,6 @@
 | ❌ `freshness` | 数据源最后成功更新时间 |
 | ❌ `quality` | 数据源当前质量等级 |
 | ❌ `last_checked` | 上次检查时间 |
+
+---
+**Commit SHA**: b410074

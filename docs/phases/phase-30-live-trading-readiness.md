@@ -67,6 +67,8 @@ pytest tests/test_astock_paper_trader.py -q
 pytest tests/test_astock_execution_risk_gate.py -q
 pytest tests/test_astock_api.py -q
 ```
+---
+**Commit SHA**: `e33b362` (latest HEAD, Phase 30-38 incremental commits included)
 
 ## 5. 完成标准
 
@@ -74,3 +76,6 @@ pytest tests/test_astock_api.py -q
 - paper、managed、live-ready 在页面和 API 中不混淆。
 - live-ready checklist 明确但不声称已完成完整实盘生产。
 - Phase 证据回填追踪矩阵、风险登记表和必要 ADR。
+
+---
+**Commit SHA**: b410074

@@ -172,17 +172,21 @@ def screener() -> str:
 
 @bp.route("/dragon_tiger")
 def dragon_tiger() -> str:
-    return render_template("dragon_tiger.html", today=datetime.now().strftime("%Y-%m-%d"))
+    """旧入口 — 已迁移到 /market_leaders"""
+    return render_template("dragon_tiger.html", today=datetime.now().strftime("%Y-%m-%d"),
+                           legacy_redirect="/market_leaders")
 
 
 @bp.route("/sectors")
 def sectors() -> str:
-    return render_template("sectors.html")
+    """旧入口 — 已迁移到 /market_leaders"""
+    return render_template("sectors.html", legacy_redirect="/market_leaders")
 
 
 @bp.route("/northbound")
 def northbound() -> str:
-    return render_template("northbound.html")
+    """旧入口 — 已迁移到 /market_leaders"""
+    return render_template("northbound.html", legacy_redirect="/market_leaders")
 
 
 @bp.route("/data_health")
@@ -205,7 +209,8 @@ def kc_chart() -> str:
 
 @bp.route("/momentum_rotation")
 def momentum_rotation() -> str:
-    return render_template("momentum_rotation.html")
+    """旧入口 — 已迁移到 /market_leaders"""
+    return render_template("momentum_rotation.html", legacy_redirect="/market_leaders")
 
 
 @bp.route("/market_leaders")

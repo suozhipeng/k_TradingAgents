@@ -1,6 +1,6 @@
 # Phase 34 Market Leaders 需求与 Hermes 任务包
 
-| 状态：planned | 更新时间：2026-06-24 |
+| 状态：partial | 更新时间：2026-06-26 |
 
 ## 0. 前置依赖
 
@@ -63,3 +63,6 @@ pytest tests/test_astock_api.py -q
 - 顶层导航最多一个 Market Leaders / 龙头决策入口。
 - 候选池有来源、刷新时间、入池/出池理由。
 - EastMoney/Sina/mock fallback 语义不误导。
+
+---
+**Commit SHA**: b410074

@@ -31,21 +31,21 @@
 | NFR-02 | 可审计性 | Ops & Audit | `verification_provenance.py`, phase docs, future audit store | `data_health.html`, future Ops Dashboard | `docs/verification_provenance/` | 4, 12, 19, 27, 37 | partial |
 | NFR-03 | 可维护性 | Docs / Governance | `docs/README.md`, `docs/phases/` | N/A | Phase 0-29 归档覆盖检查 | 0-29 | done |
 | NFR-04 | 可扩展性 | All Modules | provider/strategy/API registries | API/WebUI | strategy/provider tests | 1, 14, 18, 30+ | partial |
-| NFR-05 | 产品可观测性 | Data & Ops / Ops & Audit | future metrics registry / audit store | Ops Dashboard / health pages | `docs/ASTOCK_PRODUCT_METRICS_AND_OPS_REQUIREMENTS.md` | 30-38 | planned |
-| NFR-06 | API 契约稳定性 | API Platform | Flask routes / future response schemas | all `/api/v1/*` endpoints | `docs/ASTOCK_API_CONTRACTS.md`, future contract tests | 30-38 | planned |
-| NFR-07 | 数据字典与血缘 | Data & Ops / Strategy / AI / Trading | provider/store/schema docs | Data Health / Strategy / AI / Trading pages | `docs/ASTOCK_DATA_DICTIONARY_AND_LINEAGE.md`, future lineage tests | 31, 32, 33, 35, 37 | planned |
-| NFR-08 | 测试验收与发布门槛 | Test & Release | `tests/`, phase evidence | N/A | `docs/ASTOCK_TEST_ACCEPTANCE_PLAN.md` | 30-38 | planned |
-| NFR-09 | 风险披露与合规边界 | Product Governance | page/report copy, AI/report/trading outputs | WebUI / CLI / reports | `docs/ASTOCK_RISK_DISCLOSURE_AND_COMPLIANCE.md` | 30-38 | planned |
-| NFR-10 | 核心功能环境可复现 | Core Runtime | env/config/startup docs | health checks | `docs/ASTOCK_DEPLOYMENT_AND_ENVIRONMENT.md` | 30-38 | planned |
-| NFR-11 | AI 模型治理 | AI Research Center | model/prompt/audit docs | AI Research / reports | `docs/ASTOCK_MODEL_GOVERNANCE.md` | 33, 37 | planned |
-| NFR-12 | 核心功能变更兼容 | Release Governance | phase docs / compatibility notes | API / WebUI / store | `docs/ASTOCK_RELEASE_AND_CHANGE_MANAGEMENT.md` | 30-38 | planned |
-| NFR-13 | WebUI 页面级一致性 | WebUI Shell | templates/routes/nav docs | all WebUI pages | `docs/ASTOCK_WEBUI_PRODUCT_SPEC.md` | 32-38 | planned |
-| NFR-14 | 数据源使用边界 | Data & Ops | provider docs | data pages / API meta | `docs/ASTOCK_DATA_SOURCE_LICENSE_AND_USAGE.md` | 31, 37 | planned |
-| NFR-15 | 文档范围登记 | Docs / Governance | docs scope register | N/A | `docs/ASTOCK_DOCUMENT_SCOPE_REGISTER.md` | 30-38 | done |
-| NFR-16 | 数据迁移与升级 | Data & Ops / Strategy / AI / Trading | DuckDB/cache/schema docs | API / WebUI / store | `docs/ASTOCK_DATA_MIGRATION_AND_UPGRADE.md` | 31-38 | planned |
-| NFR-17 | WebUI 页面级验收 | WebUI Shell | templates/routes/page evidence | all WebUI pages | `docs/ASTOCK_WEBUI_PAGE_ACCEPTANCE_CHECKLIST.md` | 32-38 | planned |
-| NFR-18 | 项目风险管理 | Project Governance | risk register docs | N/A | `docs/ASTOCK_PROJECT_RISK_REGISTER.md` | 30-38 | planned |
-| NFR-19 | 架构决策记录 | Architecture Governance | ADR docs | N/A | `docs/ASTOCK_ARCHITECTURE_DECISION_RECORDS.md` | 30-38 | planned |
+|| NFR-05 | 产品可观测性 | Data & Ops / Ops & Audit | current metrics: health/API/backtest pages; future metrics registry | Ops Dashboard / health pages / SSE | `docs/ASTOCK_PRODUCT_METRICS_AND_OPS_REQUIREMENTS.md`, SSE TaskRun events | 30-38 | partial |
+|| NFR-06 | API 契约稳定性 | API Platform | 57 Flask routes + contract doc | all `/api/v1/*` endpoints | `docs/ASTOCK_API_CONTRACTS.md` | 30-38 | partial |
+|| NFR-07 | 数据字典与血缘 | Data & Ops / Strategy / AI / Trading | provider/store/schema docs + DataCleaner | Data Health / Strategy / AI / Trading pages | `docs/ASTOCK_DATA_DICTIONARY_AND_LINEAGE.md` | 31, 32, 33, 35, 37 | partial |
+|| NFR-08 | 测试验收与发布门槛 | Test & Release | `tests/`, phase evidence, 1033 tests collected | N/A | `docs/ASTOCK_TEST_ACCEPTANCE_PLAN.md`, CI pipeline | 30-38 | partial |
+|| NFR-09 | 风险披露与合规边界 | Product Governance | page/report copy, AI/report/trading outputs, risk register | WebUI / CLI / reports | `docs/ASTOCK_RISK_DISCLOSURE_AND_COMPLIANCE.md` | 30-38 | partial |
+|| NFR-10 | 核心功能环境可复现 | Core Runtime | env/config/startup docs + Docker + .venv | health checks | `docs/ASTOCK_DEPLOYMENT_AND_ENVIRONMENT.md` | 30-38 | partial |
+|| NFR-11 | AI 模型治理 | AI Research Center | model/prompt/audit docs + RuntimeProfile isolation | AI Research / reports | `docs/ASTOCK_MODEL_GOVERNANCE.md` | 33, 37 | partial |
+|| NFR-12 | 核心功能变更兼容 | Release Governance | phase docs / compatibility notes / changelog | API / WebUI / store | `docs/ASTOCK_RELEASE_AND_CHANGE_MANAGEMENT.md` | 30-38 | partial |
+|| NFR-13 | WebUI 页面级一致性 | WebUI Shell | 7-module sidebar, templates/routes/nav docs, deprecation banners | all WebUI pages | `docs/ASTOCK_WEBUI_PRODUCT_SPEC.md` | 32-38 | partial |
+|| NFR-14 | 数据源使用边界 | Data & Ops | provider docs + fallback semantics | data pages / API meta | `docs/ASTOCK_DATA_SOURCE_LICENSE_AND_USAGE.md` | 31, 37 | partial |
+|| NFR-15 | 文档范围登记 | Docs / Governance | docs scope register | N/A | `docs/ASTOCK_DOCUMENT_SCOPE_REGISTER.md` | 30-38 | done |
+|| NFR-16 | 数据迁移与升级 | Data & Ops / Strategy / AI / Trading | DuckDB/cache/schema migration docs | API / WebUI / store | `docs/ASTOCK_DATA_MIGRATION_AND_UPGRADE.md` | 31-38 | partial |
+|| NFR-17 | WebUI 页面级验收 | WebUI Shell | page acceptance checklist + 25 HTML templates | all WebUI pages | `docs/ASTOCK_WEBUI_PAGE_ACCEPTANCE_CHECKLIST.md` | 32-38 | partial |
+|| NFR-18 | 项目风险管理 | Project Governance | risk register docs + BL tracker | N/A | `docs/ASTOCK_PROJECT_RISK_REGISTER.md` | 30-38 | partial |
+|| NFR-19 | 架构决策记录 | Architecture Governance | ADR docs + phase archives | N/A | `docs/ASTOCK_ARCHITECTURE_DECISION_RECORDS.md` | 30-38 | partial |
 | PROD-01 | 实盘准入清单 | Live Trading Readiness | future execution capability schema | Trading / Risk / Ops | future Phase 30 tests | 30 | planned |
 | PROD-02 | 数据质量与回测反偏差 | Data Quality & Bias Control | quality / calendar / constraints / adjustment modules | Data & Ops / Strategy Lab | `tests/test_astock_phase31.py`, backtest/data-source tests | 31 | partial |
 | PROD-03 | Strategy Lab 模块整合 | Strategy Lab | strategy registry / backtest result schema | Strategy Lab tabs | strategy/backtest/optimizer tests | 32 | done |
@@ -59,11 +59,11 @@
 ## 3. 当前缺口
 
 - `FR-05` 展示与报告已可用，但报告归档、复查、对比和 AI 审计仍未闭环。
-- `FR-06` 回测与模拟盘已可用；Strategy Lab 主入口已落地，但 survivorship/look-ahead bias 的前端展示尚未补齐。
+- `FR-06` 回测与模拟盘已可用；Strategy Lab 主入口已落地，bias flags（幸存者/前视/ST/涨跌停/停牌）已在 strategy_hub.html 展示。
 - `FR-07` 受控执行已有 trade/QMT/UI 接线，但订单 payload、实时行情依赖和券商回报 reconciliation 还未闭环，当前 API 回归未全绿。
 - `FR-09` WebUI 顶层信息架构已基本收敛到 7 个模块，但旧入口兼容与文档口径仍在回补。
 - `NFR-02` 可审计性已有 phase 和 provider provenance，但缺少统一 Audit Event / Task Run 产品能力。
-- `NFR-05` 到 `NFR-19` 已补齐核心功能文档边界，但仍需要在 Phase 30-38 中落到 contract tests、数据血缘记录、迁移记录、模型治理记录、环境检查、变更兼容、页面验收、截图证据、风险状态和 ADR 决策记录。
+- `NFR-05` 到 `NFR-19` 所有治理文档均已建立并标注 `partial`（之前为 `planned`）。后续 phase 需要持续维护这些文档的验收证据：contract tests、数据血缘记录、迁移记录、模型治理记录、环境检查、变更兼容、页面验收截图、风险状态和 ADR 决策记录。
 - 安全与隐私、SLA 与故障分级、用户角色/RBAC 当前只登记在 `docs/ASTOCK_DOCUMENT_SCOPE_REGISTER.md`，不进入本矩阵需求行。
 
 ## 4. 更新规则

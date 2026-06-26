@@ -51,3 +51,6 @@
 | ResearchOnly 混用 | paper 状态被当成真实账户状态 | 所有响应包含 `execution_signal` |
 | 数据延迟 | 行情数据可能有5-30秒延迟 | 显示 `source` 和 `timestamp` |
 | mock 数据误导 | QMT mock 数据可能被当成真实持仓 | 页面标注 `mock_mode: true` |
+
+---
+**Commit SHA**: b410074

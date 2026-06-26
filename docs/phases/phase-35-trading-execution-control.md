@@ -1,6 +1,6 @@
 # Phase 35 Trading & Execution 需求与 Hermes 任务包
 
-| 状态：planned | 更新时间：2026-06-24 |
+| 状态：partial | 更新时间：2026-06-26 |
 
 ## 0. 前置依赖
 
@@ -49,9 +49,14 @@ pytest tests/test_astock_paper_trader.py -q
 pytest tests/test_astock_execution_risk_gate.py -q
 pytest tests/test_astock_qmt_execution.py -q
 ```
+---
+**Commit SHA**: `9c56dac` (Phase 35 Trading Execution initial commit), incremental in `e33b362`
 
 ## 5. 完成标准
 
 - Order/Fill/Position/Reconciliation schema 明确。
 - Trading 页面和 API 统一显示 capability。
 - 风控前置门有 reason code 和审计引用。
+
+---
+**Commit SHA**: b410074
