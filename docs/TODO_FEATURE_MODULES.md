@@ -36,12 +36,12 @@
 ### 31-07 Survivorship Bias 检测
 - [x] 31-07-01 检测功能 ✅ `22f2a71`
 - [x] 31-07-02 data_assumption 字段 ✅
-- [ ] 31-07-03 回测结果页面展示 — **前端展示待实现**
+- [x] 31-07-03 回测结果页面展示 ✅ `27cfd60` (Strategy Hub 单策略结果展示 bias flags)
 
 ### 31-08 Look-ahead Bias 检测
 - [x] 31-08-01 检测功能 ✅ `22f2a71`
 - [x] 31-08-02 data_assumption 字段 ✅
-- [ ] 31-08-03 回测结果页面展示 — **前端展示待实现**
+- [x] 31-08-03 回测结果页面展示 ✅ `27cfd60` (Strategy Hub 单策略结果展示 bias flags)
 
 ### 31-09 数据质量分级与 Provenance ✅ 全部完成
 

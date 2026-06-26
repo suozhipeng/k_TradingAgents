@@ -1,35 +1,48 @@
 # .hermes/dev-loop.yaml
-project: 'Complete Project Fix Loop — P0/P1 items from audit'
-started_at: '2026-06-26T10:30:00+08:00'
-phase: code
-current_task_index: 4
+project: 'P1 Fix Loop — 5 items from project audit (items 2-6)'
+started_at: '2026-06-26T13:00:00+08:00'
+phase: break
+current_task_index: 0
 
 tasks:
   - id: 1
-    description: 'Fix 2 failing tests in test_suspension.py'
-    status: committed
-    commit_sha: b410074
-
-  - id: 2
-    description: 'Add commit SHAs to Phase 30-38 docs + test commands'
-    status: committed
-    commit_sha: fd3e7fd
-
-  - id: 3
-    description: 'Base.html deprecation + web routes + CURRENT_STATUS + traceability'
-    status: committed
-    commit_sha: fd3e7fd
-
-  - id: 4
-    description: 'Fix phase status in CURRENT_STATUS + NFR evidence'
-    status: committed
-    commit_sha: fd3e7fd
-
-  - id: 5
-    description: 'BL-102: Document QMT fundamentals fallback + Phase 30 evidence checklists'
-    status: coding
+    description: '更新 TODO 文档 — 确认 Phase 31-07/08 bias 前端已实现(commit 22f2a71), 标记 [x] + commit SHA'
+    status: pending
     commit_sha: ~
     review_verdict: ~
+    notes: 'strategy_hub.html 已有 bias flags 展示(survivorship/look-ahead), backtest.html 已被 strategy_hub 取代'
+
+  - id: 2
+    description: 'Phase 34 tab 收口 — 旧页面(momentum_rotation/dragon_tiger/northbound/sectors) 收敛为 market_leaders 内部 tab'
+    status: pending
+    commit_sha: ~
+    review_verdict: ~
+    notes: '评估收敛方式: redirect vs iframe vs 内容嵌入'
+
+  - id: 3
+    description: 'Phase 38 文档同步 — 跨文档数字口径漂移检查并修复'
+    status: pending
+    commit_sha: ~
+    review_verdict: ~
+    notes: '检查: 测试文件数/API路由数/模板数/版本号/环境状态'
+
+  - id: 4
+    description: 'Phase 36/37 深层能力 — VaR计算/行业暴露/绩效归因 + 审计持久化'
+    status: pending
+    commit_sha: ~
+    review_verdict: ~
+    notes: '评估当前 schema 与实际计算能力的差距'
+
+  - id: 5
+    description: 'webui/ 清理 — 标注废弃状态, 添加 README 说明不作为产品主入口'
+    status: pending
+    commit_sha: ~
+    review_verdict: ~
+    notes: 'React/TS 实验项目, 8 npm 漏洞'
 
 next_actions:
-  - 'Task 5: BL-102 doc + Phase 30 checklists → review → commit'
+  - '任务 1: TODO doc 更新 → 验证 bias 前端已存在'
+  - '任务 2: Phase 34 tab 收口'
+  - '任务 3: Phase 38 文档同步'
+  - '任务 4: Phase 36/37 深层能力'
+  - '任务 5: webui/ 清理'
