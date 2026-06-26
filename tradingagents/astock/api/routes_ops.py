@@ -18,6 +18,16 @@ bp = Blueprint("ops", __name__)
 _audit_store: Any = None
 
 
+def _safe_int(val: str | None, default: int) -> int:
+    """Convert *val* to int, returning *default* on failure."""
+    if val is None:
+        return default
+    try:
+        return int(val)
+    except (ValueError, TypeError):
+        return default
+
+
 def _get_audit_store() -> Any:
     global _audit_store
     if _audit_store is None:
@@ -53,7 +63,7 @@ def list_audit_events() -> tuple[Response, int]:
         store = _get_audit_store()
         actor = request.args.get("actor")
         action = request.args.get("action")
-        limit = int(request.args.get("limit", 50))
+        limit = _safe_int(request.args.get("limit"), 50)
         events = store.list_events(actor=actor, action=action, limit=limit)
         return jsonify(events), 200
     except Exception as exc:
@@ -83,7 +93,7 @@ def list_tasks() -> tuple[Response, int]:
     try:
         store = _get_audit_store()
         task_type = request.args.get("type")
-        limit = int(request.args.get("limit", 50))
+        limit = _safe_int(request.args.get("limit"), 50)
         tasks = store.list_tasks(task_type=task_type, limit=limit)
         return jsonify(tasks), 200
     except Exception as exc:

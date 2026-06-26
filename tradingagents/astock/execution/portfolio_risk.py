@@ -278,7 +278,7 @@ def calculate_attribution(
 
     # Residual = portfolio_return - benchmark_return - selection - timing
     excess = portfolio_return - benchmark_return
-    residual = excess - selection_effect - timing_effect + cost_impact + slippage_impact
+    residual = excess - selection_effect - timing_effect - cost_impact - slippage_impact
 
     return {
         "benchmark_return": round(benchmark_return, 6),

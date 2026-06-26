@@ -62,11 +62,13 @@
 
 <div class="tv-card">
   <div class="tv-section-title mb-3">📉 归因分析 Attribution</div>
-  <div class="tv-grid-4" id="attribution-cards">
+  <div class="tv-grid-6" id="attribution-cards">
     <div class="tv-stat-label">基准收益</div><div class="tv-stat-value" id="attr-benchmark">--</div>
     <div class="tv-stat-label">选股效应</div><div class="tv-stat-value" id="attr-selection">--</div>
     <div class="tv-stat-label">择时效应</div><div class="tv-stat-value" id="attr-timing">--</div>
     <div class="tv-stat-label">成本影响</div><div class="tv-stat-value" id="attr-cost">--</div>
+    <div class="tv-stat-label">滑点影响</div><div class="tv-stat-value" id="attr-slippage">--</div>
+    <div class="tv-stat-label">残差 Residual</div><div class="tv-stat-value" id="attr-residual">--</div>
   </div>
 </div>
 
@@ -138,6 +140,8 @@ async function loadPortfolioAttribution() {
     document.getElementById('attr-selection').textContent = data.selection_effect != null ? (data.selection_effect * 100).toFixed(2) + '%' : '--';
     document.getElementById('attr-timing').textContent = data.timing_effect != null ? (data.timing_effect * 100).toFixed(2) + '%' : '--';
     document.getElementById('attr-cost').textContent = data.cost_impact != null ? (data.cost_impact * 100).toFixed(2) + '%' : '--';
+    document.getElementById('attr-slippage').textContent = data.slippage_impact != null ? (data.slippage_impact * 100).toFixed(2) + '%' : '--';
+    document.getElementById('attr-residual').textContent = data.residual != null ? (data.residual * 100).toFixed(2) + '%' : '--';
   } catch (e) {
     console.error('loadPortfolioAttribution error:', e);
   }

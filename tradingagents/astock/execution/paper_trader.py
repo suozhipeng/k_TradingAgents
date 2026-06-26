@@ -311,6 +311,21 @@ class PaperTrader:
         """Return a copy of the current portfolio state."""
         return self._state.model_copy(deep=True)
 
+    # -- Public accessors for portfolio risk (Phase 36) --------------------
+
+    def cost_basis(self, symbol: str) -> float:
+        """Return the total cost basis for *symbol* (public accessor)."""
+        return self._cost_basis.get(symbol, 0.0)
+
+    def current_value(self, symbol: str) -> float:
+        """Return the estimated current per-share price for *symbol*.
+
+        Falls back to ``avg_cost`` when no live price is available.
+        """
+        shares = self._state.positions.get(symbol, 0)
+        cost = self._cost_basis.get(symbol, 0.0)
+        return round(cost / shares, 2) if shares > 0 else 0.0
+
     # -- Individual order placement (WebUI trading page) --------------------
 
     def place_order(
