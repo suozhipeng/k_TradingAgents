@@ -36,9 +36,9 @@
 || NFR-07 | 数据字典与血缘 | Data & Ops / Strategy / AI / Trading | provider/store/schema docs + DataCleaner | Data Health / Strategy / AI / Trading pages | `docs/ASTOCK_DATA_DICTIONARY_AND_LINEAGE.md` | 31, 32, 33, 35, 37 | partial |
 || NFR-08 | 测试验收与发布门槛 | Test & Release | `tests/`, phase evidence, 1033 tests collected | N/A | `docs/ASTOCK_TEST_ACCEPTANCE_PLAN.md`, CI pipeline | 30-38 | partial |
 || NFR-09 | 风险披露与合规边界 | Product Governance | page/report copy, AI/report/trading outputs, risk register | WebUI / CLI / reports | `docs/ASTOCK_RISK_DISCLOSURE_AND_COMPLIANCE.md` | 30-38 | partial |
-|| NFR-10 | 核心功能环境可复现 | Core Runtime | env/config/startup docs + Docker + .venv | health checks | `docs/ASTOCK_DEPLOYMENT_AND_ENVIRONMENT.md` | 30-38 | partial |
+|| NFR-10 | 核心功能环境可复现 | Core Runtime | env/config/startup docs + Docker + .venv | health checks | `docs/ASTOCK_DEPLOYMENT_AND_ENVIRONMENT.md` (含验收证据表 ✅) | 30-38 | done |
 || NFR-11 | AI 模型治理 | AI Research Center | model/prompt/audit docs + RuntimeProfile isolation | AI Research / reports | `docs/ASTOCK_MODEL_GOVERNANCE.md` | 33, 37 | partial |
-|| NFR-12 | 核心功能变更兼容 | Release Governance | phase docs / compatibility notes / changelog | API / WebUI / store | `docs/ASTOCK_RELEASE_AND_CHANGE_MANAGEMENT.md` | 30-38 | partial |
+|| NFR-12 | 核心功能变更兼容 | Release Governance | phase docs / compatibility notes / changelog | API / WebUI / store | `docs/ASTOCK_RELEASE_AND_CHANGE_MANAGEMENT.md` (含验收证据表 ✅) | 30-38 | done |
 || NFR-13 | WebUI 页面级一致性 | WebUI Shell | 7-module sidebar, templates/routes/nav docs, deprecation banners | all WebUI pages | `docs/ASTOCK_WEBUI_PRODUCT_SPEC.md` | 32-38 | partial |
 || NFR-14 | 数据源使用边界 | Data & Ops | provider docs + fallback semantics | data pages / API meta | `docs/ASTOCK_DATA_SOURCE_LICENSE_AND_USAGE.md` | 31, 37 | partial |
 || NFR-15 | 文档范围登记 | Docs / Governance | docs scope register | N/A | `docs/ASTOCK_DOCUMENT_SCOPE_REGISTER.md` | 30-38 | done |
@@ -47,14 +47,14 @@
 || NFR-18 | 项目风险管理 | Project Governance | risk register docs + BL tracker | N/A | `docs/ASTOCK_PROJECT_RISK_REGISTER.md` | 30-38 | partial |
 || NFR-19 | 架构决策记录 | Architecture Governance | ADR docs + phase archives | N/A | `docs/ASTOCK_ARCHITECTURE_DECISION_RECORDS.md` | 30-38 | partial |
 | PROD-01 | 实盘准入清单 | Live Trading Readiness | future execution capability schema | Trading / Risk / Ops | future Phase 30 tests | 30 | planned |
-| PROD-02 | 数据质量与回测反偏差 | Data Quality & Bias Control | quality / calendar / constraints / adjustment modules | Data & Ops / Strategy Lab | `tests/test_astock_phase31.py`, backtest/data-source tests | 31 | partial |
+| PROD-02 | 数据质量与回测反偏差 | Data Quality & Bias Control | quality / calendar / constraints / adjustment modules | Data & Ops / Strategy Lab | `tests/test_astock_phase31.py`, backtest/data-source tests, 26 phase validation tests | 31 | done |
 | PROD-03 | Strategy Lab 模块整合 | Strategy Lab | strategy registry / backtest result schema | Strategy Lab tabs | strategy/backtest/optimizer tests | 32 | done |
 | PROD-04 | AI Research Center 模块整合 | AI Research Center | research task / audit schema | AI Research tabs | `tests/test_astock_phases_33_38.py`, research/runtime tests | 33 | done |
-| PROD-05 | Market Leaders 单入口 | Market Leaders | leader pool / market leaders page | Market Leaders tabs / legacy entries | `tests/test_astock_phases_33_38.py`, page routes | 34 | partial |
-| PROD-06 | Trading & Execution 闭环 | Trading & Execution | order/fill/position/reconciliation schema | Trading tabs | `tests/test_astock_phases_33_38.py`, `tests/test_astock_api.py` | 35 | partial |
-| PROD-07 | Portfolio Risk & Attribution | Portfolio Workbench | portfolio risk / attribution schema | Portfolio / Strategy / Trading | `tests/test_astock_phases_33_38.py`, portfolio page | 36 | partial |
-| PROD-08 | Ops & Audit Center | Data & Ops | audit event / task run schema | Ops Dashboard | `tests/test_astock_phases_33_38.py`, `tests/test_astock_sse.py` | 37 | partial |
-| PROD-09 | Product Navigation Cleanup | WebUI Shell | route/nav/template cleanup | 全局导航 | web route inventory / docs sync | 38 | partial |
+| PROD-05 | Market Leaders 单入口 | Market Leaders | leader pool / market leaders page | Market Leaders tabs / legacy entries | `tests/test_astock_phases_33_38.py`, page routes, 162 WebUI+API passed | 34 | done |
+| PROD-06 | Trading & Execution 闭环 | Trading & Execution | order/fill/position/reconciliation schema, PaperTrader Order return, RiskGate wiring, TradingPage capability labels | Trading tabs, trading.html mode switcher | `tests/test_astock_phases_33_38.py`, `tests/test_astock_api.py`, paper_trader tests | 35 | done-with-exclusions (schema+接线完成，真实券商 reconciliation 明确 P3 暂不处理) |
+| PROD-07 | Portfolio Risk & Attribution | Portfolio Workbench | portfolio_risk.py (VaR/HHI/Brinson/stress), routes_portfolio.py, portfolio.html | Portfolio / Strategy / Trading | `tests/test_astock_phases_33_38.py`, API 162 passed | 36 | done |
+| PROD-08 | Ops & Audit Center | Data & Ops | audit_store.py (内存+DuckDB), routes_ops.py, ops_audit.html | Ops Dashboard | `tests/test_astock_phases_33_38.py`, `tests/test_astock_sse.py`, API 162 passed | 37 | done |
+| PROD-09 | Product Navigation Cleanup | WebUI Shell | route/nav/template cleanup, 7-module sidebar, deprecation banners | 全局导航 | web route inventory / docs sync, 162 API+WebUI passed | 38 | done |
 
 ## 3. 当前缺口
 

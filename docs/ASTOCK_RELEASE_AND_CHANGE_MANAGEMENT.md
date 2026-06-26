@@ -67,3 +67,13 @@
 - 哪些文档被同步。
 - 哪些测试证明未破坏既有能力。
 - 如果失败，如何回滚。
+
+### 验收证据（2026-06-26）
+
+| 验收项 | 状态 | 证据 |
+|--------|------|------|
+| 变更分类完整 | ✅ 完成 | §1 定义 docs-only/API change/data change/AI change/strategy change/trading change/UI change 7 类及必需文档 |
+| 版本记录要求 | ✅ 完成 | §2 phase/需求ID/commit SHA/影响模块/schema变化/测试/回滚 7 项 |
+| 兼容策略 | ✅ 完成 | §3 core 不破坏、legacy payload 兼容有测试、API/store/UI 变更兼容有策略 |
+| 合并门槛 | ✅ 完成 | §4 traceability matrix/phase 文档/API/data/AI/trading/UI 同步 + test plan + 风险 + 回滚 共 6 项 |
+| 回滚要求 | ✅ 完成 | §5 commit/feature flag/数据影响/cache/store/provider/LLM/QMT/WebUI 回滚口径 |

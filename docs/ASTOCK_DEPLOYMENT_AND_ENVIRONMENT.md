@@ -84,3 +84,14 @@
 - 已知 degraded 项。
 - 回滚或恢复路径。
 - 不涉及安全与隐私、SLA、用户角色/RBAC 的说明。
+
+### 验收证据（2026-06-26）
+
+| 验收项 | 状态 | 证据 |
+|--------|------|------|
+| 环境分层定义 | ✅ 完成 | §1 明确定义 local/test/staging/production-like 四层及其允许/禁止能力 |
+| 依赖清单完整 | ✅ 完成 | §2 列出 Python/Flask/Streamlit/DuckDB/provider/LLM/QMT 依赖及生产级要求 |
+| 启动顺序文档化 | ✅ 完成 | §4 从环境检查→provider 可用性→Flask→Streamlit→QMT 共 7 步 |
+| 健康检查覆盖范围 | ✅ 完成 | §5 覆盖 WebUI/DuckDB/provider/LLM/QMT/数据刷新/任务失败 7 项 |
+| 数据恢复边界明确 | ✅ 完成 | §6 DuckDB/cache/报告/任务/审计的备份恢复口径已定义 |
+| 环境变量配置纪要 | ✅ 完成 | §3 DB路径/cache/provider/LLM/QMT/WebUI/测试标记均需记录 |

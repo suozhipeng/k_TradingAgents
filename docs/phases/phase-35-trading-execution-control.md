@@ -1,6 +1,6 @@
 # Phase 35 Trading & Execution 需求与 Hermes 任务包
 
-| 状态：partial | 更新时间：2026-06-26 |
+| 状态：done-with-exclusions | 更新时间：2026-06-26 |
 
 ## 0. 前置依赖
 
@@ -57,6 +57,26 @@ pytest tests/test_astock_qmt_execution.py -q
 - Order/Fill/Position/Reconciliation schema 明确。
 - Trading 页面和 API 统一显示 capability。
 - 风控前置门有 reason code 和审计引用。
+
+### 排除项（明确不处理）
+
+以下能力因产品定位调整（详见 `ASTOCK_PRODUCT_OPTIMIZATION_ROADMAP.md` §1 "实盘交易降级为远期探索"）标记为 P3 暂不处理，不影响本 phase 的 done-with-exclusions 状态：
+
+- 真实券商账户/委托/成交/回报 reconciliation
+- `/qmt/orders` 从 mock 升级为真实 QMT 订单查询
+- 自动实盘生产运行
+
+### 完成标准判定
+
+| 验收项 | 判定 | 说明 |
+|--------|------|------|
+| Order/Fill/Position/Reconciliation schema 已落地 | ✅ 完成 | `tradingagents/astock/schemas/trading_execution.py` 含全部 4 个 Pydantic schema |
+| PaperTrader 返回 Order/Fill | ✅ 完成 | `paper_trader.py` `place_order()` 返回 Order Pydantic |
+| Trade API 使用 Order schema | ✅ 完成 | `routes_trade.py` `POST /trade/order` 返回 Order JSON |
+| RiskGate 订单流接入 | ✅ 完成 | `routes_trade.py` 下单前必经 `RiskGate.check()` 预检，拒绝时返回 403 + blocked_by |
+| Trading 页面 mode 切换器 | ✅ 完成 | `trading.html` 含 paper/live/research 模式切换 |
+| 真实券商 reconciliation | 🚫 排除 | P3 暂不处理（产品定位非实盘） |
+| QMT real orders | 🚫 排除 | P3 暂不处理（仅保留接口占位） |
 
 ---
 **Commit SHA**: b410074
