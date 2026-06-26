@@ -19,6 +19,16 @@ from .metrics import (
 )
 from .optimizer import StrategyOptimizer, WalkForwardAnalyzer, optimize_strategy
 from .paper_trader import PaperTradeState, PaperTrader
+from .portfolio_risk import (
+    calculate_attribution,
+    calculate_beta,
+    calculate_concentration,
+    calculate_cvar,
+    calculate_liquidity_score,
+    calculate_stress_loss,
+    calculate_var,
+    compute_portfolio_risk,
+)
 from .strategy_registry import StrategyRegistryEntry, get_registry, get_strategy, list_strategies, register
 from .qmt_bridge import QmtBridge, QmtBridgeConfig
 from .qmt_execution import ExecutionMode, QmtExecutionConfig, QmtExecutionEngine
@@ -92,6 +102,14 @@ __all__ = [
     "ExecutionMode",
     "KillSwitch",
     "kill_switch",
+    "calculate_var",
+    "calculate_cvar",
+    "calculate_concentration",
+    "calculate_beta",
+    "calculate_liquidity_score",
+    "calculate_stress_loss",
+    "calculate_attribution",
+    "compute_portfolio_risk",
     "StrategyRegistryEntry",
     "get_registry",
     "get_strategy",
