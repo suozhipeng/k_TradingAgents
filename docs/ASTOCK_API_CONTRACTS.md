@@ -189,3 +189,20 @@ Phase 30 约束：
 - Phase 31 必须为数据 API 增加质量和 freshness 标记。
 - Phase 32 必须为 Strategy Lab API 增加统一策略和回测结果 schema。
 - Phase 37 必须为长任务和审计建立标准 TaskRun/Audit Event。
+
+### 验收证据（2026-06-26）
+
+| 验收项 | 状态 | 证据 |
+|--------|------|------|
+| API 总原则（能力等级/标注/响应结构）| ✅ 完成 | §1 定义 4 级能力 + mock 语义 + 稳定性要求 |
+| Phase 30 能力边界定义 | ✅ 完成 | §1.1 research/paper/managed/live-ready 四层定义 + 当前实际落点 |
+| 标准响应 envelope | ✅ 完成 | §2 success/data/error/meta 完整结构 + 错误响应格式 |
+| 错误码分类 | ✅ 完成 | §3 7 类（validation/data/research/backtest/risk/execution/system）+ 处理要求 |
+| API 能力矩阵 | ✅ 完成 | §4 8 模块 × 能力等级 × 生产级要求 |
+| 实际 endpoint 能力等级 | ✅ 完成 | §4.1 11 个关键 endpoint 显式标注 |
+| CapabilityMeta schema | ✅ 完成 | §5.1 capability/source/request_id/generated_at/snapshot/audit |
+| TradingMode schema | ✅ 完成 | §5.1A mode/is_default/confirmation/allows_real_broker/ui_status |
+| ExecutionCapability schema | ✅ 完成 | §5.1B capability/mock/effective/risk/confirmation/audit |
+| TaskRun schema | ✅ 完成 | §5.2 task_id/type/status/progress/timestamps/error |
+| OrderState schema | ✅ 完成 | §5.3 order/broker/mode/symbol/side/quantity/status/risk/confirmation/audit |
+| 版本兼容要求 | ✅ 完成 | §6 破坏性变更/新增字段/删除 endpoint/页面依赖规则 4 项 |

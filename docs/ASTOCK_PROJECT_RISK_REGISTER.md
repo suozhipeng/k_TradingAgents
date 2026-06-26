@@ -1,6 +1,6 @@
 # A 股项目风险登记表
 
-| 更新时间：2026-06-24 |
+| 更新时间：2026-06-26（Phase 34-38 风险状态已更新 ✅） |
 
 本文用于从项目经理视角持续跟踪 TradingAgents-Astock 核心功能开发风险。本文只覆盖当前纳入范围内的金融软件核心功能风险，不展开安全与隐私、SLA 与故障分级、用户角色/RBAC。
 
@@ -16,15 +16,15 @@
 
 | ID | 风险 | 类型 | 影响 | 概率 | 缓解措施 | 关联文档 | 状态 |
 |---|---|---|---|---|---|---|---|
-| R-001 | paper / managed / live-ready 能力边界被用户误解 | 交易 | H | M | 所有交易相关 API 和页面必须标注能力等级，live-ready 前必须通过 checklist | `ASTOCK_API_CONTRACTS.md`, `ASTOCK_LIVE_TRADING_RUNBOOK.md`, `ASTOCK_RISK_DISCLOSURE_AND_COMPLIANCE.md` | open |
-| R-002 | QMT 订单、成交、撤单、拒单和券商回报 reconciliation 未闭环 | 交易 | H | M | Phase 30/35 先补订单生命周期、reconciliation、风控前置门和审计引用 | `ASTOCK_PRODUCT_OPTIMIZATION_ROADMAP.md`, `ASTOCK_REQUIREMENTS_TRACEABILITY_MATRIX.md` | open |
-| R-003 | 回测结果存在 look-ahead、survivorship、停牌/涨跌停成交假设不清 | 回测 | H | M | Phase 31 强制补数据假设、反偏差状态和回测可比性标记 | `ASTOCK_DATA_DICTIONARY_AND_LINEAGE.md`, `ASTOCK_TEST_ACCEPTANCE_PLAN.md` | open |
-| R-004 | 数据源 freshness、fallback、quality 不透明导致 AI/回测/交易误判 | 数据 | H | M | 所有数据输出纳入 source、freshness、quality、snapshot 标记 | `ASTOCK_DATA_DICTIONARY_AND_LINEAGE.md`, `ASTOCK_DATA_SOURCE_LICENSE_AND_USAGE.md` | open |
-| R-005 | AI 输出缺少模型、prompt、输入快照和引用，无法复查 | AI | M | M | Phase 33 统一 ResearchTask / ResearchAudit，AI 输出默认 advisory-only | `ASTOCK_MODEL_GOVERNANCE.md`, `ASTOCK_RISK_DISCLOSURE_AND_COMPLIANCE.md` | open |
-| R-006 | Strategy Lab 整合时策略 registry、API、WebUI、优化器注册点漂移 | 策略 | M | H | 强制遵守策略开发规范，新增策略只注册一次并补 contract/UI tests | `ASTOCK_STRATEGY_DEVELOPMENT_GUIDE.md`, `ASTOCK_TEST_ACCEPTANCE_PLAN.md` | open |
-| R-007 | WebUI 页面多入口、多语义导致用户心智混乱 | UI | M | H | Phase 38 收敛顶层导航，Market Leaders 最多一个入口，逐页验收 | `ASTOCK_WEBUI_PRODUCT_SPEC.md`, `ASTOCK_WEBUI_PAGE_ACCEPTANCE_CHECKLIST.md` | open |
+| R-001 | paper / managed / live-ready 能力边界被用户误解 | 交易 | H | M | 所有交易相关 API 和页面必须标注能力等级，live-ready 前必须通过 checklist | `ASTOCK_API_CONTRACTS.md`, `ASTOCK_LIVE_TRADING_RUNBOOK.md`, `ASTOCK_RISK_DISCLOSURE_AND_COMPLIANCE.md` | mitigating（Phase 30 已补能力定义 + Phase 35 done-with-exclusions） |
+| R-002 | QMT 订单、成交、撤单、拒单和券商回报 reconciliation 未闭环 | 交易 | H | M | Phase 30/35 先补订单生命周期、reconciliation、风控前置门和审计引用；真实券商 reconciliation 明确 P3 暂不处理 | `ASTOCK_PRODUCT_OPTIMIZATION_ROADMAP.md`, `ASTOCK_REQUIREMENTS_TRACEABILITY_MATRIX.md`, `docs/phases/phase-35-trading-execution-control.md` | accepted（P3 暂不处理，产品定位非实盘） |
+| R-003 | 回测结果存在 look-ahead、survivorship、停牌/涨跌停成交假设不清 | 回测 | H | M | Phase 31 已补数据假设、反偏差状态和回测可比性标记，后续持续维护 | `ASTOCK_DATA_DICTIONARY_AND_LINEAGE.md`, `ASTOCK_TEST_ACCEPTANCE_PLAN.md` | mitigating（Phase 31 已完成，需持续维护） |
+| R-004 | 数据源 freshness、fallback、quality 不透明导致 AI/回测/交易误判 | 数据 | H | M | Phase 31 已补 data quality tag、freshness/quality/fallback 标记 | `ASTOCK_DATA_DICTIONARY_AND_LINEAGE.md`, `ASTOCK_DATA_SOURCE_LICENSE_AND_USAGE.md` | mitigating（Phase 31 已完成，需持续维护） |
+| R-005 | AI 输出缺少模型、prompt、输入快照和引用，无法复查 | AI | M | M | Phase 33 已统一 ResearchTask / ResearchAudit，AI 输出默认 advisory-only | `ASTOCK_MODEL_GOVERNANCE.md`, `ASTOCK_RISK_DISCLOSURE_AND_COMPLIANCE.md` | mitigating（Phase 33 已完成，需持续维护） |
+| R-006 | Strategy Lab 整合时策略 registry、API、WebUI、优化器注册点漂移 | 策略 | M | H | Phase 32 已完成 Strategy Lab 统一入口 + BacktestResult schema + optimizer；强制遵守策略开发规范 | `ASTOCK_STRATEGY_DEVELOPMENT_GUIDE.md`, `ASTOCK_TEST_ACCEPTANCE_PLAN.md` | closed（Phase 32 完成整合） |
+| R-007 | WebUI 页面多入口、多语义导致用户心智混乱 | UI | M | H | Phase 38 已完成 7 模块顶层导航收敛 + 旧入口 redirect + deprecation banner | `ASTOCK_WEBUI_PRODUCT_SPEC.md`, `ASTOCK_WEBUI_PAGE_ACCEPTANCE_CHECKLIST.md` | closed（Phase 38 完成导航收敛） |
 | R-008 | DuckDB/cache/schema 变化破坏历史回测、报告或页面兼容 | 数据迁移 | M | M | schema 变化必须补迁移、校验、cache 重建和回滚说明 | `ASTOCK_DATA_MIGRATION_AND_UPGRADE.md`, `ASTOCK_RELEASE_AND_CHANGE_MANAGEMENT.md` | open |
-| R-009 | Phase 文档与真实代码状态漂移，导致后续开发依据不可靠 | 项目管理 | M | M | 每个 phase 必须补需求 ID、测试证据、风险、commit SHA，当前状态只写 `ASTOCK_CURRENT_STATUS.md` | `README.md`, `ASTOCK_REQUIREMENTS_TRACEABILITY_MATRIX.md` | mitigating |
+| R-009 | Phase 文档与真实代码状态漂移，导致后续开发依据不可靠 | 项目管理 | M | M | 已完成两次文档批量同步（commit 42fe893 + 4ad8c3e），当前状态已对齐；后续 phase 变更后需同步维护 | `README.md`, `ASTOCK_REQUIREMENTS_TRACEABILITY_MATRIX.md` | closed（文档已对齐，后续维护模式下持续） |
 | R-010 | 原 TradingAgents core 被误改，破坏底层 AI 分析能力 | 架构 | H | L | 保留原 core，新增 A 股能力只改后来新增模块，必要兼容修复需 ADR 记录 | `ASTOCK_ARCHITECTURE_DECISION_RECORDS.md`, `ASTOCK_BOUNDARY_AND_UI_REFACTOR_PLAN.md` | open |
 
 ## 3. 风险更新规则
