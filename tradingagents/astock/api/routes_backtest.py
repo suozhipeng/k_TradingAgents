@@ -181,6 +181,7 @@ def run_backtest() -> tuple[Response, int]:
             "periods": result.periods,
             "fee_config_used": result.fee_config_used,
             "execution_signal": result.execution_signal,
+            "data_assumption": result.data_assumption,
         }
         return jsonify(payload), 200
     except Exception as exc:
