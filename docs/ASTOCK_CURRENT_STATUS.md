@@ -1,6 +1,6 @@
 # A 股二次定制开发基线
 
-| 更新时间：2026-06-26（docs drift cleanup — 测试数/API版本/环境状态已同步） |
+| 更新时间：2026-06-27（P0 bias 已修复，GA/StockFlow/Portfolio/WFA/Phase36 已提交） |
 
 本文档是 A 股二次定制开发的当前事实基线。后续 Hermes 调度、ECC
 验收和阶段推进优先以本文档为准。
@@ -163,17 +163,26 @@ Phase 11 执行层增加了额外的安全边界：
 - **数据健康页**（data_health.html）：数据源状态监控面板
 - **WebUI 模板规模**：25 个 HTML 模板（23 个页面模板 + 2 个基础模板）
 - **NaN 全路径防御**：adapters.py _coerce_float 修复、routes_data.py _clean_nan() 模块级防护、backtest 结果清洗
+- **GA 遗传算法优化器**：SBX 交叉 + 多项式变异 + 锦标赛选择 + 精英保留，自动推断参数类型，评估量 = pop_size × generations
+- **PortfolioStrategyBase 组合策略基类**：MomentumRotationStrategy 继承实现，BacktestEngine.run_portfolio() 支撑
+- **StockFlow 图执行链**：4 种信号组合模式（and/or/majority/cascade），10 策略 lazy-resolve，权重可调
+- **MarketAnalyzer 无 Store 依赖**：analyze_regime_from_df() 直接在 OHLCV DF 上运行，4 维度分析，BacktestEngine 集成
+- **WalkForwardAnalyzer**：rolling/expanding 窗口，overfit_gap + param_stability 输出，WebUI Tab5 集成
+- **Metrics 内建清洗**：_sanitize_metric_value() 统一过滤 NaN/Inf/Extreme，路由层降级为安全网
+- **全部 10 策略 Inf 消杀**：.replace([np.inf, -np.inf], np.nan).fillna(0) 替代原有的 .fillna(0)
+- **fetch_multi_stock_prices()**：baostock 光标模式优先（~3s/23 只），AStockDataFacade 降级
+- **涨跌停精度修正**：普通 0.0995, ST 0.0495，_is_at_price_limit 改用 prev_close 参数
 
-## 4. 当前状态快照（2026-06-26）
+## 4. 当前状态快照（2026-06-27）
 
 ### 基本信息
-- **分支**: `xg_dev`，当前领先 `origin/xg_dev`（ahead = `8`）
-- **工作区**: 干净（仅含 .hermes/dev-loop.yaml 本地状态跟踪文件）
-- **验证环境**: `.venv` 使用 Python 3.12.13（uv 管理），26 个 phase 验证测试通过
+- **分支**: `xg_dev`，当前领先 `origin/xg_dev`（ahead = `4`）
+- **工作区**: 干净（GA/StockFlow/Portfolio/WFA + P0 bias 修复 + Phase 36 已提交）
+- **验证环境**: 系统 `Python 3.13.9`
 - **测试**:
   - 定向阶段验证：`python3 -m pytest tests/test_astock_phase31.py tests/test_astock_phases_33_38.py -q` -> `26 passed`
-  - 全量文件基线：覆盖 `65` 个测试文件，合计 `1033` tests collected
-  - 当前完整结果：`1017 passed, 16 skipped, 0 failed`
+  - 全量文件基线：覆盖 `62` 个测试文件，合计 `1035` tests collected
+  - 当前完整结果：`1019 passed, 13 skipped, 2 failed`（2 外部数据源不可用）
   - 跳过项主要来自 `tests/test_astock_live_providers.py`（需 `ASTOCK_RUN_LIVE_TESTS=1`）、`tests/test_astock_ppt.py`（本机未安装 `python-pptx`）、`tests/test_astock_store.py`（需 `TEST_PYDANTIC_BT=1`）、`tests/test_deepseek_reasoning.py` 的真实联网调用（当前环境不可达时自动 skip）
 - **WebUI / API 规模**:
   - `tradingagents/astock/web/templates/` 下共 `25` 个 HTML 模板，其中 `23` 个页面模板、`2` 个基础模板

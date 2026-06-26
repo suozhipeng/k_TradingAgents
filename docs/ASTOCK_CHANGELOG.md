@@ -3,6 +3,31 @@
 遵循 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 格式。
 A 股定制部分使用独立的 `A-X.Y.Z` 版本号，与原 TradingAgents 的 `0.X.Y` 版本并行管理。
 
+## [A-0.2.0] — 2026-06-27
+
+### 新增
+- GA 遗传算法优化器（SBX 交叉 + 多项式变异 + 锦标赛选择 + 精英保留）
+- PortfolioStrategyBase 组合策略基类 + MomentumRotationStrategy
+- StockFlow 图执行链（and/or/majority/cascade 4 种模式）
+- MarketAnalyzer 无 Store 依赖：analyze_regime_from_df() + BacktestEngine 集成
+- WalkForwardAnalyzer（rolling/expanding 窗口，overfit_gap + param_stability）
+- WebUI Strategy Hub Tab5 Walk-Forward 分析面板
+- Metrics 内建清洗 _sanitize_metric_value()
+- fetch_multi_stock_prices() 批量数据获取（baostock 光标模式优先）
+
+### 修复
+- 全部 10 策略 Inf 消杀（.replace([np.inf, -np.inf], np.nan).fillna(0)）
+- 涨跌停精度修正：普通 0.0995, ST 0.0495
+- _is_at_price_limit 改用 prev_close 参数而非 period_data iloc[-2]
+- 路由层 _sanitize_metrics 降级为安全网（主清洗已内建于 metrics.py）
+- 移除废弃的 test_astock_phase32.py
+
+### 测试
+- 20 个新 optimizer 测试（GA + WFA + 网格兼容）
+- 6 个 StockFlow 测试
+- 全部策略 Inf 消杀 + 参数传递测试
+- 1021 collected, 1002 passed baseline
+
 ## [A-0.1.0] — 2026-06-23
 
 ### 新增

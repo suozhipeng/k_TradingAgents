@@ -1,48 +1,46 @@
 # .hermes/dev-loop.yaml
-project: 'P1 Fix Loop — 5 items from project audit (items 2-6)'
-started_at: '2026-06-26T13:00:00+08:00'
+project: 'Phase 36 — Portfolio Risk & Attribution 闭环'
+started_at: '2026-06-27T01:00:00+08:00'
 phase: done
-current_task_index: 4
+current_task_index: -1
 
 tasks:
   - id: 1
-    description: '更新 TODO 文档 — 确认 Phase 31-07/08 bias 前端已实现(commit 27cfd60), 标记 [x] + commit SHA'
-    status: done
-    commit_sha: e9ae75b
-    review_verdict: 'opencode: accept, Codex: accept'
-    notes: 'strategy_hub.html 已有 bias flags 展示(survivorship/look-ahead), 已标记完成'
+    description: 'GA 遗传算法优化器 (StrategyOptimizer method="genetic")'
+    status: committed
+    commit_sha: a1d96ea
 
   - id: 2
-    description: 'Phase 34 tab 收口 — 旧页面收敛为 market_leaders 内部 tab + deprecation banner'
-    status: done
-    commit_sha: 97db066
-    review_verdict: 'opencode: accept, Codex: accept'
-    notes: '所有5个旧页面已带legacy_redirect banner, TODO文档已更新'
+    description: 'PortfolioStrategyBase + MomentumRotationStrategy'
+    status: committed
+    commit_sha: a1d96ea
 
   - id: 3
-    description: 'Phase 38 文档同步 — 跨文档数字口径漂移检查并修复'
-    status: done
-    commit_sha: 49f37f0
-    review_verdict: 'opencode: accept, Codex: accept'
-    notes: 'API modules 14→16, handlers 57→62, 版本号一致'
+    description: 'StockFlow 图执行链 (and/or/majority/cascade)'
+    status: committed
+    commit_sha: a1d96ea
 
   - id: 4
-    description: 'Phase 36/37 深层能力 — VaR计算/行业暴露/绩效归因 + 审计持久化'
-    status: done
-    commit_sha: 1da59aa
-    review_verdict: 'opencode: accept, Codex: accept'
-    notes: 'portfolio_risk.py/audit_store.py 已全部实装, 仅需文档更新'
+    description: 'MarketAnalyzer 无 Store 依赖 + BacktestEngine auto_regime'
+    status: committed
+    commit_sha: a1d96ea
 
   - id: 5
-    description: 'webui/ 清理 — 标注实验状态 + 添加 README + 完善未连接组件'
-    status: done
-    commit_sha: ded5d99
-    review_verdict: 'opencode: accept, Codex: accept'
-    notes: 'README.md + BacktestChart/KlineChart 接线 + i18n'
+    description: 'WalkForwardAnalyzer + WebUI Tab5'
+    status: committed
+    commit_sha: a1d96ea
 
-next_actions:
-  - '任务 1: TODO doc 更新 → 验证 bias 前端已存在'
-  - '任务 2: Phase 34 tab 收口'
-  - '任务 3: Phase 38 文档同步'
-  - '任务 4: Phase 36/37 深层能力'
-  - '任务 5: webui/ 清理'
+  - id: 6
+    description: 'Metrics 内建清洗 + 10 策略 Inf 消杀 + 涨跌停精度修正'
+    status: committed
+    commit_sha: a1d96ea
+
+  - id: 7
+    description: 'P0 Bias frontend — API data_assumption 修复'
+    status: committed
+    commit_sha: 518a3b4
+
+  - id: 8
+    description: 'Phase 36 Portfolio Risk & Attribution — VaR/风险敞口/归因'
+    status: committed
+    commit_sha: 854d25a
