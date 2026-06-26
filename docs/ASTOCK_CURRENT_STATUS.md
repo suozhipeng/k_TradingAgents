@@ -1,6 +1,6 @@
 # A 股二次定制开发基线
 
-|更新时间：2026-06-26（按当前代码、Git 状态与本次验证结果同步）|
+| 更新时间：2026-06-26（docs drift cleanup — 测试数/API版本/环境状态已同步） |
 
 本文档是 A 股二次定制开发的当前事实基线。后续 Hermes 调度、ECC
 验收和阶段推进优先以本文档为准。
@@ -169,17 +169,17 @@ Phase 11 执行层增加了额外的安全边界：
 ### 基本信息
 - **分支**: `xg_dev`，与 `origin/xg_dev` 当前同步（ahead/behind = `0/0`）
 - **工作区**: 非干净；当前仅见未提交修改 `.hermes/dev-loop.yaml`
-- **验证环境**: 仓库 `.venv` 已失效，`./.venv/bin/python3.10` 不存在；本次改用系统 `Python 3.13.9`
+- **验证环境**: `.venv` 使用 Python 3.12.13（uv 管理），26 个 phase 验证测试通过
 - **测试**:
   - 定向阶段验证：`python3 -m pytest tests/test_astock_phase31.py tests/test_astock_phases_33_38.py -q` -> `26 passed`
-  - 全量文件基线：覆盖 `63` 个测试文件，合计 `1033` tests collected
-  - 当前完整结果：`1019 passed, 14 skipped, 0 failed`
+  - 全量文件基线：覆盖 `65` 个测试文件，合计 `1033` tests collected
+  - 当前完整结果：`1017 passed, 16 skipped, 0 failed`
   - 跳过项主要来自 `tests/test_astock_live_providers.py`（需 `ASTOCK_RUN_LIVE_TESTS=1`）、`tests/test_astock_ppt.py`（本机未安装 `python-pptx`）、`tests/test_astock_store.py`（需 `TEST_PYDANTIC_BT=1`）、`tests/test_deepseek_reasoning.py` 的真实联网调用（当前环境不可达时自动 skip）
 - **WebUI / API 规模**:
   - `tradingagents/astock/web/templates/` 下共 `25` 个 HTML 模板，其中 `23` 个页面模板、`2` 个基础模板
   - `tradingagents/astock/web/__init__.py` 当前暴露 `28` 个 Web route（含旧入口 redirect / alias）
   - `tradingagents/astock/api/routes_*.py` 当前共 `14` 个 routes 模块、`57` 个 Flask REST API handler
-  - `tradingagents/astock/api/__init__.py` 健康端点返回版本 `0.1.0`（注意：与 pyproject.toml 的 `0.2.5` 不一致）
+  - `tradingagents/astock/api/__init__.py` 健康端点返回版本 `0.2.5`（注意：与 pyproject.toml 的 `0.2.5` 不一致）
 - **交付阶段**: Phase 0-33 主体完成；Phase 34-38 均已有代码落地，但仍需按产品闭环标准继续收口
 
 ### 已完成或已落地主路径的核心能力
@@ -226,7 +226,7 @@ Phase 11 执行层增加了额外的安全边界：
 1. **代码交付层**：A 股投研、回测、模拟盘、受控执行、Market Leaders、Portfolio、Ops Audit、导航收敛都已有落地代码，不应再按“尚未实现”表述。
 2. **产品闭环层**：Phase 34-38 仍存在兼容入口、环境验证失效、审计/归因/实盘语义未闭环等问题，不能直接等同于“产品闭环完成”。
 
-整体来看，当前 HEAD 已可表述为：**代码层全量测试在当前环境下稳定通过（1019 passed, 14 skipped, 0 failed）**，且具备**投研分析 + 回测验证 + 模拟盘试跑 + 受控执行入口**的主干能力；但产品与实盘闭环仍未完成。
+整体来看，当前 HEAD 已可表述为：**代码层全量测试在当前环境下稳定通过（1017 passed, 16 skipped, 0 failed）**，且具备**投研分析 + 回测验证 + 模拟盘试跑 + 受控执行入口**的主干能力；但产品与实盘闭环仍未完成。
 
 ---
 

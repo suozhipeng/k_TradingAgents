@@ -180,7 +180,7 @@ curl -X POST http://localhost:8080/api/v1/data/refresh/all
 
 ### 8.2 K 线图
 
-- 支持 6 种周期：1m/5m/30m/60m/日/周/月
+- 支持 7 种周期：1m/5m/30m/60m/日/周/月
 - 27 个技术指标
 - 17 种画线工具
 
