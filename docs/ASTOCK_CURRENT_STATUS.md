@@ -111,7 +111,7 @@ Phase 11 执行层增加了额外的安全边界：
 | 35 | Trading Execution Control — 交易执行控制 | 完成（done-with-exclusions：schema + trade/QMT/UI 接线已落地，真实券商 reconciliation 明确 P3 暂不处理） |
 | 36 | Portfolio Risk & Attribution — 组合风险与归因 | 完成（VaR 95/HHI 集中度/Brinson 归因/压力测试/前端展示） |
 | 37 | Ops & Audit Center — 运维审计中心 | 完成（AuditStore 内存+DuckDB 持久化/API/前端事件日志） |
-| 38 | Product Navigation Cleanup — 产品导航清理 | 完成（7 模块 sidebar + 旧入口 redirect + 文档口径同步 + 数字漂移已消除） |
+| 38 | Product Navigation Cleanup — 产品导航清理 | 完成（8 模块 sidebar + Portfolio 入口 + 文档数字已同步） |
 
 ## 4. 已完成能力
 
@@ -187,7 +187,7 @@ Phase 11 执行层增加了额外的安全边界：
 - **WebUI / API 规模**:
   - `tradingagents/astock/web/templates/` 下共 `25` 个 HTML 模板，其中 `23` 个页面模板、`2` 个基础模板
   - `tradingagents/astock/web/__init__.py` 当前暴露 `28` 个 Web route（含旧入口 redirect / alias）
-  - `tradingagents/astock/api/routes_*.py` 当前共 `16` 个 routes 模块、`62` 个 Flask REST API handler
+  - `tradingagents/astock/api/routes_*.py` 当前共 `16` 个 routes 模块、`64` 个 Flask REST API handler
   - `tradingagents/astock/api/__init__.py` 健康端点返回版本 `0.2.5`（与 pyproject.toml 一致）
 - **交付阶段**: Phase 0-38 主体完成；Phase 35（真实券商闭环）已明确标注 P3 暂不处理
 
