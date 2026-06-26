@@ -221,14 +221,14 @@ def market_leaders() -> str:
 
 @bp.route("/momentum_dashboard")
 def momentum_dashboard() -> str:
-    """Streamlit 嵌入版决策看板"""
-    return render_template("momentum_dashboard.html")
+    """旧入口 — 已迁移到 /market_leaders"""
+    return render_template("momentum_dashboard.html", legacy_redirect="/market_leaders")
 
 
 @bp.route("/momentum_standalone")
 def momentum_standalone() -> str:
     """经典 Jinja2 版决策看板（无 Streamlit 依赖）"""
-    return render_template("momentum_dashboard.html")
+    return render_template("momentum_dashboard.html", legacy_redirect="/market_leaders")
 
 
 @bp.route("/portfolio")

@@ -6,11 +6,11 @@ current_task_index: 0
 
 tasks:
   - id: 1
-    description: '更新 TODO 文档 — 确认 Phase 31-07/08 bias 前端已实现(commit 22f2a71), 标记 [x] + commit SHA'
-    status: pending
-    commit_sha: ~
-    review_verdict: ~
-    notes: 'strategy_hub.html 已有 bias flags 展示(survivorship/look-ahead), backtest.html 已被 strategy_hub 取代'
+    description: '更新 TODO 文档 — 确认 Phase 31-07/08 bias 前端已实现(commit 27cfd60), 标记 [x] + commit SHA'
+    status: done
+    commit_sha: e9ae75b
+    review_verdict: 'opencode: accept, Codex: accept'
+    notes: 'strategy_hub.html 已有 bias flags 展示(survivorship/look-ahead), 已标记完成'
 
   - id: 2
     description: 'Phase 34 tab 收口 — 旧页面(momentum_rotation/dragon_tiger/northbound/sectors) 收敛为 market_leaders 内部 tab'

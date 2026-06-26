@@ -78,7 +78,8 @@
 ## Phase 34 — Market Leaders
 - [x] `/market_leaders` 单入口已落地
 - [x] 顶层 sidebar 已收敛为单一 Market Leaders 入口
-- [ ] 旧页面 (`momentum_rotation` / `dragon_tiger` / `northbound` / `sectors`) 仍保留兼容访问，尚未完全收口为单页面内部 tab
+- [x] 旧页面 (`momentum_rotation` / `dragon_tiger` / `northbound` / `sectors` / `momentum_dashboard`) 带 legacy_redirect banner 指向 /market_leaders
+- [x] market_leaders.html 内部 iframe tab 切换 5 个子板块
 
 ---
 
