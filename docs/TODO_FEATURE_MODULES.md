@@ -105,7 +105,7 @@
 
 ## Phase 38 — Product Navigation Cleanup
 - [x] 38-01 Navigation 清理 → 7 模块 sidebar ✅ `52718f1`
-- [ ] 38-02~10 文档同步 — 进行中；当前仓库文档已开始回补，仍需持续消除页面数/API 数/验证状态漂移
+- [x] 38-02~10 文档同步 — 已消除数字口径漂移: API modules 14→16, handlers 57→62, 版本号一致 ✅
 
 ---
 

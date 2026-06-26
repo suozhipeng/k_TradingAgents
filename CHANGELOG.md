@@ -41,7 +41,7 @@ Breaking changes within the 0.x line are called out explicitly.
 - **Phase 10** — 回测与模拟盘（completed）
 - **Phase 0–9** — 只读研究与展示链路（completed）
 
-当前代码规模：25 个 WebUI 模板 / 28 个 Jinja2 页面、57 个 Flask REST API handler、14 个 routes 模块。
+当前代码规模：25 个 WebUI 模板 / 28 个 Jinja2 页面、62 个 Flask REST API handler、16 个 routes 模块。
 
 ---
 

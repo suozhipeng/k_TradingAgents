@@ -1,6 +1,6 @@
 # A 股实盘运行手册
 
-| 更新时间：2026-06-23 |
+| 更新时间：2026-06-26 |
 
 本文定义 TradingAgents-Astock 从研究/模拟/受控执行进入实盘辅助运行时的操作手册。当前系统尚不等同于完整自动实盘生产系统；任何真实执行必须先通过 Phase 30 Live Trading Readiness。
 
@@ -14,6 +14,13 @@
 | `live-ready` | 满足准入清单后的实盘准备状态 | 仅在 checklist 全部通过后允许标记 |
 
 默认模式不得高于 `managed`。
+
+当前仓库口径（2026-06-26）：
+
+- `research`：只读研究。
+- `paper`：当前 `/api/v1/trade/order`、`/api/v1/trade/state`、`/api/v1/paper/*` 的真实落点。
+- `managed`：当前仅有 QMT mock/read-only 与受控执行设计，不等于已打通真实下单。
+- `live-ready`：当前仍是准入目标，不是可默认切换到的可运行模式。
 
 ## 2. 启动前检查
 
@@ -39,6 +46,7 @@
 - 风控门状态可见。
 - paper/managed/live-ready 视觉和文案区分。
 - QMT 不可用时自动降级或阻断，不得伪装成功。
+- 若页面允许切换 `live`/`managed` 文案，必须同时说明后端是否真正落到该执行链路。
 
 ## 3. 实盘准入 checklist
 
@@ -55,6 +63,20 @@
 - 故障恢复和回滚流程已验证。
 
 不满足任一项时，不得标记 `live-ready`。
+
+## 3.1 Phase 30 结论
+
+当前 Phase 30 的完成含义是：
+
+- 已把 `research` / `paper` / `managed` / `live-ready` 的能力边界写清楚。
+- 已确认当前 `trade/order` 和 `trade/state` 仍属 `paper`。
+- 已确认 QMT 端点当前只能按 `managed` 的 mock/read-only 口径对外描述。
+
+当前 Phase 30 不代表：
+
+- 交易 API 已全部升级到标准 envelope。
+- `/trade/order` 已支持真实 managed 或 live-ready 下单。
+- QMT 账户、委托、成交、回报对账已经闭环。
 
 ## 4. 日常运行流程
 

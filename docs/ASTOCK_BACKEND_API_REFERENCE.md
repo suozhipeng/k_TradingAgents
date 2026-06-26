@@ -1,13 +1,14 @@
 # A 股后台 API 文档
 
-| 更新时间：2026-06-24 |
+| 更新时间：2026-06-26 |
 
 本文梳理 TradingAgents-Astock 当前后台 API、所属模块、数据源、能力等级、真实/模拟边界和测试验收。`docs/ASTOCK_API_CONTRACTS.md` 定义 API 规范；本文列出现有与 Phase 30-38 目标 API 清单。
 
 ## 1. API 通用约定
 
 - 基础前缀：`/api/v1`
-- 能力等级：`research` / `paper` / `managed` / `live-ready` / `mock`
+- 能力等级：`research` / `paper` / `managed` / `live-ready`
+- `mock` 只作为 `source`、`mock_mode` 或降级标签，不单独作为顶层 capability。
 
 ## 2. 请求/响应示例
 
@@ -260,18 +261,19 @@ curl -X GET "http://localhost:8080/api/v1/kline?symbol=INVALID&start=2025-01-01"
 | `/api/v1/paper/cycle` | POST | 模拟盘周期 | paper | PaperTrader + 策略/行情 | 已实现 | `tests/test_astock_paper_trader.py` |
 | `/api/v1/paper/state` | GET | 模拟盘状态 | paper | PaperTrader | 已实现 | `tests/test_astock_paper_trader.py` |
 | `/api/v1/paper/trades` | GET | 模拟盘交易 | paper | PaperTrader | 已实现 | `tests/test_astock_paper_trader.py` |
-| `/api/v1/trade/order` | POST | 下单入口 | paper / managed | PaperTrader / managed bridge | 已实现，需强化 capability | `tests/test_astock_api.py` |
-| `/api/v1/trade/quote` | GET | 实时报价 | research / paper | Sina -> EastMoney -> cache | 已实现 | `tests/test_astock_api.py` |
-| `/api/v1/trade/state` | GET | 交易状态 | paper | PaperTrader + live quote 估值 | 已实现，非真实账户 | `tests/test_astock_api.py` |
-| `/api/v1/qmt/health` | GET | QMT 健康 | managed | QMT bridge / mock-read-only | 已实现 | `tests/test_astock_qmt_bridge.py` |
-| `/api/v1/qmt/positions` | GET | QMT 持仓 | managed | QMT bridge / read-only | 已实现 | `tests/test_astock_qmt_bridge.py` |
-| `/api/v1/qmt/orders` | GET | QMT 订单 | managed / mock | 当前仍需能力口径收口 | 已实现但需 Phase 30/35 修正 | `tests/test_astock_qmt_execution.py` |
+| `/api/v1/trade/order` | POST | 下单入口 | paper | 当前固定走 PaperTrader；请求里的 `mode` 不改变真实执行链路 | 已实现；managed/live-ready 仅为后续 contract 目标 | `tests/test_astock_api.py` |
+| `/api/v1/trade/quote` | GET | 实时报价 | research | Sina -> EastMoney -> cache -> synthetic mock | 已实现；供 paper 页面估值复用，但不代表执行能力 | `tests/test_astock_api.py` |
+| `/api/v1/trade/state` | GET | 交易状态 | paper | PaperTrader + live quote 估值 | 已实现，非真实账户；不返回券商账户状态 | `tests/test_astock_api.py` |
+| `/api/v1/qmt/health` | GET | QMT 健康 | managed | QMT bridge / mock-read-only | 已实现；默认 `mock_mode=true` | `tests/test_astock_qmt_bridge.py` |
+| `/api/v1/qmt/positions` | GET | QMT 持仓 | managed | QMT bridge / read-only | 已实现；默认 `mock_mode=true` | `tests/test_astock_qmt_bridge.py` |
+| `/api/v1/qmt/orders` | GET | QMT 账户/订单占位信息 | managed | 当前返回账户资产快照样式数据，默认 `mock_mode=true` | 已实现但仍需 Phase 35 语义收口 | `tests/test_astock_qmt_execution.py` |
 
 目标补充：
 
 - Phase 30：所有交易 API 返回 capability、risk_status、confirmation_status。
 - Phase 35：补 Order / Fill / Position / Reconciliation schema。
 - QMT 真实数据不纳入本文真实数据源要求。
+- 当前源码事实：`/trade/order` 尚未接入 managed/live-ready 真实执行；`/trade/state`、`/paper/*` 仍是 paper 语义；QMT 端点仍以 mock/read-only 为主。
 
 ## 10. SSE / Ops API
 

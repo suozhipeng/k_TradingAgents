@@ -1,16 +1,24 @@
 # A 股 API 契约文档
 
-| 更新时间：2026-06-23 |
+| 更新时间：2026-06-26 |
 
 本文定义 TradingAgents-Astock 的生产级 API 契约要求。当前代码中的具体端点以实现为准；本文用于约束后续 Phase 30-38 的接口口径、能力等级、错误语义和验收要求。
 
 ## 1. API 总原则
 
 - 所有 API 必须标注能力等级：`research`、`paper`、`managed`、`live-ready`。
+- `mock` 不是顶层能力等级；它只用于描述 `source`、`mock_mode` 或降级实现状态。
 - 所有 API 响应必须包含稳定的 `success`、`data`、`error`、`meta` 结构，或在 phase 文档中说明兼容例外。
 - 不能把 mock、paper、managed 响应描述成真实实盘。
 - 交易相关 API 必须返回风控状态、确认状态和审计引用。
 - 回测、AI、数据刷新等长任务必须返回 task id，并进入 Ops/Audit 追踪。
+
+## 1.1 Phase 30 口径结论
+
+- `research`：只读研究、行情查询、报告与页面展示，不产生真实下单能力。
+- `paper`：虚拟资金、虚拟成交、虚拟持仓；当前 `/api/v1/trade/order`、`/api/v1/trade/state`、`/api/v1/paper/*` 均属于此类。
+- `managed`：受控执行口径，要求风控门、人工确认、QMT 桥接和可追溯审计；当前仓库只具备雏形和 mock/read-only 入口。
+- `live-ready`：准入状态，不是默认运行模式；只有 checklist、审计、回报对账和回滚链路全部闭合后才允许声明。
 
 ## 2. 标准响应 envelope
 
@@ -104,6 +112,42 @@
 | `generated_at` | datetime | 是 | 生成时间 |
 | `data_snapshot_id` | string | 否 | 数据快照 ID |
 | `audit_event_id` | string | 否 | 审计事件 ID |
+
+### 5.1A TradingMode
+
+| 字段 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| `mode` | enum | 是 | `research` / `paper` / `managed` / `live-ready` |
+| `is_default` | bool | 否 | 是否默认模式 |
+| `requires_human_confirmation` | bool | 否 | 是否要求人工确认 |
+| `allows_real_broker_order` | bool | 否 | 是否允许真实券商下单 |
+| `ui_status` | enum | 否 | `enabled` / `disabled` / `mock` / `degraded` |
+
+模式解释：
+
+- `research`：只读，不显示真实下单能力。
+- `paper`：允许虚拟下单，但必须明确 `actionable=false` / `ResearchOnly` 研究语义。
+- `managed`：允许受控执行，但必须有风控、人工确认、审计和桥接状态。
+- `live-ready`：仅代表通过准入，不代表默认自动实盘。
+
+### 5.1B ExecutionCapability
+
+| 字段 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| `capability` | enum | 是 | `research` / `paper` / `managed` / `live-ready` |
+| `mock_mode` | bool | 否 | 当前是否为 mock 或只读桩实现 |
+| `effective_mode` | enum | 否 | 当前请求真正落到的运行模式 |
+| `risk_status` | enum | 否 | `pending` / `allowed` / `blocked` |
+| `confirmation_status` | enum | 否 | `not_required` / `pending` / `confirmed` / `rejected` |
+| `execution_signal` | string | 否 | 如 `ResearchOnly` |
+| `decision_scope` | string | 否 | 如 `paper_trading_only` / `risk_gate_only` |
+| `audit_event_id` | string | 否 | 审计引用 |
+
+Phase 30 约束：
+
+- capability 用于表达“产品口径允许到哪一层”。
+- `mock_mode` / `source=mock` 用于表达“当前实现是否仍是桩或降级”。
+- `effective_mode` 用于表达“本次请求实际落到哪条执行链路”；例如页面传 `live`，若后端仍落到 PaperTrader，则必须写明 `effective_mode=paper`。
 
 ### 5.2 TaskRun
 

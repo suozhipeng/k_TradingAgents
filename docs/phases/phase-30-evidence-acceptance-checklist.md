@@ -1,5 +1,7 @@
 # Phase 30 — 交易页页面验收清单
 
+说明：本文件是 Phase 30 的“能力语义核对”证据，不等同于所有 UI 文案都已完全产品化收口。
+
 ## 页面级验收要求
 
 每个交易相关页面必须通过以下状态验收。需要截图（或替代证据）记录每个状态。
@@ -8,12 +10,12 @@
 
 | 验收点 | 输入条件 | 预期输出 | 状态 |
 |--------|----------|----------|------|
-| 成功态 | 正常加载 PaperTrader | 显示持仓、现金余额、盈亏 | ✅ 通过（162 tests passed） |
+| 成功态 | 正常加载 PaperTrader | 显示持仓、现金余额、盈亏 | ✅ 通过（`/trade/state` + `PaperTrader` 语义已核对） |
 | 空态 | 无持仓、无成交 | 显示"暂无持仓"占位 | ✅ 通过（routes_trade 空态返回空列表） |
 | 错误态 | PaperTrader 不可用 | 显示错误提示 | ✅ 通过（错误处理逻辑已验证） |
-| 降级态 | 行情源不可用 | 显示 "quotes unavailable" | ✅ 通过（fallback 链路已验证） |
-| 能力等级 | 页面应标注 "Paper Trading（模拟交易）" | 而非 "Trading" | ✅ 通过（trading.html 已标注） |
-| kill switch | kill switch 激活后，下单按钮禁用 | 显示 "全局紧急停止已激活" | ✅ 通过（kill_switch.py 已实现） |
+| 降级态 | 行情源不可用 | 回落到 `source=mock` 或 cache，而非真实报价 | ✅ 通过（`routes_trade.py` 已核对） |
+| 能力等级 | 默认模式应明确为 paper | 页面 title 仍是 `交易 Trading`，但 mode switch 默认 `📝 Paper Trading — 模拟盘模式` | ⚠️ 部分通过（标题仍待后续产品收口） |
+| kill switch | kill switch 激活后，下单按钮禁用 | 显示阻断信息 | ⚠️ 文档口径已定义；本文件未新增独立截图证据 |
 
 ### Paper 页面（`paper.html`）
 
@@ -59,8 +61,8 @@
 |--------|----------|----------|------|
 | 缓存命中 | 同 symbol 60 秒内二次请求 | source=cache | ✅ 通过 |
 | 实时拉取 | 新 symbol 或缓存过期 | source=live | ✅ 通过 |
-| 降级 | EastMoney 失败 | 自动 fallback 到 Sina | ✅ 通过 |
-| 无数据 | 无效 symbol | 503 + source=none | ✅ 通过 |
+| 降级 | 实时源失败 | 自动 fallback 到 cache 或 synthetic mock | ✅ 通过 |
+| 无数据 | 实时源与缓存都不可用 | 仍返回 200 + `source=mock` | ✅ 通过 |
 
 ### `GET /api/v1/trade/state`
 
@@ -73,8 +75,10 @@
 
 ## 证据要求
 
-- ✅ 代码验证：162 Web + API 测试全部通过
-- ✅ 回归测试：1033 tests → 1015 passed, 16 skipped, 2 failed（停牌检测 wiring 已修复）
+- ✅ Phase 30 最小验收：`tests/test_astock_paper_trader.py -q` -> `24 passed`
+- ✅ Phase 30 最小验收：`tests/test_astock_execution_risk_gate.py -q` -> `10 passed`
+- ✅ Phase 30 最小验收：`tests/test_astock_api.py -q` -> `47 passed`
+- ⚠️ 本文件不再复用全仓测试总数，避免与当前基线漂移
 
 ---
 **Commit SHA**: fd3e7fd

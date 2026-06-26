@@ -13,11 +13,11 @@ tasks:
     notes: 'strategy_hub.html 已有 bias flags 展示(survivorship/look-ahead), 已标记完成'
 
   - id: 2
-    description: 'Phase 34 tab 收口 — 旧页面(momentum_rotation/dragon_tiger/northbound/sectors) 收敛为 market_leaders 内部 tab'
-    status: pending
-    commit_sha: ~
-    review_verdict: ~
-    notes: '评估收敛方式: redirect vs iframe vs 内容嵌入'
+    description: 'Phase 34 tab 收口 — 旧页面收敛为 market_leaders 内部 tab + deprecation banner'
+    status: done
+    commit_sha: 97db066
+    review_verdict: 'opencode: accept, Codex: accept'
+    notes: '所有5个旧页面已带legacy_redirect banner, TODO文档已更新'
 
   - id: 3
     description: 'Phase 38 文档同步 — 跨文档数字口径漂移检查并修复'

@@ -103,7 +103,7 @@ Phase 11 执行层增加了额外的安全边界：
 | 27 | 统一数据清洗层 (DataCleaner) — 全路径 NaN→None 清理, _coerce_float 修复, _parse_financials 修复 | 完成 |
 | 28 | 动量决策终端 / 动量轮动独立看板 / 龙虎榜 / 北向资金 / 数据健康页面 — 5 个新增 WebUI 页面 | 完成 |
 | 29 | 专业交易页 — TradingView 风格交易控制台, 实时报价, 订单面板, KLineChart, 仓位管理, PaperTrader 桥接 | 完成 |
-| 30 | Live Trading Readiness — 实盘准入清单与证据 | planned |
+| 30 | Live Trading Readiness — 实盘准入清单与证据 | 完成（口径/文档/证据归档完成；接口标准化与真实券商闭环仍在后续 phase） |
 | 31 | Data Quality & Bias Control — 数据质量与回测反偏差 | 部分完成（31-03/04/05/07/08 已修复；前端 bias flags 已展示） |
 | 32 | Strategy Lab Consolidation — 策略实验室整合 | 完成（含参数优化 tab） |
 | 33 | AI Research Center — AI 研究中枢 | 完成（含降级横幅、报告对比、advisory-only） |
@@ -111,7 +111,7 @@ Phase 11 执行层增加了额外的安全边界：
 | 35 | Trading Execution Control — 交易执行控制 | 部分完成（schema + trade/QMT/UI 接线已落地，当前 API 回归已恢复全绿，真实券商闭环未完成） |
 | 36 | Portfolio Risk & Attribution — 组合风险与归因 | 部分完成（schema + Portfolio 页面已落地，更深层归因/风险指标未闭环） |
 | 37 | Ops & Audit Center — 运维审计中心 | 部分完成（SSE TaskRun 标准化 + Ops Audit 页面已落地，统一审计持久化未闭环） |
-| 38 | Product Navigation Cleanup — 产品导航清理 | 部分完成（7 模块 sidebar + 旧入口 redirect 已落地，文档口径正在回补） |
+| 38 | Product Navigation Cleanup — 产品导航清理 | 完成（7 模块 sidebar + 旧入口 redirect + 文档口径同步 + 数字漂移已消除） |
 
 ## 4. 已完成能力
 
@@ -167,8 +167,8 @@ Phase 11 执行层增加了额外的安全边界：
 ## 4. 当前状态快照（2026-06-26）
 
 ### 基本信息
-- **分支**: `xg_dev`，与 `origin/xg_dev` 当前同步（ahead/behind = `0/0`）
-- **工作区**: 非干净；当前仅见未提交修改 `.hermes/dev-loop.yaml`
+- **分支**: `xg_dev`，当前领先 `origin/xg_dev`（ahead = `8`）
+- **工作区**: 干净（仅含 .hermes/dev-loop.yaml 本地状态跟踪文件）
 - **验证环境**: `.venv` 使用 Python 3.12.13（uv 管理），26 个 phase 验证测试通过
 - **测试**:
   - 定向阶段验证：`python3 -m pytest tests/test_astock_phase31.py tests/test_astock_phases_33_38.py -q` -> `26 passed`
@@ -178,8 +178,8 @@ Phase 11 执行层增加了额外的安全边界：
 - **WebUI / API 规模**:
   - `tradingagents/astock/web/templates/` 下共 `25` 个 HTML 模板，其中 `23` 个页面模板、`2` 个基础模板
   - `tradingagents/astock/web/__init__.py` 当前暴露 `28` 个 Web route（含旧入口 redirect / alias）
-  - `tradingagents/astock/api/routes_*.py` 当前共 `14` 个 routes 模块、`57` 个 Flask REST API handler
-  - `tradingagents/astock/api/__init__.py` 健康端点返回版本 `0.2.5`（注意：与 pyproject.toml 的 `0.2.5` 不一致）
+  - `tradingagents/astock/api/routes_*.py` 当前共 `16` 个 routes 模块、`62` 个 Flask REST API handler
+  - `tradingagents/astock/api/__init__.py` 健康端点返回版本 `0.2.5`（与 pyproject.toml 一致）
 - **交付阶段**: Phase 0-33 主体完成；Phase 34-38 均已有代码落地，但仍需按产品闭环标准继续收口
 
 ### 已完成或已落地主路径的核心能力
@@ -188,7 +188,7 @@ Phase 11 执行层增加了额外的安全边界：
 - ✅ 回测引擎（10 策略 + 参数优化 + 涨跌停/停牌/ST/退市约束）
 - ✅ 模拟盘引擎（定时调度 + 虚拟成交 + SSE 推送）
 - ✅ QMT 桥接（安全模式默认 + 人工确认）
-- ✅ WebUI 页面骨架与 API 面已成型（23 页面模板 / 57 API routes）
+- ✅ WebUI 页面骨架与 API 面已成型（23 页面模板 / 62 API routes）
 - ✅ KLineChart 全功能（27 技术指标 + 17 画线工具）
 - ✅ 动量轮动系统 + 股票筛选器 + 板块热力图
 - ✅ 统一数据清洗层（DataCleaner）

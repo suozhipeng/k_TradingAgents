@@ -1,6 +1,6 @@
 # Phase 30 交易 API 字段清单
 
-生成时间：2026-06-25 | 用于 Phase 30-01 验收
+生成时间：2026-06-26 | 用于 Phase 30-01 验收
 
 ## 1. POST /api/v1/trade/order
 
@@ -76,14 +76,23 @@
 | `timestamp` | string | ISO 时间戳 |
 | `source` | string | 数据来源：`live` / `cache` |
 
-### 响应字段（503）
+### 响应字段（降级成功，仍返回 200）
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| `error` | string | `"quotes unavailable"` |
 | `symbol` | string | 标的 |
-| `last_price` | int | 固定 `0` |
-| `source` | string | `"none"` |
+| `name` | string | 合成名称，通常回落为 symbol |
+| `last_price` | float | 确定性 mock 价格 |
+| `open` | float | mock 开盘价 |
+| `high` | float | mock 最高价 |
+| `low` | float | mock 最低价 |
+| `change` | float | mock 涨跌额 |
+| `change_pct` | float | mock 涨跌幅 |
+| `volume` | int | mock 成交量 |
+| `bid` | float | mock 买一 |
+| `ask` | float | mock 卖一 |
+| `timestamp` | string | ISO 时间戳 |
+| `source` | string | `"mock"` |
 
 ### 缺失项
 
@@ -91,6 +100,7 @@
 - ❌ 无 `meta.request_id`
 - ❌ 无 `freshness` 或 `quality` 数据质量标记
 - ❌ 无 `data_snapshot_id`
+- ⚠️ 当前在实时源和缓存都失败时不会返回 503，而是回落到 synthetic mock quote
 
 ---
 
@@ -268,7 +278,8 @@
 3. **风控状态** ── trade/order 未暴露 `risk_status`
 4. **确认状态** ── 无 human-in-the-loop 确认机制
 5. **审计引用** ── 无 `audit_event_id`
-6. **数据语义** ── paper 状态未充分标注 ResearchOnly 语义
+6. **数据语义** ── `trade/state` 仍未暴露 `execution_signal` / `decision_scope`，paper 语义未完全透传
+7. **降级语义** ── `trade/quote` 在失败时回落为 `source=mock` 的 200 响应，而非错误态
 
 这些缺口将在 Phase 30-02 ~ 30-08 逐步填补，为 Phase 35（Trading & Execution）建立基础。
 
