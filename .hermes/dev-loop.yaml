@@ -1,8 +1,8 @@
 # .hermes/dev-loop.yaml
 project: 'P1 Fix Loop — 5 items from project audit (items 2-6)'
 started_at: '2026-06-26T13:00:00+08:00'
-phase: break
-current_task_index: 0
+phase: done
+current_task_index: 4
 
 tasks:
   - id: 1
@@ -34,11 +34,11 @@ tasks:
     notes: 'portfolio_risk.py/audit_store.py 已全部实装, 仅需文档更新'
 
   - id: 5
-    description: 'webui/ 清理 — 标注实验状态, 添加 README 说明不作为产品主入口'
-    status: pending
-    commit_sha: ~
-    review_verdict: ~
-    notes: 'React/TS 实验项目, 8 npm 漏洞'
+    description: 'webui/ 清理 — 标注实验状态 + 添加 README + 完善未连接组件'
+    status: done
+    commit_sha: ded5d99
+    review_verdict: 'opencode: accept, Codex: accept'
+    notes: 'README.md + BacktestChart/KlineChart 接线 + i18n'
 
 next_actions:
   - '任务 1: TODO doc 更新 → 验证 bias 前端已存在'

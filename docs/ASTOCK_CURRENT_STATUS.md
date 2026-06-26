@@ -104,10 +104,10 @@ Phase 11 执行层增加了额外的安全边界：
 | 28 | 动量决策终端 / 动量轮动独立看板 / 龙虎榜 / 北向资金 / 数据健康页面 — 5 个新增 WebUI 页面 | 完成 |
 | 29 | 专业交易页 — TradingView 风格交易控制台, 实时报价, 订单面板, KLineChart, 仓位管理, PaperTrader 桥接 | 完成 |
 | 30 | Live Trading Readiness — 实盘准入清单与证据 | 完成（口径/文档/证据归档完成；接口标准化与真实券商闭环仍在后续 phase） |
-| 31 | Data Quality & Bias Control — 数据质量与回测反偏差 | 部分完成（31-03/04/05/07/08 已修复；前端 bias flags 已展示） |
+| 31 | Data Quality & Bias Control — 数据质量与回测反偏差 | 完成（31-03/04/05/07/08 已修复；前端 bias flags 已展示；全部子项已验证） |
 | 32 | Strategy Lab Consolidation — 策略实验室整合 | 完成（含参数优化 tab） |
 | 33 | AI Research Center — AI 研究中枢 | 完成（含降级横幅、报告对比、advisory-only） |
-| 34 | Market Leaders Entry — 龙头股单入口 | 部分完成（`/market_leaders` 单入口已落地，旧页面仍保留兼容访问） |
+| 34 | Market Leaders Entry — 龙头股单入口 | 完成（`/market_leaders` 单入口 + iframe tab 切换 + 5 旧页面 deprecation banner） |
 | 35 | Trading Execution Control — 交易执行控制 | 部分完成（schema + trade/QMT/UI 接线已落地，当前 API 回归已恢复全绿，真实券商闭环未完成） |
 | 36 | Portfolio Risk & Attribution — 组合风险与归因 | 完成（VaR 95/HHI 集中度/Brinson 归因/压力测试/前端展示） |
 | 37 | Ops & Audit Center — 运维审计中心 | 完成（AuditStore 内存+DuckDB 持久化/API/前端事件日志） |
@@ -180,7 +180,7 @@ Phase 11 执行层增加了额外的安全边界：
   - `tradingagents/astock/web/__init__.py` 当前暴露 `28` 个 Web route（含旧入口 redirect / alias）
   - `tradingagents/astock/api/routes_*.py` 当前共 `16` 个 routes 模块、`62` 个 Flask REST API handler
   - `tradingagents/astock/api/__init__.py` 健康端点返回版本 `0.2.5`（与 pyproject.toml 一致）
-- **交付阶段**: Phase 0-33 主体完成；Phase 34-38 均已有代码落地，但仍需按产品闭环标准继续收口
+- **交付阶段**: Phase 0-38 主体完成；Phase 35（真实券商闭环）已明确标注 P3 暂不处理
 
 ### 已完成或已落地主路径的核心能力
 - ✅ 五层数据路由（行情/研报/新闻/基础数据/公告）

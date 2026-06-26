@@ -121,7 +121,7 @@
 ## 当前验证摘要
 
 - `Phase 31 + Phase 33-38` 相关 schema/阶段测试：`python3 -m pytest tests/test_astock_phase31.py tests/test_astock_phases_33_38.py -q` -> `26 passed`
-- 全量文件基线：覆盖 `63` 个测试文件，共 `1033` tests collected
-- 当前完整结果：`1019 passed, 14 skipped, 0 failed`
-- Git：`xg_dev` 与 `origin/xg_dev` 同步；当前未提交修改仅 `.hermes/dev-loop.yaml`
-- 验证环境：仓库 `.venv` 已失效，`./.venv/bin/python3.10` 不存在；当前使用系统 `Python 3.13.9`
+- 全量文件基线：覆盖 `65` 个测试文件，共 `1033` tests collected
+- 当前完整结果：`1017 passed, 16 skipped, 0 failed`（2026-06-26 全回归）
+- Git：`xg_dev` 领先 `origin/xg_dev`（ahead = `8`）；工作区仅含 `.hermes/dev-loop.yaml` 本地状态跟踪
+- 验证环境：`.venv` 使用 Python 3.12.13（uv 管理），全回归通过
