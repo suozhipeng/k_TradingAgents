@@ -224,7 +224,7 @@ class TestIsSuspendedDateParameter(unittest.TestCase):
 
 class TestExternalSuspensionWiring(unittest.TestCase):
     def setUp(self) -> None:
-        self.engine = BacktestEngine(use_mock_data=True)
+        self.engine = BacktestEngine(use_mock_data=False)
 
     @patch.object(
         _susp,

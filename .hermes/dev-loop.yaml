@@ -1,26 +1,57 @@
 # .hermes/dev-loop.yaml
-project: 'Phase 35 — Trading Execution 实装'
-started_at: '2026-06-25T23:30:00+08:00'
-phase: done
-current_task_index: -1
+project: 'Complete Project Fix Loop — P0/P1 items from audit'
+started_at: '2026-06-26T10:30:00+08:00'
+phase: code
+current_task_index: 0
 
 tasks:
   - id: 1
-    description: '35-01: PaperTrader 返回 Order/Fill Pydantic'
-    status: committed
+    description: 'Fix 2 failing tests in test_suspension.py (external suspension reason prefix)'
+    status: coding
+    commit_sha: ~
+    review_verdict: ~
 
   - id: 2
-    description: '35-02: Trade API 接收 Order schema'
-    status: committed
+    description: 'Add commit SHAs to Phase 30-38 main docs'
+    status: pending
+    commit_sha: ~
+    review_verdict: ~
 
   - id: 3
-    description: '35-03: RiskGate 接入订单流'
-    status: committed
+    description: 'Add commit SHAs to Phase 30-38 evidence docs'
+    status: pending
+    commit_sha: ~
+    review_verdict: ~
 
   - id: 4
-    description: '35-04: Trading 页面 capability 标注'
-    status: committed
+    description: 'Add test commands to phase docs 00-08, 13, 15-20, 22-28'
+    status: pending
+    commit_sha: ~
+    review_verdict: ~
 
   - id: 5
-    description: '35-05: 证据文档 + 测试验证'
-    status: committed
+    description: 'Add completion criteria to phase docs 00-14, 21, 29'
+    status: pending
+    commit_sha: ~
+    review_verdict: ~
+
+  - id: 6
+    description: 'Fix outdated Phase 31 status in CURRENT_STATUS (31-07/08 already done)'
+    status: pending
+    commit_sha: ~
+    review_verdict: ~
+
+  - id: 7
+    description: 'BL-102: Document QMT fundamentals fallback strategy'
+    status: pending
+    commit_sha: ~
+    review_verdict: ~
+
+  - id: 8
+    description: 'BL-104: Add mock/real state labels to trade API endpoints'
+    status: pending
+    commit_sha: ~
+    review_verdict: ~
+
+next_actions:
+  - 'Task 1: Fix test_suspension.py failures'
