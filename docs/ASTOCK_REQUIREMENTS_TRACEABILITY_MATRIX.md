@@ -28,11 +28,11 @@
 | FR-09 | WebUI 产品能力 | WebUI Shell | `tradingagents/astock/web/` | Dashboard / Research / Strategy / Leaders / Trading / Ops | WebUI/API slice tests | 13, 15-17, 22-29 | partial |
 | FR-10 | 测试与回归 | Test & Release | `tests/`, `tests/conftest.py` | N/A | Phase 21 归档、切片回归 | 21 | done |
 | NFR-01 | 安全边界 | Trading & Execution / AI Research | `runtime_profile.py`, `phase9_schemas.py`, execution layer | 所有交易相关页面 | Phase 9/10/11/29 归档 | 9-11, 29 | partial |
-| NFR-02 | 可审计性 | Ops & Audit | `verification_provenance.py`, phase docs, future audit store | `data_health.html`, future Ops Dashboard | `docs/verification_provenance/` | 4, 12, 19, 27, 37 | partial |
+|| NFR-02 | 可审计性 | Ops & Audit | `verification_provenance.py`, phase docs, `audit_store.py` (Phase 37) | ops_audit.html, Ops Dashboard | `docs/verification_provenance/`, Phase 37 evidence | 4, 12, 19, 27, 37 | partial |
 | NFR-03 | 可维护性 | Docs / Governance | `docs/README.md`, `docs/phases/` | N/A | Phase 0-29 归档覆盖检查 | 0-29 | done |
 | NFR-04 | 可扩展性 | All Modules | provider/strategy/API registries | API/WebUI | strategy/provider tests | 1, 14, 18, 30+ | partial |
 || NFR-05 | 产品可观测性 | Data & Ops / Ops & Audit | current metrics: health/API/backtest pages; future metrics registry | Ops Dashboard / health pages / SSE | `docs/ASTOCK_PRODUCT_METRICS_AND_OPS_REQUIREMENTS.md`, SSE TaskRun events | 30-38 | partial |
-|| NFR-06 | API 契约稳定性 | API Platform | 57 Flask routes + contract doc | all `/api/v1/*` endpoints | `docs/ASTOCK_API_CONTRACTS.md` | 30-38 | partial |
+||| NFR-06 | API 契约稳定性 | API Platform | 62 Flask routes + contract doc | all `/api/v1/*` endpoints | `docs/ASTOCK_API_CONTRACTS.md` | 30-38 | partial |
 || NFR-07 | 数据字典与血缘 | Data & Ops / Strategy / AI / Trading | provider/store/schema docs + DataCleaner | Data Health / Strategy / AI / Trading pages | `docs/ASTOCK_DATA_DICTIONARY_AND_LINEAGE.md` | 31, 32, 33, 35, 37 | partial |
 || NFR-08 | 测试验收与发布门槛 | Test & Release | `tests/`, phase evidence, 1033 tests collected | N/A | `docs/ASTOCK_TEST_ACCEPTANCE_PLAN.md`, CI pipeline | 30-38 | partial |
 || NFR-09 | 风险披露与合规边界 | Product Governance | page/report copy, AI/report/trading outputs, risk register | WebUI / CLI / reports | `docs/ASTOCK_RISK_DISCLOSURE_AND_COMPLIANCE.md` | 30-38 | partial |

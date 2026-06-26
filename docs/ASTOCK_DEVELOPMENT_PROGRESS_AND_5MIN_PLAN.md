@@ -1,6 +1,6 @@
 # A 股开发进度与 5 分钟任务拆解
 
-| 更新时间：2026-06-24 |
+| 更新时间：2026-06-26（§1 总览表已同步 Phase 31-38 完成状态；§2.x 待开发描述为历史记录保留） |
 
 本文基于当前开发文档和实际代码目录，梳理 TradingAgents-Astock 的后台、前台、API、真实数据源、测试验收和后续开发任务。本文只覆盖核心功能开发，不展开安全与隐私、SLA 与故障分级、用户角色/RBAC。
 
@@ -143,7 +143,7 @@
 | Trading & Execution | `trading.html`, `paper.html`, `risk.html`, `qmt.html` | 已完成基础页面 | 统一模式标签、订单生命周期、风控前置门 |
 | Data & Ops | `data_health.html`, `settings.html` | 已完成基础页面 | 增加 TaskRun、AuditEvent、数据质量面板 |
 | KLine / TV Chart | `kc_chart.html`, `tv_chart.html` | 已完成 | 统一数据质量、延迟和 fallback 标签 |
-| Portfolio Workbench | 无独立页面 | 未开发 | 新增组合风险和绩效归因页面 |
+| Portfolio Workbench | `portfolio.html`（组合风险仪表盘） | 已完成 | VaR/归因/压力测试扩展 |
 
 ## 4. 前台效果图
 

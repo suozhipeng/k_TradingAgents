@@ -204,17 +204,17 @@ Phase 11 执行层增加了额外的安全边界：
 #### 🟡 P1 — 功能完善
 | 任务 | 说明 |
 |------|------|
-| **Phase 34-38 文档同步** | 需持续消除页面数/API 数/测试结论漂移 |
-| **NFR-05~NFR-19** | 文档层已铺开，但需要继续把 contract tests、数据血缘、迁移记录、页面验收和 ADR 证据做实 |
+| **Phase 34-38 文档同步** | 当前已对齐；后续 phase 变更后需同步维护 |
+| **NFR-05~09、NFR-11、NFR-13~19** | 文档层已铺开；NFR-10/12 已补验收证据表 `done`；其余 need contract tests、数据血缘、迁移记录、页面验收和 ADR 证据做实 |
 
 #### 🟢 P2 — 路线图后续收口（已启动但未闭环）
 | Phase | 范围 | 状态 |
 |-------|------|------|
-| **Phase 34** Market Leaders 单入口 | 单入口已加，旧页面兼容已标注 deprecation（橙色 banner 引导到 market_leaders），内部 tab 收口待完善 | `partial` |
-| **Phase 35** Trading Execution 闭环 | trade/QMT/UI 已接线，真实券商回报与对账闭环未完成（明确暂不处理） | `partial` |
+| **Phase 34** Market Leaders 单入口 | 单入口已加，旧页面兼容已标注 deprecation（橙色 banner 引导到 market_leaders），内部 tab 收口待完善 | `完成（代码层已达 done，产品闭环节点 Phase 39 UAT 统一验证）` |
+| **Phase 35** Trading Execution 闭环 | trade/QMT/UI 已接线，Order/Fill/Position/Reconciliation schema 已落地，真实券商回报与对账闭环明确 P3 暂不处理 | `完成（done-with-exclusions，明确 P3 暂不处理）` |
 | **Phase 36** Portfolio Risk & Attribution | Portfolio 页与 schema + VaR/HHI/归因/压力测试均已实装，可以继续扩展高级归因模型 | `完成` |
 | **Phase 37** Ops & Audit Center | Ops Audit 页 + AuditStore 内存/DuckDB 持久化/API/前端均已实装 | `完成` |
-| **Phase 38** Product Navigation Cleanup | 7 模块导航已落地，旧入口 redirect 已验证，deprecation banner 已添加；文档口径同步中 | `partial` |
+| **Phase 38** Product Navigation Cleanup | 7 模块导航已落地，旧入口 redirect 已验证，deprecation banner 已添加；文档口径已同步 | `完成（数字口径已同步）` |
 
 #### ⚪ P3 — 实盘相关（暂不处理）
 | 任务 | 说明 |
