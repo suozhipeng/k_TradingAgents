@@ -111,6 +111,8 @@ def create_app(
     from . import routes_trade
     from . import routes_tv
     from . import routes_ai_agent
+    from . import routes_portfolio
+    from . import routes_ops
 
     app.register_blueprint(routes_data.bp, url_prefix="/api/v1")
     app.register_blueprint(routes_backtest.bp, url_prefix="/api/v1")
@@ -126,6 +128,8 @@ def create_app(
     app.register_blueprint(routes_trade.bp, url_prefix="/api/v1")
     app.register_blueprint(routes_tv.bp, url_prefix="/api/v1")
     app.register_blueprint(routes_ai_agent.bp, url_prefix="/api/v1")
+    app.register_blueprint(routes_portfolio.bp, url_prefix="/api/v1")
+    app.register_blueprint(routes_ops.bp, url_prefix="/api/v1")
 
     # -- Phase 17: Web UI (Jinja2) blueprint -------------------------------
     from tradingagents.astock.web import bp as web_bp

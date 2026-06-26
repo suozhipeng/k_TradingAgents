@@ -1,8 +1,8 @@
 # .hermes/dev-loop.yaml
 project: 'Complete Project Fix Loop — P0/P1 items from audit'
 started_at: '2026-06-26T10:30:00+08:00'
-phase: review
-current_task_index: 2
+phase: code
+current_task_index: 4
 
 tasks:
   - id: 1
@@ -12,21 +12,24 @@ tasks:
 
   - id: 2
     description: 'Add commit SHAs to Phase 30-38 docs + test commands'
-    status: coding
-    commit_sha: ~
-    review_verdict: ~
+    status: committed
+    commit_sha: fd3e7fd
 
   - id: 3
-    description: 'Base.html deprecation + web routes + CURRENT_STATUS + traceability updates'
-    status: coding
-    commit_sha: ~
-    review_verdict: ~
+    description: 'Base.html deprecation + web routes + CURRENT_STATUS + traceability'
+    status: committed
+    commit_sha: fd3e7fd
 
   - id: 4
     description: 'Fix phase status in CURRENT_STATUS + NFR evidence'
-    status: pending
+    status: committed
+    commit_sha: fd3e7fd
+
+  - id: 5
+    description: 'BL-102: Document QMT fundamentals fallback + Phase 30 evidence checklists'
+    status: coding
     commit_sha: ~
     review_verdict: ~
 
 next_actions:
-  - 'All doc changes: review → commit → done'
+  - 'Task 5: BL-102 doc + Phase 30 checklists → review → commit'

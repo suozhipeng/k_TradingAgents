@@ -38,7 +38,24 @@
   <div class="tv-card">
     <div class="tv-section-title mb-3">⚠️ 风险敞口</div>
     <div id="risk-exposure-section">
-      <div class="text-gray-500 text-center py-4">🚧 待接入风险归因</div>
+      <div class="tv-grid-2">
+        <div class="tv-card p-3 bg-gray-800/40">
+          <div class="tv-stat-label text-xs">VaR 95%</div>
+          <div class="tv-stat-value text-lg" id="risk-var">--</div>
+        </div>
+        <div class="tv-card p-3 bg-gray-800/40">
+          <div class="tv-stat-label text-xs">最大回撤 Max DD</div>
+          <div class="tv-stat-value text-lg" id="risk-maxdd">--</div>
+        </div>
+        <div class="tv-card p-3 bg-gray-800/40">
+          <div class="tv-stat-label text-xs">压力损失 Stress</div>
+          <div class="tv-stat-value text-lg" id="risk-stress">--</div>
+        </div>
+        <div class="tv-card p-3 bg-gray-800/40">
+          <div class="tv-stat-label text-xs">行业集中度</div>
+          <div class="tv-stat-value text-lg" id="risk-concentration">--</div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -93,6 +110,41 @@ async function loadPortfolio() {
     console.error('loadPortfolio error:', e);
   }
 }
+
+async function loadPortfolioRisk() {
+  try {
+    const resp = await fetch('/api/v1/portfolio/risk');
+    if (!resp.ok) return;
+    const data = await resp.json();
+    if (data.error) return;
+
+    document.getElementById('risk-var').textContent = data.var_95 != null ? data.var_95.toFixed(2) : '--';
+    document.getElementById('risk-maxdd').textContent = data.max_drawdown != null ? (data.max_drawdown * 100).toFixed(2) + '%' : '--';
+    document.getElementById('risk-stress').textContent = data.stress_loss_pct != null ? (data.stress_loss_pct * 100).toFixed(2) + '%' : '--';
+    document.getElementById('risk-concentration').textContent = data.industry_concentration != null ? (data.industry_concentration * 100).toFixed(1) + '%' : '--';
+  } catch (e) {
+    console.error('loadPortfolioRisk error:', e);
+  }
+}
+
+async function loadPortfolioAttribution() {
+  try {
+    const resp = await fetch('/api/v1/portfolio/attribution');
+    if (!resp.ok) return;
+    const data = await resp.json();
+    if (data.error) return;
+
+    document.getElementById('attr-benchmark').textContent = data.benchmark_return != null ? (data.benchmark_return * 100).toFixed(2) + '%' : '--';
+    document.getElementById('attr-selection').textContent = data.selection_effect != null ? (data.selection_effect * 100).toFixed(2) + '%' : '--';
+    document.getElementById('attr-timing').textContent = data.timing_effect != null ? (data.timing_effect * 100).toFixed(2) + '%' : '--';
+    document.getElementById('attr-cost').textContent = data.cost_impact != null ? (data.cost_impact * 100).toFixed(2) + '%' : '--';
+  } catch (e) {
+    console.error('loadPortfolioAttribution error:', e);
+  }
+}
+
 loadPortfolio();
+loadPortfolioRisk();
+loadPortfolioAttribution();
 </script>
 {% endblock %}
