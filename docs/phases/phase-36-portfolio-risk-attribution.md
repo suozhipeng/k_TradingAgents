@@ -1,6 +1,6 @@
 # Phase 36 Portfolio Risk & Attribution 需求与 Hermes 任务包
 
-| 状态：partial | 更新时间：2026-06-26 |
+| 状态：完成 | 更新时间：2026-06-26 |
 
 ## 0. 前置依赖
 

@@ -21,10 +21,10 @@ tasks:
 
   - id: 3
     description: 'Phase 38 文档同步 — 跨文档数字口径漂移检查并修复'
-    status: pending
-    commit_sha: ~
-    review_verdict: ~
-    notes: '检查: 测试文件数/API路由数/模板数/版本号/环境状态'
+    status: done
+    commit_sha: 49f37f0
+    review_verdict: 'opencode: accept, Codex: accept'
+    notes: 'API modules 14→16, handlers 57→62, 版本号一致'
 
   - id: 4
     description: 'Phase 36/37 深层能力 — VaR计算/行业暴露/绩效归因 + 审计持久化'

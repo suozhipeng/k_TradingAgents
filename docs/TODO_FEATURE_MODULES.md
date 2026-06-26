@@ -94,12 +94,21 @@
 ## Phase 36 — Portfolio Risk & Attribution
 - [x] 36-01 Schema 拆分 ✅ `fd5459a`
 - [x] 36-02 Portfolio 页面 ✅ `22f2a71`
+- [x] 36-03 VaR 95% 计算 ✅ `portfolio_risk.py` (parametric NormalDist)
+- [x] 36-04 行业暴露/集中度分析 (HHI) ✅ -> `portfolio_risk.py`
+- [x] 36-05 Brinson 归因 (selection/timing) ✅ -> `portfolio_risk.py`
+- [x] 36-06 压力测试 (2.5x VaR) ✅ -> `portfolio_risk.py`
+- [x] 36-07 API routes /portfolio/risk + /portfolio/attribution ✅
+- [x] 36-08 前端 portfolio.html 展示 risk + attribution ✅
 
 ---
 
 ## Phase 37 — Ops & Audit
 - [x] 37-01 SSE TaskRun 标准化 ✅ `3057979`
 - [x] 37-02 Ops Audit 页面 ✅ `22f2a71`
+- [x] 37-03 AuditStore 内存存储 + DuckDB 持久化 ✅ -> `audit_store.py`
+- [x] 37-04 API routes: /ops/audit, /ops/tasks, /ops/stats ✅
+- [x] 37-05 前端 ops_audit.html 展示事件日志 + 任务中心 + 数据源健康 ✅
 
 ---
 

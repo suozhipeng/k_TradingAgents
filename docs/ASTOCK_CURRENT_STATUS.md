@@ -109,8 +109,8 @@ Phase 11 执行层增加了额外的安全边界：
 | 33 | AI Research Center — AI 研究中枢 | 完成（含降级横幅、报告对比、advisory-only） |
 | 34 | Market Leaders Entry — 龙头股单入口 | 部分完成（`/market_leaders` 单入口已落地，旧页面仍保留兼容访问） |
 | 35 | Trading Execution Control — 交易执行控制 | 部分完成（schema + trade/QMT/UI 接线已落地，当前 API 回归已恢复全绿，真实券商闭环未完成） |
-| 36 | Portfolio Risk & Attribution — 组合风险与归因 | 部分完成（schema + Portfolio 页面已落地，更深层归因/风险指标未闭环） |
-| 37 | Ops & Audit Center — 运维审计中心 | 部分完成（SSE TaskRun 标准化 + Ops Audit 页面已落地，统一审计持久化未闭环） |
+| 36 | Portfolio Risk & Attribution — 组合风险与归因 | 完成（VaR 95/HHI 集中度/Brinson 归因/压力测试/前端展示） |
+| 37 | Ops & Audit Center — 运维审计中心 | 完成（AuditStore 内存+DuckDB 持久化/API/前端事件日志） |
 | 38 | Product Navigation Cleanup — 产品导航清理 | 完成（7 模块 sidebar + 旧入口 redirect + 文档口径同步 + 数字漂移已消除） |
 
 ## 4. 已完成能力
@@ -212,8 +212,8 @@ Phase 11 执行层增加了额外的安全边界：
 |-------|------|------|
 | **Phase 34** Market Leaders 单入口 | 单入口已加，旧页面兼容已标注 deprecation（橙色 banner 引导到 market_leaders），内部 tab 收口待完善 | `partial` |
 | **Phase 35** Trading Execution 闭环 | trade/QMT/UI 已接线，真实券商回报与对账闭环未完成（明确暂不处理） | `partial` |
-| **Phase 36** Portfolio Risk & Attribution | Portfolio 页与 schema 已有，深层风险/归因能力（行业暴露/VaR/压力测试）未闭环 | `partial` |
-| **Phase 37** Ops & Audit Center | Ops Audit 页与 TaskRun 基础已落地，审计持久化/指标聚合未闭环 | `partial` |
+| **Phase 36** Portfolio Risk & Attribution | Portfolio 页与 schema + VaR/HHI/归因/压力测试均已实装，可以继续扩展高级归因模型 | `完成` |
+| **Phase 37** Ops & Audit Center | Ops Audit 页 + AuditStore 内存/DuckDB 持久化/API/前端均已实装 | `完成` |
 | **Phase 38** Product Navigation Cleanup | 7 模块导航已落地，旧入口 redirect 已验证，deprecation banner 已添加；文档口径同步中 | `partial` |
 
 #### ⚪ P3 — 实盘相关（暂不处理）
