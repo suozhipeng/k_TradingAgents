@@ -16,6 +16,8 @@ export const en: Record<string, string> = {
   "nav.taskCenter": "Task Center",
   "nav.reports": "Reports",
   "nav.settings": "Settings",
+  "nav.backtest": "Backtest",
+  "nav.marketData": "Market Data",
 
   /* ── Statistics cards ── */
   "stat.modules": "Modules",
@@ -143,6 +145,30 @@ export const en: Record<string, string> = {
   "report.error.notReport":
     "Parsed JSON does not look like an AStockGraphReport (missing symbol/ticker/runtime fields).",
   "report.error.invalidJson": "Invalid JSON",
+
+  /* ── Backtest section ── */
+  "section.backtest.kicker": "Backtest",
+  "section.backtest.title": "Strategy Backtest",
+  "section.backtest.desc": "Run a strategy backtest via the REST API.",
+  "backtest.symbol": "Symbol",
+  "backtest.strategy": "Strategy",
+  "backtest.startDate": "Start Date",
+  "backtest.endDate": "End Date",
+  "backtest.run": "Run Backtest",
+  "backtest.running": "Running...",
+  "backtest.noData": 'Click "Run Backtest" to begin.',
+  "backtest.error": "Backtest failed: {msg}",
+
+  /* ── Market Data section ── */
+  "section.marketData.kicker": "Market Data",
+  "section.marketData.title": "Kline Data",
+  "section.marketData.desc": "Fetch historical kline data via the REST API.",
+  "marketData.symbol": "Symbol",
+  "marketData.interval": "Interval",
+  "marketData.fetch": "Fetch Data",
+  "marketData.fetching": "Fetching...",
+  "marketData.noData": 'Click "Fetch Data" to load.',
+  "marketData.error": "Data fetch failed: {msg}",
 
   /* ── Settings section ── */
   "section.settings.kicker": "Settings",

@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import AgentFlow from "./components/AgentFlow";
+import BacktestChart from "./components/BacktestChart";
+import KlineChart from "./components/KlineChart";
+import type { EquityCurve } from "./components/BacktestChart";
+import type { OHLCV } from "./components/KlineChart";
 import LangSwitch from "./components/LangSwitch";
 import MarkdownReport from "./components/MarkdownReport";
 import MarketSwitch from "./components/MarketSwitch";
@@ -9,6 +13,7 @@ import ModuleTree from "./components/ModuleTree";
 import ReportViewerWrapper from "./components/ReportViewer";
 import RiskPanel from "./components/RiskPanel";
 import { LocaleProvider, useTranslation } from "./hooks/useTranslation";
+import { useApi } from "./hooks/useApi";
 import { MarketProvider } from "./components/MarketSwitch";
 import rawModules from "./data/modules.json";
 import type { ModuleRecord, ModuleType } from "./types";
@@ -36,6 +41,8 @@ function AppContent() {
     { id: "agent-flow", label: t("nav.agentFlow") },
     { id: "task-center", label: t("nav.taskCenter") },
     { id: "reports", label: t("nav.reports") },
+    { id: "backtest", label: t("nav.backtest") },
+    { id: "market-data", label: t("nav.marketData") },
     { id: "settings", label: t("nav.settings") },
   ] as const;
 
@@ -46,6 +53,23 @@ function AppContent() {
   const [filter, setFilter] = useState<ModuleType | "all">("all");
   const [selectedPath, setSelectedPath] = useState<string>(modules[0]?.path ?? "");
   const [activeSection, setActiveSection] = useState<SectionId>("dashboard");
+
+  // ── Backtest state ──
+  const api = useApi();
+  const [btSymbol, setBtSymbol] = useState("600519.SH");
+  const [btStrategy, setBtStrategy] = useState("macd_trend");
+  const [btStart, setBtStart] = useState("2024-01-01");
+  const [btEnd, setBtEnd] = useState("2024-06-30");
+  const [btCurves, setBtCurves] = useState<EquityCurve[]>([]);
+  const [btLoading, setBtLoading] = useState(false);
+  const [btError, setBtError] = useState("");
+
+  // ── Kline state ──
+  const [klSymbol, setKlSymbol] = useState("600519.SH");
+  const [klInterval, setKlInterval] = useState("1d");
+  const [klData, setKlData] = useState<OHLCV[]>([]);
+  const [klLoading, setKlLoading] = useState(false);
+  const [klError, setKlError] = useState("");
 
   useEffect(() => {
     setHydrated(true);
@@ -241,6 +265,131 @@ function AppContent() {
           />
           <div className="mt-5">
             <ReportViewerWrapper />
+          </div>
+        </section>
+
+        {/* ── Backtest section ── */}
+        <section id="backtest" className="mt-5 panel p-5">
+          <SectionHeader
+            kicker={t("section.backtest.kicker")}
+            title={t("section.backtest.title")}
+            description={t("section.backtest.desc")}
+          />
+          <div className="mt-5 flex flex-wrap items-end gap-3">
+            <div>
+              <label className="tv-label">{t("backtest.symbol")}</label>
+              <input className="tv-input" value={btSymbol} onChange={e => setBtSymbol(e.target.value)} placeholder="600519.SH" />
+            </div>
+            <div>
+              <label className="tv-label">{t("backtest.strategy")}</label>
+              <select className="tv-input" value={btStrategy} onChange={e => setBtStrategy(e.target.value)}>
+                <option value="macd_trend">MACD Trend</option>
+                <option value="bollinger_mean_reversion">Bollinger Mean Reversion</option>
+                <option value="grid_trading">Grid Trading</option>
+                <option value="sma_cross">SMA Cross</option>
+              </select>
+            </div>
+            <div>
+              <label className="tv-label">{t("backtest.startDate")}</label>
+              <input className="tv-input" type="date" value={btStart} onChange={e => setBtStart(e.target.value)} />
+            </div>
+            <div>
+              <label className="tv-label">{t("backtest.endDate")}</label>
+              <input className="tv-input" type="date" value={btEnd} onChange={e => setBtEnd(e.target.value)} />
+            </div>
+            <button
+              className="tv-btn tv-btn-primary"
+              disabled={btLoading}
+              onClick={async () => {
+                setBtLoading(true);
+                setBtError("");
+                try {
+                  await api.runBacktest({ symbol: btSymbol, strategy: btStrategy, start: btStart, end: btEnd });
+                  const res = await api.fetchBacktestResults(btStrategy);
+                  const results = res.results ?? [];
+                  const curves: EquityCurve[] = results.map((r: Record<string, unknown>) => ({
+                    strategy_name: (r.strategy_name as string) ?? btStrategy,
+                    dates: (r.equity_curve_dates as string[]) ?? [],
+                    values: (r.equity_curve_values as number[]) ?? [],
+                  }));
+                  setBtCurves(curves.length ? curves : []);
+                } catch (e: unknown) {
+                  setBtError(t("backtest.error", { msg: e instanceof Error ? e.message : String(e) }));
+                } finally {
+                  setBtLoading(false);
+                }
+              }}
+            >
+              {btLoading ? t("backtest.running") : t("backtest.run")}
+            </button>
+          </div>
+          {btError && <p className="mt-3 text-sm text-rose-300">{btError}</p>}
+          <div className="mt-4">
+            {btCurves.length > 0 ? (
+              <BacktestChart curves={btCurves} />
+            ) : (
+              !btLoading && <p className="text-sm text-slate-400">{t("backtest.noData")}</p>
+            )}
+          </div>
+        </section>
+
+        {/* ── Market Data section ── */}
+        <section id="market-data" className="mt-5 panel p-5">
+          <SectionHeader
+            kicker={t("section.marketData.kicker")}
+            title={t("section.marketData.title")}
+            description={t("section.marketData.desc")}
+          />
+          <div className="mt-5 flex flex-wrap items-end gap-3">
+            <div>
+              <label className="tv-label">{t("marketData.symbol")}</label>
+              <input className="tv-input" value={klSymbol} onChange={e => setKlSymbol(e.target.value)} placeholder="600519.SH" />
+            </div>
+            <div>
+              <label className="tv-label">{t("marketData.interval")}</label>
+              <select className="tv-input" value={klInterval} onChange={e => setKlInterval(e.target.value)}>
+                <option value="1d">Daily</option>
+                <option value="1w">Weekly</option>
+                <option value="1m">Monthly</option>
+                <option value="60m">60 min</option>
+                <option value="30m">30 min</option>
+              </select>
+            </div>
+            <button
+              className="tv-btn tv-btn-primary"
+              disabled={klLoading}
+              onClick={async () => {
+                setKlLoading(true);
+                setKlError("");
+                try {
+                  const res = await api.fetchKline(klSymbol, undefined, undefined, klInterval);
+                  const bars = (res.bars ?? []) as Record<string, unknown>[];
+                  const ohlcv: OHLCV[] = bars.map(b => ({
+                    trade_date: (b.trade_date ?? b.date ?? "") as string,
+                    open: Number(b.open ?? 0),
+                    high: Number(b.high ?? 0),
+                    low: Number(b.low ?? 0),
+                    close: Number(b.close ?? 0),
+                    volume: Number(b.volume ?? 0),
+                  }));
+                  setKlData(ohlcv);
+                } catch (e: unknown) {
+                  setKlError(t("marketData.error", { msg: e instanceof Error ? e.message : String(e) }));
+                } finally {
+                  setKlLoading(false);
+                }
+              }}
+            >
+              {klLoading ? t("marketData.fetching") : t("marketData.fetch")}
+            </button>
+          </div>
+          {klError && <p className="mt-3 text-sm text-rose-300">{klError}</p>}
+          <div className="mt-4">
+            {klData.length > 0 ? (
+              <KlineChart data={klData} symbol={klSymbol} />
+            ) : (
+              !klLoading && <p className="text-sm text-slate-400">{t("marketData.noData")}</p>
+            )}
           </div>
         </section>
 

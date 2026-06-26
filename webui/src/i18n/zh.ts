@@ -15,6 +15,8 @@ export const zh: Record<string, string> = {
   "nav.taskCenter": "任务中心",
   "nav.reports": "报告",
   "nav.settings": "设置",
+  "nav.backtest": "回测",
+  "nav.marketData": "行情数据",
 
   /* ── Statistics cards ── */
   "stat.modules": "模块数",
@@ -134,8 +136,34 @@ export const zh: Record<string, string> = {
   "report.error.notReport": "解析的 JSON 看起来不是 AStockGraphReport（缺少 symbol/ticker/runtime 字段）。",
   "report.error.invalidJson": "无效 JSON",
 
+  /* ── Backtest section ── */
+  "section.backtest.kicker": "回测",
+  "section.backtest.title": "策略回测",
+  "section.backtest.desc": "通过 REST API 对指定标的运行策略回测。",
+  "backtest.symbol": "标的",
+  "backtest.strategy": "策略",
+  "backtest.startDate": "开始日期",
+  "backtest.endDate": "结束日期",
+  "backtest.run": "运行回测",
+  "backtest.running": "运行中...",
+  "backtest.noData": "点击「运行回测」开始。",
+  "backtest.error": "回测失败: {msg}",
+
+  /* ── Market Data section ── */
+  "section.marketData.kicker": "行情数据",
+  "section.marketData.title": "K 线数据",
+  "section.marketData.desc": "通过 REST API 获取指定标的的历史 K 线。",
+  "marketData.symbol": "标的",
+  "marketData.interval": "周期",
+  "marketData.fetch": "获取数据",
+  "marketData.fetching": "获取中...",
+  "marketData.noData": "点击「获取数据」加载 K 线。",
+  "marketData.error": "数据获取失败: {msg}",
+
   /* ── Settings section ── */
   "section.settings.kicker": "设置",
+
+  /* ── Market ── */
   "section.settings.title": "静态只读配置",
   "section.settings.desc": "这些设置仅供参考，提醒用户 WebUI 是只读的。",
   "settings.externalApis": "外部 API",

@@ -28,13 +28,13 @@ tasks:
 
   - id: 4
     description: 'Phase 36/37 深层能力 — VaR计算/行业暴露/绩效归因 + 审计持久化'
-    status: pending
-    commit_sha: ~
-    review_verdict: ~
-    notes: '评估当前 schema 与实际计算能力的差距'
+    status: done
+    commit_sha: 1da59aa
+    review_verdict: 'opencode: accept, Codex: accept'
+    notes: 'portfolio_risk.py/audit_store.py 已全部实装, 仅需文档更新'
 
   - id: 5
-    description: 'webui/ 清理 — 标注废弃状态, 添加 README 说明不作为产品主入口'
+    description: 'webui/ 清理 — 标注实验状态, 添加 README 说明不作为产品主入口'
     status: pending
     commit_sha: ~
     review_verdict: ~
