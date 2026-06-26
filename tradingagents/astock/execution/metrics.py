@@ -95,8 +95,44 @@ def calculate_win_rate(trades: list[dict]) -> float:
     return round(wins / len(trades), 6)
 
 
+def _sanitize_metric_value(v: Any, key: str) -> Any:
+    """Clamp/clip a single metric to valid range; NaN/Inf → None.
+
+    Parameters
+    ----------
+    v : any
+        Raw metric value.
+    key : str
+        Metric key name (``\"sharpe_ratio\"``, ``\"total_return\"``, etc.).
+
+    Returns
+    -------
+    any
+        Cleaned value (None for invalid, clipped for extremes).
+    """
+    if v is None:
+        return None
+    if isinstance(v, float):
+        if math.isnan(v) or math.isinf(v):
+            return None
+        # Extreme outlier guard
+        if key == "sharpe_ratio" and abs(v) > 20:
+            return None
+        if key in ("total_return", "annualized_return", "max_drawdown") and abs(v) > 10:
+            return None
+        if key == "win_rate" and (v < 0 or v > 1):
+            return None
+    elif not isinstance(v, (int, float)):
+        return None
+    return v
+
+
 def summarize_metrics(prices: pd.Series, trades: list[dict]) -> dict[str, Any]:
     """Aggregate all performance metrics into a single dict.
+
+    Each metric passes through ``_sanitize_metric_value`` so NaN/Inf/extremes
+    are clipped before the caller sees them — no separate sanitisation step
+    needed at the route layer.
 
     Parameters
     ----------
@@ -117,7 +153,7 @@ def summarize_metrics(prices: pd.Series, trades: list[dict]) -> dict[str, Any]:
     periods_per_year = 252.0
     annualized_return = (1.0 + total_return) ** (periods_per_year / max(n, 1.0)) - 1.0 if n > 0 else 0.0
 
-    return {
+    raw = {
         "total_return": round(total_return, 6),
         "annualized_return": round(annualized_return, 6),
         "sharpe_ratio": calculate_sharpe(returns),
@@ -125,3 +161,4 @@ def summarize_metrics(prices: pd.Series, trades: list[dict]) -> dict[str, Any]:
         "win_rate": calculate_win_rate(trades),
         "total_trades": len(trades),
     }
+    return {k: _sanitize_metric_value(v, k) for k, v in raw.items()}

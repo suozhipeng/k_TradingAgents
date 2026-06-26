@@ -35,9 +35,11 @@ def _get_strategy_registry() -> dict[str, type]:
         GridTradingStrategy,
         MACDTrendStrategy,
         MeanReversionStrategy,
+        MomentumRotationStrategy,
         MovingAverageTrendStrategy,
         PutWriteStrategy,
         RSIRangeStrategy,
+        StockFlow,
         ValueAverageStrategy,
     )
 
@@ -52,6 +54,8 @@ def _get_strategy_registry() -> dict[str, type]:
         "MACDTrend": MACDTrendStrategy,
         "BollingerBands": BollingerBandsReversionStrategy,
         "GridTrading": GridTradingStrategy,
+        "MomentumRotation": MomentumRotationStrategy,
+        "StockFlow": StockFlow,
     }
     return _STRATEGY_REGISTRY
 
@@ -86,46 +90,19 @@ def _sanitize_nan(records: list[dict]) -> None:
 
 
 def _sanitize_metrics(record: dict) -> dict:
-    """Deep-clean a single backtest result dict: NaN/Inf → None, clip extremes."""
+    """Deep-clean a single backtest result dict.
+
+    Note: as of Step 5 cleanup, ``summarize_metrics`` in
+    ``metrics.py`` already sanitises every metric before returning,
+    so this function is now a no-op safety net.
+    """
     import math
 
-    # Core financial metrics that MUST be clean
-    METRIC_KEYS = [
-        "total_return", "annualized_return", "sharpe_ratio",
-        "max_drawdown", "win_rate", "total_trades",
-    ]
-    for key in METRIC_KEYS:
+    for key in ("total_return", "annualized_return", "sharpe_ratio",
+                 "max_drawdown", "win_rate", "total_trades"):
         v = record.get(key)
-        if v is None:
-            continue
-        if isinstance(v, float):
-            if math.isnan(v) or math.isinf(v):
-                record[key] = None
-            # Extreme outlier guard: Sharpe ratios above/below ±20 are likely
-            # artifacts of near-zero-volatility edge cases
-            elif key == "sharpe_ratio" and abs(v) > 20:
-                record[key] = None
-            # Returns/drawdowns above ±1000% are extreme data errors
-            elif key in ("total_return", "annualized_return", "max_drawdown") and abs(v) > 10:
-                record[key] = None
-            # Win rate outside [0, 1] is impossible
-            elif key == "win_rate" and (v < 0 or v > 1):
-                record[key] = None
-        elif not isinstance(v, (int, float)):
+        if isinstance(v, float) and (math.isnan(v) or math.isinf(v)):
             record[key] = None
-
-    # Sanitize nested equity_curve values
-    for curve in record.get("equity_curve") or []:
-        val = curve.get("value")
-        if isinstance(val, float) and (math.isnan(val) or math.isinf(val)):
-            curve["value"] = None
-
-    # Sanitize nested returns
-    for ret_item in record.get("returns") or []:
-        ret_val = ret_item.get("return")
-        if isinstance(ret_val, float) and (math.isnan(ret_val) or math.isinf(ret_val)):
-            ret_item["return"] = None
-
     return record
 
 
@@ -368,6 +345,68 @@ def compare_backtests() -> tuple[Response, int]:
             _sanitize_metrics(r)
 
         return jsonify({"comparison": results}), 200
+    except Exception as exc:
+        return jsonify({"error": str(exc), "status": 500}), 500
+
+
+# ---------------------------------------------------------------------------
+# Walk-Forward Analysis endpoint
+# ---------------------------------------------------------------------------
+
+
+@bp.route("/backtest/walkforward", methods=["POST"])
+def walkforward():
+    """Run Walk-Forward Analysis and return results + summary."""
+    try:
+        body = request.get_json(force=True) or {}
+        symbol = str(body.get("symbol", "")).strip()
+        start_date = str(body.get("start_date", "")).strip()
+        end_date = str(body.get("end_date", "")).strip()
+        strategy_name = str(body.get("strategy", "MovingAverageTrend"))
+        train_years = float(body.get("train_years", 2))
+        val_months = int(body.get("val_months", 6))
+        top_n = int(body.get("top_n", 1))
+
+        if not symbol or not start_date or not end_date:
+            return jsonify({"error": "symbol, start_date, end_date required", "status": 400}), 400
+
+        registry = _get_strategy_registry()
+        strategy_cls = registry.get(strategy_name)
+        if strategy_cls is None:
+            return jsonify({"error": f"Unknown strategy: {strategy_name}", "status": 400}), 400
+
+        engine = _get_backtest_engine(use_mock_data=True)
+        from tradingagents.astock.execution.optimizer import WalkForwardAnalyzer
+
+        wfa = WalkForwardAnalyzer(strategy_cls, engine=engine)
+        results = wfa.run(
+            symbol, start_date, end_date,
+            param_grid=None,
+            train_years=train_years,
+            val_months=val_months,
+            window_mode="rolling",
+            top_n=top_n,
+        )
+
+        windows = []
+        for r in results:
+            windows.append({
+                "window_idx": r.window_idx,
+                "train_period": f"{r.train_start} → {r.train_end}",
+                "val_period": f"{r.val_start} → {r.val_end}",
+                "best_params": r.best_params,
+                "train_score": round(r.train_score, 4),
+                "val_score": round(r.val_score, 4),
+                "val_sharpe": round(r.val_metrics.get("sharpe_ratio", 0), 4),
+                "val_return": round(r.val_metrics.get("total_return", 0), 4),
+                "val_max_dd": round(r.val_metrics.get("max_drawdown", 0), 4),
+            })
+
+        summary = wfa.summarize(results)
+        return jsonify({
+            "windows": windows,
+            "summary": summary,
+        }), 200
     except Exception as exc:
         return jsonify({"error": str(exc), "status": 500}), 500
 

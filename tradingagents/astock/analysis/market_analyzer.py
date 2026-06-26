@@ -365,3 +365,156 @@ class MarketAnalyzer:
             return df
         except Exception:
             return pd.DataFrame()
+
+
+# ---------------------------------------------------------------------------
+# Standalone market regime analysis (no store dependency)
+# ---------------------------------------------------------------------------
+
+
+_DIM_WEIGHTS_LIST: list[tuple[str, float]] = [
+    ("trend", 0.30),
+    ("momentum", 0.30),
+    ("volatility", 0.20),
+    ("volume", 0.20),
+]
+
+_REGIME_VERDICTS: list[tuple[float, float, str]] = [
+    (-1.0, -0.5, "bearish"),
+    (-0.5, -0.15, "cautious_bearish"),
+    (-0.15, 0.15, "neutral"),
+    (0.15, 0.5, "cautious_bullish"),
+    (0.5, 1.0, "bullish"),
+]
+
+_REGIME_STRATEGY_MAP: dict[str, list[str]] = {
+    "bullish": ["BullTrend", "ValueAverage"],
+    "cautious_bullish": ["ValueAverage", "MovingAverageTrend"],
+    "neutral": ["MeanReversion", "RSIRange"],
+    "cautious_bearish": ["MeanReversion", "DefensiveMomentum"],
+    "bearish": ["PutWrite", "DefensiveMomentum"],
+}
+
+
+def analyze_regime_from_df(df: pd.DataFrame) -> dict[str, Any]:
+    """Analyze market regime from an OHLCV DataFrame without needing a store.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Must contain ``close`` (and optionally ``high``, ``low``, ``volume``)
+        columns with a DatetimeIndex.
+
+    Returns
+    -------
+    dict
+        ``composite_score``, ``verdict``, ``recommended_strategies``,
+        and per-dimension breakdown.
+    """
+    if df.empty or "close" not in df.columns:
+        return {
+            "composite_score": 0.0,
+            "verdict": "neutral",
+            "recommended_strategies": ["MeanReversion"],
+            "dimensions": {},
+        }
+
+    close = df["close"]
+
+    # ── Trend ──
+    ma5 = close.rolling(5).mean()
+    ma20 = close.rolling(20).mean()
+    ma60 = close.rolling(60).mean()
+    c5 = float(ma5.iloc[-1]) if not ma5.empty and pd.notna(ma5.iloc[-1]) else None
+    c20 = float(ma20.iloc[-1]) if not ma20.empty and pd.notna(ma20.iloc[-1]) else None
+    c60 = float(ma60.iloc[-1]) if not ma60.empty and pd.notna(ma60.iloc[-1]) else None
+
+    if c5 is not None and c20 is not None and c60 is not None:
+        if c5 > c20 > c60:
+            trend_score = min(1.0, 0.7 + 0.3 * ((c5 - c60) / max(c60, 1e-10)))
+        elif c5 < c20 < c60:
+            trend_score = max(-1.0, -0.7 - 0.3 * ((c60 - c5) / max(c60, 1e-10)))
+        elif c5 > c20:
+            trend_score = 0.2
+        elif c5 <= c20:
+            trend_score = -0.2
+        else:
+            trend_score = 0.0
+    else:
+        trend_score = 0.0
+
+    # ── Momentum (ROC20 + RSI14) ──
+    roc = float(close.pct_change(20).iloc[-1]) if len(close) > 20 and pd.notna(close.pct_change(20).iloc[-1]) else 0.0
+    roc_score = max(-1.0, min(1.0, roc * 10.0))
+
+    delta = close.diff()
+    gain = delta.clip(lower=0)
+    loss = (-delta).clip(lower=0)
+    avg_gain = gain.rolling(14).mean()
+    avg_loss = loss.rolling(14).mean()
+    rs = avg_gain / avg_loss.replace(0, float("nan"))
+    rsi_series = 100.0 - (100.0 / (1.0 + rs))
+    last_rsi = float(rsi_series.iloc[-1]) if not rsi_series.empty and pd.notna(rsi_series.iloc[-1]) else 50.0
+    rsi_score = min(1.0, (last_rsi - 50.0) / 20.0) if last_rsi >= 50 else max(-1.0, (last_rsi - 50.0) / 20.0)
+    momentum_score = 0.5 * roc_score + 0.5 * rsi_score
+
+    # ── Volatility (ATR14 / price) ──
+    volatility_score = 0.0
+    if "high" in df.columns and "low" in df.columns:
+        high = df["high"]
+        low = df["low"]
+        tr = pd.concat(
+            [high - low, (high - close.shift()).abs(), (low - close.shift()).abs()],
+            axis=1,
+        ).max(axis=1)
+        atr = tr.rolling(14).mean()
+        last_atr = float(atr.iloc[-1]) if not atr.empty and pd.notna(atr.iloc[-1]) else 0.0
+        last_close = float(close.iloc[-1]) if not close.empty else 1.0
+        atr_pct = last_atr / max(last_close, 1e-10)
+        if atr_pct < 0.015:
+            volatility_score = 0.5
+        elif atr_pct < 0.03:
+            volatility_score = 0.0
+        else:
+            volatility_score = max(-1.0, -0.5 - 10.0 * (atr_pct - 0.03))
+
+    # ── Volume ──
+    volume_score = 0.0
+    if "volume" in df.columns:
+        volume = df["volume"]
+        vol_ma5 = volume.rolling(5).mean()
+        last_vol = float(volume.iloc[-1]) if not volume.empty else 0.0
+        last_ma5 = float(vol_ma5.iloc[-1]) if not vol_ma5.empty and pd.notna(vol_ma5.iloc[-1]) else last_vol
+        ratio = last_vol / max(last_ma5, 1e-10)
+        if ratio > 1.3:
+            volume_score = min(1.0, 0.6 + 0.4 * (ratio - 1.3) / 0.7)
+        elif ratio > 0.7:
+            volume_score = 0.0
+        else:
+            volume_score = max(-1.0, -0.5 - 0.5 * (0.7 - ratio) / 0.7)
+
+    # ── Composite ──
+    composite = (
+        0.30 * trend_score
+        + 0.30 * momentum_score
+        + 0.20 * volatility_score
+        + 0.20 * volume_score
+    )
+
+    verdict = "neutral"
+    for lo, hi, label in _REGIME_VERDICTS:
+        if lo <= composite < hi:
+            verdict = label
+            break
+
+    return {
+        "composite_score": round(composite, 4),
+        "verdict": verdict,
+        "recommended_strategies": list(_REGIME_STRATEGY_MAP.get(verdict, ["MeanReversion"])),
+        "dimensions": {
+            "trend": round(trend_score, 4),
+            "momentum": round(momentum_score, 4),
+            "volatility": round(volatility_score, 4),
+            "volume": round(volume_score, 4),
+        },
+    }

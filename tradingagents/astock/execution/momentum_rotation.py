@@ -22,6 +22,8 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from tradingagents.astock.execution.strategy_base import MomentumRotationStrategy
+
 logger = logging.getLogger(__name__)
 
 # ── 龙头股票获取（动态优先，硬编码兜底） ──────────────────────────
@@ -194,70 +196,48 @@ def run_momentum_rotation(
     else:
         bench_ret = pd.Series(0.0, index=daily_ret.index)
 
-    # ── 3. 计算动量指标 ──
-    # 原始动量 = N日平均收益率
-    raw_momentum = daily_ret.rolling(window=n).mean()
-    # 波动率 = N日收益率方差
-    variance = daily_ret.rolling(window=n).var(ddof=0)
-    # 风险调整动量 = 原始动量 / √方差
-    adj_momentum = raw_momentum / np.sqrt(variance).replace(0, np.nan)
-
-    # ── 4. 生成每日权重 ──
+    # ── 3. 使用 MomentumRotationStrategy 生成权重 ──
+    strat = MomentumRotationStrategy({"n": n, "k": k, "l": l, "warmup": n})
     all_dates = daily_ret.index
-    rebalance_dates = []
+    rebalance_dates = strat.get_rebalance_dates(all_dates)
     weights_df = pd.DataFrame(0.0, index=all_dates, columns=stock_symbols_in_data)
-
     stock_selection_freq: dict[str, int] = {s: 0 for s in stock_symbols_in_data}
 
-    # 从第 N 天开始，每 K 天调仓
-    start_idx = n  # skip warmup
-    for i in range(start_idx, len(all_dates), k):
-        rebalance_date = all_dates[i]
-        rebalance_dates.append(rebalance_date)
-
-        # 当前动量值
-        current_adj = adj_momentum.loc[rebalance_date]
-        current_raw = raw_momentum.loc[rebalance_date]
-
-        # 第一重：正原始动量
-        pos_mask = current_raw > 0
-        # 第二重：按调整动量排序取前 L
-        candidates = current_adj[pos_mask].dropna().sort_values(ascending=False)
-        selected = candidates.head(l)
-
-        if selected.empty:
-            continue  # 空仓
-
-        # 归一化权重
-        total = selected.sum()
-        if total <= 0:
+    prev_weights: dict[str, float] = {}
+    for rebal_date in rebalance_dates:
+        price_slice = stock_prices.loc[:rebal_date]
+        if len(price_slice) < n:
             continue
-        normalized_weights = selected / total
+        weights = strat.generate_portfolio_weights(price_slice, prev_weights)
+        if not weights:
+            prev_weights = {}
+            continue
 
+        prev_weights = weights
         # 记录选中频率
-        for sym in selected.index:
+        for sym in weights:
             stock_selection_freq[sym] = stock_selection_freq.get(sym, 0) + 1
 
-        # 权重生效至下一次调仓前
-        if i + k < len(all_dates):
-            end_slice = all_dates[i + k]
+        # 权重生效至下次调仓前
+        rebal_pos = all_dates.get_loc(rebal_date)
+        if not isinstance(rebal_pos, (int, np.integer)):
+            continue
+        next_idx = rebal_pos + k
+        if next_idx < len(all_dates):
+            end_slice = all_dates[next_idx]
         else:
             end_slice = all_dates[-1]
 
-        mask = (all_dates >= rebalance_date) & (all_dates < end_slice)
-        for sym, w in normalized_weights.items():
-            weights_df.loc[mask, sym] = w
+        mask = (all_dates >= rebal_date) & (all_dates < end_slice)
+        for sym, w in weights.items():
+            if sym in weights_df.columns:
+                weights_df.loc[mask, sym] = w
 
         # 记录调仓记录
-        result.trades.append(
-            {
-                "date": str(rebalance_date.date()),
-                "positions": [
-                    {"symbol": sym, "weight": round(float(w), 4)}
-                    for sym, w in normalized_weights.items()
-                ],
-            }
-        )
+        result.trades.append({
+            "date": str(rebal_date.date()),
+            "positions": [{"symbol": sym, "weight": round(float(w), 4)} for sym, w in weights.items()],
+        })
 
     # ── 5. 滞后一天（T+1 执行） ──
     weights_lagged = weights_df.shift(1).dropna()
@@ -339,72 +319,12 @@ def run_momentum_rotation(
 
 
 def _fetch_all_prices(start_date: str, end_date: str) -> pd.DataFrame | None:
-    """Fetch adjusted close prices for all leading stocks + benchmark via baostock (fast)."""
+    """Fetch adjusted close prices for all leading stocks + benchmark via unified API."""
     leading, _ = get_leading_stocks()
     all_symbols = [s["symbol"] for s in leading] + [BENCHMARK_SYMBOL]
-    price_data: dict[str, pd.Series] = {}
-
     try:
-        import baostock as bs
-
-        bs.login()
-        try:
-            for sym in all_symbols:
-                # Convert to baostock format: sh.600519
-                prefix = "sh" if sym.endswith(".SH") else "sz"
-                code = sym.split(".")[0]
-                bs_code = f"{prefix}.{code}"
-
-                try:
-                    rs = bs.query_history_k_data_plus(
-                        bs_code,
-                        "date,close",
-                        start_date=start_date,
-                        end_date=end_date,
-                        frequency="d",
-                        adjustflag="2",  # 复权
-                    )
-                    rows = []
-                    while rs.next():
-                        row = rs.get_row_data()
-                        if len(row) >= 2 and row[0] and row[1]:
-                            rows.append(row)
-                    if rows:
-                        df = pd.DataFrame(rows, columns=["date", "close"])
-                        df["date"] = pd.to_datetime(df["date"])
-                        df["close"] = df["close"].astype(float)
-                        df = df.set_index("date").sort_index()
-                        price_data[sym] = df["close"]
-                except Exception as exc:
-                    logger.debug("baostock fetch failed for %s: %s", sym, exc)
-                    # Fallback: try facade
-                    try:
-                        from tradingagents.astock.data_sources import AStockDataFacade
-
-                        facade = AStockDataFacade()
-                        resp = facade.get_kline(
-                            symbol=sym,
-                            start_date=start_date,
-                            end_date=end_date,
-                            interval="1d",
-                        )
-                        if resp.status == "ok" and resp.data and resp.data.get("bars"):
-                            bars = resp.data["bars"]
-                            df = pd.DataFrame(bars)
-                            if "date" in df.columns:
-                                df["date"] = pd.to_datetime(df["date"])
-                                df = df.set_index("date").sort_index()
-                                price_data[sym] = df["close"].astype(float)
-                    except Exception:
-                        pass
-        finally:
-            bs.logout()
+        from tradingagents.astock.execution.strategy_base import fetch_multi_stock_prices
+        df = fetch_multi_stock_prices(all_symbols, start_date, end_date, column="close")
+        return df if not df.empty else None
     except Exception:
-        pass
-
-    if not price_data:
         return None
-
-    result = pd.DataFrame(price_data)
-    result = result.dropna(axis=1, how="all")
-    return result if not result.empty else None

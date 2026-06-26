@@ -11,12 +11,13 @@ from datetime import datetime, timedelta
 from enum import Enum
 from typing import Any, Optional
 
+import numpy as np
 import pandas as pd
 from pydantic import BaseModel, Field
 
 from .fee_model import AStockFeeConfig, calculate_fees
 from .metrics import summarize_metrics
-from .strategy_base import StrategyBase
+from .strategy_base import MomentumRotationStrategy, StrategyBase
 
 EXECUTION_SIGNAL: str = "ResearchOnly"
 
@@ -373,22 +374,21 @@ class BacktestEngine:
         return result
 
     @staticmethod
-    def _is_at_price_limit(period_data: pd.DataFrame, st_stock: bool = False) -> tuple[bool, str]:
-        """Check if the close price is at the daily price limit.
+    def _is_at_price_limit(prev_close: float | None, curr_close: float, st_stock: bool = False) -> tuple[bool, str]:
+        """Check if the price is at the daily price limit.
 
         For A-shares the default limit is ±10% from the previous close.
         ST/*ST stocks have a ±5% limit.
 
+        Uses the **actual previous trading day's close** passed as parameter,
+        not a period-internal iloc reference.
+
         Returns (is_limited, reason).
         """
-        if len(period_data) < 2:
-            return False, ""
-        prev_close = float(period_data["close"].iloc[-2])
-        curr_close = float(period_data["close"].iloc[-1])
-        if prev_close <= 0:
+        if prev_close is None or curr_close is None or prev_close <= 0:
             return False, ""
         change_pct = abs(curr_close - prev_close) / prev_close
-        threshold = 0.045 if st_stock else 0.095
+        threshold = 0.0495 if st_stock else 0.0995  # exact A-share limits ±5% and ±10%
         if change_pct >= threshold:
             direction = "up" if curr_close >= prev_close else "down"
             prefix = "st_" if st_stock else ""
@@ -467,6 +467,8 @@ class BacktestEngine:
         rebalance_freq: str = "M",
         *,
         initial_cash: float = 100000.0,
+        auto_regime: bool = False,
+        regime_symbol: str = "000300.SH",
     ) -> BacktestResult:
         """Execute a single-symbol backtest.
 
@@ -556,6 +558,25 @@ class BacktestEngine:
                 data_assumption=data_assumption,
             )
 
+        # ── Auto market regime analysis ──
+        if auto_regime and not df.empty and isinstance(df, pd.DataFrame):
+            try:
+                from tradingagents.astock.analysis.market_analyzer import analyze_regime_from_df
+
+                regime = analyze_regime_from_df(df)
+                notes = list(data_assumption.get("notes", []))
+                notes.append(f"regime_{regime['verdict']}(score={regime['composite_score']})")
+                notes.append(f"recommended_{','.join(regime['recommended_strategies'])}")
+                data_assumption["notes"] = notes
+                import logging
+                logging.getLogger(__name__).debug(
+                    "Market regime for %s: %s (score=%.4f) → %s",
+                    symbol, regime["verdict"], regime["composite_score"],
+                    regime["recommended_strategies"],
+                )
+            except Exception:
+                pass
+
         # --- Group by rebalance periods ---
         periods = df.resample(rebalance_freq.replace("M", "ME"))
         cash = initial_cash
@@ -571,6 +592,15 @@ class BacktestEngine:
             # Get the last close of the period for signal generation
             close_at_end = float(period_data["close"].iloc[-1])
 
+            # ── Get actual previous trading day's close from full df ──
+            current_date = period_data.index[-1]
+            current_pos = df.index.get_loc(current_date)
+            # df.index is a DatetimeIndex (unique), get_loc returns int
+            if isinstance(current_pos, int) and current_pos > 0:
+                actual_prev_close = float(df["close"].iloc[current_pos - 1])
+            else:
+                actual_prev_close = None
+
             # Generate signal from period data
             signal_series = strategy.generate_signals(period_data)
             # Take the last non-zero or most recent signal
@@ -581,7 +611,7 @@ class BacktestEngine:
 
             if signal == 1 and cash > 0:
                 # Check constraints before buying
-                price_limit, limit_reason = self._is_at_price_limit(period_data, data_assumption.get("st_stock", False))
+                price_limit, limit_reason = self._is_at_price_limit(actual_prev_close, close_at_end, data_assumption.get("st_stock", False))
                 suspended, suspend_reason = self._is_suspended(period_data)
                 trade_date_str = str(period_data.index[-1].date()) if hasattr(period_data.index[-1], 'date') else str(period_data.index[-1])
                 # Also check external suspension data source
@@ -596,7 +626,9 @@ class BacktestEngine:
                         price_limit, limit_reason = ext_pl, ext_pl_reason
                 constraint_notes = []
                 if data_assumption.get("price_limit_check", True) and price_limit:
-                    constraint_notes.append(f"buy_skipped_{limit_reason}")
+                    # Buy blocked only by limit UP (涨停 — no sellers)
+                    if "up" in limit_reason:
+                        constraint_notes.append(f"buy_skipped_{limit_reason}")
                 if data_assumption.get("suspension_check", True) and suspended:
                     constraint_notes.append(f"buy_skipped_{suspend_reason}")
                 if constraint_notes:
@@ -652,7 +684,7 @@ class BacktestEngine:
                     trades.append(trade)
             elif signal == -1 and shares > 0:
                 # Check constraints before selling
-                price_limit, limit_reason = self._is_at_price_limit(period_data, data_assumption.get("st_stock", False))
+                price_limit, limit_reason = self._is_at_price_limit(actual_prev_close, close_at_end, data_assumption.get("st_stock", False))
                 suspended, suspend_reason = self._is_suspended(period_data)
                 trade_date_str = str(period_data.index[-1].date()) if hasattr(period_data.index[-1], 'date') else str(period_data.index[-1])
                 # Also check external suspension data source
@@ -667,7 +699,9 @@ class BacktestEngine:
                         price_limit, limit_reason = ext_pl, ext_pl_reason
                 constraint_notes = []
                 if data_assumption.get("price_limit_check", True) and price_limit:
-                    constraint_notes.append(f"sell_skipped_{limit_reason}")
+                    # Sell blocked only by limit DOWN (跌停 — no buyers)
+                    if "down" in limit_reason:
+                        constraint_notes.append(f"sell_skipped_{limit_reason}")
                 if data_assumption.get("suspension_check", True) and suspended:
                     constraint_notes.append(f"sell_skipped_{suspend_reason}")
                 if constraint_notes:
@@ -759,4 +793,235 @@ class BacktestEngine:
             },
             data_assumption=data_assumption,
             cost_breakdown=cost_breakdown,
+        )
+
+    def run_portfolio(
+        self,
+        symbols: list[str],
+        start_date: str,
+        end_date: str,
+        strategy: MomentumRotationStrategy,
+        *,
+        initial_cash: float = 1_000_000.0,
+        benchmark_symbol: str = "588000.SH",
+        data_source: str | None = None,
+        auto_regime: bool = False,
+    ) -> BacktestResult:
+        """组合级回测 — 多标的动量轮动。
+
+        Parameters
+        ----------
+        symbols : list of str
+            备选标的代码列表。
+        start_date, end_date : str
+            ``"YYYY-MM-DD"``.
+        strategy : MomentumRotationStrategy
+            组合策略实例。
+        initial_cash : float
+            初始资金（默认 1_000_000）。
+        benchmark_symbol : str
+            基准标的（默认 588000.SH 科创50ETF）。
+        data_source : str or None
+            数据来源描述。
+
+        Returns
+        -------
+        BacktestResult
+        """
+        # ── 1. 获取全部标的价格（统一批量获取） ──
+        from tradingagents.astock.execution.strategy_base import fetch_multi_stock_prices
+
+        all_symbols = list(set(symbols + [benchmark_symbol]))
+        prices = fetch_multi_stock_prices(all_symbols, start_date, end_date, column="close")
+
+        if prices.empty:
+            return BacktestResult(symbol="Portfolio", start_date=start_date, end_date=end_date)
+
+        # Separate stock cols vs benchmark
+        stock_cols = [c for c in prices.columns if c != benchmark_symbol and c in symbols]
+        bench_col = benchmark_symbol if benchmark_symbol in prices.columns else None
+
+        if not stock_cols:
+            return BacktestResult(symbol="Portfolio", start_date=start_date, end_date=end_date)
+
+        stock_prices = prices[stock_cols]
+
+        # ── Auto market regime analysis (on benchmark) ──
+        data_assumption: dict[str, Any] = {
+            "adjustment": "forward",
+            "cost_model": "default",
+            "settlement": "t+1",
+            "data_source": data_source or "real_facade",
+            "look_ahead_bias_risk": True,
+            "notes": ["T+1 execution lag applied per A-share convention"],
+        }
+        if auto_regime and bench_col and not prices.empty:
+            try:
+                from tradingagents.astock.analysis.market_analyzer import analyze_regime_from_df
+
+                regime = analyze_regime_from_df(prices)
+                notes = list(data_assumption.get("notes", []))
+                notes.append(f"regime_{regime['verdict']}(score={regime['composite_score']})")
+                notes.append(f"recommended_{','.join(regime['recommended_strategies'])}")
+                data_assumption["notes"] = notes
+            except Exception:
+                pass
+
+        # ── 2. 日收益率 ──
+        daily_ret = stock_prices.pct_change().replace([np.inf, -np.inf], np.nan).fillna(0.0)
+        if bench_col:
+            bench_ret = prices[bench_col].pct_change().replace([np.inf, -np.inf], np.nan).fillna(0.0)
+        else:
+            bench_ret = pd.Series(0.0, index=daily_ret.index)
+
+        # ── 3. 调仓周期 ──
+        all_dates = daily_ret.index
+        rebalance_dates = strategy.get_rebalance_dates(all_dates)
+
+        # ── 4. 逐期调仓 ──
+        cash = initial_cash
+        holdings: dict[str, float] = {}  # symbol → value
+        portfolio_values: list[float] = [initial_cash]
+        dates_list: list[pd.Timestamp] = [all_dates[0]]
+        trades: list[dict] = []
+        stock_selection_freq: dict[str, int] = {s: 0 for s in stock_cols}
+
+        for i, rebal_date in enumerate(rebalance_dates):
+            rebal_pos = all_dates.get_loc(rebal_date)
+            if not isinstance(rebal_pos, (int, np.integer)):
+                continue
+            # T+1 执行：权重在下一个交易日生效
+            if rebal_pos + 1 < len(all_dates):
+                exec_date = all_dates[rebal_pos + 1]
+            else:
+                exec_date = rebal_date
+
+            # 读取当前动量快照
+            price_slice = stock_prices.loc[:rebal_date]
+            if len(price_slice) < strategy.warmup:
+                continue
+
+            weights = strategy.generate_portfolio_weights(price_slice, holdings)
+            if not weights:
+                # 空仓
+                cash = initial_cash
+                holdings = {}
+                trades.append({"date": str(exec_date.date()), "type": "clear", "weights": {}})
+                portfolio_values.append(cash)
+                dates_list.append(exec_date)
+                continue
+
+            # T+1 执行日买入
+            exec_prices = stock_prices.loc[exec_date] if exec_date in stock_prices.index else stock_prices.iloc[-1]
+            target_value = initial_cash
+            new_holdings: dict[str, float] = {}
+            for sym, w in weights.items():
+                if sym in exec_prices.index and pd.notna(exec_prices[sym]) and exec_prices[sym] > 0:
+                    shares_in_value = target_value * w
+                    new_holdings[sym] = shares_in_value
+                stock_selection_freq[sym] = stock_selection_freq.get(sym, 0) + 1
+
+            holdings = new_holdings
+            cash = 0.0  # fully invested
+            trades.append({
+                "date": str(exec_date.date()),
+                "type": "rebalance",
+                "weights": weights,
+            })
+
+            # 记录本日组合价值
+            port_val = sum(holdings.values())
+            portfolio_values.append(port_val)
+            dates_list.append(exec_date)
+
+        # ── 5. 日频组合价值 —— 用权重 × 日收益模拟 ──
+        # 在调仓日之间保持权重不变
+        weights_df = pd.DataFrame(0.0, index=all_dates, columns=stock_cols)
+        prev_weights: dict[str, float] = {}
+        for i, rebal_date in enumerate(rebalance_dates):
+            rebal_pos = all_dates.get_loc(rebal_date)
+            if not isinstance(rebal_pos, (int, np.integer)):
+                continue
+            exec_pos = min(rebal_pos + 1, len(all_dates) - 1)
+            exec_date = all_dates[exec_pos]
+
+            price_slice = stock_prices.loc[:rebal_date]
+            if len(price_slice) < strategy.warmup:
+                continue
+            weights = strategy.generate_portfolio_weights(price_slice, prev_weights)
+            if weights:
+                prev_weights = weights
+                # 权重在 exec_pos 到下次调仓前生效
+                next_rebal_idx = i + 1
+                if next_rebal_idx < len(rebalance_dates):
+                    next_pos = all_dates.get_loc(rebalance_dates[next_rebal_idx])
+                    end_pos = min(next_pos, len(all_dates))
+                else:
+                    end_pos = len(all_dates)
+
+                for sym, w in weights.items():
+                    if sym in weights_df.columns:
+                        weights_df.loc[all_dates[exec_pos:end_pos], sym] = w
+
+        # T+1 滞后
+        weights_lagged = weights_df.shift(1).dropna()
+        aligned_ret = daily_ret.loc[weights_lagged.index]
+        portfolio_daily_ret = (weights_lagged * aligned_ret).sum(axis=1)
+
+        # 对齐基准
+        common_idx = portfolio_daily_ret.index.intersection(bench_ret.index)
+        portfolio_daily_ret = portfolio_daily_ret.loc[common_idx]
+        bench_ret_aligned = bench_ret.loc[common_idx]
+
+        # ── 6. 累计收益 ──
+        port_cum = (1 + portfolio_daily_ret).cumprod()
+        bench_cum = (1 + bench_ret_aligned).cumprod()
+        total_return = float(port_cum.iloc[-1] / port_cum.iloc[0] - 1) if len(port_cum) > 1 else 0.0
+        bench_return = float(bench_cum.iloc[-1] / bench_cum.iloc[0] - 1) if len(bench_cum) > 1 else 0.0
+
+        # ── 7. 绩效指标 ──
+        years = len(common_idx) / 252.0 if len(common_idx) > 0 else 1.0
+        annualized = (1 + total_return) ** (1 / max(years, 0.5)) - 1
+
+        excess = portfolio_daily_ret
+        sharpe = float(np.sqrt(252) * excess.mean() / max(excess.std(), 1e-10)) if not excess.empty else 0.0
+
+        rolling_max = port_cum.expanding().max()
+        drawdown = (port_cum - rolling_max) / rolling_max
+        max_dd = float(drawdown.min()) if not drawdown.empty else 0.0
+
+        win_rate = float((portfolio_daily_ret > 0).mean()) if not portfolio_daily_ret.empty else 0.0
+        total_selections = sum(stock_selection_freq.values())
+
+        # ── 8. periods ──
+        periods = []
+        for dt in common_idx:
+            periods.append({
+                "period": str(dt.date()),
+                "portfolio_value": round(float(port_cum.loc[dt] * initial_cash), 2),
+                "benchmark_value": round(float(bench_cum.loc[dt] * initial_cash), 2),
+            })
+
+        return BacktestResult(
+            symbol="Portfolio",
+            strategy_name="MomentumRotation",
+            start_date=start_date,
+            end_date=end_date,
+            total_return=round(total_return, 6),
+            annualized_return=round(annualized, 6),
+            sharpe_ratio=round(sharpe, 4),
+            max_drawdown=round(max_dd, 6),
+            win_rate=round(win_rate, 6),
+            total_trades=total_selections,
+            trades=trades,
+            periods=periods,
+            benchmark_symbol=benchmark_symbol,
+            benchmark_return=round(bench_return, 6),
+            fee_config_used={
+                "commission_rate": self.fee_config.commission_rate,
+                "stamp_tax_rate": self.fee_config.stamp_tax_rate,
+                "slippage_rate": self.fee_config.slippage_rate,
+                "min_commission": self.fee_config.min_commission,
+            },
+            data_assumption=data_assumption,
         )

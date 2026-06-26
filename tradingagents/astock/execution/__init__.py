@@ -17,7 +17,7 @@ from .metrics import (
     calculate_win_rate,
     summarize_metrics,
 )
-from .optimizer import StrategyOptimizer, optimize_strategy
+from .optimizer import StrategyOptimizer, WalkForwardAnalyzer, optimize_strategy
 from .paper_trader import PaperTradeState, PaperTrader
 from .strategy_registry import StrategyRegistryEntry, get_registry, get_strategy, list_strategies, register
 from .qmt_bridge import QmtBridge, QmtBridgeConfig
@@ -39,15 +39,19 @@ from .strategy_base import (
     GridTradingStrategy,
     MACDTrendStrategy,
     MeanReversionStrategy,
+    MomentumRotationStrategy,
     MovingAverageTrendStrategy,
+    PortfolioStrategyBase,
     PutWriteStrategy,
     RSIRangeStrategy,
+    StockFlow,
     StrategyBase,
     ValueAverageStrategy,
 )
 
 __all__ = [
     "StrategyBase",
+    "PortfolioStrategyBase",
     "MovingAverageTrendStrategy",
     "BullTrendStrategy",
     "ValueAverageStrategy",
@@ -58,6 +62,9 @@ __all__ = [
     "MACDTrendStrategy",
     "BollingerBandsReversionStrategy",
     "GridTradingStrategy",
+    "MomentumRotationStrategy",
+    "StockFlow",
+    "WalkForwardAnalyzer",
     "StrategyOptimizer",
     "optimize_strategy",
     "AStockFeeConfig",

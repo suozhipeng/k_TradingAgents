@@ -242,6 +242,12 @@
       <input type="date" id="sh-end" class="tv-input w-full">
     </div>
 
+    <!-- 市场状态 -->
+    <div class="field">
+      <label>市场状态 <span id="sh-regime-badge" style="font-size:10px;color:#787b86;">加载中...</span></label>
+      <div id="sh-regime-detail" style="font-size:10px;color:#787b86;min-height:1em;"></div>
+    </div>
+
     <!-- 单策略模式：下拉单选 -->
     <div class="field" id="sh-strat-single-wrap">
       <label>策略 Strategy</label>
@@ -267,6 +273,18 @@
       <div id="sh-strat-list" class="sh-strat-grid">加载中...</div>
     </div>
 
+    <!-- Walk-Forward 参数 -->
+    <div class="field" id="sh-wfa-config" style="display:flex;gap:6px;margin-top:4px;">
+      <div style="flex:1;">
+        <label>训练年数</label>
+        <input id="sh-wfa-train-years" type="number" value="2" min="1" max="10" step="0.5" class="tv-input" style="width:100%;">
+      </div>
+      <div style="flex:1;">
+        <label>验证月数</label>
+        <input id="sh-wfa-val-months" type="number" value="6" min="1" max="24" class="tv-input" style="width:100%;">
+      </div>
+    </div>
+
     <!-- 操作区 -->
     <div class="sh-actions">
       <button id="sh-run-btn" onclick="shRunBacktest()" class="tv-btn tv-btn-primary" style="flex:2;">▶ 运行回测</button>
@@ -289,6 +307,7 @@
       <button class="sh-tab" data-tab="optimize" onclick="shSwitchTab('optimize')">🎯 2. 参数优化</button>
       <button class="sh-tab" data-tab="diagnosis" onclick="shSwitchTab('diagnosis')">📊 3. 深度绩效诊断</button>
       <button class="sh-tab" data-tab="compare" onclick="shSwitchTab('compare')">⚔️ 4. 多策略横向对比</button>
+      <button class="sh-tab" data-tab="walkforward" onclick="shSwitchTab('walkforward')">🔁 5. Walk-Forward</button>
     </div>
 
     <!-- ── Tab 1: 单策略回测 ── -->
@@ -400,6 +419,37 @@
         <div class="sh-chart-full" data-rsz="cmp-equity">
           <div class="title">📈 多策略净值曲线叠加</div>
           <canvas id="sh-chart-cmp-equity" height="220"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Tab 5: Walk-Forward Analysis ── -->
+    <div class="sh-panel" id="panel-walkforward">
+      <div id="sh-wfa-placeholder">
+        <div class="sh-empty">
+          <div class="icon">🔁</div>
+          <div class="text">配置参数后点击「Walk-Forward」开始滚动窗口验证</div>
+          <div class="hint">2年训练 + 6月验证滚动窗口 → 检测 overfit_gap</div>
+        </div>
+      </div>
+      <div id="sh-wfa-content" style="display:none;">
+        <div id="sh-wfa-summary" class="sh-metrics"></div>
+        <div class="sh-section-title">📋 逐窗口结果</div>
+        <div class="sh-trade-table" id="sh-wfa-table-wrapper">
+          <table id="sh-wfa-table" style="width:100%;border-collapse:collapse;font-size:11px;">
+            <thead><tr style="color:#787b86;border-bottom:1px solid #2a2e39;">
+              <th style="padding:4px 6px;text-align:left;">#</th>
+              <th style="padding:4px 6px;text-align:left;">训练期</th>
+              <th style="padding:4px 6px;text-align:left;">验证期</th>
+              <th style="padding:4px 6px;text-align:right;">训练分</th>
+              <th style="padding:4px 6px;text-align:right;">验证分</th>
+              <th style="padding:4px 6px;text-align:right;">验证 Sharpe</th>
+              <th style="padding:4px 6px;text-align:right;">验证收益</th>
+              <th style="padding:4px 6px;text-align:right;">最大回撤</th>
+              <th style="padding:4px 6px;text-align:left;">最佳参数</th>
+            </tr></thead>
+            <tbody id="sh-wfa-tbody"></tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -577,6 +627,21 @@ async function shUpdateStockInfo(symbol) {
     if (info.indices && info.indices.length) parts.push(info.indices.join('/'));
     el.textContent = info.name + ' (' + info.code + ') ' + parts.join('/');
   } catch (e) { el.textContent = ''; }
+
+  // ── Sidebar: market regime analysis on index ──
+  try {
+    const regimeRes = await fetch('/api/v1/market/regime?symbol=000300.SH&lookback=120');
+    const regimeData = await regimeRes.json();
+    if (!regimeData.error && regimeData.verdict) {
+      const regimeColors = {bearish:'#f23645', cautious_bearish:'#f23645', neutral:'#787b86', cautious_bullish:'#089981', bullish:'#089981'};
+      const regimeLabels = {bullish:'📈 强势上涨',cautious_bullish:'↗️ 谨慎看涨',neutral:'➡️ 横盘震荡',cautious_bearish:'↘️ 谨慎看跌',bearish:'📉 强势下跌'};
+      document.getElementById('sh-regime-badge').innerHTML = '<span style="color:'+(regimeColors[regimeData.verdict]||'#787b86')+';">'+
+        (regimeLabels[regimeData.verdict]||'—')+'</span>';
+      document.getElementById('sh-regime-detail').textContent = '得分: ' + (regimeData.composite_score||0).toFixed(3) + ' | 推荐: ' + (regimeData.recommended_strategies||[]).join(', ');
+    }
+  } catch (e) {
+    document.getElementById('sh-regime-badge').textContent = '—';
+  }
 }
 
 async function shLoadStrategies() {
@@ -623,7 +688,7 @@ function shSwitchTab(tabId) {
   document.querySelectorAll('.sh-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + tabId));
   // Update run button text
   const btn = document.getElementById('sh-run-btn');
-  const labels = {single: '▶ 运行回测', optimize: '🎯 开始优化', diagnosis: '📊 绩效诊断', compare: '⚔️ 对比策略'};
+  const labels = {single: '▶ 运行回测', optimize: '🎯 开始优化', diagnosis: '📊 绩效诊断', compare: '⚔️ 对比策略', walkforward: '🔁 Walk-Forward'};
   btn.textContent = labels[tabId] || '▶ 运行';
 
   // Adapt strategy selection
@@ -667,6 +732,8 @@ async function shRunBacktest() {
     await shRunMultiCompare(symbol, start, end, statusEl);
   } else if (shActiveTab === 'optimize') {
     await shRunOptimize(symbol, start, end, statusEl);
+  } else if (shActiveTab === 'walkforward') {
+    await shRunWalkforward(symbol, start, end, statusEl);
   } else {
     await shRunSingle(symbol, start, end, statusEl);
   }
@@ -825,6 +892,18 @@ function shRenderSingleResults(btData, ad) {
 
   // ── Bias / Data Assumption flags ──
   var da = btData.data_assumption || {};
+  var notes = (da.notes || []).join(' ');
+  // Parse regime verdict from notes (e.g. "regime_bullish(score=0.45)")
+  var regimeMatch = notes.match(/regime_(\w+)\(score=([-\d.]+)\)/);
+  var regimeVerdict = regimeMatch ? regimeMatch[1] : null;
+  var regimeScore = regimeMatch ? parseFloat(regimeMatch[2]) : null;
+  var recMatch = notes.match(/recommended_([\w,]+)/);
+  var recommended = recMatch ? recMatch[1].split(',') : [];
+
+  // Regime badge colors
+  var regimeColors = {bullish:'#089981', cautious_bullish:'#089981', neutral:'#787b86', cautious_bearish:'#f23645', bearish:'#f23645'};
+  var regimeLabels = {bullish:'📈 强势上涨', cautious_bullish:'↗️ 谨慎看涨', neutral:'➡️ 横盘震荡', cautious_bearish:'↘️ 谨慎看跌', bearish:'📉 强势下跌'};
+
   var biasFlags = [];
   if (da.survivorship_bias_risk) biasFlags.push('📛 幸存者偏差');
   if (da.look_ahead_bias_risk) biasFlags.push('🔮 前视偏差');
@@ -832,7 +911,7 @@ function shRenderSingleResults(btData, ad) {
   if (da.st_stock) biasFlags.push('📉 ST/*ST');
   if (da.price_limit_check === false) biasFlags.push('🎯 涨跌停约束关闭');
   if (da.suspension_check === false) biasFlags.push('⏸️ 停牌约束关闭');
-  if (biasFlags.length > 0) {
+  if (biasFlags.length > 0 || regimeVerdict) {
     var biasEl = document.getElementById('sh-bias-flags');
     if (!biasEl) {
       biasEl = document.createElement('div');
@@ -841,9 +920,16 @@ function shRenderSingleResults(btData, ad) {
       biasEl.style.marginTop = '6px';
       document.getElementById('sh-single-metrics').after(biasEl);
     }
-    biasEl.innerHTML = biasFlags.map(function(f) {
+    var badges = [];
+    if (regimeVerdict) {
+      var clr = regimeColors[regimeVerdict] || '#787b86';
+      var lbl = regimeLabels[regimeVerdict] || regimeVerdict;
+      badges.push('<div class="sh-metric" style="background:#1a1a2e;"><div class="lbl" style="font-size:11px;color:'+clr+';">' + lbl + ' <span style="font-size:10px;color:#787b86;">(' + (regimeScore != null ? regimeScore.toFixed(3) : '?') + ')</span></div><div class="sub" style="font-size:10px;">推荐: ' + (recommended.length ? recommended.join(', ') : '—') + '</div></div>');
+    }
+    badges = badges.concat(biasFlags.map(function(f) {
       return '<div class="sh-metric" style="background:#1a1a2e;"><div class="lbl" style="font-size:11px;color:#ff9800;">' + f + '</div></div>';
-    }).join('');
+    }));
+    biasEl.innerHTML = badges.join('');
   }
 
   var sv = document.getElementById('sh-start').value;
@@ -1314,6 +1400,52 @@ function shRestoreSizes() {
     if (!el) return;
     if (dim.w) el.style.width = dim.w + 'px';
     if (dim.h) el.style.height = dim.h + 'px';
+  });
+}
+function shRunWalkforward(symbol, start, end, statusEl) {
+  const strategy = document.getElementById('sh-strategy').value;
+  const trainYears = parseFloat(document.getElementById('sh-wfa-train-years')?.value) || 2;
+  const valMonths = parseInt(document.getElementById('sh-wfa-val-months')?.value) || 6;
+  statusEl.textContent = '⏳ Walk-Forward 分析中...';
+  document.getElementById('sh-wfa-placeholder').style.display = 'none';
+  document.getElementById('sh-wfa-content').style.display = 'block';
+  document.getElementById('sh-wfa-tbody').innerHTML = '<tr><td colspan="9" style="text-align:center;padding:20px;color:#787b86;">⏳ 分析中...</td></tr>';
+  document.getElementById('sh-wfa-summary').innerHTML = '';
+  fetch('/api/v1/backtest/walkforward', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({symbol, start_date: start, end_date: end, strategy, train_years: trainYears, val_months: valMonths, top_n: 1}),
+  }).then(r=>r.json()).then(data=>{
+    if (data.error) { statusEl.textContent = '❌ '+data.error; return; }
+    statusEl.textContent = '✅ WFA 完成 ('+data.windows.length+' 窗口)';
+    const s = data.summary;
+    document.getElementById('sh-wfa-summary').innerHTML = ''+
+      '<div class="sh-metric-row">'+
+      '<div class="sh-metric"><div class="val" style="color:#787b86;">'+s.num_windows+'</div><div class="lbl">窗口数</div></div>'+
+      '<div class="sh-metric"><div class="val">'+(s.avg_train_score||0).toFixed(4)+'</div><div class="lbl">平均训练分</div></div>'+
+      '<div class="sh-metric"><div class="val">'+(s.avg_val_score||0).toFixed(4)+'</div><div class="lbl">平均验证分</div></div>'+
+      '<div class="sh-metric"><div class="val" style="color:'+(s.overfit_gap>0.2?'#f23645':'#089981')+';">'+(s.overfit_gap||0).toFixed(4)+'</div><div class="lbl">Overfit Gap</div></div>'+
+      '<div class="sh-metric"><div class="val" style="font-size:10px;color:#787b86;">'+escapeHtml(JSON.stringify(s.param_stability||{}))+'</div><div class="lbl">参数稳定性</div></div>'+
+      '</div>';
+    const tbody = document.getElementById('sh-wfa-tbody');
+    tbody.innerHTML = '';
+    (data.windows||[]).forEach(function(w) {
+      var clr = w.val_score >= w.train_score ? '#089981' : '#f23645';
+      var params = Object.entries(w.best_params||{}).map(function(e){return e[0]+'='+e[1];}).join(', ') || '(默认)';
+      tbody.innerHTML += '<tr style="border-bottom:1px solid #2a2e39;">'+
+        '<td style="padding:4px 6px;color:#787b86;">'+(w.window_idx+1)+'</td>'+
+        '<td style="padding:4px 6px;">'+escapeHtml(w.train_period)+'</td>'+
+        '<td style="padding:4px 6px;">'+escapeHtml(w.val_period)+'</td>'+
+        '<td style="padding:4px 6px;text-align:right;color:'+clr+';">'+w.train_score.toFixed(4)+'</td>'+
+        '<td style="padding:4px 6px;text-align:right;color:'+clr+';">'+w.val_score.toFixed(4)+'</td>'+
+        '<td style="padding:4px 6px;text-align:right;">'+(w.val_sharpe||0).toFixed(2)+'</td>'+
+        '<td style="padding:4px 6px;text-align:right;'+(w.val_return>0?'color:#089981;':'color:#f23645;')+'">'+(w.val_return*100).toFixed(2)+'%</td>'+
+        '<td style="padding:4px 6px;text-align:right;color:#f23645;">'+(w.val_max_dd*100).toFixed(2)+'%</td>'+
+        '<td style="padding:4px 6px;font-size:10px;color:#787b86;max-width:120px;overflow:hidden;text-overflow:ellipsis;">'+escapeHtml(params)+'</td>'+
+        '</tr>';
+    });
+  }).catch(function(err) {
+    statusEl.textContent = '❌ '+err.message;
   });
 }
 function shInitPersistence() {

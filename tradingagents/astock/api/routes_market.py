@@ -7,11 +7,13 @@ No heavy ``tradingagents.astock`` imports at module level.
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 
+import pandas as pd
 from flask import Blueprint, Response, current_app, jsonify, request
 
-from ._helpers import df_to_json
+from ._helpers import df_to_json, sanitise_records
 
 bp = Blueprint("market", __name__)
 
@@ -26,6 +28,8 @@ AVAILABLE_STRATEGIES = [
     {"name": "MACDTrend", "description": "MACD golden/death cross trend following"},
     {"name": "BollingerBands", "description": "Bollinger Bands mean reversion"},
     {"name": "GridTrading", "description": "Fixed grid-level trading strategy"},
+    {"name": "StockFlow", "description": "Multi-strategy signal cascade (AND/OR/MAJORITY/CASCADE)"},
+    {"name": "MomentumRotation", "description": "Leading stock momentum rotation (portfolio)"},
 ]
 
 
@@ -92,3 +96,53 @@ def market_summary() -> tuple[Response, int]:
 def list_strategies() -> tuple[Response, int]:
     """Return the list of available backtest strategies."""
     return jsonify({"strategies": AVAILABLE_STRATEGIES}), 200
+
+
+# ---------------------------------------------------------------------------
+# GET /api/v1/market/regime?symbol=000300.SH
+# ---------------------------------------------------------------------------
+
+
+@bp.route("/market/regime")
+def market_regime() -> tuple[Response, int]:
+    """实时市场状态分析（4 维度）。
+
+    Query params:
+        symbol : str  指数代码（默认 000300.SH 沪深 300）。
+        lookback : int  回溯天数（默认 120）。
+
+    Returns
+    -------
+    JSON with ``composite_score``, ``verdict``, ``recommended_strategies``, ``dimensions``.
+    """
+    symbol = request.args.get("symbol", "000300.SH").strip()
+    lookback = int(request.args.get("lookback", 120))
+    end_date = datetime.now().strftime("%Y-%m-%d")
+
+    try:
+        from tradingagents.astock.data_sources import AStockDataFacade
+
+        facade = AStockDataFacade()
+        resp = facade.get_kline(symbol=symbol, interval="1d")
+        if resp.status != "ok" or not resp.data or not resp.data.get("bars"):
+            return jsonify({"error": "no data", "verdict": "neutral", "composite_score": 0.0}), 200
+
+        bars = resp.data["bars"]
+        df = pd.DataFrame(bars)
+        if "date" in df.columns:
+            df["date"] = pd.to_datetime(df["date"])
+            df = df.set_index("date").sort_index()
+        for col in ("open", "high", "low", "close", "volume"):
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors="coerce")
+
+        if lookback and len(df) > lookback:
+            df = df.iloc[-lookback:]
+
+        from tradingagents.astock.analysis.market_analyzer import analyze_regime_from_df
+
+        regime = analyze_regime_from_df(df)
+        return jsonify(regime), 200
+
+    except Exception as exc:
+        return jsonify({"error": str(exc), "verdict": "neutral", "composite_score": 0.0}), 200

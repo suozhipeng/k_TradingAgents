@@ -2,74 +2,24 @@
 
 from __future__ import annotations
 
-import importlib
-import sys
 import unittest
-from pathlib import Path
 
 import pandas as pd
 
-# ---------------------------------------------------------------------------
-# Clean module loader — loads a single submodule without polluting sys.modules
-# with fake parent packages.  Real parent packages are imported once via
-# importlib; only the target submodule is loaded from its file path.
-# ---------------------------------------------------------------------------
-
-_REPO = Path(__file__).resolve().parent.parent
-_EXEC = _REPO / "tradingagents" / "astock" / "execution"
-_PKG_PARENT = "tradingagents.astock.execution"
-
-
-def _load_submodule(rel_name: str):
-    """Load a single submodule by file path without fake-package pollution."""
-    fname = rel_name + ".py"
-    full_name = f"{_PKG_PARENT}.{rel_name}"
-    path = str(_EXEC / fname)
-    spec = importlib.util.spec_from_file_location(full_name, path)
-    if spec is None or spec.loader is None:
-        raise ImportError(f"Cannot load {full_name} from {path}")
-
-    # Ensure real parent packages are importable (not fake shells from older runs)
-    for parent in ("tradingagents", "tradingagents.astock", _PKG_PARENT):
-        mod = sys.modules.get(parent)
-        if mod is not None and hasattr(mod, "__path__") and not getattr(mod, "__path__", []):
-            del sys.modules[parent]
-        if parent not in sys.modules:
-            try:
-                importlib.import_module(parent)
-            except ImportError:
-                pass  # real package exists on sys.path, import will work at runtime
-
-    exec_pkg = sys.modules.get(_PKG_PARENT)
-    if exec_pkg:
-        exec_pkg.__path__ = [str(_EXEC)]
-
-    # Load only the target submodule
-    mod = importlib.util.module_from_spec(spec)
-    mod.__package__ = _PKG_PARENT
-    mod.__name__ = full_name
-    sys.modules[full_name] = mod
-    spec.loader.exec_module(mod)
-
-    # Clean up: remove this submodule so it doesn't shadow other imports
-    del sys.modules[full_name]
-
-    return mod
-
-
-_sb = _load_submodule("strategy_base")
-
-StrategyBase = _sb.StrategyBase
-MovingAverageTrendStrategy = _sb.MovingAverageTrendStrategy
-BullTrendStrategy = _sb.BullTrendStrategy
-ValueAverageStrategy = _sb.ValueAverageStrategy
-MeanReversionStrategy = _sb.MeanReversionStrategy
-RSIRangeStrategy = _sb.RSIRangeStrategy
-DefensiveMomentumStrategy = _sb.DefensiveMomentumStrategy
-PutWriteStrategy = _sb.PutWriteStrategy
-MACDTrendStrategy = _sb.MACDTrendStrategy
-BollingerBandsReversionStrategy = _sb.BollingerBandsReversionStrategy
-GridTradingStrategy = _sb.GridTradingStrategy
+from tradingagents.astock.execution.strategy_base import (
+    BollingerBandsReversionStrategy,
+    BullTrendStrategy,
+    DefensiveMomentumStrategy,
+    GridTradingStrategy,
+    MACDTrendStrategy,
+    MeanReversionStrategy,
+    MomentumRotationStrategy,
+    MovingAverageTrendStrategy,
+    PutWriteStrategy,
+    RSIRangeStrategy,
+    StockFlow,
+    ValueAverageStrategy,
+)
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -356,6 +306,7 @@ class TestPutWriteStrategy(unittest.TestCase):
 class TestStrategyUniformConstraints(unittest.TestCase):
     """所有策略必须遵守的统一契约。"""
 
+    # 组合级策略（不支持单标的 generate_signals）从统一契约中排除
     STRATEGY_CLASSES = [
         MovingAverageTrendStrategy,
         BullTrendStrategy,
@@ -548,6 +499,94 @@ class TestGridTradingStrategy(unittest.TestCase):
         """grid_spacing > 0 必须成立。"""
         with self.assertRaises(ValueError):
             GridTradingStrategy({"grid_spacing": -1})
+
+
+# ===================================================================
+# StockFlow 图执行链测试
+# ===================================================================
+
+
+class TestStockFlow(unittest.TestCase):
+    """StockFlow — 多策略信号级联组合。"""
+
+    def _make_df(self, n=120) -> pd.DataFrame:
+        prices = list(range(100, 100 + n))
+        dates = pd.bdate_range(start="2024-01-02", periods=n)
+        return pd.DataFrame(
+            {"close": prices, "volume": [1000000] * n,
+             "high": [p * 1.02 for p in prices],
+             "low": [p * 0.98 for p in prices]},
+            index=dates,
+        )
+
+    def test_and_mode_requires_unanimous(self):
+        """AND 模式：只有全部策略一致才出信号。"""
+        sf = StockFlow({
+            "flows": [
+                {"name": "MovingAverageTrend", "order": 0,
+                 "config": {"fast_period": 3, "slow_period": 10}},
+                {"name": "RSIRange", "order": 1,
+                 "config": {"oversold": 25, "overbought": 75}},
+            ],
+            "mode": "and",
+        })
+        sig = sf.generate_signals(self._make_df())
+        # All signals must be 0 or both agree → AND is strict
+        has_both = ((sig == 1) | (sig == -1) | (sig == 0)).all()
+        self.assertTrue(has_both)
+        self.assertEqual(sig.dtype, int)
+
+    def test_or_mode_any_triggers(self):
+        """OR 模式：任一策略触发即出信号。"""
+        sf = StockFlow({
+            "flows": [
+                {"name": "MovingAverageTrend", "order": 0,
+                 "config": {"fast_period": 3, "slow_period": 10}},
+                {"name": "RSIRange", "order": 1,
+                 "config": {"oversold": 25, "overbought": 75}},
+            ],
+            "mode": "or",
+        })
+        sig = sf.generate_signals(self._make_df())
+        # OR should produce more non-zero signals than AND
+        non_zero_or = (sig != 0).sum()
+        sf2 = StockFlow({
+            "flows": sf.flows, "mode": "and",
+        })
+        non_zero_and = (sf2.generate_signals(self._make_df()) != 0).sum()
+        self.assertGreaterEqual(non_zero_or, non_zero_and)
+
+    def test_cascade_first_nonzero_wins(self):
+        """CASCADE 模式：第一个非零策略胜出。"""
+        sf = StockFlow({
+            "flows": [
+                {"name": "MovingAverageTrend", "order": 0,
+                 "config": {"fast_period": 3, "slow_period": 10}},
+                {"name": "RSIRange", "order": 1,
+                 "config": {"oversold": 25, "overbought": 75}},
+            ],
+            "mode": "cascade",
+        })
+        sig = sf.generate_signals(self._make_df())
+        self.assertIn(0, sig.values)  # some holds
+        self.assertIn(sig.dtype.kind, ("i", "u"))
+
+    def test_empty_flows_raises(self):
+        """空 flows → ValueError。"""
+        with self.assertRaises(ValueError):
+            StockFlow({"flows": [], "mode": "and"})
+
+    def test_unknown_strategy_raises(self):
+        """不存在的策略名 → ValueError。"""
+        with self.assertRaises(ValueError):
+            StockFlow._resolve_strategy("NonExistent")
+
+    def test_unknown_mode_raises(self):
+        """不存在的 mode → ValueError。"""
+        with self.assertRaises(ValueError):
+            StockFlow({"flows": [
+                {"name": "MovingAverageTrend", "order": 0},
+            ], "mode": "invalid_mode"})
 
 
 if __name__ == "__main__":

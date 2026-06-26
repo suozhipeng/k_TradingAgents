@@ -104,6 +104,8 @@ _CATEGORY_MAP: dict[str, str] = {
     "MACDTrend": "trend",
     "BollingerBandsReversion": "volatility",
     "GridTrading": "grid",
+    "MomentumRotation": "momentum",
+    "StockFlow": "composite",
 }
 
 for name, category in _CATEGORY_MAP.items():

@@ -113,8 +113,12 @@ class TestOptimizerConstruction(unittest.TestCase):
 
 
 class TestOptimizerRun(unittest.TestCase):
+    def setUp(self):
+        from tradingagents.astock.execution.backtest_engine import BacktestEngine
+        self.mock_engine = BacktestEngine(use_mock_data=True)
+
     def test_optimize_returns_sorted_results(self) -> None:
-        opt = StrategyOptimizer("MACDTrend")
+        opt = StrategyOptimizer("MACDTrend", engine=self.mock_engine)
         results = opt.optimize(
             symbol="000001.SZ", start_date="2024-01-01", end_date="2024-06-30",
             param_grid={"fast_period": [8, 12], "slow_period": [20, 26]}, top_n=5,
@@ -124,7 +128,7 @@ class TestOptimizerRun(unittest.TestCase):
         self.assertEqual(scores, sorted(scores, reverse=True))
 
     def test_optimize_returns_limited_top_n(self) -> None:
-        opt = StrategyOptimizer("MeanReversion")
+        opt = StrategyOptimizer("MeanReversion", engine=self.mock_engine)
         results = opt.optimize(
             symbol="000001.SZ", start_date="2024-01-01", end_date="2024-06-30",
             param_grid={"ma_period": [10, 20], "std_multiplier": [2.0, 3.0]}, top_n=2,
@@ -132,39 +136,115 @@ class TestOptimizerRun(unittest.TestCase):
         self.assertLessEqual(len(results), 2)
 
     def test_optimize_with_default_search_space(self) -> None:
-        opt = StrategyOptimizer("RSIRange")
+        opt = StrategyOptimizer("RSIRange", engine=self.mock_engine)
         results = opt.optimize(
             symbol="000001.SZ", start_date="2024-01-01", end_date="2024-06-30", top_n=3,
         )
         self.assertTrue(len(results) > 0)
 
     def test_result_contains_params_and_metrics(self) -> None:
-        opt = StrategyOptimizer("BullTrend")
+        opt = StrategyOptimizer("BullTrend", engine=self.mock_engine)
         results = opt.optimize(
             symbol="000001.SZ", start_date="2024-01-01", end_date="2024-06-30",
             param_grid={"fast_ma": [5, 10], "mid_ma": [20]}, top_n=1,
         )
+        self.assertTrue(len(results) > 0)
         r = results[0]
         self.assertIn("params", r)
         self.assertIn("metrics", r)
+        self.assertIn("score", r)
 
     def test_optimize_empty_param_grid_returns_default(self) -> None:
-        opt = StrategyOptimizer("PutWrite")
+        opt = StrategyOptimizer("PutWrite", engine=self.mock_engine)
         results = opt.optimize(
             symbol="000001.SZ", start_date="2024-01-01", end_date="2024-06-30",
             param_grid={}, top_n=1,
         )
-        self.assertTrue(len(results) >= 0)
+        self.assertGreaterEqual(len(results), 0)
 
 
 class TestConvenienceWrapper(unittest.TestCase):
     def test_wrapper_runs(self) -> None:
+        from tradingagents.astock.execution.backtest_engine import BacktestEngine
+        mock_engine = BacktestEngine(use_mock_data=True)
         results = optimize_strategy(
             "DefensiveMomentum", "000001.SZ", "2024-01-01", "2024-06-30",
             param_grid={"roc_period": [10, 20]}, top_n=2,
+            engine=mock_engine,
         )
         self.assertTrue(len(results) > 0)
         self.assertEqual(results[0]["rank"], 1)
+
+
+# ===================================================================
+# Walk-Forward Analysis 测试
+# ===================================================================
+
+
+class TestWalkForwardAnalyzer(unittest.TestCase):
+    def setUp(self):
+        from tradingagents.astock.execution.backtest_engine import BacktestEngine
+        self.mock_engine = BacktestEngine(use_mock_data=True)
+
+    def test_wfa_returns_results(self):
+        """Walk-Forward Analysis 返回窗口结果。"""
+        from tradingagents.astock.execution.optimizer import WalkForwardAnalyzer
+        wfa = WalkForwardAnalyzer("MovingAverageTrend", engine=self.mock_engine)
+        results = wfa.run(
+            "600519.SH", "2024-01-01", "2025-06-01",
+            param_grid={"fast_period": [5, 10], "slow_period": [20, 30]},
+            train_years=1, val_months=3, top_n=1,
+        )
+        self.assertGreater(len(results), 0)
+        for r in results:
+            self.assertIsInstance(r.train_score, float)
+            self.assertIsInstance(r.val_score, float)
+            self.assertIn("fast_period", r.best_params)
+
+    def test_wfa_summarize_includes_overfit_gap(self):
+        """summarize() 包含 overfit_gap / param_stability。"""
+        from tradingagents.astock.execution.optimizer import WalkForwardAnalyzer
+        wfa = WalkForwardAnalyzer("MACDTrend", engine=self.mock_engine)
+        results = wfa.run(
+            "600519.SH", "2024-01-01", "2025-06-01",
+            param_grid={"fast_period": [8, 12], "slow_period": [20, 26]},
+            train_years=1, val_months=3, top_n=1,
+        )
+        if results:
+            summary = wfa.summarize(results)
+            self.assertIn("num_windows", summary)
+            self.assertIn("avg_train_score", summary)
+            self.assertIn("avg_val_score", summary)
+            self.assertIn("overfit_gap", summary)
+            self.assertIn("param_stability", summary)
+            self.assertGreater(summary["num_windows"], 0)
+
+    def test_wfa_rolling_vs_expanding(self):
+        """rolling 和 expanding 模式都产生窗口。"""
+        from tradingagents.astock.execution.optimizer import WalkForwardAnalyzer
+        wfa = WalkForwardAnalyzer("MovingAverageTrend", engine=self.mock_engine)
+        rolling = wfa.run(
+            "600519.SH", "2024-01-01", "2025-06-01",
+            param_grid={"fast_period": [5]},
+            train_years=1, val_months=3, window_mode="rolling",
+        )
+        expanding = wfa.run(
+            "600519.SH", "2024-01-01", "2025-06-01",
+            param_grid={"fast_period": [5]},
+            train_years=1, val_months=3, window_mode="expanding",
+        )
+        self.assertGreater(len(rolling), 0)
+        self.assertGreater(len(expanding), 0)
+
+    def test_wfa_empty_data_returns_empty(self):
+        """空数据返回空列表。"""
+        from tradingagents.astock.execution.optimizer import WalkForwardAnalyzer
+        wfa = WalkForwardAnalyzer("MovingAverageTrend", engine=self.mock_engine)
+        results = wfa.run(
+            "INVALID.X", "2099-01-01", "2099-06-01",
+            param_grid={"fast_period": [5]},
+        )
+        self.assertEqual(len(results), 0)
 
 
 if __name__ == "__main__":

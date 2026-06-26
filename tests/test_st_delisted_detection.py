@@ -199,102 +199,86 @@ class TestDetectStDelisted(unittest.TestCase):
 
 
 class TestIsAtPriceLimit(unittest.TestCase):
-    """Test the price limit detection with ST/normal thresholds."""
+    """Test the price limit detection with ST/normal thresholds.
 
-    def make_period(self, closes: list[float], start: str = "2024-01-02") -> pd.DataFrame:
-        """Build a period DataFrame with close column only."""
-        dates = pd.bdate_range(start=start, periods=len(closes))
-        return pd.DataFrame(
-            {"close": closes, "volume": [1000000] * len(closes)},
-            index=dates,
-        )
+    Updated 2026-06-26: signature changed from (period_data, st_stock)
+    to (prev_close, curr_close, st_stock). Thresholds now 9.95%/4.95%.
+    """
 
-    # --- Normal stock (±10% limit) ---
+    # --- Normal stock (±10% limit, threshold 9.95%) ---
 
     def test_normal_up_limit(self):
-        """Normal stock at 9.5%+ change → price_limit_up."""
-        period = self.make_period([100.0, 109.6])
-        limited, reason = BacktestEngine._is_at_price_limit(period, st_stock=False)
+        """Normal stock at 9.95%+ change → price_limit_up."""
+        limited, reason = BacktestEngine._is_at_price_limit(100.0, 109.96, st_stock=False)
         self.assertTrue(limited)
         self.assertEqual(reason, "price_limit_up")
 
     def test_normal_down_limit(self):
-        """Normal stock at -9.5%+ change → price_limit_down."""
-        period = self.make_period([100.0, 90.4])
-        limited, reason = BacktestEngine._is_at_price_limit(period, st_stock=False)
+        """Normal stock at -9.95%+ change → price_limit_down."""
+        limited, reason = BacktestEngine._is_at_price_limit(100.0, 90.04, st_stock=False)
         self.assertTrue(limited)
         self.assertEqual(reason, "price_limit_down")
 
     def test_normal_below_threshold(self):
-        """Normal stock with 9.0% change → no limit."""
-        period = self.make_period([100.0, 109.0])
-        limited, reason = BacktestEngine._is_at_price_limit(period, st_stock=False)
+        """Normal stock with 9.9% change → no limit."""
+        limited, reason = BacktestEngine._is_at_price_limit(100.0, 109.90, st_stock=False)
         self.assertFalse(limited)
         self.assertEqual(reason, "")
 
-    def test_normal_exact_9_5_up(self):
-        """Normal stock exactly at 9.5% threshold → limit."""
-        period = self.make_period([100.0, 109.5])
-        limited, reason = BacktestEngine._is_at_price_limit(period, st_stock=False)
+    def test_normal_exact_9_95_up(self):
+        """Normal stock exactly at 9.95% threshold → limit."""
+        limited, reason = BacktestEngine._is_at_price_limit(100.0, 109.95, st_stock=False)
         self.assertTrue(limited)
         self.assertEqual(reason, "price_limit_up")
 
-    def test_normal_exact_9_5_down(self):
-        """Normal stock exactly at -9.5% threshold → limit."""
-        period = self.make_period([100.0, 90.5])
-        limited, reason = BacktestEngine._is_at_price_limit(period, st_stock=False)
+    def test_normal_exact_9_95_down(self):
+        """Normal stock exactly at -9.95% threshold → limit."""
+        limited, reason = BacktestEngine._is_at_price_limit(100.0, 90.05, st_stock=False)
         self.assertTrue(limited)
         self.assertEqual(reason, "price_limit_down")
 
-    # --- ST stock (±5% limit) ---
+    # --- ST stock (±5% limit, threshold 4.95%) ---
 
     def test_st_up_limit(self):
-        """ST stock at 4.5%+ change → st_price_limit_up."""
-        period = self.make_period([100.0, 104.6])
-        limited, reason = BacktestEngine._is_at_price_limit(period, st_stock=True)
+        """ST stock at 4.95%+ change → st_price_limit_up."""
+        limited, reason = BacktestEngine._is_at_price_limit(100.0, 104.96, st_stock=True)
         self.assertTrue(limited)
         self.assertEqual(reason, "st_price_limit_up")
 
     def test_st_down_limit(self):
-        """ST stock at -4.5%+ change → st_price_limit_down."""
-        period = self.make_period([100.0, 95.4])
-        limited, reason = BacktestEngine._is_at_price_limit(period, st_stock=True)
+        """ST stock at -4.95%+ change → st_price_limit_down."""
+        limited, reason = BacktestEngine._is_at_price_limit(100.0, 95.04, st_stock=True)
         self.assertTrue(limited)
         self.assertEqual(reason, "st_price_limit_down")
 
     def test_st_below_threshold(self):
-        """ST stock with 4.0% change → no limit."""
-        period = self.make_period([100.0, 104.0])
-        limited, reason = BacktestEngine._is_at_price_limit(period, st_stock=True)
+        """ST stock with 4.9% change → no limit."""
+        limited, reason = BacktestEngine._is_at_price_limit(100.0, 104.90, st_stock=True)
         self.assertFalse(limited)
         self.assertEqual(reason, "")
 
-    def test_st_exact_4_5_up(self):
-        """ST stock exactly at 4.5% threshold → limit."""
-        period = self.make_period([100.0, 104.5])
-        limited, reason = BacktestEngine._is_at_price_limit(period, st_stock=True)
+    def test_st_exact_4_95_up(self):
+        """ST stock exactly at 4.95% threshold → limit."""
+        limited, reason = BacktestEngine._is_at_price_limit(100.0, 104.95, st_stock=True)
         self.assertTrue(limited)
         self.assertEqual(reason, "st_price_limit_up")
 
-    def test_st_exact_4_5_down(self):
-        """ST stock exactly at -4.5% threshold → limit."""
-        period = self.make_period([100.0, 95.5])
-        limited, reason = BacktestEngine._is_at_price_limit(period, st_stock=True)
+    def test_st_exact_4_95_down(self):
+        """ST stock exactly at -4.95% threshold → limit."""
+        limited, reason = BacktestEngine._is_at_price_limit(100.0, 95.05, st_stock=True)
         self.assertTrue(limited)
         self.assertEqual(reason, "st_price_limit_down")
 
     # --- Edge cases ---
 
-    def test_single_row_no_limit(self):
-        """Single data point → no limit."""
-        period = self.make_period([100.0])
-        limited, reason = BacktestEngine._is_at_price_limit(period)
+    def test_prev_close_none_no_limit(self):
+        """prev_close is None → no limit."""
+        limited, reason = BacktestEngine._is_at_price_limit(None, 100.0)
         self.assertFalse(limited)
 
     def test_prev_close_zero_no_limit(self):
         """Previous close <= 0 → no limit."""
-        period = self.make_period([0.0, 100.0])
-        limited, reason = BacktestEngine._is_at_price_limit(period)
+        limited, reason = BacktestEngine._is_at_price_limit(0.0, 100.0)
         self.assertFalse(limited)
 
 
