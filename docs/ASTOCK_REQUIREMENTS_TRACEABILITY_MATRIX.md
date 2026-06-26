@@ -60,10 +60,10 @@
 
 - `FR-05` 展示与报告已可用，但报告归档、复查、对比和 AI 审计仍未闭环。
 - `FR-06` 回测与模拟盘已可用；Strategy Lab 主入口已落地，bias flags（幸存者/前视/ST/涨跌停/停牌）已在 strategy_hub.html 展示。
-- `FR-07` 受控执行已有 trade/QMT/UI 接线，但订单 payload、实时行情依赖和券商回报 reconciliation 还未闭环，当前 API 回归未全绿。
+- `FR-07` 受控执行已有 trade/QMT/UI 接线，schema/PaperTrader Order 返回/RiskGate 均已落地，当前 API 回归 162 passed 全绿；真实券商 reconciliation 明确 P3 暂不处理。
 - `FR-09` WebUI 顶层信息架构已基本收敛到 7 个模块，但旧入口兼容与文档口径仍在回补。
 - `NFR-02` 可审计性已有 phase 和 provider provenance，但缺少统一 Audit Event / Task Run 产品能力。
-- `NFR-05` 到 `NFR-19` 所有治理文档均已建立并标注 `partial`（之前为 `planned`）。后续 phase 需要持续维护这些文档的验收证据：contract tests、数据血缘记录、迁移记录、模型治理记录、环境检查、变更兼容、页面验收截图、风险状态和 ADR 决策记录。
+- `NFR-05` 到 `NFR-19` 所有治理文档均已建立；NFR-10（环境）和 NFR-12（变更兼容）已补验收证据表标记为 `done`；其余 NFR-05~09、NFR-11、NFR-13~19 仍为 `partial`。后续 phase 需要持续维护这些文档的验收证据：contract tests、数据血缘记录、迁移记录、模型治理记录、环境检查、变更兼容、页面验收截图、风险状态和 ADR 决策记录。
 - 安全与隐私、SLA 与故障分级、用户角色/RBAC 当前只登记在 `docs/ASTOCK_DOCUMENT_SCOPE_REGISTER.md`，不进入本矩阵需求行。
 
 ## 4. 更新规则

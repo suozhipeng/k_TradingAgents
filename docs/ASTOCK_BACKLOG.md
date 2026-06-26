@@ -374,7 +374,7 @@
 3. `Phase 32` / `BL-100`：Strategy Lab 模块整合
 4. `Phase 33` / `BL-100A`：AI Research Center 模块整合
 5. `Phase 34` / `BL-100B`：Market Leaders 龙头相关单入口
-6. `Phase 35` / `BL-001` + `BL-002`：Trading & Execution，统一 QMT 能力边界和订单语义
+6. `Phase 35` / `BL-001` + `BL-002`：Trading & Execution，统一 QMT 能力边界和订单语义 — ✅ **已完成（done-with-exclusions）**
 7. `Phase 36` / `BL-205`：Portfolio Risk & Attribution，补组合级风险和绩效归因
 8. `Phase 37`：Ops & Audit，统一任务、错误、审计和健康状态
 9. `Phase 38` / `BL-203`：Product Navigation Cleanup，清理多入口和体验一致性

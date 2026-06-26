@@ -8,14 +8,14 @@
 
 | 模块 | 后台状态 | 前台状态 | 当前判断 | 下一步 |
 |---|---|---|---|---|
-| Data & Ops | 已完成 provider router、DuckDB、cache、data health、refresh API | 已有 data_health、settings | 可用但需数据质量和反偏差升级 | Phase 31 |
-| AI Research Center | 已有 AStock runtime、AI Agent API、报告/PPT | 已有 research、ai_agent、reports | 功能可用，尚未统一任务/audit/schema | Phase 33 |
-| Strategy Lab | 已有 backtest、optimizer、batch、compare、momentum rotation | 已有 strategy_hub、strategies、momentum_rotation | 功能可用，尚未统一 registry/result schema | Phase 32 |
-| Market Leaders | 已有 dragon-tiger、sectors、northbound、momentum APIs | 已有 momentum_dashboard、dragon_tiger、northbound、sectors | 功能分散，需要单入口 | Phase 34 |
-| Trading & Execution | 已有 paper、risk gate、trade quote/state、QMT managed 雏形 | 已有 trading、paper、risk、qmt | 可受控试运行，不是完整实盘生产 | Phase 30/35 |
-| Portfolio Workbench | 指标和绩效基础存在 | 无独立组合工作台 | 待开发 | Phase 36 |
-| Ops & Audit | 有 SSE、data health、phase/provenance | 无统一 Ops/Audit Center | 待开发 | Phase 37 |
-| WebUI Shell | 多页面已完成 | 22 个模板可用 | 入口较多，需要导航收敛 | Phase 38 |
+| Data & Ops | 已完成 provider router、DuckDB、cache、data health、refresh API、data quality tags、calendar、bias detection | 已有 data_health、settings | 可用；数据质量标签与反偏差已在 Phase 31 完成 | Phase 31 |
+| AI Research Center | 已有 AStock runtime、AI Agent API、ResearchTask/Audit schema、报告/PPT | 已有 research、ai_agent、reports | 功能可用，advisory-only 与降级标识已完成 | Phase 33 |
+| Strategy Lab | 已有 backtest、optimizer、batch、compare、momentum rotation、bias flags | 已有 strategy_hub、strategies、momentum_rotation | 功能完备，Strategy Lab 统一入口已落地 | Phase 32 |
+| Market Leaders | 已有 leader_pool、dragon-tiger、sectors、northbound、momentum APIs | 已有 market_leaders（内含 5 tab iframe）+ 旧入口 redirect + deprecation banner | 单入口已完成收敛 | Phase 34 |
+| Trading & Execution | 已有 paper、risk gate、Order/Fill/Position/Reconciliation schema、trade quote/state、QMT managed 雏形 | 已有 trading（含 mode switcher）、paper、risk、qmt | 可受控试运行；真实券商 reconciliation 标记 P3 暂不处理 | Phase 30/35（done-with-exclusions） |
+| Portfolio Workbench | 已有 portfolio_risk.py（VaR/HHI/Brinson/stress）、routes_portfolio.py、portfolio.html | 已有 portfolio.html（组合风险仪表盘） | 组合风险与归因已完成 | Phase 36 |
+| Ops & Audit | 已有 audit_store.py（内存+DuckDB）、routes_ops.py（3 endpoints）、ops_audit.html | 已有 ops_audit.html（事件日志+任务中心+数据源健康） | Ops & Audit 已完成 | Phase 37 |
+| WebUI Shell | 多页面已完成 | 25 个模板（23 页面 + 2 基础） | 导航已收敛为 7 模块 sidebar，旧入口有 redirect/deprecation banner | Phase 38 |
 
 ## 2. 后台模块拆分与 API 定义
 

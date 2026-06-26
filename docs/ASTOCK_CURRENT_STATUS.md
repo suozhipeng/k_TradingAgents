@@ -108,7 +108,7 @@ Phase 11 执行层增加了额外的安全边界：
 | 32 | Strategy Lab Consolidation — 策略实验室整合 | 完成（含参数优化 tab） |
 | 33 | AI Research Center — AI 研究中枢 | 完成（含降级横幅、报告对比、advisory-only） |
 | 34 | Market Leaders Entry — 龙头股单入口 | 完成（`/market_leaders` 单入口 + iframe tab 切换 + 5 旧页面 deprecation banner） |
-| 35 | Trading Execution Control — 交易执行控制 | 部分完成（schema + trade/QMT/UI 接线已落地，当前 API 回归已恢复全绿，真实券商闭环未完成） |
+| 35 | Trading Execution Control — 交易执行控制 | 完成（done-with-exclusions：schema + trade/QMT/UI 接线已落地，真实券商 reconciliation 明确 P3 暂不处理） |
 | 36 | Portfolio Risk & Attribution — 组合风险与归因 | 完成（VaR 95/HHI 集中度/Brinson 归因/压力测试/前端展示） |
 | 37 | Ops & Audit Center — 运维审计中心 | 完成（AuditStore 内存+DuckDB 持久化/API/前端事件日志） |
 | 38 | Product Navigation Cleanup — 产品导航清理 | 完成（7 模块 sidebar + 旧入口 redirect + 文档口径同步 + 数字漂移已消除） |
