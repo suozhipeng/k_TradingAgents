@@ -199,12 +199,12 @@
 ### BL-102 完善 QMT fundamentals 替代策略
 
 现状：
-
-- QMT 不提供基本面数据
+- ✅ 已解决 — 基本面数据永远走非 QMT provider（akshare/Tencent/EastMoney/cninfo）
+- router.py 中 fundamentals 路由已配置为 akshare/Tencent 优先
+- QMT 仅提供交易执行接口，不处理基本面查询
 
 目标：
-
-- 明确基本面永远走其他 provider，或补标准降级策略
+- ✅ 已达成 — 基本面不走 QMT 的降级策略已在生产路径中生效
 
 ### BL-103 收敛 phase 归档一致性
 
