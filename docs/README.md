@@ -95,3 +95,15 @@
 - `ASTOCK_MULTIMARKET_VIEWER.md` -> `docs/phases/phase-08-readonly-viewer.md`
 - `ASTOCK_PROFESSIONAL_GAP_ANALYSIS.md` -> `docs/ASTOCK_BOUNDARY_AND_UI_REFACTOR_PLAN.md`
 - `HERMES_PROJECT_REVIEW.md` -> `docs/ASTOCK_CURRENT_STATUS.md` and `docs/ASTOCK_BOUNDARY_AND_UI_REFACTOR_PLAN.md`
+
+---
+
+## 📦 归档说明
+
+以下文档已归档至 `docs/_archived/`：
+- 过期的进度/状态追踪 → 合并至 `ASTOCK_BACKLOG.md`
+- 旧版 WebUI 规范 → 被实际代码替代
+- 一次性迁移/变更管理文档
+- 过期的 phase 验收清单
+
+如需查阅历史版本，请到 `docs/_archived/` 目录。

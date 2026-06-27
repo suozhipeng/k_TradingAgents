@@ -97,3 +97,76 @@ pytest tests/test_astock_backtest.py -q
 
 ---
 **Commit SHA**: b410074
+
+
+---
+
+> 以下内容合并自 `phase-31-evidence-acceptance-checklist.md`
+
+# Phase 31 — Data & Ops 页面验收清单
+
+## Data Health 页面（`data_health.html`）
+
+| 验收点 | 输入条件 | 预期输出 | 状态 |
+|--------|----------|----------|------|
+| 成功态 | 正常加载 | 显示所有数据源健康状态 | □ 通过 |
+| 空态 | 无数据源可用 | 显示 "no sources available" | □ 通过 |
+| 错误态 | DuckDB store 不可用 | 显示 store error | □ 通过 |
+| 降级态 | 部分数据源不可用 | 显示 degraded 计数和详情 | □ 通过 |
+| **freshness** | 数据源有 generated_at | 显示数据新鲜度标签 | □ Phase 31 |
+| **quality** | 数据源有质量标签 | 显示 normal/stale/degraded | □ Phase 31 |
+
+## Settings 页面（`settings.html`）
+
+| 验收点 | 输入条件 | 预期输出 | 状态 |
+|--------|----------|----------|------|
+| 成功态 | 正常加载 | 显示配置项 | □ 通过 |
+| 数据源设置 | 修改数据源 | 保存设置 | □ 通过 |
+| **quality display** | 数据源质量 | 显示 freshness/quality | □ Phase 31 |
+
+---
+**Commit SHA**: b410074
+
+
+---
+
+> 以下内容合并自 `phase-31-evidence-data-constraints.md`
+
+# Phase 31 — Data Source Assumptions & Constraints 文档
+
+## 交易日历
+
+| 数据源 | 可用性 | Fallback | 说明 |
+|--------|--------|----------|------|
+| akshare | 可用（需网络） | mootdx | `tool_trade_date_hist_sina` 获取交易日历 |
+| mootdx | 可用 | cache | 通达信协议，工作日更新 |
+| 本地 DuckDB | 按需预加载 | 无 | 需要手动刷新 |
+
+## 停复牌字段
+
+| 字段 | 稳定来源 | 状态 |
+|------|----------|------|
+| 停牌状态 | akshare `stock_info_suspend` | available |
+| 复牌日期 | akshare | available |
+| 停牌原因 | akshare (partial) | available |
+| **停复牌统一字段** | **无稳定聚合来源** | **planned** — 需自定义 adapter |
+
+## 涨跌停成交约束
+
+| 约束 | A 股规则 | 回测处理 |
+|------|----------|----------|
+| 主板 ±10% | 涨停不可买，跌停不可卖 | 回测应跳过 |
+| 科创板 ±20% | 同上 | 回测应跳过 |
+| ST ±5% | 同上 | 回测应跳过 |
+| 新股首日 ±44% | 特殊规则 | 测试标记 |
+
+## 偏差风险登记
+
+| 风险 ID | 风险 | 说明 | Phase 31 关联 |
+|---------|------|------|---------------|
+| R-001 | Survivorship Bias | 使用回测数据时，退市股票不在数据集中 | Phase 31-07 |
+| R-002 | Look-ahead Bias | 使用未来数据生成信号 | Phase 31-07 |
+| R-003 | Data Staleness | 离线数据超过 4 小时未更新 | Phase 31-02 |
+
+---
+**Commit SHA**: b410074
