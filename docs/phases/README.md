@@ -60,7 +60,15 @@
 | 36 | Portfolio Risk & Attribution：组合风险和绩效归因 | 完成（VaR 95/HHI 集中度/Brinson 归因/压力测试/前端展示） | [Phase 36](phase-36-portfolio-risk-attribution.md) [证据](phase-36-evidence-portfolio-risk.md) |
 | 37 | Ops & Audit Center：任务、错误、provider、模型和审计 | 完成（AuditStore 内存+DuckDB 持久化/API/前端事件日志） | [Phase 37](phase-37-ops-audit-center.md) [证据](phase-37-evidence-ops-audit.md) |
 | 38 | Product Navigation Cleanup：WebUI 顶层导航和旧入口收敛 | 完成（7 模块 sidebar + 旧入口 redirect + 文档口径同步 + 数字漂移已消除） | [Phase 38](phase-38-product-navigation-cleanup.md) [证据](phase-38-evidence-navigation-cleanup.md) |
-| 39 | End-to-End UAT：端到端用户工作流验收 | planned — skeleton 已创建，待执行 | [Phase 39](phase-39-e2e-uat.md) |
+|| 39 | End-to-End UAT：端到端用户工作流验收 | planned — skeleton 已创建，待执行 | [Phase 39](phase-39-e2e-uat.md) |
+|| Web-G0 | 需求冻结与追踪矩阵落地：backlog/traceability/spec/checklist + / → /dashboard 重定向 | 完成 | [Web-G0](phase-web-g0-requirements-freeze.md) |
+|| Web-P0 | 今日工作台首页重构：market/watchlist/tasks/reports/alerts/sectors/next-actions | 完成 | [Web-P0] |
+|| Web-P1 | 竞品能力矩阵状态回填：backlog/traceability 状态更新 + BL-200~404 状态标注 | 完成 | [Web-P1](phase-web-p1-capability-matrix-backfill.md) |
+||| Web-P2 | 每日分析、报告归档、推送闭环：watchlist/reports/notifications | 完成 | [Web-P2](phase-web-p2-daily-analysis-report-archive.md) |
+||| Web-P4 | AI Research Center 合规：research/ai_agent/reports 三页面验收 | partial — research.html 含 1 个内部 iframe | [Web-P4](phase-web-p4-ai-research-center.md) |
+||| Web-P5 | Strategy Lab 合规：strategy_hub/strategies/backtest 三页面验收 | accept — 所有强制项通过 | [Web-P5](phase-web-p5-strategy-lab.md) |
+||| Web-P6 | Portfolio/Risk/Execution 合规：portfolio/risk/paper/trading/qmt/ops_audit 六页面验收 | partial — risk/paper 为功能占位页 | [Web-P6](phase-web-p6-portfolio-risk-execution.md) |
+||| Web-P7 | Visual System 合规：base.html 全局样式/导航/暗色主题验收 | accept — 7 模块导航 + TV dark 通过 | [Web-P7](phase-web-p7-visual-system.md) |
 
 ## 3. 命名规则
 
