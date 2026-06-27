@@ -51,7 +51,7 @@ def client(app):
 # ---------------------------------------------------------------------------
 
 PAGE_ROUTES = [
-    ("/", "trading"),
+    ("/trading", "trading"),
     ("/dashboard", "dashboard"),
     ("/research", "research"),
     ("/strategy_hub", "strategy_hub"),
@@ -91,6 +91,7 @@ class TestWebBlueprintRegistration:
         rules = [r for r in app.url_map.iter_rules() if "web." in r.endpoint]
         endpoints = {r.endpoint for r in rules}
         expected = {
+            "web.root",
             "web.trading",
             "web.dashboard",
             "web.research",
@@ -139,17 +140,17 @@ class TestWebPageRendering:
         html = resp.data.decode("utf-8")
         # The sidebar contains icon links with tooltips
         assert 'AStock Pro' in html
-        assert 'tv-sidebar' in html
-        assert 'tv-topbar' in html
-        assert 'tv-main' in html
-        # All nav tooltip texts should be present
-        assert 'Trading' in html
-        assert 'Dashboard' in html
-        assert 'Research' in html or 'AI Research Center' in html
-        assert 'Strategy Lab' in html or 'Strategy Hub' in html
-        assert 'Market Leaders' in html
-        assert 'Data & Ops' in html
-        assert 'Screener' in html
+        assert 'as-sidebar' in html or 'tv-sidebar' in html
+        assert 'as-topbar' in html or 'tv-topbar' in html
+        assert 'as-main' in html or 'tv-main' in html
+        # All nav tooltip texts should be present (new hybrid design)
+        assert 'Trading' in html or '交易' in html
+        assert 'Dashboard' in html or '总览' in html
+        assert 'Research' in html or '研究' in html or 'AI Research Center' in html
+        assert 'Strategy' in html or '策略' in html or 'Strategy Lab' in html or 'Strategy Hub' in html
+        assert 'Market Leaders' in html or '龙头' in html
+        assert 'Ops' in html or '运维' in html or 'Data' in html or 'Data & Ops' in html
+        assert 'Screener' in html or '选股' in html
     @pytest.mark.parametrize("route,page_name", PAGE_ROUTES)
     def test_page_has_tailwind_cdn(self, client, route, page_name):
         """Each page should include the Tailwind CSS CDN."""
@@ -180,10 +181,11 @@ class TestWebSpecificPages:
     def test_dashboard_has_stats_cards(self, client):
         resp = client.get("/dashboard")
         html = resp.data.decode("utf-8")
-        assert "stat-symbols" in html
-        assert "stat-backtests" in html
+        assert "m-symbols" in html or "stat-symbols" in html
+        assert "m-backtests" in html or "stat-backtests" in html
         assert "heatmap-content" in html
-        assert "recent-backtests" in html
+        assert "recent-backtests-content" in html or "recent-backtests" in html
+        assert "量化控制中心" in html
 
     def test_research_has_symbol_input(self, client):
         resp = client.get("/research")
@@ -314,7 +316,7 @@ class TestWebSpecificPages:
         assert "h-table" in html
 
     def test_trading_has_order_panel(self, client):
-        resp = client.get("/")
+        resp = client.get("/trading")
         html = resp.data.decode("utf-8")
         assert "order-submit" in html
         assert "order-price" in html

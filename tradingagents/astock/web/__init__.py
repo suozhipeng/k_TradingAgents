@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from flask import Blueprint, render_template, render_template_string, request
+from flask import Blueprint, redirect, render_template, render_template_string, request
 
 bp = Blueprint(
     "web",
@@ -115,6 +115,11 @@ IFRAME_TEMPLATE = """<!DOCTYPE html>
 
 
 @bp.route("/")
+def root():
+    return redirect("/dashboard", 302)
+
+
+@bp.route("/trading")
 def trading() -> str:
     return render_template("trading.html")
 
@@ -254,10 +259,9 @@ def ai_agent() -> str:
 
 
 @bp.route("/backtest")
-def backtest_redirect() -> str:
-    """Old /backtest → /strategy_hub"""
-    from flask import redirect, url_for
-    return redirect(url_for("web.strategy_hub"), 301)
+def backtest_console() -> str:
+    """AStock Pro 三位一体策略研究控制台（全新推平重建版）"""
+    return render_template("backtest.html")
 
 
 @bp.route("/comparison")

@@ -1,37 +1,48 @@
 # A 股 WebUI 产品规范
 
-| 更新时间：2026-06-23 |
+| 更新时间：2026-06-27 |
 
 本文补充 WebUI 页面级产品规范，用于把现有 WebUI 边界和重构方向转化为可开发、可验收的页面规则。详细代码边界和设计图仍以 `docs/ASTOCK_BOUNDARY_AND_UI_REFACTOR_PLAN.md` 为准；逐页验收证据以 `docs/ASTOCK_WEBUI_PAGE_ACCEPTANCE_CHECKLIST.md` 为准。
 
 ## 1. 顶层信息架构
 
-后续 WebUI 应收敛为以下顶层模块：
+Web 工作台最终收敛为以下顶层模块：
 
 | 顶层模块 | 目标 | 页面形态 |
 |---|---|---|
-| Dashboard | 当前系统状态和关键入口 | 总览卡片、任务状态、能力标签 |
-| AI Research Center | AI 投研、报告、新闻/公告/研报解读 | 顶部 tab |
-| Strategy Lab | 策略、回测、优化、绩效、对比、动量轮动 | 顶部 tab |
-| Market Leaders | 龙头、候选池、板块、资金线索、轮动回测 | 单入口 + 顶部 tab |
-| Trading & Execution | paper、managed、live-ready 准入、订单和风控 | 模式标签 + 前置确认 |
-| Data & Ops | 数据刷新、缓存、provider、任务、审计 | 健康页 + 任务页 |
-| Portfolio Workbench | 组合风险和绩效归因 | 风险面板 + 归因报告 |
+| 今日工作台 | 每日市场、自选股、AI 任务、报告、告警和数据健康总入口 | dashboard |
+| 盯盘中心 | 实时行情、板块、龙头、资金、龙虎榜、北向、条件告警 | watch center |
+| AI 研究 | 单股、多股、主题、行业、持仓组合的多智能体研究 | research center |
+| 策略实验室 | 选股、回测、优化、对比、walk-forward、反偏差检查 | strategy lab |
+| 组合与风控 | 持仓、VaR、集中度、归因、压力测试、风险拦截 | portfolio/risk |
+| 交易执行 | 模拟盘、QMT/miniQMT、人工确认、订单审计 | trading/execution |
+| 系统与配置 | 数据源、模型、推送、任务调度、审计、健康检查 | ops/config |
+
+变更对照：
+
+| 旧模块 | 新模块 | 说明 |
+|---|---|---|
+| Dashboard | 今日工作台 | 功能增强，从系统指标页变为每日工作台 |
+| AI Research Center | AI 研究 | 名称简化，整合单股/多股/主题/行业/持仓研究 |
+| Strategy Lab | 策略实验室 | 名称调整，增加 walk-forward、反偏差检查 |
+| Market Leaders | 盯盘中心 | 吸收龙头、板块、资金、轮动，扩展为实时盯盘 |
+| Trading & Execution | 交易执行 | 保留，QMT/miniQMT 默认 managed/paper |
+| Data & Ops | 系统与配置 | 增加推送、调度、审计和 TDX 数据链路 |
+| Portfolio Workbench | 组合与风控 | 名称调整，强化 VaR、集中度、归因、压力测试 |
 
 ## 2. 页面状态
 
-所有核心页面必须支持：
+所有核心页面必须支持以下状态：
 
-- loading：显示任务或数据加载中。
-- empty：没有数据时给出下一步动作。
-- degraded：provider、LLM、QMT 或缓存降级。
-- error：显示错误码、错误分类和建议动作。
-- stale：数据过期或使用缓存。
-- mock / paper / managed / live-ready：能力等级清晰标注。
+| 状态 | 要求 |
+|---|---|
+| loading | 显示骨架屏或加载指示器，3 秒内出现 |
+| empty | 无数据时给出下一步动作指引 |
+| error | 显示错误码、错误分类和建议动作 |
+| degraded | provider、LLM、QMT、缓存或数据源降级，标注 fallback_reason |
+| stale | 数据过期或使用缓存，标注 updated_at 和 stale 标记 |
 
-## 3. 能力标签规范
-
-页面和关键卡片必须使用一致的能力标签：
+所有核心页面和关键卡片必须使用一致的能力标签：
 
 | 标签 | 含义 |
 |---|---|
@@ -42,40 +53,82 @@
 | mock | 占位或演示数据 |
 | degraded | 降级数据或部分不可用 |
 
-## 4. 关键页面验收
+## 3. Dashboard 第一屏要求
 
-### 4.1 AI Research Center
+新的 `/dashboard` 必须回答以下 6 个问题：
 
-- 输入区支持 symbol、日期、研究模式。
-- 输出区展示模型、prompt 版本、数据快照和 advisory 标记。
-- 报告可归档、复查、对比。
+1. 今天市场怎么样？
+2. 我的自选股和持仓有没有异动？
+3. AI 今天建议重点看哪些标的或主题？
+4. 哪些报告已经生成，哪些还在排队或失败？
+5. 有没有风险、告警或数据异常？
+6. 下一步可以做什么：分析、回测、盯盘、生成报告、配置推送、进入模拟盘？
 
-### 4.2 Strategy Lab
+首页验收必须满足：
 
-- 策略列表来自统一 registry。
-- 回测结果显示指标、净值、交易明细、成本模型、数据假设。
-- 优化和对比使用同一结果 schema。
+- 3 秒内出现页面骨架。
+- 任意一个数据块失败，不影响其他数据块显示。
+- 用户可以在第一屏看到今日任务、报告、告警和下一步入口。
+- 没有 iframe。
+- 没有无意义的大面积空白。
+- 没有把 paper/mock 数据误标为真实实盘。
 
-### 4.3 Market Leaders
+## 4. 默认入口规则
 
-- 顶层只保留一个龙头相关入口。
-- 内部 tab 覆盖动量总览、候选池、板块强弱、资金线索、轮动回测。
-- 候选股显示入池理由、出池理由、来源和刷新时间。
+- `/dashboard` 是产品默认入口。
+- `/` 可以 302 到 `/dashboard`，或保留交易页但必须从顶层入口降级为二级入口。
+- `trading.html` 不再作为新用户第一屏。
+- 旧入口保留兼容，但必须显示迁移提示，并在后续 phase 逐步下线或转为内部 tab。
 
-### 4.4 Trading & Execution
+## 5. 页面验收标准
 
-- 页面顶部显示当前模式。
-- paper、managed、live-ready 视觉和文案完全区分。
-- 下单前显示风控结果、确认状态和审计引用。
-- QMT 不可用时降级到 paper 或 disabled。
+### 5.1 每页通用验收
 
-### 4.5 Data & Ops
+每个核心页面必须覆盖：
 
-- provider、DuckDB、cache、LLM、QMT 状态可见。
-- 任务失败有错误码、时间和建议处理动作。
-- 数据刷新结果可追溯到 source 和 snapshot。
+- loading 状态。
+- empty 状态。
+- error 状态。
+- degraded 状态。
+- stale/cache 状态。
+- 权限或能力禁用状态。
+- `research` / `paper` / `managed` / `live-ready` 标签。
 
-## 5. 移动端与响应式
+### 5.2 逐页验收要求
+
+每个 WebUI phase 必须提供：
+
+- 入口路径。
+- 页面状态覆盖（loading/empty/error/degraded/stale）。
+- API 依赖和能力等级。
+- mock/paper/managed/live-ready 标签。
+- 空态、错误态、降级态截图或说明。
+- 旧入口迁移策略。
+- 逐页验收记录必须同步 `docs/ASTOCK_WEBUI_PAGE_ACCEPTANCE_CHECKLIST.md`。
+
+### 5.3 浏览器验收视口
+
+核心页面必须在以下视口验收：
+
+- 1366 x 768
+- 1440 x 900
+- 1920 x 1080
+- 390 x 844
+
+检查项：首屏是否可读、文字是否溢出、卡片是否重叠、图表是否空白、错误态是否可见、导航是否能回到今日工作台。
+
+## 6. 设计约束
+
+- 不做营销落地页。
+- 不新增大面积装饰性渐变背景。
+- 不把卡片套卡片。
+- 工具型页面保持高信息密度，但必须有清晰分组。
+- 按钮文本不能溢出。
+- 表格窄屏必须横向滚动或转摘要卡片。
+- 顶层导航不超过 7 个主入口。
+- 旧入口不能继续作为主导航。
+
+## 7. 移动端与响应式
 
 后续 WebUI 至少满足：
 
@@ -83,15 +136,3 @@
 - 平板/窄屏可纵向堆叠核心卡片。
 - 表格在窄屏下支持横向滚动或摘要卡片。
 - 交易确认类按钮在移动端不得因布局压缩造成误触。
-
-## 6. 验收要求
-
-每个 WebUI phase 必须提供：
-
-- 入口路径。
-- 页面状态覆盖。
-- API 依赖和能力等级。
-- mock/paper/managed/live-ready 标签。
-- 空态、错误态、降级态截图或说明。
-- 旧入口迁移策略。
-- 逐页验收记录必须同步 `docs/ASTOCK_WEBUI_PAGE_ACCEPTANCE_CHECKLIST.md`。

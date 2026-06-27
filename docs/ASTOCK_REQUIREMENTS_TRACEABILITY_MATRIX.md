@@ -27,6 +27,22 @@
 | FR-08 | 本地存储与缓存 | Data & Ops | `store/`, cache, data refresh routes | `settings.html`, `data_health.html` | Phase 12/19/27 归档 | 12, 19, 27 | done |
 | FR-09 | WebUI 产品能力 | WebUI Shell | `tradingagents/astock/web/` | Dashboard / Research / Strategy / Leaders / Trading / Ops | WebUI/API slice tests | 13, 15-17, 22-29 | partial |
 | FR-10 | 测试与回归 | Test & Release | `tests/`, `tests/conftest.py` | N/A | Phase 21 归档、切片回归 | 21 | done |
+| FR-11 | Daily market review (DSA-01) — generate per trading day | Data & Ops | `daily_review/` | Daily Review page | DSA-01 归档 | Web-P0 | planned |
+| FR-12 | Watchlist batch analysis (DSA-02/DSA-04) — batch AI analysis | Watch Center / AI Research Center | `watchlist_analysis/` | Watch Center, AI Research | DSA-02/04 归档 | Web-P4 | planned |
+| FR-13 | Task lifecycle (DSA-05) — queued/running/succeeded/failed/cancelled | Data & Ops | `task_lifecycle/` | Task Center | DSA-05 归档 | Web-P0 | planned |
+| FR-14 | Push notification (DSA-06) — at least one channel end-to-end | Data & Ops | `notification/` | Notification Center | DSA-06 归档 | Web-P0 | planned |
+| FR-15 | Scheduled tasks (DSA-07) — local cron/APScheduler | Data & Ops | `scheduler/` | Task Center / Ops | DSA-07 归档 | Web-P0 | planned |
+| FR-16 | Daily dashboard (DSA-03) — homepage decision summary | WebUI Shell | `dashboard/` | Homepage | DSA-03 归档 | Web-P0 | planned |
+| FR-17 | Real-time watchlist (AIS-01) — timing center | Watch Center | `watchlist/realtime/` | Watch Center — timing | AIS-01 归档 | Web-P3 | planned |
+| FR-18 | Alert system (AIS-10) — conditional alerts | Watch Center | `alert/` | Watch Center — alerts | AIS-10 归档 | Web-P3 | planned |
+| FR-19 | Strategy monitoring (AIS-08) — strategy signals to alerts | Strategy Lab / Watch Center | `strategy_alerts/` | Strategy Lab, Watch Center | AIS-08 归档 | Web-P5 | planned |
+| FR-20 | T+1 rule adaptation (AIS-14) — across backtest/paper/execution | Trading & Execution | `tplus1/` | Trading, Backtest, Paper | AIS-14 归档 | Web-P6 | planned |
+| FR-21 | Dashboard V2 (Web-P0) — as daily workbench with all sections | WebUI Shell | `web/dashboard_v2/` | Homepage — daily workbench | Web-P0 归档 | Web-P0 | planned |
+| FR-22 | Watch Center (Web-P3) — consolidated dragon tiger/northbound/sectors | Watch Center | `web/watch_center/` | Watch Center — consolidated | Web-P3 归档 | Web-P3 | planned |
+| FR-23 | AI Research Center (Web-P4) — consolidated research/reports/ai-agent | AI Research Center | `web/ai_research/` | AI Research Center — consolidated | Web-P4 归档 | Web-P4 | planned |
+| FR-24 | Strategy Lab (Web-P5) — consolidated backtest/optimize/compare | Strategy Lab | `web/strategy_lab/` | Strategy Lab — consolidated | Web-P5 归档 | Web-P5 | planned |
+| FR-25 | Portfolio Risk & Execution (Web-P6) — consolidated portfolio/risk/paper/trading/qmt | Trading & Execution / Portfolio Workbench | `web/portfolio_execution/` | Portfolio, Trading — consolidated | Web-P6 归档 | Web-P6 | planned |
+| FR-26 | Visual system (Web-P7) — unified CSS tokens, state components, capability labels | WebUI Shell | `web/visual_system/` | 全局 | Web-P7 归档 | Web-P7 | planned |
 | NFR-01 | 安全边界 | Trading & Execution / AI Research | `runtime_profile.py`, `phase9_schemas.py`, execution layer | 所有交易相关页面 | Phase 9/10/11/29 归档 | 9-11, 29 | partial |
 || NFR-02 | 可审计性 | Ops & Audit | `verification_provenance.py`, phase docs, `audit_store.py` (Phase 37) | ops_audit.html, Ops Dashboard | `docs/verification_provenance/`, Phase 37 evidence | 4, 12, 19, 27, 37 | partial |
 | NFR-03 | 可维护性 | Docs / Governance | `docs/README.md`, `docs/phases/` | N/A | Phase 0-29 归档覆盖检查 | 0-29 | done |
