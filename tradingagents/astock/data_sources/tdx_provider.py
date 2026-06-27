@@ -215,7 +215,7 @@ class TdxProvider:
         last_error: Optional[Exception] = None
         for host in hosts_to_try:
             try:
-                api = TdxHq_API(multifast=not self._use_multicast)
+                api = TdxHq_API()
                 api.connect(host=host, port=self._port, timeout=self.timeout)
                 self._client = api
                 logger.info("tdx_provider: connected to %s:%s", host, self._port)

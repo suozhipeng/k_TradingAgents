@@ -111,6 +111,26 @@ def market_summary() -> tuple[Response, int]:
         valuations = df_to_json(val_df)
         indicators = df_to_json(indicators_df)
 
+        # If store has no data, try live provider chain
+        if not kline_bars:
+            try:
+                from tradingagents.astock.data_sources import AStockDataFacade
+                facade = AStockDataFacade()
+                # Get kline
+                kr = facade.get_kline(symbol=symbol, interval="1d", limit=120)
+                if kr.status == "ok" and kr.data and kr.data.get("bars"):
+                    kline_bars = kr.data["bars"]
+                # Get valuation
+                vr = facade.get_valuation(symbol=symbol)
+                if vr.status == "ok" and vr.data:
+                    valuations = [vr.data]
+                # Mark source
+                source_tag = kr.meta.get("source", "live") if kr.status == "ok" else "store"
+            except Exception as provider_err:
+                source_tag = "store"
+        else:
+            source_tag = _resolve_source(store, symbol, kline_bars, valuations)
+
         # Latest close price & basic stats
         latest_bar = kline_bars[-1] if kline_bars else {}
         latest_val = valuations[-1] if valuations else {}
@@ -120,7 +140,7 @@ def market_summary() -> tuple[Response, int]:
                 "symbol": symbol,
                 "latest_price": latest_bar.get("close", 0),
                 "latest_date": latest_bar.get("trade_date", ""),
-                "source": _resolve_source(store, symbol, kline_bars, valuations),
+                "source": source_tag,
                 "updated_at": _resolve_updated_at(kline_bars, valuations),
                 "kline_bars": kline_bars,
                 "valuations": valuations[-10:] if len(valuations) > 10 else valuations,
