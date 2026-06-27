@@ -15,6 +15,51 @@ from flask import Blueprint, Response, current_app, jsonify, request
 
 from ._helpers import df_to_json, sanitise_records
 
+# ---------------------------------------------------------------------------
+# Source inference helpers
+# ---------------------------------------------------------------------------
+
+
+def _resolve_source(
+    store: Any,
+    symbol: str,
+    kline_bars: list[dict[str, Any]],
+    valuations: list[dict[str, Any]],
+) -> str:
+    """Try to determine the data source for *symbol*.
+
+    Priority:
+      1. ``source`` column from the latest kline bar (if present and non-null).
+      2. ``source`` column from the latest valuation row.
+      3. ``"store"`` as fallback.
+    """
+    if kline_bars:
+        src = kline_bars[-1].get("source") or ""
+        if src:
+            return str(src)
+    if valuations:
+        src = valuations[-1].get("source") or ""
+        if src:
+            return str(src)
+    return "store"
+
+
+def _resolve_updated_at(
+    kline_bars: list[dict[str, Any]],
+    valuations: list[dict[str, Any]],
+) -> str:
+    """Return the most recent ``created_at`` timestamp, or empty string."""
+    ts = ""
+    for src in (kline_bars, valuations):
+        if src:
+            ts = (src[-1].get("created_at") or "") or ts
+            if ts:
+                # Keep the first non-empty, most recent source
+                if isinstance(ts, datetime):
+                    ts = ts.isoformat()
+                break
+    return str(ts) if ts else ""
+
 bp = Blueprint("market", __name__)
 
 AVAILABLE_STRATEGIES = [
@@ -75,6 +120,8 @@ def market_summary() -> tuple[Response, int]:
                 "symbol": symbol,
                 "latest_price": latest_bar.get("close", 0),
                 "latest_date": latest_bar.get("trade_date", ""),
+                "source": _resolve_source(store, symbol, kline_bars, valuations),
+                "updated_at": _resolve_updated_at(kline_bars, valuations),
                 "kline_bars": kline_bars,
                 "valuations": valuations[-10:] if len(valuations) > 10 else valuations,
                 "indicators": indicators[-10:] if len(indicators) > 10 else indicators,

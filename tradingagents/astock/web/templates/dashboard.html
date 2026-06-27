@@ -765,22 +765,57 @@ async function loadAITasks() {
   }
 }
 
-// ── Alerts Summary ──
+// ── Alerts Summary (BL-309) ──
 async function loadAlertsSummary() {
   const el = document.getElementById('alerts-summary-content');
 
   try {
-    // Try ops/audit for recent error events as a proxy for alerts
-    const res = await fetch('/api/v1/ops/audit?limit=10');
-    if (!res.ok) throw new Error('audit failed');
-    const events = await res.json();
+    // Primary: use new /api/v1/alerts endpoint
+    const res = await fetch('/api/v1/alerts?limit=8');
+    if (res.ok) {
+      const body = await res.json();
+      const alerts = body.alerts || [];
+
+      if (!alerts.length) {
+        el.innerHTML = '<div class="dash-empty">暂无告警 ✓ 系统运行正常</div>';
+        return;
+      }
+
+      el.innerHTML = alerts.slice(0, 5).map(a => {
+        const typ = a.trigger_type || 'unknown';
+        const severity = a.severity || 'warn';
+        const date = (a.triggered_at || '').substring(0, 19);
+        const msg = a.message || `${typ} 触发`;
+        // Severity badge
+        const sevMap = {
+          critical: { cls: 'failed', text: '严重' },
+          warn: { cls: 'queued', text: '警告' },
+          info: { cls: 'running', text: '信息' },
+        };
+        const sev = sevMap[severity] || { cls: 'running', text: severity };
+        const sevColor = severity === 'critical' ? '#f23645' : severity === 'warn' ? '#ff9800' : '#2962FF';
+
+        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid #1e2a3a;">
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:11px;color:${sevColor};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${msg}</div>
+            <div style="font-size:9px;color:#4a5a6a;">${date || ''} · ${a.symbol || ''}</div>
+          </div>
+          <span class="status-badge ${sev.cls}">${sev.text}</span>
+        </div>`;
+      }).join('');
+      return;
+    }
+
+    // Fallback: use ops/audit for recent error events as a proxy for alerts
+    const fallbackRes = await fetch('/api/v1/ops/audit?limit=10');
+    if (!fallbackRes.ok) throw new Error('audit failed');
+    const events = await fallbackRes.json();
 
     if (!events || !events.length) {
       el.innerHTML = '<div class="dash-empty">暂无告警</div>';
       return;
     }
 
-    // Filter for error/warning events
     const alerts = events.filter(e => {
       const action = (e.action || '').toLowerCase();
       const status = (e.status || '').toLowerCase();
