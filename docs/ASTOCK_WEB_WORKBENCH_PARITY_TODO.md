@@ -9,6 +9,7 @@
 1. 补齐 `daily_stock_analysis` 与 `aiagents-stock` 的核心用户可见能力。
 2. 保留并突出本项目已有的 TradingAgents-Astock 重型能力：多智能体投研、回测、策略优化、模拟盘、风控归因、审计和受控执行。
 3. 重构当前 Web 工作台，使它从“功能页面堆叠”变成“每日可用的 A 股投研交易工作台”。
+4. 自动接入 Hermes 管理的 `tdx-market-data` skill：`pytdx` 在线行情、通达信本地 `vipdoc` 文件、本地 CSV/SQLite 缓存，并供 TradingAgents、Obsidian 和回测模块使用。
 
 ## 0. 审核结论
 
@@ -23,6 +24,7 @@
 | 具备 `daily_stock_analysis` 的每日分析、报告、推送和工作台能力 | DSA 矩阵、Web-P2、Dashboard API、Task/Report API | 覆盖，推送能力优先级为 P1，端到端验证落地在 Web-P2；P0 只保留入口和状态 |
 | 具备 `aiagents-stock` 的 A 股盯盘、资金、板块、告警和 QMT/miniQMT 入口 | AIS 矩阵、Web-P3、Web-P6、Alert API | 覆盖，自动实盘被明确禁止作为默认能力 |
 | 保留当前项目的重型能力并改善 Web 工作台 | TA 矩阵、REF 矩阵、Web-P0 到 Web-P7 | 覆盖，核心差异化已落到 AI 研究、策略实验室、组合风控、受控执行和审计 |
+| 自动接入 Hermes `tdx-market-data` 数据链路 | TDX 矩阵、Web-G0、Data & Ops、Skill Playbook | 覆盖，作为 Data & Ops 前置能力，不与 QMT 执行链混用 |
 
 ### 0.2 本次审核后补强点
 
@@ -45,6 +47,7 @@
 - QMT/miniQMT 默认归类为 `managed` 或 `paper`，不是默认自动实盘。
 - 页面重构必须先满足工作流和验收状态，再谈视觉细节。
 - 每个 Web 模块完成后必须按 `OpenCode 审核 -> Codex 验收 -> 本地 git commit -> 下一个模块` 的顺序推进。
+- Hermes 自动接入 `tdx-market-data` skill，TDX 行情链路归属 Data & Ops，不归属 Trading & Execution。
 
 ## 1. 产品定位
 
@@ -117,6 +120,26 @@ TradingAgents-Astock Web 工作台定位为：
 | `FinGPT` | 金融大模型、金融 NLP、训练/评测/治理资料 | 作为 AI Research Center 的金融 LLM、prompt/模型治理和报告可信度参考 |
 | `AgentQuant` | AI Agent 将股票列表转为可回测策略，强调无代码策略生成和验证 | 作为 AI 研究到 Strategy Lab 的桥梁：AI 结论必须进入回测验证而非直接交易 |
 | `WyckoffTradingAgent` | A 股量价分析 Agent、screener、CLI/MCP 工具 | 作为盯盘中心和选股器中的量价/筹码/形态分析参考 |
+
+### 2.0.1 Hermes TDX 自动接入链路
+
+后续 Data & Ops、盯盘中心、Strategy Lab 或回测模块需要使用通达信行情时，Hermes 必须自动加载 `tdx-market-data` skill，并按以下链路组织数据：
+
+```text
+Hermes
+  -> tdx-market-data skill
+     -> pytdx 在线行情
+     -> 通达信本地 vipdoc 文件
+     -> 缓存到本地 CSV/SQLite
+     -> 给 TradingAgents / Obsidian / 回测模块使用
+```
+
+边界：
+
+- `tdx-market-data` 只负责行情和历史数据，不负责下单、账户、成交或 QMT 执行。
+- 在线 `pytdx`、本地 `vipdoc` 和 CSV/SQLite cache 都必须输出 `source`、`updated_at`、`stale`、`degraded`、`fallback_reason`。
+- TradingAgents、WebUI、Strategy Lab、回测模块不得直接读散落文件；必须通过统一数据接口或缓存索引。
+- Obsidian 只接收摘要、链接、快照索引或研究笔记，不写入大体量原始行情。
 
 ### 2.1 daily_stock_analysis 需要对齐的能力
 
@@ -323,6 +346,18 @@ Web 工作台最终收敛为以下顶层模块：
 | REF-07 | `AgentQuant` | AI 生成/筛选策略后进入回测验证 | AI 研究 / Strategy Lab | Web-P4 / Web-P5 | AI 结论能转为策略候选或回测任务，但不能直接转真实订单 |
 | REF-08 | `WyckoffTradingAgent` | A 股量价分析、screener、CLI/MCP 风格工具 | 盯盘中心 / 选股器 | Web-P3 / Web-P5 | 选股和盯盘加入量价/形态/筹码类信号，并保留数据来源和解释 |
 
+### 5.5 TDX 数据链路矩阵
+
+| 编号 | 能力 | 目标状态 | 优先级 | 归属模块 | 验收标准 |
+|---|---|---|---|---|---|
+| TDX-01 | Hermes 自动加载 `tdx-market-data` skill | 新增 | P0 | Data & Ops / Hermes | 涉及 pytdx/vipdoc/cache/回测数据时，任务 brief 明确加载该 skill |
+| TDX-02 | `pytdx` 在线行情 | 新增或整合 | P0 | Data & Ops / 盯盘中心 | 可获取实时行情或清晰 degraded；输出 source、updated_at、fallback_reason |
+| TDX-03 | 通达信本地 `vipdoc` 文件读取 | 新增 | P1 | Data & Ops / Strategy Lab | 可配置 TDX 路径，读取历史 K 线 fixture，解析失败有错误分类 |
+| TDX-04 | CSV/SQLite 本地缓存 | 新增 | P1 | Data & Ops / Store | 缓存 key、symbol、period、source、updated_at、stale 状态可追溯 |
+| TDX-05 | TradingAgents 消费 | 整合 | P1 | AI Research / Data Interface | 研究链通过统一 interface/router 读取，不直接读文件 |
+| TDX-06 | 回测模块消费 | 整合 | P1 | Strategy Lab | 回测引用 cache snapshot，结果可复现 |
+| TDX-07 | Obsidian 消费 | 新增 | P2 | Reports / Knowledge | 只输出摘要或快照索引到 Obsidian，不同步大体量原始行情 |
+
 ## 6. 新工作流设计
 
 ### 6.1 每日投研工作流
@@ -406,6 +441,7 @@ AI 研究结论
 | 对象 | 作用 | 最小字段 | 所属 phase |
 |---|---|---|---|
 | `Watchlist` | 自选股和盯盘池 | `watchlist_id`, `name`, `symbols`, `source`, `created_at`, `updated_at` | Web-P2 / Web-P3 |
+| `MarketDataSnapshot` | 行情/历史数据快照 | `snapshot_id`, `symbol`, `period`, `source`, `cache_key`, `updated_at`, `stale`, `degraded`, `fallback_reason` | Web-G0 / Web-P3 / Web-P5 |
 | `AnalysisTask` | 每日分析、批量分析、主题研究任务 | `task_id`, `task_type`, `scope`, `status`, `started_at`, `finished_at`, `error`, `result_refs` | Web-P2 / Web-P4 |
 | `Report` | AI 报告归档 | `report_id`, `scope`, `trade_date`, `model`, `prompt_version`, `data_snapshot_id`, `advisory_scope`, `actionable`, `status` | Web-P2 / Web-P4 |
 | `AlertRule` | 告警规则 | `rule_id`, `symbol_or_scope`, `trigger_type`, `threshold`, `enabled`, `created_at` | Web-P3 |
@@ -440,9 +476,11 @@ AI 研究结论
 
 - 新增 Web 工作台改造需求 ID。
 - 将 DSA/AIS/TA/REF 矩阵映射到需求 ID。
+- 新增 TDX 数据链路需求 ID，并映射 `tdx-market-data` skill、Data & Ops、Strategy Lab、Obsidian 消费边界。
 - 标记 P0、P1、P2。
 - 明确 `/dashboard` 为默认首页。
 - 明确 QMT/miniQMT 默认不是自动实盘。
+- 明确 TDX 行情链路归属 Data & Ops，不归属 Trading & Execution。
 
 验收：
 
@@ -1039,14 +1077,15 @@ Web-P0 起必须做浏览器验收：
 
 执行前需要确认：
 
-- [ ] 是否同意 `/dashboard` 成为默认首页。
-- [ ] 是否同意 `/` 从交易页改为跳转或弱化入口。
-- [ ] 是否同意 P0 只做 A 股，不做全市场同等能力。
-- [ ] 是否同意推送能力优先级为 P1，并在 Web-P2 先做至少一种通道的端到端验证。
-- [ ] 是否同意 QMT/miniQMT 默认只作为 managed/paper 能力，不默认自动实盘。
-- [ ] 是否同意旧页面逐步迁移，不能长期作为主入口。
-- [ ] 是否同意每个 phase 必须补文档、测试和页面验收证据。
-- [ ] 是否同意每个模块完成后必须先 OpenCode 审核，再 Codex 验收，通过后只提交当前模块到本地 git，然后才进入下一个模块。
+- [x] 已同意 `/dashboard` 成为默认首页。
+- [x] 已同意 `/` 从交易页改为跳转或弱化入口。
+- [x] 已同意 P0 只做 A 股，不做全市场同等能力。
+- [x] 已同意推送能力优先级为 P1，并在 Web-P2 先做至少一种通道的端到端验证。
+- [x] 已同意 QMT/miniQMT 默认只作为 managed/paper 能力，不默认自动实盘。
+- [x] 已同意旧页面逐步迁移，不能长期作为主入口。
+- [x] 已同意每个 phase 必须补文档、测试和页面验收证据。
+- [x] 已同意每个模块完成后必须先 OpenCode 审核，再 Codex 验收，通过后只提交当前模块到本地 git，然后才进入下一个模块。
+- [x] 已同意 Hermes 自动接入 `tdx-market-data` skill，并按 `pytdx -> vipdoc -> CSV/SQLite cache -> TradingAgents / Obsidian / 回测模块` 的链路使用。
 
 ## 15. 建议执行顺序
 

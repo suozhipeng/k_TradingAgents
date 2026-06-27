@@ -30,6 +30,7 @@
 - `astock-provider-delivery`
 - `astock-analyst-delivery`
 - `astock-rollout-orchestrator`
+- `tdx-market-data`
 
 ### ECC 通用
 
@@ -52,6 +53,7 @@
 使用 A 股专项 skill 的场景：
 
 - provider 实现或验证：`astock-provider-delivery`
+- 通达信行情链路（pytdx、vipdoc、CSV/SQLite cache、TradingAgents/Obsidian/backtest 消费）：`tdx-market-data`
 - `AStockInterface`、tools、analyst 接线：`astock-analyst-delivery`
 - 分阶段 A 股 rollout：`astock-rollout-orchestrator`
 
@@ -155,6 +157,7 @@
 | 19 | `tradingagents-core` + `astock-rollout-orchestrator` + `ecc-self-test` |
 | 20-29 | `tradingagents-core` + `astock-rollout-orchestrator` + `ecc-self-test` |
 | 30+ | `tradingagents-core` + 按模块选择 A 股专项 skill + ECC review/test |
+| Web-G0 / Data & Ops TDX | `tradingagents-core` + `tdx-market-data` + `astock-provider-delivery` + `ecc-self-test` |
 
 canonical phase scope 和完成状态以 `docs/ASTOCK_CURRENT_STATUS.md` 为准。
 
