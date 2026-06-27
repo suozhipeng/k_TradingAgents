@@ -1,0 +1,221 @@
+{% extends "base.html" %}
+{% block title %}自选股 — AStock Pro 量化交易终端{% endblock %}
+{% block content %}
+<h2 class="text-2xl font-bold text-white mb-6">👁️ 自选股 Watchlist</h2>
+
+<!-- Add Symbol Form -->
+<div class="card mb-6">
+  <h3 class="tv-card-title">➕ 添加自选股</h3>
+  <div class="flex gap-3 items-end flex-wrap">
+    <div class="flex-1" style="min-width:200px;">
+      <label class="block text-xs text-gray-400 mb-1">股票代码或名称</label>
+      <div class="search-wrap">
+        <input type="text" id="wl-symbol-input" placeholder="600519.SH"
+          class="w-full bg-dark-bg text-gray-200 px-3 py-2 rounded border border-dark-border text-sm focus:border-tv-blue outline-none"
+          onkeydown="if(event.key==='Enter')addSymbol()">
+      </div>
+    </div>
+    <button onclick="addSymbol()" class="tv-btn tv-btn-primary">➕ 添加</button>
+    <button onclick="batchAnalyze()" class="tv-btn tv-btn-secondary" id="btn-batch-analyze">🤖 批量分析</button>
+  </div>
+  <div id="wl-status" class="text-xs text-gray-400 mt-2"></div>
+</div>
+
+<!-- Quick Add Common Symbols -->
+<div class="card mb-6">
+  <h3 class="tv-card-title">⚡ 快速添加</h3>
+  <div class="flex gap-2 flex-wrap">
+    <button onclick="quickAdd('600519.SH','贵州茅台')" class="tv-btn tv-btn-outline tv-btn-sm">🍶 贵州茅台</button>
+    <button onclick="quickAdd('000858.SZ','五粮液')" class="tv-btn tv-btn-outline tv-btn-sm">🍶 五粮液</button>
+    <button onclick="quickAdd('601318.SH','中国平安')" class="tv-btn tv-btn-outline tv-btn-sm">🏦 中国平安</button>
+    <button onclick="quickAdd('600036.SH','招商银行')" class="tv-btn tv-btn-outline tv-btn-sm">🏦 招商银行</button>
+    <button onclick="quickAdd('000333.SZ','美的集团')" class="tv-btn tv-btn-outline tv-btn-sm">📺 美的集团</button>
+    <button onclick="quickAdd('002415.SZ','海康威视')" class="tv-btn tv-btn-outline tv-btn-sm">📹 海康威视</button>
+    <button onclick="quickAdd('300750.SZ','宁德时代')" class="tv-btn tv-btn-outline tv-btn-sm">🔋 宁德时代</button>
+    <button onclick="quickAdd('600900.SH','长江电力')" class="tv-btn tv-btn-outline tv-btn-sm">💡 长江电力</button>
+  </div>
+</div>
+
+<!-- Watchlist Table -->
+<div class="card">
+  <div class="flex justify-between items-center mb-4">
+    <h3 class="tv-card-title" style="margin:0;">📋 自选列表</h3>
+    <span id="wl-count" class="text-xs text-gray-500">共 0 只</span>
+  </div>
+  <div id="wl-table-wrap" class="tv-table-wrap">
+    <table class="tv-table w-full" id="wl-table">
+      <thead>
+        <tr>
+          <th>代码</th>
+          <th>名称</th>
+          <th>添加时间</th>
+          <th>来源</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody id="wl-tbody">
+        <tr><td colspan="5" class="text-center text-gray-500 py-8">📭 暂无自选股，请添加股票</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div id="wl-error" class="text-xs text-red-400 mt-2 hidden"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let watchlistItems = [];
+
+async function loadWatchlist() {
+  const status = document.getElementById('wl-status');
+  const error = document.getElementById('wl-error');
+  error.classList.add('hidden');
+
+  try {
+    const res = await fetch('/api/v1/watchlist');
+    const data = await res.json();
+    if (data.status === 'ok' || data.items) {
+      watchlistItems = data.items || [];
+      renderTable(watchlistItems);
+    } else {
+      throw new Error(data.error || 'Unknown error');
+    }
+  } catch (e) {
+    error.textContent = '❌ 加载失败: ' + e.message;
+    error.classList.remove('hidden');
+    document.getElementById('wl-tbody').innerHTML = '<tr><td colspan="5" class="text-center text-red-400 py-8">⚠️ 加载失败</td></tr>';
+  }
+}
+
+function renderTable(items) {
+  const tbody = document.getElementById('wl-tbody');
+  const count = document.getElementById('wl-count');
+
+  if (!items || items.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" class="text-center text-gray-500 py-8">📭 暂无自选股，请添加股票</td></tr>';
+    count.textContent = '共 0 只';
+    return;
+  }
+
+  count.textContent = '共 ' + items.length + ' 只';
+  tbody.innerHTML = items.map((it, idx) => {
+    const addedAt = it.added_at ? it.added_at.slice(0, 10) : '--';
+    const source = it.source || 'manual';
+    const name = it.name || it.symbol;
+    const symbol = escapeHtml(it.symbol);
+    return `<tr>
+      <td class="font-mono"><a href="/research?symbol=${symbol}" class="text-tv-blue hover:underline">${symbol}</a></td>
+      <td>${escapeHtml(name)}</td>
+      <td class="text-gray-500">${addedAt}</td>
+      <td><span class="tv-badge tv-badge-gray">${escapeHtml(source)}</span></td>
+      <td>
+        <button onclick="removeSymbol('${symbol}')" class="tv-btn tv-btn-sm" style="background:transparent;color:#f23645;border:1px solid rgba(242,54,69,0.3);">✕ 删除</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+async function addSymbol() {
+  const input = document.getElementById('wl-symbol-input');
+  const status = document.getElementById('wl-status');
+  let symbol = input.value.trim().toUpperCase();
+  if (!symbol) { status.textContent = '⚠️ 请输入股票代码'; return; }
+  if (!symbol.includes('.')) symbol += '.SH';
+
+  status.textContent = '⏳ 添加中...';
+  try {
+    const res = await fetch('/api/v1/watchlist/add', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({symbol, name: symbol, source: 'manual'})
+    });
+    const data = await res.json();
+    if (data.status === 'ok') {
+      status.textContent = '✅ ' + symbol + ' 已添加到自选股';
+      input.value = '';
+      await loadWatchlist();
+    } else {
+      status.textContent = '❌ 添加失败: ' + (data.error || 'unknown');
+    }
+  } catch (e) {
+    status.textContent = '❌ 请求失败: ' + e.message;
+  }
+}
+
+async function quickAdd(symbol, name) {
+  const status = document.getElementById('wl-status');
+  status.textContent = '⏳ 添加 ' + name + '...';
+  try {
+    const res = await fetch('/api/v1/watchlist/add', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({symbol, name, source: 'quick_add'})
+    });
+    const data = await res.json();
+    if (data.status === 'ok') {
+      status.textContent = '✅ ' + name + ' 已添加';
+      await loadWatchlist();
+    } else if (res.status === 409) {
+      status.textContent = '⚠️ ' + symbol + ' 已在自选股中';
+    } else {
+      status.textContent = '❌ 添加失败: ' + (data.error || 'unknown');
+    }
+  } catch (e) {
+    status.textContent = '❌ 请求失败: ' + e.message;
+  }
+}
+
+async function removeSymbol(symbol) {
+  const status = document.getElementById('wl-status');
+  status.textContent = '⏳ 删除 ' + symbol + '...';
+  try {
+    const res = await fetch('/api/v1/watchlist/remove', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({symbol})
+    });
+    const data = await res.json();
+    if (data.status === 'ok') {
+      status.textContent = '✅ ' + symbol + ' 已移除';
+      await loadWatchlist();
+    } else {
+      status.textContent = '❌ 删除失败: ' + (data.error || 'unknown');
+    }
+  } catch (e) {
+    status.textContent = '❌ 请求失败: ' + e.message;
+  }
+}
+
+async function batchAnalyze() {
+  const btn = document.getElementById('btn-batch-analyze');
+  const status = document.getElementById('wl-status');
+  btn.disabled = true;
+  btn.textContent = '⏳ 提交中...';
+  status.textContent = '';
+
+  try {
+    const res = await fetch('/api/v1/watchlist/batch-analyze', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+    });
+    const data = await res.json();
+    if (data.status === 'queued') {
+      status.textContent = '✅ ' + data.message;
+    } else {
+      status.textContent = '❌ 提交失败: ' + (data.error || 'unknown');
+    }
+  } catch (e) {
+    status.textContent = '❌ 请求失败: ' + e.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🤖 批量分析';
+  }
+}
+
+function escapeHtml(s) {
+  return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+loadWatchlist();
+</script>
+{% endblock %}

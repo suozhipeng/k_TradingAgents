@@ -165,9 +165,27 @@ def reports() -> str:
     return render_template("reports.html")
 
 
+@bp.route("/watchlist")
+def watchlist_page() -> str:
+    """自选股管理页面"""
+    return render_template("watchlist.html")
+
+
+@bp.route("/batch-analyze")
+def batch_analyze_page() -> str:
+    """批量分析入口"""
+    return render_template("watchlist.html", batch_mode=True)
+
+
 @bp.route("/settings")
 def settings() -> str:
     return render_template("settings.html")
+
+
+@bp.route("/settings/notifications")
+def settings_notifications() -> str:
+    """通知设置专用页面"""
+    return render_template("settings.html", section="notifications")
 
 
 @bp.route("/screener")

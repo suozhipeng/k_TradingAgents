@@ -1,15 +1,25 @@
 {% extends "base.html" %}
-{% block title %}Settings — AStock WebUI{% endblock %}
+{% block title %}设置 — AStock Pro 量化交易终端{% endblock %}
 {% block content %}
-<h2 class="text-2xl font-bold text-white mb-6">⚙️ 设置 Settings</h2>
+<h2 class="text-2xl font-bold text-white mb-6">⚙️ 设置</h2>
+
+{% if section == "notifications" %}
+<!-- ── Notification Settings Focus ── -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  document.getElementById('notif-section').scrollIntoView({behavior:'smooth'});
+});
+</script>
+{% endif %}
 
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+  <!-- System Config -->
   <div class="card">
-    <h3 class="text-lg font-semibold text-white mb-4">🔧 系统配置 System Config</h3>
+    <h3 class="text-lg font-semibold text-white mb-4">🔧 系统配置</h3>
     <div class="space-y-4">
       <div>
         <label class="block text-xs text-gray-400 mb-1">数据源 Provider</label>
-        <select id="cfg-provider" class="w-full">
+        <select id="cfg-provider" class="w-full tv-select">
           <option value="eastmoney">东方财富 EastMoney</option>
           <option value="sina">新浪 Sina</option>
           <option value="akshare">AKShare</option>
@@ -17,20 +27,20 @@
       </div>
       <div>
         <label class="block text-xs text-gray-400 mb-1">默认回测资金</label>
-        <input type="text" id="cfg-capital" value="1000000" class="w-full">
+        <input type="text" id="cfg-capital" value="1000000" class="tv-input w-full">
       </div>
       <div>
         <label class="block text-xs text-gray-400 mb-1">API 基础 URL</label>
-        <input type="text" id="cfg-api-url" value="/api/v1" class="w-full" readonly>
+        <input type="text" id="cfg-api-url" value="/api/v1" class="tv-input w-full" readonly>
       </div>
-      <button onclick="saveSettings()" class="btn btn-primary">保存设置 Save</button>
+      <button onclick="saveSettings()" class="tv-btn tv-btn-primary">保存设置</button>
       <div id="save-status" class="text-xs text-gray-400"></div>
     </div>
   </div>
 
   <!-- Cache Management -->
   <div class="card">
-    <h3 class="text-lg font-semibold text-white mb-4">💾 缓存管理 Cache</h3>
+    <h3 class="text-lg font-semibold text-white mb-4">💾 缓存管理</h3>
     <div id="cache-info" class="text-gray-400 text-sm space-y-2">
       <div class="flex justify-between py-1"><span>缓存状态</span><span class="text-white" id="cache-status">--</span></div>
       <div class="flex justify-between py-1"><span>缓存类型</span><span class="text-white" id="cache-type">--</span></div>
@@ -39,47 +49,138 @@
       <div class="flex justify-between py-1 border-b border-dark-border"><span>摘要 (summaries)</span><span class="text-white" id="cache-summaries">--</span></div>
     </div>
     <div class="mt-4 flex gap-3 flex-wrap">
-      <button onclick="clearCache()" class="btn btn-secondary">🗑️ 清除缓存 Clear Cache</button>
-      <button onclick="refreshCacheStatus()" class="btn btn-secondary">🔄 刷新状态 Refresh Status</button>
+      <button onclick="clearCache()" class="tv-btn tv-btn-secondary">🗑️ 清除缓存</button>
+      <button onclick="refreshCacheStatus()" class="tv-btn tv-btn-secondary">🔄 刷新状态</button>
     </div>
     <div id="cache-action-status" class="mt-2 text-xs text-gray-400"></div>
   </div>
+</div>
 
-  <!-- Data Refresh Panel -->
-  <div class="card lg:col-span-2">
-    <h3 class="text-lg font-semibold text-white mb-4">📥 数据刷新 Data Refresh</h3>
-    <p class="text-xs text-gray-400 mb-4">从数据源拉取最新数据并写入本地 DuckDB 数据库。</p>
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-      <div class="space-y-2">
-        <label class="block text-xs text-gray-400">股票代码 Symbol</label>
-        <div class="search-wrap">
-          <input type="text" id="refresh-symbol" value="600519.SH" class="w-full" placeholder="600519.SH">
-        </div>
+<!-- ── Notification Settings ── -->
+<div class="mt-6 card" id="notif-section">
+  <h3 class="text-lg font-semibold text-white mb-4">🔔 推送通知设置</h3>
+  <p class="text-xs text-gray-400 mb-4">配置报告完成、交易信号等事件的推送通知通道。</p>
+
+  <div class="space-y-3" id="notif-channels">
+    <!-- Terminal Channel -->
+    <div class="py-3 px-4 bg-dark-bg rounded-lg flex justify-between items-center">
+      <div>
+        <p class="text-gray-200 text-sm font-medium">💻 终端通知 Terminal</p>
+        <p class="text-xs text-gray-500">系统内通知，页面顶部提示</p>
       </div>
-      <div class="space-y-2">
-        <label class="block text-xs text-gray-400">开始日期 Start</label>
-        <input type="text" id="refresh-start" value="2026-01-01" class="w-full" placeholder="2026-01-01">
-      </div>
-      <div class="space-y-2">
-        <label class="block text-xs text-gray-400">结束日期 End</label>
-        <input type="text" id="refresh-end" value="" class="w-full" placeholder="(今天)">
+      <div class="flex items-center gap-3">
+        <label class="flex items-center gap-2 text-xs text-gray-400">
+          <input type="checkbox" id="notif-term-enabled" checked onchange="saveNotifPrefs()" class="accent-tv-blue">
+          启用
+        </label>
+        <span class="tv-badge tv-badge-green">已验证</span>
       </div>
     </div>
-    <div class="mt-4 flex gap-3 flex-wrap">
-      <button onclick="refreshKline()" class="btn btn-primary">📊 刷新 K线 Refresh K-line</button>
-      <button onclick="refreshValuation()" class="btn btn-secondary">💰 刷新估值 Refresh Valuation</button>
+
+    <!-- Desktop Notification -->
+    <div class="py-3 px-4 bg-dark-bg rounded-lg flex justify-between items-center">
+      <div>
+        <p class="text-gray-200 text-sm font-medium">🔔 桌面通知 Desktop</p>
+        <p class="text-xs text-gray-500">浏览器原生推送通知</p>
+      </div>
+      <div class="flex items-center gap-3">
+        <label class="flex items-center gap-2 text-xs text-gray-400">
+          <input type="checkbox" id="notif-desktop-enabled" onchange="saveNotifPrefs();requestDesktopNotif()" class="accent-tv-blue">
+          启用
+        </label>
+        <span class="tv-badge tv-badge-amber" id="notif-desktop-status">未验证</span>
+      </div>
     </div>
-    <div id="refresh-status" class="mt-2 text-xs text-gray-400"></div>
+
+    <!-- Webhook Channel -->
+    <div class="py-3 px-4 bg-dark-bg rounded-lg flex justify-between items-center">
+      <div>
+        <p class="text-gray-200 text-sm font-medium">🌐 Webhook</p>
+        <p class="text-xs text-gray-500">自定义 HTTP 回调 URL</p>
+      </div>
+      <div class="flex items-center gap-3">
+        <input type="url" id="notif-webhook-url" placeholder="https://hooks.example.com/notify"
+          class="tv-input text-xs" style="width:220px;" value="" onchange="saveNotifPrefs()">
+        <button onclick="testWebhook()" class="tv-btn tv-btn-secondary tv-btn-sm">测试</button>
+        <span class="tv-badge tv-badge-amber" id="notif-webhook-status">未验证</span>
+      </div>
+    </div>
+
+    <!-- Email Channel (placeholder) -->
+    <div class="py-3 px-4 bg-dark-bg rounded-lg flex justify-between items-center opacity-60">
+      <div>
+        <p class="text-gray-200 text-sm font-medium">📧 邮件通知 Email</p>
+        <p class="text-xs text-gray-500">SMTP 发送报告摘要</p>
+      </div>
+      <span class="tv-badge tv-badge-gray">开发中</span>
+    </div>
+
+    <!-- WeCom / DingTalk (placeholder) -->
+    <div class="py-3 px-4 bg-dark-bg rounded-lg flex justify-between items-center opacity-60">
+      <div>
+        <p class="text-gray-200 text-sm font-medium">💬 企业微信 / 钉钉</p>
+        <p class="text-xs text-gray-500">机器人 Webhook 推送</p>
+      </div>
+      <span class="tv-badge tv-badge-gray">开发中</span>
+    </div>
   </div>
+
+  <!-- Notification Rules -->
+  <div class="mt-4 pt-4 border-t border-dark-border">
+    <h4 class="text-sm font-semibold text-gray-300 mb-3">📋 推送规则</h4>
+    <div class="space-y-2">
+      <label class="flex items-center gap-2 text-xs text-gray-400">
+        <input type="checkbox" checked class="accent-tv-blue"> 研究报告生成完成
+      </label>
+      <label class="flex items-center gap-2 text-xs text-gray-400">
+        <input type="checkbox" checked class="accent-tv-blue"> 批量分析任务完成
+      </label>
+      <label class="flex items-center gap-2 text-xs text-gray-400">
+        <input type="checkbox" class="accent-tv-blue"> 自选股异动告警
+      </label>
+      <label class="flex items-center gap-2 text-xs text-gray-400">
+        <input type="checkbox" class="accent-tv-blue"> 交易信号触发
+      </label>
+    </div>
+  </div>
+
+  <div id="notif-save-status" class="mt-3 text-xs text-gray-400"></div>
+</div>
+
+<!-- Data Refresh Panel -->
+<div class="mt-6 card">
+  <h3 class="text-lg font-semibold text-white mb-4">📥 数据刷新</h3>
+  <p class="text-xs text-gray-400 mb-4">从数据源拉取最新数据并写入本地 DuckDB 数据库。</p>
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div class="space-y-2">
+      <label class="block text-xs text-gray-400">股票代码</label>
+      <div class="search-wrap">
+        <input type="text" id="refresh-symbol" value="600519.SH" class="tv-input w-full" placeholder="600519.SH">
+      </div>
+    </div>
+    <div class="space-y-2">
+      <label class="block text-xs text-gray-400">开始日期</label>
+      <input type="text" id="refresh-start" value="2026-01-01" class="tv-input w-full" placeholder="2026-01-01">
+    </div>
+    <div class="space-y-2">
+      <label class="block text-xs text-gray-400">结束日期</label>
+      <input type="text" id="refresh-end" value="" class="tv-input w-full" placeholder="(今天)">
+    </div>
+  </div>
+  <div class="mt-4 flex gap-3 flex-wrap">
+    <button onclick="refreshKline()" class="tv-btn tv-btn-primary">📊 刷新 K线</button>
+    <button onclick="refreshValuation()" class="tv-btn tv-btn-secondary">💰 刷新估值</button>
+  </div>
+  <div id="refresh-status" class="mt-2 text-xs text-gray-400"></div>
 </div>
 
 <!-- System Info Panel -->
 <div class="mt-6 card">
-  <h3 class="text-lg font-semibold text-white mb-4">ℹ️ 系统信息 System Info</h3>
+  <h3 class="text-lg font-semibold text-white mb-4">ℹ️ 系统信息</h3>
   <div id="system-info" class="text-gray-400 text-sm space-y-2">
     <div class="flex justify-between py-1 border-b border-dark-border"><span>版本</span><span class="text-white" id="sys-version">--</span></div>
     <div class="flex justify-between py-1 border-b border-dark-border"><span>数据库</span><span class="text-white" id="sys-db">--</span></div>
-    <div class="flex justify-between py-1 border-b border-dark-border"><span>API 端点</span><span class="text-white">19</span></div>
+    <div class="flex justify-between py-1 border-b border-dark-border"><span>API 端点</span><span class="text-white">21</span></div>
     <div class="flex justify-between"><span>状态</span><span class="text-emerald-400" id="sys-status">--</span></div>
   </div>
 </div>
@@ -87,6 +188,7 @@
 
 {% block scripts %}
 <script>
+// ── Settings ──
 async function loadSettings() {
   try {
     const res = await fetch('/api/v1/health');
@@ -98,14 +200,84 @@ async function loadSettings() {
     document.getElementById('sys-version').textContent = 'ERR';
   }
 }
+
 function saveSettings() {
   document.getElementById('save-status').textContent = '设置仅前端模拟。Settings are frontend-only in this demo.';
   setTimeout(() => document.getElementById('save-status').textContent = '', 3000);
 }
 
-// --- Cache Management ---
+// ── Notification preferences ──
+function saveNotifPrefs() {
+  const term = document.getElementById('notif-term-enabled').checked;
+  const desktop = document.getElementById('notif-desktop-enabled').checked;
+  const webhook = document.getElementById('notif-webhook-url').value;
+  localStorage.setItem('astock_notif_term', term);
+  localStorage.setItem('astock_notif_desktop', desktop);
+  localStorage.setItem('astock_notif_webhook', webhook);
+  document.getElementById('notif-save-status').textContent = '✅ 通知偏好已保存 (本地)';
+  setTimeout(() => document.getElementById('notif-save-status').textContent = '', 2000);
+}
+
+function loadNotifPrefs() {
+  const term = localStorage.getItem('astock_notif_term');
+  const desktop = localStorage.getItem('astock_notif_desktop');
+  const webhook = localStorage.getItem('astock_notif_webhook');
+  if (term !== null) document.getElementById('notif-term-enabled').checked = term === 'true';
+  if (desktop !== null) document.getElementById('notif-desktop-enabled').checked = desktop === 'true';
+  if (webhook) document.getElementById('notif-webhook-url').value = webhook;
+}
+
+async function requestDesktopNotif() {
+  if (!('Notification' in window)) {
+    document.getElementById('notif-desktop-status').textContent = '不支持';
+    return;
+  }
+  if (Notification.permission === 'granted') {
+    document.getElementById('notif-desktop-status').textContent = '已验证';
+    document.getElementById('notif-desktop-status').className = 'tv-badge tv-badge-green';
+    new Notification('AStock Pro', { body: '桌面通知已启用 ✅' });
+    return;
+  }
+  const perm = await Notification.requestPermission();
+  const el = document.getElementById('notif-desktop-status');
+  if (perm === 'granted') {
+    el.textContent = '已验证';
+    el.className = 'tv-badge tv-badge-green';
+    new Notification('AStock Pro', { body: '桌面通知已启用 ✅' });
+  } else {
+    el.textContent = '已拒绝';
+    el.className = 'tv-badge tv-badge-red';
+    document.getElementById('notif-desktop-enabled').checked = false;
+  }
+}
+
+async function testWebhook() {
+  const url = document.getElementById('notif-webhook-url').value.trim();
+  const status = document.getElementById('notif-webhook-status');
+  if (!url) { status.textContent = '请输入 URL'; return; }
+  status.textContent = '测试中...';
+  status.className = 'tv-badge tv-badge-amber';
+  try {
+    const res = await fetch('/api/v1/notifications/test-webhook', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({url, message: 'AStock Pro 通知测试'})
+    }).catch(() => null);
+    if (res && res.ok) {
+      status.textContent = '已验证';
+      status.className = 'tv-badge tv-badge-green';
+    } else {
+      status.textContent = '连接失败';
+      status.className = 'tv-badge tv-badge-red';
+    }
+  } catch (e) {
+    status.textContent = '错误';
+    status.className = 'tv-badge tv-badge-red';
+  }
+}
+
+// ── Cache Management ──
 async function refreshCacheStatus() {
-  const el = document.getElementById('cache-action-status');
   try {
     const res = await fetch('/api/v1/cache/status');
     const data = await res.json();
@@ -126,18 +298,14 @@ async function clearCache() {
   try {
     const res = await fetch('/api/v1/cache/clear', { method: 'POST' });
     const data = await res.json();
-    if (data.cleared) {
-      el.textContent = '✅ 缓存已清除';
-    } else {
-      el.textContent = '⚠️ 清除失败: ' + (data.reason || 'unknown');
-    }
+    el.textContent = data.cleared ? '✅ 缓存已清除' : '⚠️ 清除失败: ' + (data.reason || 'unknown');
     refreshCacheStatus();
   } catch (e) {
     el.textContent = '❌ 请求失败: ' + e.message;
   }
 }
 
-// --- Data Refresh ---
+// ── Data Refresh ──
 async function refreshKline() {
   const el = document.getElementById('refresh-status');
   let symbol = document.getElementById('refresh-symbol').value.trim();
@@ -153,11 +321,9 @@ async function refreshKline() {
       body: JSON.stringify({symbol, start, end})
     });
     const data = await res.json();
-    if (data.status === 'ok') {
-      el.textContent = `✅ K-line 刷新完成，插入 ${data.rows_inserted} 行`;
-    } else {
-      el.textContent = '❌ 刷新失败: ' + (data.error || 'unknown');
-    }
+    el.textContent = data.status === 'ok'
+      ? '✅ K-line 刷新完成，插入 ' + data.rows_inserted + ' 行'
+      : '❌ 刷新失败: ' + (data.error || 'unknown');
   } catch (e) {
     el.textContent = '❌ 请求失败: ' + e.message;
   }
@@ -176,19 +342,18 @@ async function refreshValuation() {
       body: JSON.stringify({symbol})
     });
     const data = await res.json();
-    if (data.status === 'ok') {
-      el.textContent = `✅ 估值刷新完成，插入 ${data.rows_inserted} 行`;
-    } else {
-      el.textContent = '❌ 刷新失败: ' + (data.error || 'unknown');
-    }
+    el.textContent = data.status === 'ok'
+      ? '✅ 估值刷新完成，插入 ' + data.rows_inserted + ' 行'
+      : '❌ 刷新失败: ' + (data.error || 'unknown');
   } catch (e) {
     el.textContent = '❌ 请求失败: ' + e.message;
   }
 }
 
-// Auto-load on page load
+// ── Init ──
 loadSettings();
 refreshCacheStatus();
-KCDataLoader.setupSearch('refresh-symbol', symbol => { refreshData() });
+loadNotifPrefs();
+KCDataLoader.setupSearch('refresh-symbol', symbol => { refreshKline() });
 </script>
 {% endblock %}

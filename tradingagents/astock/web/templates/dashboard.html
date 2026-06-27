@@ -633,43 +633,61 @@ async function loadLatestReports() {
   const el = document.getElementById('latest-reports-content');
 
   try {
-    const res = await fetch('/api/v1/reports/pptx?symbol=600519.SH&check=1');
-    // The reports endpoint only offers PPTX generation; we'll build report history
-    // from the overview's backtest data as a practical source of "reports"
-    try {
-      const overviewRes = await fetch('/api/v1/dashboard/overview');
-      const overview = await overviewRes.json();
-      const backtests = overview.recent_backtests || [];
+    // Try report archive API first
+    const reportRes = await fetch('/api/v1/reports/list?limit=5');
+    let archiveItems = [];
+    if (reportRes.ok) {
+      const reportData = await reportRes.json();
+      archiveItems = reportData.items || [];
+    }
 
-      if (!backtests.length) {
-        el.innerHTML = '<div class="dash-empty">暂无报告，开始 AI 分析后生成</div>';
-        return;
-      }
+    // Also get backtest-based reports for completeness
+    const overviewRes = await fetch('/api/v1/dashboard/overview');
+    const overview = await overviewRes.json();
+    const backtests = overview.recent_backtests || [];
 
-      const reports = backtests.slice(0, 3).map(bt => ({
+    // Merge: archive items first, then backtest-derived items
+    const reports = [];
+
+    // From archive
+    archiveItems.forEach(r => {
+      reports.push({
+        title: (r.symbol || '??') + ' · ' + (r.report_type || 'single'),
+        date: (r.created_at || '').substring(0, 10),
+        status: r.actionable ? 'completed' : 'pending',
+        source: r.source || 'api',
+      });
+    });
+
+    // From backtests (limit to fill up to 3)
+    const need = Math.max(0, 3 - reports.length);
+    backtests.slice(0, need).forEach(bt => {
+      reports.push({
         title: (bt.strategy_name || bt.strategy || '策略') + ' · ' + (bt.symbol || '多标的'),
         date: (bt.end_date || bt.trade_date || bt.created_at || '').substring(0, 10),
         status: bt.status || 'completed',
-        return: bt.total_return || 0,
-      }));
+        source: 'backtest',
+      });
+    });
 
-      el.innerHTML = reports.map(r => {
-        const statusClass = (r.status || 'completed').toLowerCase();
-        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #1e2a3a;">
-          <div style="flex:1;min-width:0;">
-            <div style="font-size:12px;color:#d1d4dc;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">📄 ${r.title}</div>
-            <div style="font-size:10px;color:#4a5a6a;margin-top:2px;">${r.date || '--'}</div>
-          </div>
-          <div style="display:flex;align-items:center;gap:8px;">
-            <span style="font-size:11px;font-family:JetBrains Mono,monospace;${r.return >= 0 ? 'color:#089981;' : 'color:#f23645;'}">${r.return >= 0 ? '+' : ''}${(r.return * 100).toFixed(2)}%</span>
-            <span class="status-badge ${statusClass}">${r.status === 'completed' || r.status === 'ok' || r.status === 'success' ? '已完成' : r.status === 'running' ? '运行中' : r.status === 'failed' ? '失败' : r.status}</span>
-          </div>
-        </div>`;
-      }).join('');
-
-    } catch(e) {
-      el.innerHTML = '<div class="dash-empty">⚠️ 报告接口不可用</div>';
+    if (!reports.length) {
+      el.innerHTML = '<div class="dash-empty">暂无报告，开始 AI 分析后生成</div>';
+      return;
     }
+
+    el.innerHTML = reports.map(r => {
+      const statusClass = (r.status || 'completed').toLowerCase();
+      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #1e2a3a;">
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:12px;color:#d1d4dc;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">📄 ${r.title}</div>
+          <div style="font-size:10px;color:#4a5a6a;margin-top:2px;">${r.date || '--'} · ${r.source || ''}</div>
+        </div>
+        <div>
+          <span class="tv-badge ${statusClass === 'completed' || statusClass === 'ok' ? 'tv-badge-green' : 'tv-badge-amber'}" style="font-size:10px;">${r.status === 'completed' || r.status === 'ok' ? '已完成' : r.status === 'running' ? '运行中' : r.status === 'failed' ? '失败' : r.status === 'pending' ? '建议' : r.status}</span>
+        </div>
+      </div>`;
+    }).join('');
+
   } catch(e) {
     el.innerHTML = '<div class="dash-empty">⚠️ 报告接口不可用</div>';
   }

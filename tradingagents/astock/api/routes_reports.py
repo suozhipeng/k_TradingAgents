@@ -1,6 +1,8 @@
-"""Reports API routes for AStock — Phase 17.
+"""Reports API routes for AStock — Phase 17 / Web-P2.
 
-Provides PPTX report generation endpoint that uses ReportGenerator.
+Provides:
+- GET  /reports/pptx    → PPTX report download
+- GET  /reports/list    → filterable report archive listing
 """
 
 from __future__ import annotations
@@ -8,7 +10,9 @@ from __future__ import annotations
 import json
 import logging
 import tempfile
+from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 from flask import Blueprint, jsonify, Response, request
 
@@ -17,6 +21,116 @@ from tradingagents.astock.reporting.ppt import ReportGenerator, HAS_PPTX
 logger = logging.getLogger(__name__)
 
 bp = Blueprint("reports", __name__)
+
+
+# ---------------------------------------------------------------------------
+# HELPERS: report store (JSON file, temp)
+# ---------------------------------------------------------------------------
+
+REPORT_INDEX_PATH = Path.home() / ".tradingagents" / "report_index.json"
+
+
+def _load_report_index() -> list[dict[str, Any]]:
+    if not REPORT_INDEX_PATH.exists():
+        return []
+    try:
+        with open(REPORT_INDEX_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            return data if isinstance(data, list) else []
+    except (json.JSONDecodeError, OSError):
+        return []
+
+
+def _save_report_index(items: list[dict[str, Any]]) -> None:
+    REPORT_INDEX_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with open(REPORT_INDEX_PATH, "w", encoding="utf-8") as f:
+        json.dump(items, f, ensure_ascii=False, indent=2)
+
+
+# ---------------------------------------------------------------------------
+# GET /reports/list
+# ---------------------------------------------------------------------------
+
+
+@bp.route("/reports/list")
+def report_list() -> tuple[Response, int]:
+    """Return filterable report archive listing.
+
+    Query params:
+        type     — filter by report_type (market / watchlist / single / all)
+        source   — filter by provider/source
+        limit    — max results (default 50)
+        offset   — pagination offset (default 0)
+    """
+    rpt_type = request.args.get("type", "all")
+    source = request.args.get("source", "")
+    limit = int(request.args.get("limit", "50"))
+    offset = int(request.args.get("offset", "0"))
+
+    items = _load_report_index()
+
+    # Apply filters
+    if rpt_type and rpt_type != "all":
+        items = [it for it in items if it.get("report_type") == rpt_type]
+    if source:
+        items = [it for it in items if (it.get("source") or "").lower() == source.lower()]
+
+    total = len(items)
+    # Sort by created_at descending
+    items.sort(key=lambda it: it.get("created_at", ""), reverse=True)
+    page = items[offset : offset + limit]
+
+    return jsonify(
+        {
+            "items": page,
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+            "status": "ok",
+        }
+    ), 200
+
+
+# ---------------------------------------------------------------------------
+# POST /reports/save — save a report to the archive
+# ---------------------------------------------------------------------------
+
+
+@bp.route("/reports/save", methods=["POST"])
+def report_save() -> tuple[Response, int]:
+    """Save a generated report to the archive index.
+
+    Body (JSON):
+        symbol          — stock symbol
+        report_type     — market / watchlist / single
+        source          — provider/model name
+        summary         — report summary text
+        research_data   — full research data dict
+        advisory_only   — bool, advisory vs actionable
+    """
+    data = request.get_json(silent=True) or {}
+    required = ("symbol", "report_type")
+    for field in required:
+        if field not in data:
+            return jsonify({"error": f"Missing required field: {field}", "status": 400}), 400
+
+    entry = {
+        "symbol": data.get("symbol", "").upper(),
+        "report_type": data.get("report_type", "single"),
+        "source": data.get("source", "api"),
+        "summary": data.get("summary", "")[:200],
+        "created_at": datetime.now().isoformat(),
+        "advisory_only": bool(data.get("advisory_only", True)),
+        "actionable": not bool(data.get("advisory_only", True)),
+        "data_snapshot": data.get("data_snapshot", None),
+        "trade_date": data.get("trade_date", ""),
+    }
+
+    items = _load_report_index()
+    items.append(entry)
+    _save_report_index(items)
+
+    return jsonify({"item": entry, "count": len(items), "status": "ok"}), 201
 
 
 @bp.route("/reports/pptx", methods=["GET"])
