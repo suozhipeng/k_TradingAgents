@@ -44,6 +44,7 @@
 - Web 工作台主入口采用 Flask Jinja2，不把 Streamlit 或 React/TS 作为并行主入口。
 - QMT/miniQMT 默认归类为 `managed` 或 `paper`，不是默认自动实盘。
 - 页面重构必须先满足工作流和验收状态，再谈视觉细节。
+- 每个 Web 模块完成后必须按 `OpenCode 审核 -> Codex 验收 -> 本地 git commit -> 下一个模块` 的顺序推进。
 
 ## 1. 产品定位
 
@@ -962,8 +963,37 @@ Web-P0 起必须做浏览器验收：
 | 安全闸门 | AI 输出和交易入口不违反 `research_only` / `actionable=false` / 人工确认边界 |
 | 测试闸门 | 自动化测试或明确的不可运行原因已记录 |
 | 页面闸门 | success / empty / error or degraded 状态已有验收 |
+| OpenCode 审核闸门 | 当前模块完成后必须交给 OpenCode 做静态/产品/回归风险审核，结论必须为 `accept` 或所有阻断项已修复 |
+| Codex 验收闸门 | OpenCode 审核通过后，Codex 才能做最终验收；Codex 结论必须为 `accept` 才能提交 |
 | 文档闸门 | status、API、页面验收、phase 归档已同步 |
+| Git 闸门 | Codex 验收通过后，只提交当前模块范围内文件到本地 git；提交完成后才能进入下一个模块 |
 | 回滚闸门 | 明确旧入口兼容或回滚路径 |
+
+### 11.4 模块完成顺序
+
+每个 Web 模块完成后必须按以下顺序收口：
+
+```text
+实现当前模块
+  -> 自测和页面验收
+  -> OpenCode 审核
+     -> fail/partial: 修复后重新自测，再回到 OpenCode 审核
+     -> accept: 进入 Codex 验收
+  -> Codex 验收
+     -> fail/partial: 修复后重新自测，再回到 OpenCode 审核
+     -> accept: 更新文档和 phase 证据
+  -> 本地 git commit
+  -> 执行下一个模块
+```
+
+要求：
+
+- OpenCode 审核必须先于 Codex 验收。
+- Codex 不能跳过 OpenCode 审核直接验收模块。
+- 只有 Codex `accept` 后才能提交本地 git。
+- 本地 git commit 只允许包含当前模块范围内文件；无关工作区改动必须保持未提交。
+- 如果 OpenCode 或 Codex 发现阻断问题，必须修复后从自测重新开始，不能带着 `partial` 进入下一模块。
+- 如果某个审核工具不可用，必须在 phase 文档中记录原因，并由用户确认是否允许 fallback；默认不允许跳过。
 
 ## 12. 文档同步要求
 
@@ -1016,6 +1046,7 @@ Web-P0 起必须做浏览器验收：
 - [ ] 是否同意 QMT/miniQMT 默认只作为 managed/paper 能力，不默认自动实盘。
 - [ ] 是否同意旧页面逐步迁移，不能长期作为主入口。
 - [ ] 是否同意每个 phase 必须补文档、测试和页面验收证据。
+- [ ] 是否同意每个模块完成后必须先 OpenCode 审核，再 Codex 验收，通过后只提交当前模块到本地 git，然后才进入下一个模块。
 
 ## 15. 建议执行顺序
 
