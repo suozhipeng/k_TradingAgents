@@ -398,6 +398,16 @@ class AkshareAdapter(AStockAdapterBase):
             default=False,
         )
         self._tencent_adapter = config.get("tencent_adapter")
+        # Circuit breaker & anti-crawling state
+        self._failure_count: Dict[str, int] = {}
+        self._last_failure_time: Dict[str, float] = {}
+        self._circuit_open_until: Dict[str, float] = {}
+        self._max_failures = int(config.get("circuit_breaker_max_failures", _env("ASTOCK_AKSHARE_CB_MAX_FAILURES", "3")))
+        self._window_seconds = float(config.get("circuit_breaker_window", _env("ASTOCK_AKSHARE_CB_WINDOW", "60")))
+        self._cooldown_seconds = float(config.get("circuit_breaker_cooldown", _env("ASTOCK_AKSHARE_CB_COOLDOWN", "30")))
+        self._max_daily_calls = int(config.get("max_daily_calls", _env("ASTOCK_AKSHARE_MAX_DAILY_CALLS", "5000")))
+        self._call_count = 0
+        self._last_reset_day = datetime.now().strftime("%Y-%m-%d")
 
     def _load(self):
         if self._module is not None:
@@ -423,24 +433,78 @@ class AkshareAdapter(AStockAdapterBase):
         except Exception:
             pass
 
-        # Anti-crawling: random delay + retry with exponential backoff
-        _random_sleep(0.5, 2.0)
+        # Daily call limit
+        today = datetime.now().strftime("%Y-%m-%d")
+        if today != self._last_reset_day:
+            self._call_count = 0
+            self._last_reset_day = today
+        self._call_count += 1
+        if self._call_count > self._max_daily_calls:
+            raise AStockSourceUnavailableError(
+                self.name,
+                "daily call limit ({0}) exceeded for {1}".format(self._max_daily_calls, func_name),
+                capability=request.capability,
+            )
+
+        # Circuit breaker check
+        now = time.time()
+        if func_name in self._circuit_open_until:
+            if now < self._circuit_open_until[func_name]:
+                raise AStockSourceUnavailableError(
+                    self.name,
+                    "circuit breaker open for {0}, cooldown {1:.0f}s remaining".format(
+                        func_name, self._circuit_open_until[func_name] - now,
+                    ),
+                    capability=request.capability,
+                )
+            else:
+                # Cooldown expired, auto-reset
+                self._circuit_open_until.pop(func_name, None)
+                self._failure_count.pop(func_name, None)
+                self._last_failure_time.pop(func_name, None)
+
+        # Anti-crawling: adaptive random delay
+        failure_count = self._failure_count.get(func_name, 0)
+        if failure_count > 0:
+            _random_sleep(1.0, 3.0)
+        else:
+            _random_sleep(0.5, 2.0)
 
         def _do_call():
             with _temporarily_disable_proxies(bool(self.config.get("disable_env_proxy", True))):
                 return func(**kwargs)
 
         try:
-            return _retry_with_backoff(_do_call, max_retries=2, base_delay=1.0, name="akshare." + func_name)
+            result = _retry_with_backoff(_do_call, max_retries=2, base_delay=1.0, name="akshare." + func_name)
+            # Success - reset circuit breaker for this function
+            self._failure_count.pop(func_name, None)
+            self._last_failure_time.pop(func_name, None)
+            self._circuit_open_until.pop(func_name, None)
+            return result
         except AStockNoDataError:
             raise
         except AStockSourceUnavailableError:
+            self._record_failure(func_name)
             raise
         except Exception as exc:
+            self._record_failure(func_name)
             raise AStockSourceUnavailableError(
                 self.name, "{0} failed after retries: {1}".format(func_name, exc),
                 capability=request.capability,
             )
+
+    def _record_failure(self, func_name: str) -> None:
+        """Record a failure and open circuit if threshold exceeded."""
+        now = time.time()
+        last_failure = self._last_failure_time.get(func_name)
+        if last_failure is not None and (now - last_failure) > self._window_seconds:
+            # Window expired, reset counter
+            self._failure_count[func_name] = 1
+        else:
+            self._failure_count[func_name] = self._failure_count.get(func_name, 0) + 1
+        self._last_failure_time[func_name] = now
+        if self._failure_count[func_name] >= self._max_failures:
+            self._circuit_open_until[func_name] = now + self._cooldown_seconds
 
     def _parse_kline(self, request: AStockRequest, payload: Any) -> Dict[str, Any]:
         records = _ensure_records(_records_from_payload(payload), request, self.name, "akshare stock_zh_a_hist returned no rows")
