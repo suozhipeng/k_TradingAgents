@@ -92,7 +92,20 @@
 .r-card.center .kc-chart-area {
   flex: 1; min-height: 0; position: relative; background: #131722;
 }
-.r-card.center .kc-chart-area iframe { width: 100%; height: 100%; border: none; display: block; }
+.r-card.center .kc-chart-area .kc-chart-placeholder {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  width: 100%; height: 100%; gap: 12px; background: #131722;
+}
+.r-card.center .kc-chart-area .kc-chart-placeholder .kc-chart-hint {
+  font-size: 12px; color: #787b86; text-align: center; max-width: 260px; line-height: 1.5;
+}
+.r-card.center .kc-chart-area .kc-chart-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 20px; border-radius: 4px; font-size: 13px; font-weight: 600;
+  cursor: pointer; border: none; font-family: inherit;
+  background: #2962FF; color: #fff; transition: all .12s; text-decoration: none;
+}
+.r-card.center .kc-chart-area .kc-chart-btn:hover { background: #1a4fd0; }
 .r-card.center .kc-loading {
   position: absolute; inset: 0; z-index: 10;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -287,14 +300,17 @@
     <div class="kc-indicator-bar" id="kc-indicator-bar" style="display:none;">
     </div>
     <div class="kc-chart-area">
-      <div class="kc-loading" id="kline-loading">
+      <div class="kc-loading hidden" id="kline-loading">
         <div class="sp"></div>
         <div class="tx">加载 K 线图中...</div>
       </div>
-      <iframe id="kline-iframe"
-        src="/kc_chart?symbol=600519.SH&amp;standalone=1"
-        onload="document.getElementById('kline-loading').classList.add('hidden')"
-        allow="clipboard-read; clipboard-write"></iframe>
+      <div class="kc-chart-placeholder" id="kc-chart-placeholder">
+        <div style="font-size:40px;">📊</div>
+        <div class="kc-chart-hint">K线图 / KC Chart<br>在新标签页中打开完整图表</div>
+        <a id="kc-chart-open-btn" href="/kc_chart?symbol=600519.SH" target="_blank" class="kc-chart-btn">
+          <span>🔗</span> 打开 K 线图
+        </a>
+      </div>
     </div>
   </div>
 
@@ -443,10 +459,10 @@ async function loadResearch() {
     document.getElementById('kc-code').textContent = symbol.replace('.SH','').replace('.SZ','');
   }
 
-  // 2. 更新 iframe（唯一一次刷新）
-  const kf = document.getElementById('kline-iframe');
-  document.getElementById('kline-loading').classList.remove('hidden');
-  kf.src = `/kc_chart?symbol=${encodeURIComponent(symbol)}&standalone=1`;
+  // 2. 更新 kc_chart 外链按钮
+  const chartBtn = document.getElementById('kc-chart-open-btn');
+  if (chartBtn) chartBtn.href = `/kc_chart?symbol=${encodeURIComponent(symbol)}`;
+  document.getElementById('kline-loading').classList.add('hidden');
 
   // 3. 更新外链
   document.getElementById('kc-link').href = `/kc_chart?symbol=${encodeURIComponent(symbol)}`;
@@ -1058,13 +1074,7 @@ async function searchResearch() {
 function toggleKCIndicator(name, event) {
   const btn = event.target;
   btn.classList.toggle('active');
-  const kf = document.getElementById('kline-iframe');
-  if (kf && kf.contentWindow) {
-    kf.contentWindow.postMessage({
-      type: 'toggleIndicator', indicator: name,
-      active: btn.classList.contains('active'),
-    }, '*');
-  }
+  // KC图表已移至新标签页，指标切换需在独立页面操作
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1076,9 +1086,8 @@ async function refreshKlineForResearch() {
   document.getElementById('refresh-msg').textContent = '⏳ 刷新K线...';
   try {
     await postJson('/api/v1/data/refresh/kline', { symbol, start: '2024-01-01' }, 120000);
-    const kf = document.getElementById('kline-iframe');
-    document.getElementById('kline-loading').classList.remove('hidden');
-    kf.src = `/kc_chart?symbol=${encodeURIComponent(symbol)}&standalone=1`;
+    const chartBtn = document.getElementById('kc-chart-open-btn');
+    if (chartBtn) chartBtn.href = `/kc_chart?symbol=${encodeURIComponent(symbol)}`;
     document.getElementById('refresh-msg').textContent = '✅ K线刷新完成';
   } catch (e) { document.getElementById('refresh-msg').textContent = '❌ ' + e.message; }
 }

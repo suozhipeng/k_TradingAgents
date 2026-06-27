@@ -23,6 +23,7 @@ from urllib.parse import urlencode
 from .errors import AStockNoDataError, AStockSourceUnavailableError
 from .schema import AStockRequest
 from .symbols import astock_code, normalize_astock_symbol, split_astock_symbol
+from .tdx_provider import TdxProvider
 
 
 PROVIDER_ENV_VARS: Dict[str, Tuple[str, ...]] = {
@@ -36,6 +37,7 @@ PROVIDER_ENV_VARS: Dict[str, Tuple[str, ...]] = {
         "ASTOCK_CNINFO_HEADERS_JSON",
     ),
     "mootdx": ("ASTOCK_MOOTDX_HOST", "ASTOCK_MOOTDX_PORT", "ASTOCK_MOOTDX_TIMEOUT", "ASTOCK_MOOTDX_MARKET"),
+    "tdx": ("ASTOCK_TDX_HOST", "ASTOCK_TDX_PORT", "ASTOCK_TDX_TIMEOUT", "ASTOCK_TDX_BACKUP_HOSTS", "ASTOCK_TDX_MULTICAST"),
     "iwencai": (
         "ASTOCK_IWENCAI_COOKIE",
         "ASTOCK_IWENCAI_USER_AGENT",
@@ -1610,6 +1612,7 @@ class BaoStockAdapter(AStockAdapterBase):
 DEFAULT_ADAPTER_FACTORIES = {
     "akshare": AkshareAdapter,
     "mootdx": MootdxAdapter,
+    "tdx": TdxProvider,
     "tencent": TencentFinanceAdapter,
     "iwencai": IwencaiAdapter,
     "cninfo": CninfoAdapter,

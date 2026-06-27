@@ -1,83 +1,508 @@
 {% extends "base.html" %}
-{% block title %}Risk — AStock WebUI{% endblock %}
+{% block title %}风控中心 — AStock Pro{% endblock %}
+{% block head_extra %}
+<style>
+.risk-grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
+.risk-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+.risk-card {
+  background: #1c2030; border: 1px solid #2a2e39; border-radius: 6px; padding: 16px;
+  transition: border-color .15s;
+}
+.risk-card:hover { border-color: #363a45; }
+.risk-card-title {
+  font-size: 11px; color: #787b86; text-transform: uppercase; letter-spacing: 0.5px;
+  margin-bottom: 4px; font-weight: 500;
+}
+.risk-card-value {
+  font-size: 22px; font-weight: 700; font-family: 'JetBrains Mono', monospace; line-height: 1.2;
+  color: #d1d4dc;
+}
+.risk-card-value.warn { color: #ff9800; }
+.risk-card-value.danger { color: #f23645; }
+.risk-card-value.safe { color: #089981; }
+.risk-card-value.sub { font-size: 14px; color: #787b86; font-weight: 500; }
+.risk-card-meta {
+  font-size: 11px; color: #787b86; margin-top: 4px;
+}
+.risk-loading {
+  display: flex; align-items: center; justify-content: center; min-height: 80px;
+  color: #787b86; font-size: 12px; gap: 6px;
+}
+.risk-empty {
+  display: flex; align-items: center; justify-content: center; min-height: 80px;
+  color: #787b86; font-size: 12px;
+}
+.risk-error {
+  display: flex; align-items: center; justify-content: center; min-height: 80px;
+  color: #f23645; font-size: 12px;
+}
+.risk-degraded {
+  display: flex; align-items: center; justify-content: center; min-height: 80px;
+  color: #ff9800; font-size: 12px; gap: 6px;
+}
+.sp {
+  display: inline-block; width: 16px; height: 16px;
+  border: 2px solid #2a2e39; border-top-color: #2962FF;
+  border-radius: 50%; animation: rspin .7s linear infinite;
+}
+@keyframes rspin { to { transform: rotate(360deg); } }
+.chart-wrap { position: relative; width: 100%; min-height: 250px; }
+.chart-wrap canvas { max-width: 100%; max-height: 280px; }
+.risk-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.risk-table th {
+  text-align: left; padding: 6px 10px; font-size: 10px; font-weight: 500;
+  color: #787b86; text-transform: uppercase; letter-spacing: 0.5px;
+  border-bottom: 1px solid #2a2e39; white-space: nowrap;
+}
+.risk-table td {
+  padding: 6px 10px; border-bottom: 1px solid #2a2e39;
+  color: #d1d4dc; white-space: nowrap; font-size: 11px;
+}
+.risk-table tbody tr:hover { background: rgba(42,46,57,0.5); }
+.risk-table .ar { text-align: right; }
+.risk-table .ac { text-align: center; }
+.table-scroll { overflow-x: auto; max-height: 280px; overflow-y: auto; }
+.table-scroll::-webkit-scrollbar { width: 5px; height: 5px; }
+.table-scroll::-webkit-scrollbar-thumb { background: #2a2e39; border-radius: 3px; }
+.risk-section-title {
+  font-size: 13px; font-weight: 600; color: #d1d4dc;
+  margin-bottom: 12px; display: flex; align-items: center; gap: 6px;
+}
+.badge-ok {
+  display: inline-block; padding: 1px 8px; border-radius: 3px; font-size: 10px; font-weight: 600;
+  background: rgba(8,153,129,0.15); color: #089981;
+}
+.badge-warn {
+  display: inline-block; padding: 1px 8px; border-radius: 3px; font-size: 10px; font-weight: 600;
+  background: rgba(255,152,0,0.15); color: #ff9800;
+}
+.badge-danger {
+  display: inline-block; padding: 1px 8px; border-radius: 3px; font-size: 10px; font-weight: 600;
+  background: rgba(242,54,69,0.15); color: #f23645;
+}
+.badge-info {
+  display: inline-block; padding: 1px 8px; border-radius: 3px; font-size: 10px; font-weight: 600;
+  background: rgba(41,98,255,0.15); color: #2962FF;
+}
+</style>
+{% endblock %}
+
 {% block content %}
 <h2 class="tv-section-title">🛡️ 风控中心 Risk Center</h2>
 
-<div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-  <div class="card flex items-center justify-center" style="min-height:100px;">
-    <div class="text-center">
-      <div class="text-2xl mb-1">🚧</div>
-      <div class="text-xs text-gray-500">风控规则 · 待接入 QMT</div>
-    </div>
+<!-- Row 1: 4 Metric Cards -->
+<div class="risk-grid-4" id="risk-metrics-row">
+  <div class="risk-card" id="card-var">
+    <div class="risk-card-title">VaR 95%</div>
+    <div class="risk-card-value" id="val-var">--</div>
+    <div class="risk-card-meta" id="meta-var"></div>
   </div>
-  <div class="card flex items-center justify-center" style="min-height:100px;">
-    <div class="text-center">
-      <div class="text-2xl mb-1">🚧</div>
-      <div class="text-xs text-gray-500">活跃告警 · 待接入 QMT</div>
-    </div>
+  <div class="risk-card" id="card-hhi">
+    <div class="risk-card-title">集中度 (HHI)</div>
+    <div class="risk-card-value" id="val-hhi">--</div>
+    <div class="risk-card-meta" id="meta-hhi"></div>
   </div>
-  <div class="card flex items-center justify-center" style="min-height:100px;">
-    <div class="text-center">
-      <div class="text-2xl mb-1">🚧</div>
-      <div class="text-xs text-gray-500">当前回撤 · 待接入 QMT</div>
-    </div>
+  <div class="risk-card" id="card-exposure">
+    <div class="risk-card-title">行业暴露数</div>
+    <div class="risk-card-value" id="val-exposure">--</div>
+    <div class="risk-card-meta" id="meta-exposure"></div>
   </div>
-  <div class="card flex items-center justify-center" style="min-height:100px;">
-    <div class="text-center">
-      <div class="text-2xl mb-1">🚧</div>
-      <div class="text-xs text-gray-500">风控状态 · 待接入 QMT</div>
+  <div class="risk-card" id="card-status">
+    <div class="risk-card-title">风控状态</div>
+    <div class="risk-card-value" id="val-status">--</div>
+    <div class="risk-card-meta" id="meta-status"></div>
+  </div>
+</div>
+
+<!-- Row 2: Attribution Chart + Rules Table -->
+<div class="risk-grid-2">
+  <div class="risk-card" id="card-attribution">
+    <div class="risk-section-title">📊 风险归因</div>
+    <div class="chart-wrap" id="attribution-chart-wrap">
+      <canvas id="attribution-chart"></canvas>
+    </div>
+    <div class="risk-loading" id="attr-loading"><span class="sp"></span> 加载中...</div>
+  </div>
+  <div class="risk-card" id="card-rules">
+    <div class="risk-section-title">📋 风控规则</div>
+    <div class="table-scroll" id="rules-table-wrap">
+      <div class="risk-loading" id="rules-loading"><span class="sp"></span> 加载中...</div>
     </div>
   </div>
 </div>
 
-<div class="tv-grid-2 mb-6">
-  <div class="card flex items-center justify-center" style="min-height:200px;">
-    <div class="text-center">
-      <div class="text-4xl mb-2">🚧</div>
-      <div class="text-sm text-gray-500">风控规则 · 待接入 QMT</div>
-    </div>
-  </div>
-  <div class="card flex items-center justify-center" style="min-height:200px;">
-    <div class="text-center">
-      <div class="text-4xl mb-2">🚧</div>
-      <div class="text-sm text-gray-500">持仓集中度 · 待接入 QMT</div>
-    </div>
-  </div>
-</div>
-
-<div class="tv-grid-2 mb-6">
-  <div class="card flex items-center justify-center" style="min-height:200px;">
-    <div class="text-center">
-      <div class="text-4xl mb-2">🚧</div>
-      <div class="text-sm text-gray-500">ATR 止损 · 待接入 QMT</div>
-    </div>
-  </div>
-  <div class="card flex items-center justify-center" style="min-height:200px;">
-    <div class="text-center">
-      <div class="text-4xl mb-2">🚧</div>
-      <div class="text-sm text-gray-500">告警日志 · 待接入 QMT</div>
-    </div>
-  </div>
-</div>
-
-<div class="tv-grid-2 mb-6">
-  <div class="card flex items-center justify-center" style="min-height:200px;">
-    <div class="text-center">
-      <div class="text-4xl mb-2">🚧</div>
-      <div class="text-sm text-gray-500">风险指标 · 待接入 QMT</div>
-    </div>
-  </div>
-  <div class="card flex items-center justify-center" style="min-height:200px;">
-    <div class="text-center">
-      <div class="text-4xl mb-2">🚧</div>
-      <div class="text-sm text-gray-500">拦截记录 · 待接入 QMT</div>
-    </div>
+<!-- Row 3: Alert / Intercept Records -->
+<div class="risk-card" id="card-alerts">
+  <div class="risk-section-title">🔔 告警 / 拦截记录</div>
+  <div class="table-scroll" id="alerts-table-wrap">
+    <div class="risk-loading" id="alerts-loading"><span class="sp"></span> 加载中...</div>
   </div>
 </div>
 {% endblock %}
+
 {% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <script>
-// No-op — 风控中心功能待接入 QMT 后启用
-console.log('Risk center: awaiting QMT connection');
+// ═══════════════════════════════════════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════════════════════════════════════
+
+function fmt(v, dec) {
+  if (v == null || !isFinite(Number(v))) return '--';
+  return Number(v).toFixed(dec != null ? dec : 2);
+}
+
+function fmtPct(v) {
+  if (v == null || !isFinite(Number(v))) return '--';
+  return (Number(v) * 100).toFixed(2) + '%';
+}
+
+function fmtInt(v) {
+  if (v == null || !isFinite(Number(v))) return '--';
+  return Number(v).toFixed(0);
+}
+
+function showLoading(el) { if (el) el.style.display = 'flex'; }
+function hideLoading(el) { if (el) el.style.display = 'none'; }
+
+async function fetchJson(url, timeoutMs = 15000) {
+  const ctrl = new AbortController();
+  const tid = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { signal: ctrl.signal });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    return data;
+  } finally { clearTimeout(tid); }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  STATE — Risk metrics
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function loadRiskMetrics() {
+  const els = {
+    var: document.getElementById('val-var'),
+    hhi: document.getElementById('val-hhi'),
+    exposure: document.getElementById('val-exposure'),
+    status: document.getElementById('val-status'),
+    metaVar: document.getElementById('meta-var'),
+    metaHhi: document.getElementById('meta-hhi'),
+    metaExposure: document.getElementById('meta-exposure'),
+    metaStatus: document.getElementById('meta-status'),
+  };
+
+  // Show loading state
+  Object.entries(els).forEach(([k, el]) => {
+    if (k.startsWith('meta')) return;
+    if (el) { el.textContent = '加载中...'; el.className = 'risk-card-value'; }
+  });
+
+  try {
+    const data = await fetchJson('/api/v1/portfolio/risk', 10000);
+
+    // VaR 95%
+    const varVal = data?.var ?? data?.var_95 ?? data?.VaR;
+    if (varVal != null) {
+      els.var.textContent = fmtPct(varVal);
+      els.var.className = 'risk-card-value ' + (Math.abs(Number(varVal)) > 0.05 ? 'danger' : Math.abs(Number(varVal)) > 0.02 ? 'warn' : 'safe');
+      els.metaVar.textContent = '在险价值 (95% 置信度)';
+    } else {
+      els.var.textContent = '暂无数据';
+      els.var.className = 'risk-card-value sub';
+      els.metaVar.textContent = '';
+    }
+
+    // HHI - Herfindahl-Hirschman Index
+    const hhiVal = data?.hhi ?? data?.concentration ?? data?.HHI;
+    if (hhiVal != null) {
+      els.hhi.textContent = fmt(hhiVal, 4);
+      els.hhi.className = 'risk-card-value ' + (Number(hhiVal) > 0.25 ? 'danger' : Number(hhiVal) > 0.15 ? 'warn' : 'safe');
+      els.metaHhi.textContent = Number(hhiVal) > 0.25 ? '高度集中' : Number(hhiVal) > 0.15 ? '中度集中' : '分散良好';
+    } else {
+      els.hhi.textContent = '暂无数据';
+      els.hhi.className = 'risk-card-value sub';
+      els.metaHhi.textContent = '';
+    }
+
+    // Exposure
+    const exposureVal = data?.exposure ?? data?.industry_exposure ?? data?.sector_exposure;
+    if (exposureVal != null) {
+      const count = Array.isArray(exposureVal) ? exposureVal.length : Number(exposureVal);
+      els.exposure.textContent = fmtInt(count);
+      els.exposure.className = 'risk-card-value';
+      els.metaExposure.textContent = '涉及行业数量';
+    } else {
+      els.exposure.textContent = '暂无数据';
+      els.exposure.className = 'risk-card-value sub';
+      els.metaExposure.textContent = '';
+    }
+
+    // Status
+    const statusVal = data?.status ?? data?.risk_status ?? 'normal';
+    const statusLabel = statusVal === 'normal' || statusVal === 'ok' ? '正常 🟢' :
+                        statusVal === 'warning' || statusVal === 'warn' ? '预警 🟡' :
+                        statusVal === 'danger' || statusVal === 'critical' ? '危险 🔴' : String(statusVal);
+    els.status.textContent = statusLabel;
+    els.status.className = 'risk-card-value ' + (
+      statusVal === 'normal' || statusVal === 'ok' ? 'safe' :
+      statusVal === 'warning' || statusVal === 'warn' ? 'warn' :
+      statusVal === 'danger' || statusVal === 'critical' ? 'danger' : ''
+    );
+    els.metaStatus.textContent = '风控系统运行状态';
+
+    // If we got here with data but no var/hhi fields, show degraded
+    if (varVal == null && hhiVal == null && exposureVal == null && !statusVal) {
+      throw new Error('partial');
+    }
+  } catch (e) {
+    // Degraded state — risk API unavailable
+    Object.entries(els).forEach(([k, el]) => {
+      if (k.startsWith('meta')) return;
+      if (el) { el.textContent = '⚠️ 降级运行'; el.className = 'risk-card-value warn'; }
+    });
+    els.metaStatus.textContent = '风控接口不可用';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  RISK ATTRIBUTION — Chart.js bar chart
+// ═══════════════════════════════════════════════════════════════════════════
+
+let attributionChartInstance = null;
+
+async function loadAttribution() {
+  const wrap = document.getElementById('attribution-chart-wrap');
+  const loading = document.getElementById('attr-loading');
+  const canvas = document.getElementById('attribution-chart');
+
+  showLoading(loading);
+  if (canvas) canvas.style.display = 'none';
+
+  try {
+    const data = await fetchJson('/api/v1/portfolio/attribution', 10000);
+    const items = data?.attribution || data?.items || data?.factors || [];
+
+    hideLoading(loading);
+
+    if (!items || items.length === 0) {
+      wrap.innerHTML = '<div class="risk-empty">暂无归因数据</div>';
+      return;
+    }
+
+    canvas.style.display = 'block';
+
+    const labels = items.map(i => i.name || i.factor || i.sector || '--');
+    const values = items.map(i => Number(i.value || i.contribution || i.risk || 0));
+
+    if (attributionChartInstance) attributionChartInstance.destroy();
+
+    attributionChartInstance = new Chart(canvas, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          label: '风险贡献',
+          data: values,
+          backgroundColor: values.map(v => v >= 0 ? 'rgba(242,54,69,0.7)' : 'rgba(8,153,129,0.7)'),
+          borderColor: values.map(v => v >= 0 ? '#f23645' : '#089981'),
+          borderWidth: 1,
+          borderRadius: 2,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        indexAxis: 'y',
+        animation: { duration: 300 },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#1c2030',
+            titleColor: '#d1d4dc',
+            bodyColor: '#d1d4dc',
+            borderColor: '#2a2e39',
+            borderWidth: 1,
+            callbacks: {
+              label: ctx => ctx.parsed.x.toFixed(4),
+            },
+          },
+        },
+        scales: {
+          x: {
+            ticks: { color: '#787b86', font: { size: 10 }, callback: v => v.toFixed(2) },
+            grid: { color: 'rgba(42,46,57,0.5)' },
+          },
+          y: {
+            ticks: { color: '#787b86', font: { size: 10 } },
+            grid: { display: false },
+          },
+        },
+      },
+    });
+  } catch (e) {
+    hideLoading(loading);
+    wrap.innerHTML = '<div class="risk-error">⚠️ 归因数据获取失败</div>';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  RISK RULES TABLE
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function loadRules() {
+  const wrap = document.getElementById('rules-table-wrap');
+  const loading = document.getElementById('rules-loading');
+
+  showLoading(loading);
+
+  try {
+    const data = await fetchJson('/api/v1/portfolio/risk', 10000);
+    const rules = data?.rules || [];
+
+    hideLoading(loading);
+
+    if (!rules || rules.length === 0) {
+      // Try to derive rules from available risk data
+      const hhi = data?.hhi ?? data?.concentration;
+      const varVal = data?.var ?? data?.var_95 ?? data?.VaR;
+      if (hhi != null || varVal != null) {
+        const derivedRules = [];
+        if (hhi != null) {
+          derivedRules.push({
+            name: '持仓集中度上限',
+            desc: 'HHI < 0.25',
+            current: fmt(hhi, 4),
+            status: Number(hhi) < 0.25 ? '通过' : '触发',
+          });
+        }
+        if (varVal != null) {
+          derivedRules.push({
+            name: 'VaR 95% 上限',
+            desc: 'VaR < 5%',
+            current: fmtPct(varVal),
+            status: Math.abs(Number(varVal)) < 0.05 ? '通过' : '触发',
+          });
+        }
+        derivedRules.push({
+          name: '风控引擎',
+          desc: '策略风控规则集',
+          current: '运行中',
+          status: (data?.status === 'normal' || data?.status === 'ok' || !data?.status) ? '通过' : '触发',
+        });
+
+        const rows = derivedRules.map(r => {
+          const badgeCls = r.status === '通过' ? 'badge-ok' : 'badge-danger';
+          return `<tr>
+            <td>${r.name}</td>
+            <td>${r.desc}</td>
+            <td class="ar">${r.current}</td>
+            <td class="ac"><span class="${badgeCls}">${r.status}</span></td>
+          </tr>`;
+        }).join('');
+
+        wrap.innerHTML = `<table class="risk-table">
+          <thead><tr>
+            <th>规则名称</th><th>条件</th><th class="ar">当前值</th><th class="ac">状态</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>`;
+        return;
+      }
+
+      wrap.innerHTML = '<div class="risk-empty">暂无风控规则数据</div>';
+      return;
+    }
+
+    const rows = rules.map(r => {
+      const status = r.status || r.result || '--';
+      const badgeCls = status === '通过' || status === 'pass' || status === 'ok' ? 'badge-ok' :
+                       status === '触发' || status === 'fail' || status === 'triggered' ? 'badge-danger' : 'badge-info';
+      const statusLabel = status === '通过' || status === 'pass' || status === 'ok' ? '通过' :
+                          status === '触发' || status === 'fail' || status === 'triggered' ? '触发' : String(status);
+      return `<tr>
+        <td>${r.name || r.rule_name || r.rule || '--'}</td>
+        <td>${r.description || r.desc || r.condition || '--'}</td>
+        <td class="ar">${r.current ?? r.value ?? r.current_value ?? '--'}</td>
+        <td class="ac"><span class="${badgeCls}">${statusLabel}</span></td>
+      </tr>`;
+    }).join('');
+
+    wrap.innerHTML = `<table class="risk-table">
+      <thead><tr>
+        <th>规则名称</th><th>条件</th><th class="ar">当前值</th><th class="ac">状态</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+  } catch (e) {
+    hideLoading(loading);
+    wrap.innerHTML = '<div class="risk-degraded"><span>⚠️</span> 风控规则接口不可用，显示降级状态</div>';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  ALERTS / INTERCEPT RECORDS
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function loadAlerts() {
+  const wrap = document.getElementById('alerts-table-wrap');
+  const loading = document.getElementById('alerts-loading');
+
+  showLoading(loading);
+
+  try {
+    const data = await fetchJson('/api/v1/ops/audit', 10000);
+    const events = data?.events || data?.items || data?.audit || [];
+
+    hideLoading(loading);
+
+    if (!events || events.length === 0) {
+      wrap.innerHTML = '<div class="risk-empty">暂无告警记录</div>';
+      return;
+    }
+
+    const rows = events.slice(0, 30).map(e => {
+      const level = (e.level || e.severity || e.type || 'info').toLowerCase();
+      const badgeCls = level === 'error' || level === 'critical' || level === 'danger' ? 'badge-danger' :
+                       level === 'warn' || level === 'warning' ? 'badge-warn' :
+                       level === 'info' ? 'badge-info' : 'badge-ok';
+      const levelLabel = level === 'error' || level === 'critical' ? '严重' :
+                         level === 'warn' || level === 'warning' ? '警告' :
+                         level === 'info' ? '信息' : level;
+      const dt = e.timestamp || e.time || e.created_at || e.date || '';
+      const msg = e.message || e.event || e.action || e.description || '--';
+      const source = e.source || e.module || e.category || '--';
+      return `<tr>
+        <td>${dt}</td>
+        <td><span class="${badgeCls}">${levelLabel}</span></td>
+        <td>${msg}</td>
+        <td>${source}</td>
+      </tr>`;
+    }).join('');
+
+    wrap.innerHTML = `<table class="risk-table">
+      <thead><tr>
+        <th>时间</th><th>级别</th><th>描述</th><th>来源</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+  } catch (e) {
+    hideLoading(loading);
+    wrap.innerHTML = '<div class="risk-degraded"><span>⚠️</span> 告警接口不可用</div>';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  BOOT
+// ═══════════════════════════════════════════════════════════════════════════
+
+(async function init() {
+  await Promise.all([
+    loadRiskMetrics(),
+    loadAttribution(),
+    loadRules(),
+    loadAlerts(),
+  ]);
+})();
 </script>
 {% endblock %}

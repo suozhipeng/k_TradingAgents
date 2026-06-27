@@ -21,9 +21,9 @@ DEFAULT_ELIMINATED_SOURCES = frozenset(("tushare", "ashare"))
 
 DEFAULT_ROUTE_POLICY = {
     # 行情层
-    "kline": ("baostock", "mootdx", "tencent", "akshare", "qmt"),
-    "order_book": ("mootdx", "tencent", "qmt"),
-    "trade_tape": ("mootdx", "tencent", "qmt"),
+    "kline": ("baostock", "mootdx", "tdx", "tencent", "akshare", "qmt"),
+    "order_book": ("mootdx", "tdx", "tencent", "qmt"),
+    "trade_tape": ("mootdx", "tdx", "tencent", "qmt"),
     "valuation": ("tencent", "akshare", "mootdx"),
     "pe_pb": ("tencent", "akshare", "mootdx"),
     "market_cap": ("tencent", "akshare", "mootdx"),

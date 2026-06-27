@@ -1,75 +1,420 @@
 {% extends "base.html" %}
-{% block title %}Paper Trading — AStock WebUI{% endblock %}
+{% block title %}模拟盘 — AStock Pro{% endblock %}
+{% block head_extra %}
+<style>
+.paper-grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
+.paper-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+.paper-card {
+  background: #1c2030; border: 1px solid #2a2e39; border-radius: 6px; padding: 16px;
+  transition: border-color .15s;
+}
+.paper-card:hover { border-color: #363a45; }
+.paper-card-title {
+  font-size: 11px; color: #787b86; text-transform: uppercase; letter-spacing: 0.5px;
+  margin-bottom: 4px; font-weight: 500;
+}
+.paper-card-value {
+  font-size: 22px; font-weight: 700; font-family: 'JetBrains Mono', monospace; line-height: 1.2;
+  color: #d1d4dc;
+}
+.paper-card-value.up { color: #dc2626; }
+.paper-card-value.down { color: #16a34a; }
+.paper-card-change {
+  font-size: 12px; font-family: 'JetBrains Mono', monospace; margin-top: 2px;
+}
+.paper-card-change.up { color: #dc2626; }
+.paper-card-change.down { color: #16a34a; }
+.paper-loading {
+  display: flex; align-items: center; justify-content: center; min-height: 80px;
+  color: #787b86; font-size: 12px; gap: 6px;
+}
+.paper-empty {
+  display: flex; align-items: center; justify-content: center; min-height: 80px;
+  color: #787b86; font-size: 12px;
+}
+.paper-error {
+  display: flex; align-items: center; justify-content: center; min-height: 80px;
+  color: #f23645; font-size: 12px;
+}
+.sp {
+  display: inline-block; width: 16px; height: 16px;
+  border: 2px solid #2a2e39; border-top-color: #2962FF;
+  border-radius: 50%; animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.chart-wrap { position: relative; width: 100%; min-height: 250px; }
+.chart-wrap canvas { max-width: 100%; max-height: 280px; }
+.trade-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.trade-table th {
+  text-align: left; padding: 6px 10px; font-size: 10px; font-weight: 500;
+  color: #787b86; text-transform: uppercase; letter-spacing: 0.5px;
+  border-bottom: 1px solid #2a2e39; white-space: nowrap;
+}
+.trade-table td {
+  padding: 6px 10px; border-bottom: 1px solid #2a2e39;
+  color: #d1d4dc; white-space: nowrap; font-size: 11px;
+}
+.trade-table tbody tr:hover { background: rgba(42,46,57,0.5); }
+.trade-table .ar { text-align: right; }
+.trade-table .up { color: #dc2626; }
+.trade-table .down { color: #16a34a; }
+.table-scroll { overflow-x: auto; max-height: 280px; overflow-y: auto; }
+.table-scroll::-webkit-scrollbar { width: 5px; height: 5px; }
+.table-scroll::-webkit-scrollbar-thumb { background: #2a2e39; border-radius: 3px; }
+.paper-section-title {
+  font-size: 13px; font-weight: 600; color: #d1d4dc;
+  margin-bottom: 12px; display: flex; align-items: center; gap: 6px;
+}
+</style>
+{% endblock %}
+
 {% block content %}
 <h2 class="tv-section-title">💼 模拟盘 Paper Trading</h2>
 
-<div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-  <div class="card flex items-center justify-center" style="min-height:100px;">
-    <div class="text-center">
-      <div class="text-2xl mb-1">🚧</div>
-      <div class="text-xs text-gray-500">开发中</div>
-    </div>
+<!-- Row 1: 4 Metric Cards -->
+<div class="paper-grid-4" id="paper-metrics-row">
+  <div class="paper-card" id="card-total-value">
+    <div class="paper-card-title">总资产</div>
+    <div class="paper-card-value" id="val-total-value">--</div>
   </div>
-  <div class="card flex items-center justify-center" style="min-height:100px;">
-    <div class="text-center">
-      <div class="text-2xl mb-1">🚧</div>
-      <div class="text-xs text-gray-500">开发中</div>
-    </div>
+  <div class="paper-card" id="card-available-cash">
+    <div class="paper-card-title">可用现金</div>
+    <div class="paper-card-value" id="val-available-cash">--</div>
   </div>
-  <div class="card flex items-center justify-center" style="min-height:100px;">
-    <div class="text-center">
-      <div class="text-2xl mb-1">🚧</div>
-      <div class="text-xs text-gray-500">开发中</div>
-    </div>
+  <div class="paper-card" id="card-position-value">
+    <div class="paper-card-title">持仓市值</div>
+    <div class="paper-card-value" id="val-position-value">--</div>
   </div>
-  <div class="card flex items-center justify-center" style="min-height:100px;">
-    <div class="text-center">
-      <div class="text-2xl mb-1">🚧</div>
-      <div class="text-xs text-gray-500">开发中</div>
+  <div class="paper-card" id="card-total-pnl">
+    <div class="paper-card-title">总收益</div>
+    <div class="paper-card-value" id="val-total-pnl">--</div>
+    <div class="paper-card-change" id="val-pnl-pct"></div>
+  </div>
+</div>
+
+<!-- Row 2: Equity Curve + Recent Trades -->
+<div class="paper-grid-2">
+  <div class="paper-card" id="card-equity-curve">
+    <div class="paper-section-title">📈 净值曲线</div>
+    <div class="chart-wrap" id="equity-chart-wrap">
+      <canvas id="equity-chart"></canvas>
+    </div>
+    <div class="paper-loading" id="equity-loading"><span class="sp"></span> 加载中...</div>
+  </div>
+  <div class="paper-card" id="card-recent-trades">
+    <div class="paper-section-title">📋 最近交易</div>
+    <div class="table-scroll" id="trades-table-wrap">
+      <div class="paper-loading" id="trades-loading"><span class="sp"></span> 加载中...</div>
     </div>
   </div>
 </div>
 
-<div class="tv-grid-2 mb-6">
-  <div class="card flex items-center justify-center" style="min-height:200px;">
-    <div class="text-center">
-      <div class="text-4xl mb-2">🚧</div>
-      <div class="text-sm text-gray-500">P&L 净值曲线 · 开发中</div>
-    </div>
-  </div>
-  <div class="card flex items-center justify-center" style="min-height:200px;">
-    <div class="text-center">
-      <div class="text-4xl mb-2">🚧</div>
-      <div class="text-sm text-gray-500">累积收益 · 开发中</div>
-    </div>
-  </div>
-</div>
-
-<div class="tv-grid-2 mb-6">
-  <div class="card flex items-center justify-center" style="min-height:200px;">
-    <div class="text-center">
-      <div class="text-4xl mb-2">🚧</div>
-      <div class="text-sm text-gray-500">持仓收益 · 开发中</div>
-    </div>
-  </div>
-  <div class="card flex items-center justify-center" style="min-height:200px;">
-    <div class="text-center">
-      <div class="text-4xl mb-2">🚧</div>
-      <div class="text-sm text-gray-500">持仓详情 · 开发中</div>
-    </div>
-  </div>
-</div>
-
-<div class="card mb-6 flex items-center justify-center" style="min-height:120px;">
-  <div class="text-center">
-    <div class="text-4xl mb-2">🚧</div>
-    <div class="text-sm text-gray-500">成交记录 · 开发中</div>
+<!-- Row 3: Positions Table -->
+<div class="paper-card" id="card-positions">
+  <div class="paper-section-title">📦 持仓详情</div>
+  <div class="table-scroll" id="positions-table-wrap">
+    <div class="paper-loading" id="positions-loading"><span class="sp"></span> 加载中...</div>
   </div>
 </div>
 {% endblock %}
+
 {% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <script>
-// No-op — 模拟盘功能开发中
-console.log('Paper trading: under development');
+// ═══════════════════════════════════════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════════════════════════════════════
+
+function fmt(v, dec) {
+  if (v == null || !isFinite(Number(v))) return '--';
+  return Number(v).toFixed(dec != null ? dec : 2);
+}
+
+function fmtMoney(v) {
+  if (v == null || !isFinite(Number(v))) return '--';
+  const n = Number(v);
+  if (Math.abs(n) >= 1e8) return (n / 1e8).toFixed(2) + '亿';
+  if (Math.abs(n) >= 1e4) return (n / 1e4).toFixed(2) + '万';
+  return n.toFixed(2);
+}
+
+function pctCls(v) {
+  if (v == null || !isFinite(Number(v))) return '';
+  return Number(v) >= 0 ? 'up' : 'down';
+}
+
+function pctSign(v) {
+  if (v == null || !isFinite(Number(v))) return '--';
+  return (Number(v) >= 0 ? '+' : '') + Number(v).toFixed(2) + '%';
+}
+
+function showLoading(el) { if (el) el.style.display = 'flex'; }
+function hideLoading(el) { if (el) el.style.display = 'none'; }
+
+async function fetchJson(url, timeoutMs = 15000) {
+  const ctrl = new AbortController();
+  const tid = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { signal: ctrl.signal });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    return data;
+  } finally { clearTimeout(tid); }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  STATE — 4 metric cards
+// ═══════════════════════════════════════════════════════════════════════════
+
+let equityChartInstance = null;
+
+async function loadPaperState() {
+  const els = {
+    total: document.getElementById('val-total-value'),
+    cash: document.getElementById('val-available-cash'),
+    posVal: document.getElementById('val-position-value'),
+    pnl: document.getElementById('val-total-pnl'),
+    pnlPct: document.getElementById('val-pnl-pct'),
+  };
+
+  // Show loading state
+  Object.values(els).forEach(el => { if (el) el.textContent = '加载中...'; if (el) el.className = 'paper-card-value'; });
+
+  try {
+    const data = await fetchJson('/api/v1/paper/state', 10000);
+    if (!data || data.error) throw new Error(data?.error || '无数据');
+
+    const totalValue = data.total_value;
+    const cash = data.cash;
+    const positions = data.positions || [];
+    const pnl = data.pnl || data.total_pnl || 0;
+    const pnlPct = data.pnl_pct || data.total_return || 0;
+
+    const posMarketValue = positions.reduce((sum, p) => sum + (Number(p.market_value) || Number(p.amount) * Number(p.price) || 0), 0);
+
+    els.total.textContent = fmtMoney(totalValue);
+    els.total.className = 'paper-card-value' + pctCls(pnlPct);
+
+    els.cash.textContent = fmtMoney(cash);
+    els.cash.className = 'paper-card-value';
+
+    els.posVal.textContent = fmtMoney(posMarketValue);
+    els.posVal.className = 'paper-card-value';
+
+    els.pnl.textContent = fmtMoney(pnl);
+    els.pnl.className = 'paper-card-value' + pctCls(pnl);
+
+    const pnlSpan = els.pnlPct;
+    if (pnlSpan) {
+      pnlSpan.textContent = pctSign(pnlPct);
+      pnlSpan.className = 'paper-card-change ' + pctCls(pnlPct);
+    }
+  } catch (e) {
+    Object.values(els).forEach(el => { if (el) el.textContent = '⚠️ 获取失败'; if (el) el.className = 'paper-card-value'; });
+    const pnlSpan = els.pnlPct;
+    if (pnlSpan) { pnlSpan.textContent = ''; pnlSpan.className = 'paper-card-change'; }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  EQUITY CURVE
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function loadEquityCurve() {
+  const wrap = document.getElementById('equity-chart-wrap');
+  const loading = document.getElementById('equity-loading');
+  const canvas = document.getElementById('equity-chart');
+
+  showLoading(loading);
+  if (canvas) canvas.style.display = 'none';
+
+  try {
+    const data = await fetchJson('/api/v1/dashboard/overview', 10000);
+    const curve = data?.paper_equity_curve || data?.equity_curve || [];
+
+    hideLoading(loading);
+
+    if (!curve || curve.length === 0) {
+      wrap.innerHTML = '<div class="paper-empty">暂无净值数据</div>';
+      return;
+    }
+
+    canvas.style.display = 'block';
+
+    const labels = curve.map(p => p.date || p.trade_date || p.time || '');
+    const values = curve.map(p => Number(p.value) || Number(p.equity) || 0);
+
+    if (equityChartInstance) equityChartInstance.destroy();
+
+    equityChartInstance = new Chart(canvas, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: '净值',
+          data: values,
+          borderColor: '#2962FF',
+          backgroundColor: 'rgba(41,98,255,0.08)',
+          fill: true,
+          tension: 0.3,
+          pointRadius: 1,
+          pointHoverRadius: 4,
+          borderWidth: 2,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: { duration: 300 },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#1c2030',
+            titleColor: '#d1d4dc',
+            bodyColor: '#d1d4dc',
+            borderColor: '#2a2e39',
+            borderWidth: 1,
+            callbacks: {
+              label: ctx => '净值: ' + Number(ctx.parsed.y).toFixed(2),
+            },
+          },
+        },
+        scales: {
+          x: {
+            ticks: { color: '#787b86', maxTicksLimit: 8, font: { size: 10 } },
+            grid: { color: 'rgba(42,46,57,0.5)' },
+          },
+          y: {
+            ticks: { color: '#787b86', font: { size: 10 }, callback: v => v.toFixed(0) },
+            grid: { color: 'rgba(42,46,57,0.5)' },
+          },
+        },
+      },
+    });
+  } catch (e) {
+    hideLoading(loading);
+    wrap.innerHTML = '<div class="paper-error">⚠️ 净值数据获取失败</div>';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  RECENT TRADES
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function loadRecentTrades() {
+  const wrap = document.getElementById('trades-table-wrap');
+  const loading = document.getElementById('trades-loading');
+
+  showLoading(loading);
+
+  try {
+    const data = await fetchJson('/api/v1/paper/trades', 10000);
+    const trades = data?.trades || data?.items || [];
+
+    hideLoading(loading);
+
+    if (!trades || trades.length === 0) {
+      wrap.innerHTML = '<div class="paper-empty">暂无交易记录</div>';
+      return;
+    }
+
+    const rows = trades.slice(0, 20).map(t => {
+      const side = (t.side || t.direction || '').toLowerCase();
+      const sideLabel = side === 'buy' || side === 'b' ? '买入' : side === 'sell' || side === 's' ? '卖出' : side;
+      const sideCls = side === 'buy' || side === 'b' ? 'up' : 'down';
+      const price = fmt(t.price, 2);
+      const qty = t.quantity || t.shares || t.amount || 0;
+      const total = t.total || (Number(t.price || 0) * Number(qty));
+      const dt = t.trade_date || t.date || t.time || t.created_at || '';
+      const symbol = t.symbol || t.code || t.stock || '';
+      return `<tr>
+        <td>${dt}</td>
+        <td>${symbol}</td>
+        <td class="ar ${sideCls}">${sideLabel}</td>
+        <td class="ar">${qty}</td>
+        <td class="ar">${price}</td>
+        <td class="ar">${fmtMoney(total)}</td>
+      </tr>`;
+    }).join('');
+
+    wrap.innerHTML = `<table class="trade-table">
+      <thead><tr>
+        <th>时间</th><th>代码</th><th class="ar">方向</th><th class="ar">数量</th><th class="ar">价格</th><th class="ar">金额</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+  } catch (e) {
+    hideLoading(loading);
+    wrap.innerHTML = '<div class="paper-error">⚠️ 交易记录获取失败</div>';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  POSITIONS TABLE
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function loadPositions() {
+  const wrap = document.getElementById('positions-table-wrap');
+  const loading = document.getElementById('positions-loading');
+
+  showLoading(loading);
+
+  try {
+    const data = await fetchJson('/api/v1/paper/state', 10000);
+    const positions = data?.positions || [];
+
+    hideLoading(loading);
+
+    if (!positions || positions.length === 0) {
+      wrap.innerHTML = '<div class="paper-empty">暂无持仓</div>';
+      return;
+    }
+
+    const rows = positions.map(p => {
+      const symbol = p.symbol || p.code || '--';
+      const name = p.name || '';
+      const qty = Number(p.quantity || p.shares || p.amount || 0);
+      const price = Number(p.price || p.avg_price || p.cost_price || 0);
+      const marketValue = Number(p.market_value || qty * price || 0);
+      const pnl = Number(p.pnl || p.profit || 0);
+      const pnlPct = Number(p.pnl_pct || p.profit_pct || 0);
+      const costPrice = Number(p.cost_price || p.avg_price || 0);
+      return `<tr>
+        <td>${symbol}</td>
+        <td>${name}</td>
+        <td class="ar">${qty}</td>
+        <td class="ar">${fmt(costPrice, 2)}</td>
+        <td class="ar">${fmt(price, 2)}</td>
+        <td class="ar">${fmtMoney(marketValue)}</td>
+        <td class="ar ${pctCls(pnl)}">${fmtMoney(pnl)}</td>
+        <td class="ar ${pctCls(pnlPct)}">${pctSign(pnlPct)}</td>
+      </tr>`;
+    }).join('');
+
+    wrap.innerHTML = `<table class="trade-table">
+      <thead><tr>
+        <th>代码</th><th>名称</th><th class="ar">持仓</th><th class="ar">成本价</th>
+        <th class="ar">现价</th><th class="ar">市值</th><th class="ar">盈亏</th><th class="ar">盈亏%</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+  } catch (e) {
+    hideLoading(loading);
+    wrap.innerHTML = '<div class="paper-error">⚠️ 持仓数据获取失败</div>';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  BOOT
+// ═══════════════════════════════════════════════════════════════════════════
+
+(async function init() {
+  await Promise.all([
+    loadPaperState(),
+    loadEquityCurve(),
+    loadRecentTrades(),
+    loadPositions(),
+  ]);
+})();
 </script>
 {% endblock %}

@@ -223,8 +223,9 @@ class TestWebSpecificPages:
     def test_paper_has_account_state(self, client):
         resp = client.get("/paper")
         html = resp.data.decode("utf-8")
-        assert "🚧" in html
-        assert "开发中" in html
+        assert "paper-metrics-row" in html
+        assert "card-recent-trades" in html
+        assert "trades-table-wrap" in html
 
     def test_qmt_has_health_status(self, client):
         resp = client.get("/qmt")
@@ -238,8 +239,9 @@ class TestWebSpecificPages:
     def test_risk_has_rules_and_alerts(self, client):
         resp = client.get("/risk")
         html = resp.data.decode("utf-8")
-        assert "🚧" in html
-        assert "待接入 QMT" in html
+        assert "risk-metrics-row" in html
+        assert "card-var" in html
+        assert "card-hhi" in html
 
     def test_reports_has_generate_button(self, client):
         resp = client.get("/reports")
