@@ -33,6 +33,7 @@
 | 发布与变更管理 | `docs/ASTOCK_RELEASE_AND_CHANGE_MANAGEMENT.md` |
 | 风险披露与合规边界 | `docs/ASTOCK_RISK_DISCLOSURE_AND_COMPLIANCE.md` |
 | WebUI 产品规范 | `docs/ASTOCK_WEBUI_PRODUCT_SPEC.md` |
+| Web 工作台竞品能力对齐与重构 TODO | `docs/ASTOCK_WEB_WORKBENCH_PARITY_TODO.md` |
 | WebUI 页面级验收清单 | `docs/ASTOCK_WEBUI_PAGE_ACCEPTANCE_CHECKLIST.md` |
 | 文档范围登记 | `docs/ASTOCK_DOCUMENT_SCOPE_REGISTER.md` |
 | 策略开发规范 | `docs/ASTOCK_STRATEGY_DEVELOPMENT_GUIDE.md` |
@@ -71,6 +72,7 @@
 - API/data/AI/trading/UI 任一兼容性变化，必须同步 `ASTOCK_RELEASE_AND_CHANGE_MANAGEMENT.md`。
 - 代码和 UI 边界先写入 `ASTOCK_BOUNDARY_AND_UI_REFACTOR_PLAN.md`，再进入 phase 实施。
 - WebUI 页面状态、能力标签、顶层导航和旧入口迁移写入 `ASTOCK_WEBUI_PRODUCT_SPEC.md`。
+- 需要同时对齐 `daily_stock_analysis` / `aiagents-stock` 能力、重构今日工作台并保留本项目重型能力时，先以 `ASTOCK_WEB_WORKBENCH_PARITY_TODO.md` 作为待审核需求冻结稿。
 - 每个 WebUI 页面开发或重构完成后，必须按 `ASTOCK_WEBUI_PAGE_ACCEPTANCE_CHECKLIST.md` 补输入、输出、状态、错误态和截图证据。
 - 当前暂不纳入的外围模块只记录在 `ASTOCK_DOCUMENT_SCOPE_REGISTER.md`，不展开成需求模块。
 - 新增策略或重构 Strategy Lab 必须同步 `ASTOCK_STRATEGY_DEVELOPMENT_GUIDE.md`。
