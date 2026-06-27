@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{% block title %}AStock Pro{% endblock %}</title>
+  <title>{% block title %}AStock Pro · 量化交易终端{% endblock %}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
@@ -24,7 +24,8 @@
     *, *::before, *::after { box-sizing: border-box; }
     body {
       margin: 0; font-family: 'Inter', -apple-system, sans-serif;
-      background: #131722; color: #d1d4dc; -webkit-font-smoothing: antialiased;
+      background: #0a0e17; color: #d1d4dc; -webkit-font-smoothing: antialiased;
+      overflow: hidden; height: 100vh;
     }
     ::-webkit-scrollbar { width: 5px; height: 5px; }
     ::-webkit-scrollbar-track { background: transparent; }
@@ -32,70 +33,159 @@
     ::-webkit-scrollbar-thumb:hover { background: #4a4e5a; }
     ::selection { background: rgba(41,98,255,0.3); }
 
-    /* ── Sidebar ── */
-    .tv-sidebar {
-      width: 56px; background: #1e222d; border-right: 1px solid #2a2e39;
-      display: flex; flex-direction: column; align-items: center;
-      padding: 8px 0; flex-shrink: 0; overflow-y: auto;
-    }
-    .tv-sidebar-logo {
-      width: 32px; height: 32px; border-radius: 6px;
-      background: linear-gradient(135deg, #2962FF, #089981);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 16px; font-weight: 800; color: #fff; margin-bottom: 12px;
-      cursor: pointer; transition: transform .15s;
-    }
-    .tv-sidebar-logo:hover { transform: scale(1.08); }
-    .tv-sidebar-item {
-      position: relative; width: 40px; height: 40px; border-radius: 8px;
-      display: flex; align-items: center; justify-content: center;
-      cursor: pointer; transition: all .15s; margin: 1px 0;
-      font-size: 18px; color: #787b86;
-    }
-    .tv-sidebar-item:hover { background: #2a2e39; color: #d1d4dc; }
-    .tv-sidebar-item.active {
-      background: rgba(41,98,255,0.15); color: #2962FF;
-    }
-    .tv-sidebar-item.active::before {
-      content: ''; position: absolute; left: -8px; top: 8px; bottom: 8px;
-      width: 3px; background: #2962FF; border-radius: 0 2px 2px 0;
-    }
-    .tv-sidebar-tooltip {
-      display: none; position: absolute; left: 52px; top: 50%;
-      transform: translateY(-50%); background: #363a45; color: #d1d4dc;
-      padding: 6px 12px; border-radius: 6px; font-size: 12px;
-      white-space: nowrap; z-index: 100; pointer-events: none;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-    }
-    .tv-sidebar-item:hover .tv-sidebar-tooltip { display: block; }
-
     /* ── Layout ── */
-    .tv-layout { display: flex; height: 100vh; overflow: hidden; }
+    .as-layout { display: flex; height: 100vh; overflow: hidden; }
 
-    /* ── Top bar ── */
-    .tv-topbar {
-      height: 48px; background: #1e222d; border-bottom: 1px solid #2a2e39;
-      display: flex; align-items: center; padding: 0 16px; flex-shrink: 0;
-      gap: 12px;
+    /* ── Top Navigation Bar (Choice/Wind style) ── */
+    .as-topbar {
+      height: 44px; background: linear-gradient(90deg, #0d111c 0%, #161b2b 100%);
+      border-bottom: 1px solid #1e2a3a; display: flex; align-items: center;
+      padding: 0 12px; flex-shrink: 0; gap: 4px; z-index: 100;
+      position: relative;
     }
-    .tv-topbar-brand {
-      font-size: 14px; font-weight: 700; color: #d1d4dc;
-      letter-spacing: 0.5px;
+    .as-topbar::after {
+      content: ''; position: absolute; bottom: 0; left: 0; right: 0;
+      height: 1px; background: linear-gradient(90deg, transparent, #2962FF40, transparent);
     }
-    .tv-topbar-brand span { color: #2962FF; }
-    .tv-topbar-sep { width: 1px; height: 20px; background: #2a2e39; }
-    .tv-topbar-label { font-size: 11px; color: #787b86; text-transform: uppercase; letter-spacing: 0.5px; }
-    .tv-topbar-value { font-size: 13px; font-weight: 600; font-family: 'JetBrains Mono', monospace; }
+    .as-topbar-logo {
+      display: flex; align-items: center; gap: 8px; padding: 0 8px;
+      font-size: 15px; font-weight: 800; color: #fff;
+      letter-spacing: 1px; cursor: pointer;
+    }
+    .as-topbar-logo .accent { color: #2962FF; }
+    .as-topbar-logo .badge {
+      font-size: 8px; background: #2962FF; color: #fff;
+      padding: 1px 5px; border-radius: 3px; font-weight: 600;
+      letter-spacing: 0.5px; margin-left: 2px;
+    }
+    .as-topbar-sep { width: 1px; height: 20px; background: #1e2a3a; margin: 0 4px; }
 
-    /* ── Content area ── */
-    .tv-content {
+    /* ── Main Tab Navigation (top) ── */
+    .as-tab-nav { display: flex; align-items: center; gap: 2px; height: 100%; }
+    .as-tab {
+      height: 100%; display: flex; align-items: center; gap: 6px;
+      padding: 0 14px; font-size: 12px; font-weight: 500;
+      color: #787b86; cursor: pointer; transition: all .15s;
+      border-bottom: 2px solid transparent; position: relative;
+      letter-spacing: 0.3px;
+    }
+    .as-tab:hover { color: #d1d4dc; background: rgba(255,255,255,0.03); }
+    .as-tab.active { color: #fff; border-bottom-color: #2962FF; }
+    .as-tab .icon { font-size: 14px; }
+    .as-tab-badge {
+      font-size: 9px; background: #f23645; color: #fff;
+      padding: 0 5px; border-radius: 8px; font-weight: 600;
+    }
+
+    /* ── Global Search (topbar right) ── */
+    .as-global-search {
+      margin-left: auto; display: flex; align-items: center; gap: 8px;
+    }
+    .as-global-search .search-box {
+      position: relative; width: 200px;
+    }
+    .as-global-search .search-box input {
+      width: 100%; background: #0d111c; border: 1px solid #1e2a3a;
+      border-radius: 4px; padding: 5px 10px 5px 28px;
+      font-size: 12px; color: #d1d4dc; outline: none;
+      font-family: 'JetBrains Mono', monospace;
+      transition: border-color .15s;
+    }
+    .as-global-search .search-box input:focus { border-color: #2962FF; }
+    .as-global-search .search-box .glass {
+      position: absolute; left: 8px; top: 50%; transform: translateY(-50%);
+      font-size: 12px; color: #787b86; pointer-events: none;
+    }
+    .as-global-search .kbd {
+      font-size: 9px; background: #1e2a3a; color: #787b86;
+      padding: 1px 5px; border-radius: 3px; font-family: 'JetBrains Mono', monospace;
+    }
+    .as-topbar-clock { font-size: 11px; color: #787b86; font-family: 'JetBrains Mono', monospace; }
+    .as-topbar-clock .sec { color: #2962FF; }
+
+    /* ── Left sidebar (icon-only, TradingView style, per-section) ── */
+    .as-sidebar {
+      width: 48px; background: #0d111c; border-right: 1px solid #1e2a3a;
+      display: flex; flex-direction: column; align-items: center;
+      padding: 6px 0; flex-shrink: 0; overflow-y: auto;
+    }
+    .as-sidebar-section {
+      width: 100%; display: flex; flex-direction: column; align-items: center;
+      padding: 4px 0;
+    }
+    .as-sidebar-section-title {
+      font-size: 7px; color: #3a4a5a; text-transform: uppercase;
+      letter-spacing: 1px; margin-bottom: 4px; font-weight: 600;
+    }
+    .as-sidebar-item {
+      position: relative; width: 34px; height: 34px; border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; transition: all .12s; margin: 1px 0;
+      font-size: 16px; color: #4a5a6a;
+    }
+    .as-sidebar-item:hover { background: #1e2a3a; color: #d1d4dc; }
+    .as-sidebar-item.active {
+      background: rgba(41,98,255,0.12); color: #2962FF;
+    }
+    .as-sidebar-item.active::before {
+      content: ''; position: absolute; left: -3px; top: 6px; bottom: 6px;
+      width: 2px; background: #2962FF; border-radius: 0 1px 1px 0;
+    }
+    .as-sidebar-tooltip {
+      display: none; position: absolute; left: 44px; top: 50%;
+      transform: translateY(-50%); background: #1e2a3a; color: #d1d4dc;
+      padding: 4px 10px; border-radius: 4px; font-size: 11px;
+      white-space: nowrap; z-index: 1000; pointer-events: none;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+      border: 1px solid #2a3a4a;
+    }
+    .as-sidebar-item:hover .as-sidebar-tooltip { display: block; }
+
+    /* ── Content Area ── */
+    .as-content {
       flex: 1; display: flex; flex-direction: column; overflow: hidden;
+      background: #0a0e17;
     }
-    .tv-main {
+    .as-main {
       flex: 1; overflow-y: auto; padding: 16px 20px;
     }
 
-    /* ── Cards ── */
+    /* ── Bottom Command Bar (Wind/Choice style) ── */
+    .as-commandbar {
+      height: 32px; background: #0d111c; border-top: 1px solid #1e2a3a;
+      display: flex; align-items: center; padding: 0 12px;
+      flex-shrink: 0; gap: 8px;
+    }
+    .as-commandbar-prompt {
+      font-size: 11px; color: #2962FF; font-weight: 600;
+      font-family: 'JetBrains Mono', monospace; margin-right: 4px;
+    }
+    .as-commandbar-input {
+      flex: 1; background: transparent; border: none;
+      font-size: 12px; color: #d1d4dc; outline: none;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .as-commandbar-input::placeholder { color: #3a4a5a; }
+    .as-commandbar-hint {
+      font-size: 10px; color: #3a4a5a; display: flex; gap: 8px;
+    }
+    .as-commandbar-hint kbd {
+      font-family: 'JetBrains Mono', monospace;
+      background: #1e2a3a; padding: 0 4px; border-radius: 2px;
+    }
+
+    /* ── Status Bar ── */
+    .as-statusbar {
+      height: 22px; background: #080c14; border-top: 1px solid #1e2a3a;
+      display: flex; align-items: center; padding: 0 12px; gap: 16px;
+      flex-shrink: 0; font-size: 10px; color: #4a5a6a;
+    }
+    .as-statusbar .dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+    .as-statusbar .sep { width: 1px; height: 12px; background: #1e2a3a; }
+    .as-statusbar .item { display: flex; align-items: center; gap: 4px; }
+    .as-statusbar .val { color: #787b86; }
+
+    /* ── Cards (TradingView palette) ── */
     .tv-card {
       background: #1e222d; border: 1px solid #2a2e39; border-radius: 6px;
       padding: 16px; transition: border-color .15s;
@@ -114,6 +204,7 @@
     .tv-stat-change { font-size: 12px; font-family: 'JetBrains Mono', monospace; margin-top: 2px; }
     .tv-up { color: #089981; }
     .tv-down { color: #f23645; }
+    .tv-neutral { color: #787b86; }
 
     /* ── Stock Search Suggestions ── */
     .search-wrap { position: relative; display: inline-block; }
@@ -131,7 +222,6 @@
     .search-suggestions .item .code { color: #787b86; font-family: 'JetBrains Mono', monospace; font-size: 11px; }
     .search-suggestions .item .name { font-weight: 500; }
     .search-suggestions .item .meta { color: #787b86; font-size: 10px; margin-left: auto; }
-    .tv-neutral { color: #787b86; }
 
     /* ── Buttons ── */
     .tv-btn {
@@ -198,12 +288,6 @@
       cursor: pointer; font-family: inherit;
     }
     .tv-select:focus { border-color: #2962FF; }
-    .tv-checkbox {
-      accent-color: #2962FF; width: 14px; height: 14px; cursor: pointer;
-    }
-
-    /* ── Labels ── */
-    .tv-label { font-size: 11px; color: #787b86; margin-bottom: 4px; display: block; letter-spacing: 0.3px; }
 
     /* ── Grid helpers ── */
     .tv-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -213,9 +297,6 @@
     /* ── Section ── */
     .tv-section { margin-bottom: 16px; }
     .tv-section-title { font-size: 20px; font-weight: 700; color: #d1d4dc; margin-bottom: 16px; letter-spacing: -0.3px; }
-
-    /* ── Status dot ── */
-    .tv-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
 
     /* ── Panel ── */
     .tv-panel {
@@ -239,8 +320,48 @@
     .tv-text { color: #d1d4dc; }
     .tv-divider { height: 1px; background: #2a2e39; margin: 12px 0; }
 
-    /* ── Chart.js overrides ── */
+    /* ── Chart overrides ── */
     canvas { max-width: 100%; }
+
+    /* ── Command Palette Modal ── */
+    .as-palette-overlay {
+      display: none; position: fixed; inset: 0; z-index: 9999;
+      background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
+      justify-content: center; padding-top: 10vh;
+    }
+    .as-palette-overlay.open { display: flex; }
+    .as-palette {
+      width: 580px; max-height: 60vh; background: #1c2538;
+      border: 1px solid #2a3a5a; border-radius: 8px;
+      box-shadow: 0 16px 48px rgba(0,0,0,0.6);
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    .as-palette-input {
+      padding: 14px 16px; background: #0d111c; border: none;
+      border-bottom: 1px solid #2a3a5a; font-size: 15px;
+      color: #d1d4dc; outline: none; font-family: 'Inter', sans-serif;
+    }
+    .as-palette-input::placeholder { color: #4a5a6a; }
+    .as-palette-results {
+      flex: 1; overflow-y: auto; padding: 6px;
+    }
+    .as-palette-group { margin-bottom: 8px; }
+    .as-palette-group-title {
+      font-size: 10px; color: #4a5a6a; text-transform: uppercase;
+      letter-spacing: 1px; padding: 6px 10px 4px; font-weight: 600;
+    }
+    .as-palette-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 10px; border-radius: 4px; cursor: pointer;
+      color: #d1d4dc; font-size: 13px; transition: background .08s;
+    }
+    .as-palette-item:hover { background: #2a3a5a; }
+    .as-palette-item .icon { font-size: 16px; }
+    .as-palette-item .path { color: #4a5a6a; font-size: 11px; margin-left: auto; }
+    .as-palette-item .hotkey {
+      font-size: 10px; color: #4a5a6a; font-family: 'JetBrains Mono', monospace;
+      background: #1e2a3a; padding: 1px 5px; border-radius: 3px;
+    }
 
     /* ── Backward-compatible aliases ── */
     .card { background: #1e222d; border: 1px solid #2a2e39; border-radius: 6px; padding: 16px; }
@@ -251,138 +372,406 @@
     .btn-primary:hover { background: #1a4fd0; }
     .btn-secondary { background: #2a2e39; color: #d1d4dc; }
     .btn-secondary:hover { background: #363a45; }
-    .badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: 600; }
-    .badge-success { background: rgba(8,153,129,0.15); color: #089981; }
-    .badge-error { background: rgba(242,54,69,0.15); color: #f23645; }
-    .badge-warning { background: rgba(255,152,0,0.15); color: #ff9800; }
-    .badge-info { background: rgba(41,98,255,0.15); color: #2962FF; }
-    .text-emerald-400 { color: #089981 !important; }
-    .text-red-400 { color: #f23645 !important; }
-    .text-amber-400 { color: #ff9800 !important; }
-    .text-indigo-400, .text-indigo-300, .text-sky-400 { color: #2962FF !important; }
-    .text-gray-300, .text-gray-200, .text-white { color: #d1d4dc !important; }
-    .text-gray-400, .text-gray-500 { color: #787b86 !important; }
-    .bg-dark-bg { background: #1e222d; }
-    .bg-dark-card { background: #1e222d; }
-    .bg-dark-hover { background: #2a2e39; }
-    .bg-indigo-900\/20 { background: transparent; }
-    .border-dark-border { border-color: #2a2e39; }
 
-    /* ── Responsive ── */
-    @media (max-width: 768px) {
-      .tv-grid-2, .tv-grid-3, .tv-grid-4 { grid-template-columns: 1fr; }
-      .tv-sidebar { width: 44px; }
-      .tv-sidebar-item { width: 32px; height: 32px; font-size: 15px; }
-    }
+    {% block head_extra %}{% endblock %}
   </style>
-  {% block head_extra %}{% endblock %}
 </head>
 <body>
 
-<div class="tv-layout">
-  <!-- Sidebar (icon-only, TradingView style) -->
-  <aside class="tv-sidebar" id="tv-sidebar">
-    <div class="tv-sidebar-logo" title="AStock Pro">A</div>
+<div class="as-layout">
+  <!-- ── Left Sidebar (icon nav, TradingView style) ── -->
+  <aside class="as-sidebar" id="as-sidebar">
+    <!-- Section: 市场 -->
+    <div class="as-sidebar-section">
+      <div class="as-sidebar-section-title">市场</div>
+      <a href="/dashboard" class="as-sidebar-item" data-page="dashboard" title="总览">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <span class="as-sidebar-tooltip">总览 Dashboard</span>
+      </a>
+      <a href="/screener" class="as-sidebar-item" data-page="screener" title="选股">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 22 15 16 15 10 21 10 15 2 15 2 3 22 3"/></svg>
+        <span class="as-sidebar-tooltip">选股 Screener</span>
+      </a>
+      <a href="/market_leaders" class="as-sidebar-item" data-page="market_leaders" title="龙头">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        <span class="as-sidebar-tooltip">龙头 Market Leaders</span>
+      </a>
+    </div>
 
-    <a href="/" class="tv-sidebar-item" data-page="trading" title="Trading & Execution">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="3" height="16"/><rect x="10.5" y="2" width="3" height="20"/><rect x="18" y="6" width="3" height="14"/></svg>
-      <span class="tv-sidebar-tooltip">交易 Trading</span>
-    </a>
-    <a href="/dashboard" class="tv-sidebar-item" data-page="dashboard" title="Dashboard">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-    </a>
-    <a href="/research" class="tv-sidebar-item" data-page="research" title="AI Research Center">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/></svg>
-    </a>
-    <a href="/strategy_hub" class="tv-sidebar-item" data-page="strategy_hub" title="Strategy Lab">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/><circle cx="12" cy="12" r="2"/></svg>
-    </a>
-    <a href="/market_leaders" class="tv-sidebar-item" data-page="market_leaders" title="Market Leaders">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-    </a>
-    <a href="/portfolio" class="tv-sidebar-item" data-page="portfolio" title="Portfolio Workbench">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
-    </a>
-    <a href="/data_health" class="tv-sidebar-item" data-page="data_health" title="Data & Ops">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-    </a>
-    <a href="/screener" class="tv-sidebar-item" data-page="screener" title="Screener">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 22 15 16 15 10 21 10 15 2 15 2 3 22 3"/></svg>
-    </a>
+    <!-- Section: 交易 -->
+    <div class="as-sidebar-section">
+      <div class="as-sidebar-section-title">交易</div>
+      <a href="/trading" class="as-sidebar-item" data-page="trading" title="交易">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="3" height="16"/><rect x="10.5" y="2" width="3" height="20"/><rect x="18" y="6" width="3" height="14"/></svg>
+        <span class="as-sidebar-tooltip">交易 Trading</span>
+      </a>
+      <a href="/paper" class="as-sidebar-item" data-page="paper" title="模拟盘">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+        <span class="as-sidebar-tooltip">模拟盘 Paper</span>
+      </a>
+      <a href="/qmt" class="as-sidebar-item" data-page="qmt" title="QMT">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M12 12h.01"/><path d="M17 12h.01"/><path d="M7 12h.01"/></svg>
+        <span class="as-sidebar-tooltip">QMT 桥接</span>
+      </a>
+    </div>
+
+    <!-- Section: 策略 -->
+    <div class="as-sidebar-section">
+      <div class="as-sidebar-section-title">策略</div>
+      <a href="/strategy_hub" class="as-sidebar-item" data-page="strategy_hub" title="策略中心">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        <span class="as-sidebar-tooltip">策略中心 Strategy</span>
+      </a>
+      <a href="/strategies" class="as-sidebar-item" data-page="strategies" title="策略管理">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        <span class="as-sidebar-tooltip">策略管理</span>
+      </a>
+    </div>
+
+    <!-- Section: 分析 -->
+    <div class="as-sidebar-section">
+      <div class="as-sidebar-section-title">分析</div>
+      <a href="/research" class="as-sidebar-item" data-page="research" title="研究">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/></svg>
+        <span class="as-sidebar-tooltip">研究 Research</span>
+      </a>
+      <a href="/portfolio" class="as-sidebar-item" data-page="portfolio" title="组合">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+        <span class="as-sidebar-tooltip">组合 Portfolio</span>
+      </a>
+      <a href="/risk" class="as-sidebar-item" data-page="risk" title="风控">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        <span class="as-sidebar-tooltip">风控 Risk</span>
+      </a>
+      <a href="/ai_agent" class="as-sidebar-item" data-page="ai_agent" title="AI">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 0 1 10 10c0 2.5-1 5-2.8 6.7"/><circle cx="12" cy="12" r="4"/><path d="M12 6v2M12 16v2M6 12H4M20 12h-2"/></svg>
+        <span class="as-sidebar-tooltip">AI Agent</span>
+      </a>
+    </div>
+
+    <!-- Section: 系统 -->
+    <div class="as-sidebar-section" style="margin-top:auto;">
+      <div class="as-sidebar-section-title">系统</div>
+      <a href="/data_health" class="as-sidebar-item" data-page="data_health" title="运维">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        <span class="as-sidebar-tooltip">运维 Ops</span>
+      </a>
+      <a href="/settings" class="as-sidebar-item" data-page="settings" title="设置">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        <span class="as-sidebar-tooltip">设置 Settings</span>
+      </a>
+    </div>
 
     <div style="margin-top:4px;">
-      <div id="server-status-dot" class="tv-dot" style="background:#787b86;"></div>
+      <div id="server-status-dot" class="dot" style="width:6px;height:6px;border-radius:50%;background:#787b86;display:inline-block;"></div>
     </div>
   </aside>
 
-  <!-- Main area -->
-  <div class="tv-content">
-  <!-- Deprecation banner (for legacy entry points) -->
-  {% if legacy_redirect %}
-  <div style="background:#1a1a2e;border-bottom:1px solid #ff9800;padding:6px 16px;font-size:12px;color:#ff9800;display:flex;align-items:center;gap:8px;">
-    ⚠️ 此页面已整合到 <a href="{{ legacy_redirect }}" style="color:#2962FF;text-decoration:underline;">新入口</a>，请使用新版访问。
-  </div>
-  {% endif %}
-  <!-- Top bar -->
-    <div class="tv-topbar">
-      <div class="tv-topbar-brand">AStock <span>Pro</span></div>
-      <div class="tv-topbar-sep"></div>
-      <span class="tv-topbar-label" id="topbar-time">--:--:--</span>
-      <div class="tv-topbar-sep"></div>
-      <span class="tv-topbar-label">Server</span>
-      <span class="tv-topbar-value tv-up" id="topbar-status">Online</span>
+  <!-- ── Content Area ── -->
+  <div class="as-content">
+
+    <!-- ── Top Navigation Bar (Choice/Wind style) ── -->
+    <div class="as-topbar">
+      <div class="as-topbar-logo" onclick="window.location.href='/dashboard'">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="2" y="2" width="20" height="20" rx="4" fill="#2962FF"/><text x="7" y="17" fill="#fff" font-size="14" font-weight="800" font-family="Inter">A</text></svg>
+        <span>AStock <span class="accent">Pro</span></span>
+        <span class="badge">v0.5</span>
+      </div>
+      <div class="as-topbar-sep"></div>
+
+      <!-- Main Tab Navigation -->
+      <nav class="as-tab-nav" id="as-tab-nav">
+        <a href="/dashboard" class="as-tab" data-tab="dashboard"><span class="icon">📊</span> 今日</a>
+        <a href="/market_leaders" class="as-tab" data-tab="watch"><span class="icon">👁️</span> 盯盘</a>
+        <a href="/research" class="as-tab" data-tab="ai"><span class="icon">🤖</span> AI 研究</a>
+        <a href="/strategy_hub" class="as-tab" data-tab="strategy"><span class="icon">🧪</span> 策略</a>
+        <a href="/portfolio" class="as-tab" data-tab="portfolio"><span class="icon">📋</span> 组合风控</a>
+        <a href="/trading" class="as-tab" data-tab="trading"><span class="icon">💹</span> 交易执行</a>
+        <a href="/settings" class="as-tab" data-tab="system"><span class="icon">⚙️</span> 系统</a>
+      </nav>
+
+      <!-- Global Search -->
+      <div class="as-global-search">
+        <div class="search-box">
+          <span class="glass">🔍</span>
+          <input type="text" id="global-search-input" placeholder="搜股票代码/名称..." autocomplete="off">
+          <div class="search-suggestions" id="global-search-suggestions"></div>
+        </div>
+        <span class="as-topbar-clock" id="topbar-clock">--:--:--</span>
+      </div>
     </div>
 
-    <!-- Page content -->
-    <main class="tv-main">
+    <!-- Deprecation banner (for legacy entry points) -->
+    {% if legacy_redirect %}
+    <div style="background:#1a1a2e;border-bottom:1px solid #ff9800;padding:6px 16px;font-size:12px;color:#ff9800;display:flex;align-items:center;gap:8px;">
+      ⚠️ 此页面已整合到 <a href="{{ legacy_redirect }}" style="color:#2962FF;text-decoration:underline;">新入口</a>，请使用新版访问。
+    </div>
+    {% endif %}
+
+    <!-- Main content -->
+    <main class="as-main">
       {% block content %}{% endblock %}
     </main>
+
+    <!-- ── Bottom Command Bar (Wind/Choice style) ── -->
+    <div class="as-commandbar">
+      <span class="as-commandbar-prompt">▸</span>
+      <input type="text" class="as-commandbar-input" id="cmd-input"
+             placeholder="输入股票代码跳转 · 或输入 /help 查看命令" spellcheck="false">
+      <div class="as-commandbar-hint">
+        <span><kbd>Ctrl+K</kbd> 命令面板</span>
+      </div>
+    </div>
+
+    <!-- ── Status Bar ── -->
+    <div class="as-statusbar">
+      <span class="item">
+        <span id="mkt-status-dot" class="dot" style="background:#f23645;"></span>
+        <span id="mkt-status-text">已收盘</span>
+      </span>
+      <span class="sep"></span>
+      <span class="item">
+        <span id="srv-status-dot" class="dot" style="background:#787b86;"></span>
+        <span id="srv-status-text">检查中...</span>
+      </span>
+      <span class="sep"></span>
+      <span class="item">📡 <span id="srv-version" class="val">v?</span></span>
+      <span class="sep"></span>
+      <span class="item">🕐 <span id="status-time" class="val"></span></span>
+      <span style="margin-left:auto;color:#3a4a5a;">AStock Pro · 量化交易终端</span>
+    </div>
+  </div>
+</div>
+
+<!-- ── Command Palette Modal ── -->
+<div class="as-palette-overlay" id="palette-overlay">
+  <div class="as-palette" id="palette">
+    <input type="text" class="as-palette-input" id="palette-input"
+           placeholder="搜索页面、股票或执行命令..." autofocus spellcheck="false">
+    <div class="as-palette-results" id="palette-results">
+      <div class="as-palette-group">
+        <div class="as-palette-group-title">页面导航</div>
+        <div class="as-palette-item" data-url="/dashboard"><span class="icon">📊</span> 总览 Dashboard <span class="path">/dashboard</span></div>
+        <div class="as-palette-item" data-url="/"><span class="icon">💹</span> 交易 Trading <span class="path">/</span></div>
+        <div class="as-palette-item" data-url="/strategy_hub"><span class="icon">🧪</span> 策略研究 Strategy Hub <span class="path">/strategy_hub</span></div>
+        <div class="as-palette-item" data-url="/backtest"><span class="icon">🔬</span> 回测控制台 Backtest <span class="path">/backtest</span></div>
+        <div class="as-palette-item" data-url="/portfolio"><span class="icon">📋</span> 组合分析 Portfolio <span class="path">/portfolio</span></div>
+        <div class="as-palette-item" data-url="/research"><span class="icon">🔍</span> 研究 Research <span class="path">/research</span></div>
+        <div class="as-palette-item" data-url="/paper"><span class="icon">📝</span> 模拟盘 Paper <span class="path">/paper</span></div>
+        <div class="as-palette-item" data-url="/screener"><span class="icon">🔎</span> 选股器 Screener <span class="path">/screener</span></div>
+        <div class="as-palette-item" data-url="/market_leaders"><span class="icon">⚡</span> 龙头股 Market Leaders <span class="path">/market_leaders</span></div>
+        <div class="as-palette-item" data-url="/risk"><span class="icon">🛡️</span> 风控中心 Risk <span class="path">/risk</span></div>
+        <div class="as-palette-item" data-url="/ai_agent"><span class="icon">🤖</span> AI Agent <span class="path">/ai_agent</span></div>
+        <div class="as-palette-item" data-url="/reports"><span class="icon">📄</span> 报告中心 Reports <span class="path">/reports</span></div>
+        <div class="as-palette-item" data-url="/ops_audit"><span class="icon">📋</span> 运维审计 <span class="path">/ops_audit</span></div>
+        <div class="as-palette-item" data-url="/data_health"><span class="icon">❤️</span> 数据健康 <span class="path">/data_health</span></div>
+        <div class="as-palette-item" data-url="/settings"><span class="icon">⚙️</span> 系统设置 <span class="path">/settings</span></div>
+        <div class="as-palette-item" data-url="/kc_chart?symbol=600519.SH"><span class="icon">📈</span> KLineChart 专业图 <span class="path">/kc_chart</span></div>
+      </div>
+      <div class="as-palette-group">
+        <div class="as-palette-group-title">命令</div>
+        <div class="as-palette-item" data-cmd="help"><span class="icon">❓</span> 显示帮助 <span class="hotkey">/help</span></div>
+        <div class="as-palette-item" data-cmd="reload"><span class="icon">🔄</span> 刷新页面 <span class="hotkey">/reload</span></div>
+        <div class="as-palette-item" data-cmd="theme"><span class="icon">🎨</span> 切换主题 <span class="hotkey">/theme</span></div>
+      </div>
+    </div>
   </div>
 </div>
 
 <script>
-  // ── Active sidebar ──
-  document.querySelectorAll('.tv-sidebar-item').forEach(el => {
-    if (el.getAttribute('href') === window.location.pathname) {
-      el.classList.add('active');
+// ── Command Bar: Enter stock code jumps ──
+const cmdInput = document.getElementById('cmd-input');
+cmdInput.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') {
+    const val = this.value.trim();
+    if (val.startsWith('/')) {
+      const cmd = val.slice(1).toLowerCase();
+      switch(cmd) {
+        case 'help': alert('AStock Pro 命令:\n  /help   显示此帮助\n  /reload 刷新页面\n  /theme  切换主题\n  直接输入股票代码跳转到该股'); break;
+        case 'reload': location.reload(); break;
+        case 'theme': document.body.style.filter = document.body.style.filter === 'invert(1) hue-rotate(180deg)' ? '' : 'invert(1) hue-rotate(180deg)'; break;
+        default: alert('未知命令: /' + cmd); break;
+      }
+      this.value = '';
+      return;
+    }
+    // Stock code
+    let code = val.toUpperCase();
+    if (code && !code.includes('.')) {
+      code = code + '.SH';
+    }
+    if (code) {
+      window.location.href = '/research?symbol=' + code;
+    }
+    this.value = '';
+  }
+});
+
+// ── Ctrl+K / Escape for palette ──
+const paletteOverlay = document.getElementById('palette-overlay');
+const paletteInput = document.getElementById('palette-input');
+
+document.addEventListener('keydown', function(e) {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+    e.preventDefault();
+    paletteOverlay.classList.toggle('open');
+    if (paletteOverlay.classList.contains('open')) {
+      setTimeout(() => paletteInput.focus(), 50);
+    }
+  }
+  if (e.key === 'Escape' && paletteOverlay.classList.contains('open')) {
+    paletteOverlay.classList.remove('open');
+  }
+});
+
+// Palette search/filter
+paletteInput.addEventListener('input', function() {
+  const q = this.value.toLowerCase().trim();
+  document.querySelectorAll('#palette-results .as-palette-item').forEach(el => {
+    const text = el.textContent.toLowerCase();
+    el.style.display = (!q || text.includes(q)) ? 'flex' : 'none';
+  });
+});
+
+// Palette item click
+document.querySelectorAll('#palette-results .as-palette-item').forEach(el => {
+  el.addEventListener('click', function() {
+    paletteOverlay.classList.remove('open');
+    const url = this.dataset.url;
+    const cmd = this.dataset.cmd;
+    if (url) { window.location.href = url; }
+    else if (cmd) {
+      cmdInput.value = '/' + cmd;
+      cmdInput.dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter'}));
     }
   });
+});
 
-  // ── Server health ──
-  function checkHealth() {
-    fetch('/api/v1/health')
-      .then(r => r.json())
-      .then(d => {
-        const dot = document.getElementById('server-status-dot');
-        const status = document.getElementById('topbar-status');
-        if (d.status === 'ok') {
-          dot.style.background = '#089981';
-          status.textContent = 'Online v' + (d.version || '?');
-          status.className = 'tv-topbar-value tv-up';
-        } else {
-          dot.style.background = '#ff9800';
-          status.textContent = 'Degraded';
-          status.className = 'tv-topbar-value tv-orange';
-        }
-      })
-      .catch(() => {
-        document.getElementById('server-status-dot').style.background = '#f23645';
-        document.getElementById('topbar-status').textContent = 'Offline';
-        document.getElementById('topbar-status').className = 'tv-topbar-value tv-down';
+// ── Active sidebar & tab highlight ──
+(function setActiveNav() {
+  const path = window.location.pathname;
+  document.querySelectorAll('.as-sidebar-item').forEach(el => {
+    if (el.getAttribute('href') === path) el.classList.add('active');
+  });
+  document.querySelectorAll('.as-tab').forEach(el => {
+    if (el.getAttribute('href') === path) el.classList.add('active');
+  });
+})();
+
+// ── Server health + market status ──
+function refreshStatus() {
+  fetch('/api/v1/health')
+    .then(r => r.json())
+    .then(d => {
+      const srvDot = document.getElementById('srv-status-dot');
+      const srvText = document.getElementById('srv-status-text');
+      const srvVer = document.getElementById('srv-version');
+      if (d.status === 'ok') {
+        srvDot.style.background = '#089981';
+        srvText.textContent = 'Online';
+        srvVer.textContent = 'v' + (d.version || '?');
+      } else {
+        srvDot.style.background = '#ff9800';
+        srvText.textContent = 'Degraded';
+      }
+    })
+    .catch(() => {
+      document.getElementById('srv-status-dot').style.background = '#f23645';
+      document.getElementById('srv-status-text').textContent = 'Offline';
+    });
+
+  // Market status
+  const h = new Date().getHours();
+  const m = new Date().getMinutes();
+  const isWeekend = [0,6].includes(new Date().getDay());
+  const isTrading = !isWeekend && ((h > 9 || (h === 9 && m >= 30)) && h < 15) || (h === 11 && m <= 30);
+  // Simplified: 9:30-11:30, 13:00-15:00
+  const isMorning = h > 9 || (h === 9 && m >= 30);
+  const isLunch = h === 11 && m > 30 || h === 12;
+  const isAfternoon = h >= 13;
+  const isTradingHours = !isWeekend && ((isMorning && !isLunch) || isAfternoon) && h < 15;
+
+  const mktDot = document.getElementById('mkt-status-dot');
+  const mktText = document.getElementById('mkt-status-text');
+  if (isWeekend) {
+    mktDot.style.background = '#787b86';
+    mktText.textContent = '休市 (周末)';
+  } else if (isTradingHours) {
+    mktDot.style.background = '#089981';
+    mktText.textContent = '交易中 🔴';
+    mktDot.style.animation = 'pulse 1.5s infinite';
+  } else if (h >= 15) {
+    mktDot.style.background = '#2962FF';
+    mktText.textContent = '已收盘';
+  } else if (h < 9 || (h === 9 && m < 30)) {
+    mktDot.style.background = '#ff9800';
+    mktText.textContent = '集合竞价 ' + (h < 9 ? '前' : '中');
+  } else if (isLunch) {
+    mktDot.style.background = '#787b86';
+    mktText.textContent = '午间休市';
+  }
+}
+refreshStatus();
+setInterval(refreshStatus, 30000);
+
+// ── Clock ──
+function updateClock() {
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString('zh-CN', {hour12: false});
+  document.getElementById('topbar-clock').textContent = timeStr;
+  document.getElementById('status-time').textContent = timeStr;
+}
+updateClock();
+setInterval(updateClock, 1000);
+
+// ── Global stock search (topbar) ──
+const searchInput = document.getElementById('global-search-input');
+const suggestions = document.getElementById('global-search-suggestions');
+let searchTimeout;
+
+searchInput.addEventListener('input', function() {
+  clearTimeout(searchTimeout);
+  const q = this.value.trim();
+  if (q.length < 1) { suggestions.style.display = 'none'; return; }
+  searchTimeout = setTimeout(async () => {
+    try {
+      const res = await fetch(`/api/v1/tv/stock-search?q=${encodeURIComponent(q)}&limit=8`);
+      if (!res.ok) throw new Error('search failed');
+      const data = await res.json();
+      const items = data.items || data.results || data.stocks || [];
+      if (!items.length) { suggestions.style.display = 'none'; return; }
+      suggestions.innerHTML = items.map(s => `
+        <div class="item" data-symbol="${s.symbol || s.code}">
+          <span class="name">${s.name || s.short_name || '?'}</span>
+          <span class="code">${s.code || s.symbol || ''}</span>
+          <span class="meta">${s.exchange || s.board || s.sector || ''}</span>
+        </div>`
+      `).join('');
+      suggestions.style.display = 'block';
+      suggestions.querySelectorAll('.item').forEach(el => {
+        el.addEventListener('click', function() {
+          const sym = this.dataset.symbol;
+          searchInput.value = '';
+          suggestions.style.display = 'none';
+          window.location.href = '/research?symbol=' + sym;
+        });
       });
-  }
-  checkHealth();
-  setInterval(checkHealth, 30000);
+    } catch(e) {
+      suggestions.style.display = 'none';
+    }
+  }, 200);
+});
 
-  // ── Clock ──
-  function updateClock() {
-    const now = new Date();
-    document.getElementById('topbar-time').textContent =
-      now.toLocaleTimeString('zh-CN', { hour12: false });
-  }
-  updateClock();
-  setInterval(updateClock, 1000);
+document.addEventListener('click', e => {
+  if (!e.target.closest('.search-box')) suggestions.style.display = 'none';
+});
+
+// ── Pulse animation (market open indicator) ──
+const style = document.createElement('style');
+style.textContent = `@keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }`;
+document.head.appendChild(style);
 </script>
+
 {% block scripts %}{% endblock %}
 </body>
 </html>
