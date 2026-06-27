@@ -88,6 +88,18 @@
   </div>
 </div>
 
+<!-- ── 决策仪表盘 (三色决策卡) ── -->
+<div class="dash-card" style="margin-bottom:12px;">
+  <div class="dash-card-title" style="display:flex;align-items:center;gap:8px;">
+    🎯 决策仪表盘
+    <span id="decision-summary" style="font-weight:400;color:#4a5a6a;font-size:10px;"></span>
+    <button class="tv-btn tv-btn-sm tv-btn-secondary" onclick="runWatchlistAnalysis()" style="margin-left:auto;">🔄 分析</button>
+  </div>
+  <div id="decision-cards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;margin-top:8px;">
+    <div class="dash-empty">点击「分析」按钮生成决策</div>
+  </div>
+</div>
+
 <!-- ── Row 1: Key Metrics ── -->
 <div class="dash-row-4" id="metrics-row">
   <div class="dash-card dash-glow-green">
@@ -936,6 +948,50 @@ async function loadSectorLeaders() {
     console.error('Sector/leader error:', e);
     sectorsEl.innerHTML = '<div class="dash-empty">⚠️ 板块接口不可用</div>';
     leadersEl.innerHTML = '<div class="dash-empty">⚠️ 龙头接口不可用</div>';
+  }
+}
+
+// ── 三色决策卡: Watchlist Technical Analysis ──
+async function runWatchlistAnalysis() {
+  const container = document.getElementById('decision-cards');
+  const summary = document.getElementById('decision-summary');
+  container.innerHTML = '<div class="dash-empty">分析中...</div>';
+  try {
+    const res = await fetch('/api/v1/analysis/watchlist', {method:'POST'});
+    if (!res.ok) throw new Error('Analysis failed (' + res.status + ')');
+    const data = await res.json();
+    // Render summary
+    const s = data.summary || {total:0,buy:0,hold:0,sell:0};
+    summary.textContent = `共${s.total}只 | 🟢买入:${s.buy} 🟡观望:${s.hold} 🔴卖出:${s.sell}`;
+    // Render cards
+    if (!data.stocks || data.stocks.length === 0) {
+      container.innerHTML = '<div class="dash-empty">暂无自选股，请先在 /watchlist 添加</div>';
+      return;
+    }
+    container.innerHTML = data.stocks.map(stk => {
+      const rating = stk.rating || 'hold';
+      const colors = {
+        buy:  {bg:'rgba(220,38,38,0.12)', border:'#dc2626', text:'#dc2626'},
+        hold: {bg:'rgba(234,179,8,0.12)',  border:'#eab308', text:'#eab308'},
+        sell: {bg:'rgba(22,163,74,0.12)',  border:'#16a34a', text:'#16a34a'},
+      };
+      const labels = {buy:'🟢 买入', hold:'🟡 观望', sell:'🔴 卖出'};
+      const c = colors[rating] || colors.hold;
+      return `<div style="background:${c.bg};border:1px solid ${c.border};border-radius:8px;padding:12px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-size:13px;font-weight:600;color:#d1d4dc;">${stk.name||stk.symbol}</span>
+          <span style="font-size:11px;color:#787b86;font-family:JetBrains Mono,monospace;">${stk.symbol}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin:8px 0;">
+          <span style="font-size:22px;font-weight:800;color:${c.text};">${labels[rating]}</span>
+          <span style="font-size:14px;font-weight:700;font-family:JetBrains Mono,monospace;color:#d1d4dc;">${stk.score||'--'}</span>
+        </div>
+        <div style="font-size:11px;color:#787b86;">￥${Number(stk.price||0).toFixed(2)} ${stk.signal||''}</div>
+        ${stk.reasons ? `<div style="font-size:10px;color:#4a5a6a;margin-top:4px;">${stk.reasons.join('; ')}</div>` : ''}
+      </div>`;
+    }).join('');
+  } catch(e) {
+    container.innerHTML = `<div class="dash-empty">⚠️ 分析失败: ${e.message}</div>`;
   }
 }
 
