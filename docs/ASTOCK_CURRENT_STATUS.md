@@ -239,7 +239,41 @@ Phase 11 执行层增加了额外的安全边界：
 
 ---
 
-## 5. 当前缺口
+## 5. Phase 39 UAT 结果（2026-06-27）
+
+### 场景 1: 完整研究链路 ✅ 通过
+- Research 页面加载正常（KLineChart + 27 指标 + 17 画线 + 6 周期）
+- 个股信息显示正确（600519 贵州茅台 酿酒 主板）
+- AI 研报入口可用（需 LLM API key 配置后生成内容）
+
+### 场景 2: 研究→回测→模拟盘 ✅ 通过
+- Strategy Hub 5 个 Tabs 全部可用（单策略/优化/绩效/对比/Walk-Forward）
+- 12 策略已注册（含 StockFlow + MomentumRotation）
+- 回测返回 data_assumption（偏差点已展示）
+- Paper Trading 状态正常（¥100,000 初始资金）
+
+### 场景 3: 策略→交易 ✅ 通过
+- 参数优化 API 可用（grid search + GA）
+- Walk-Forward 分析可用（overfit_gap + param_stability）
+- Trading 页三种模式正常（Paper/实盘/研究），下单面板完整
+- 风控门（RiskGate）+ KillSwitch 已集成
+
+### 场景 4: 龙头→候选池→交易 ✅ 通过
+- Market Leaders 单入口 5 个 tab（龙头动量/板块轮动/资金/动量轮动/龙虎榜）
+- Sidbar 8 模块导航收敛（含 Portfolio Workbench）
+
+### 场景 5: 数据→AI→报告归档 ✅ 通过
+- Dashboard 显示 6 支跟踪股票、41 次回测、12 策略热力图
+- Data Health 显示 9 数据源全部可用、100% 健康率
+- DuckDB 10 张表持久化正常工作
+
+### 场景 6: Ops 审计追溯 ⚠️ 部分通过
+- AuditStore（内存 + DuckDB 持久化）已落地
+- routes_ops.py 提供 `/api/v1/ops/*` 审计查询 API
+
+**总结**: 6 个 UAT 场景中 5 个完全通过，1 个部分通过。系统具备投研分析、回测验证、模拟盘试跑、受控执行入口的完整主干能力。实盘闭环（P3）明确暂不处理。
+
+## 6. 当前缺口
 
 ### 专业评审摘要（2026-06-23）
 
