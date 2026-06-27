@@ -42,6 +42,8 @@ from typing import Any, Dict, List, Optional, Sequence
 from .errors import AStockNoDataError, AStockSourceUnavailableError
 from .schema import AStockRequest
 from .symbols import astock_code, split_astock_symbol
+from .tdx_vipdoc import TdxVipdocReader
+from .tdx_cache import TdxCache
 
 logger = logging.getLogger(__name__)
 
@@ -149,6 +151,7 @@ class TdxProvider:
         self,
         client: Any = None,
         timeout: Optional[float] = None,
+        vipdoc_path: Optional[str] = None,
         **config: Any,
     ):
         base = _get_base_class()
@@ -172,6 +175,14 @@ class TdxProvider:
             "40.73.36.115",     # 备用
             "47.107.75.198",    # 备用
         ]
+        # VIPDOC reader for local file access
+        self._vipdoc_reader: Optional[TdxVipdocReader] = None
+        self._vipdoc_path = vipdoc_path or os.environ.get("ASTOCK_TDX_VIPDOC_PATH")
+        # Cache layer
+        self._cache: Optional[TdxCache] = None
+        self._cache_enabled = True
+        if os.environ.get("ASTOCK_TDX_CACHE_DISABLE", "").lower() in ("1", "true", "yes"):
+            self._cache_enabled = False
 
     def _unavailable(self, request: AStockRequest, detail: str = ""):
         raise AStockSourceUnavailableError(self.name, detail or "adapter not implemented", capability=request.capability)
@@ -220,6 +231,43 @@ class TdxProvider:
                 len(hosts_to_try), last_error or "unknown"
             ),
         )
+
+    def _get_vipdoc_reader(self) -> Optional[TdxVipdocReader]:
+        """Lazy-init the local vipdoc reader.
+
+        Returns ``None`` if the vipdoc path is not configured or the directory
+        does not exist, so callers can degrade gracefully.
+        """
+        if self._vipdoc_reader is not None:
+            return self._vipdoc_reader
+
+        if not self._vipdoc_path:
+            return None
+
+        try:
+            self._vipdoc_reader = TdxVipdocReader(tdx_path=self._vipdoc_path)
+            # Quick probe to verify the path is valid
+            _ = self._vipdoc_reader.base_path
+            return self._vipdoc_reader
+        except Exception as exc:
+            logger.debug("tdx_provider: vipdoc reader init skipped (%s)", exc)
+            return None
+
+    def _get_cache(self) -> Optional[TdxCache]:
+        """Lazy-init the local TDX cache layer.
+
+        Returns ``None`` if caching is disabled or init fails.
+        """
+        if not self._cache_enabled:
+            return None
+        if self._cache is not None:
+            return self._cache
+        try:
+            self._cache = TdxCache()
+            return self._cache
+        except Exception as exc:
+            logger.debug("tdx_provider: cache init skipped (%s)", exc)
+            return None
 
     def _disconnect(self) -> None:
         """Disconnect the pytdx client if connected."""
@@ -414,14 +462,88 @@ class TdxProvider:
     def get_kline(self, request: AStockRequest) -> Dict[str, Any]:
         """Fetch kline (historical bars) from TDX.
 
-        Daily: uses ``get_k_data`` (adjusted). Intraday: uses
-        ``get_minute_time_data`` / ``get_history_minute_time_data``.
+        Resolution order (daily only):
+          1. Local vipdoc file (fastest, no network)
+          2. Local cache (SQLite/CSV)
+          3. pytdx online query
+          4. Write successful online result to cache
+
+        Intraday data is fetched via pytdx online only (vipdoc minute
+        files are less commonly available in standard installations).
         """
         code = astock_code(request.symbol)
         market = _market_code(request.symbol)
         interval = (request.interval or "1d").lower()
+        is_daily = interval in ("1d", "day", "daily")
 
-        if interval in ("1d", "day", "daily"):
+        # ── Try 1: Local vipdoc file (daily only) ─────────────────────
+        if is_daily:
+            vipdoc_reader = self._get_vipdoc_reader()
+            if vipdoc_reader is not None:
+                try:
+                    logger.debug(
+                        "tdx_provider: trying vipdoc for %s %s",
+                        request.symbol, interval,
+                    )
+                    records = vipdoc_reader.read_daily_kline(request.symbol)
+                    # Filter by date range if specified
+                    from .tdx_vipdoc import _filter_by_date_range as _vipdoc_filter
+                    if request.start_date or request.end_date:
+                        records = _vipdoc_filter(
+                            records, request.start_date or "", request.end_date or ""
+                        )
+                    if records:
+                        result = {
+                            "bars": records,
+                            "count": len(records),
+                            "symbol": request.symbol,
+                            "interval": interval,
+                            "source": "tdx_vipdoc",
+                        }
+                        logger.info(
+                            "tdx_provider: vipdoc hit for %s (%d bars)",
+                            request.symbol, len(records),
+                        )
+                        return result
+                except (AStockNoDataError, AStockSourceUnavailableError) as exc:
+                    logger.debug(
+                        "tdx_provider: vipdoc miss for %s — %s",
+                        request.symbol, exc,
+                    )
+                except Exception as exc:
+                    logger.debug(
+                        "tdx_provider: vipdoc error for %s — %s",
+                        request.symbol, exc,
+                    )
+
+        # ── Try 2: Local cache ────────────────────────────────────────
+        cache = self._get_cache()
+        if cache is not None:
+            try:
+                cached_data = cache.get(request.symbol, "kline", interval)
+                if cached_data is not None:
+                    # Strip _meta before returning
+                    meta = cached_data.pop("_meta", None)
+                    source_label = (meta or {}).get("source", "cache")
+                    bars = cached_data.get("bars", [])
+                    if bars:
+                        logger.info(
+                            "tdx_provider: cache hit for %s %s (%d bars, source=%s)",
+                            request.symbol, interval, len(bars), source_label,
+                        )
+                        return {
+                            "bars": bars,
+                            "count": len(bars),
+                            "symbol": request.symbol,
+                            "interval": interval,
+                            "source": source_label,
+                            "cached": True,
+                        }
+            except Exception as exc:
+                logger.debug("tdx_provider: cache read error — %s", exc)
+
+        # ── Try 3: pytdx online query ─────────────────────────────────
+        if is_daily:
             start_date = request.start_date or ""
             end_date = request.end_date or ""
             raw = self._call(
@@ -433,7 +555,22 @@ class TdxProvider:
                 end=end_date,
                 adjust="qfq",  # 前复权
             )
-            return self._parse_tdx_bars(raw, request)
+            result = self._parse_tdx_bars(raw, request)
+
+            # Write to cache after successful online fetch
+            if cache is not None:
+                try:
+                    cache.set(
+                        request.symbol, "kline", interval, result, source="tdx_pytdx"
+                    )
+                    logger.debug(
+                        "tdx_provider: cached online result for %s %s",
+                        request.symbol, interval,
+                    )
+                except Exception as exc:
+                    logger.debug("tdx_provider: cache write error — %s", exc)
+
+            return result
 
         # Intraday
         date_str = (request.end_date or datetime.now().strftime("%Y-%m-%d")).replace("-", "")
@@ -465,9 +602,29 @@ class TdxProvider:
                     end=request.end_date or "",
                     adjust="qfq",
                 )
-                return self._parse_tdx_bars(raw, request)
+                result = self._parse_tdx_bars(raw, request)
+                # Also cache the fallback daily result
+                if cache is not None:
+                    try:
+                        cache.set(
+                            request.symbol, "kline", "1d", result, source="tdx_pytdx"
+                        )
+                    except Exception:
+                        pass
+                return result
 
-        return self._parse_tdx_bars(raw, request)
+        result = self._parse_tdx_bars(raw, request)
+
+        # Cache intraday results too
+        if cache is not None:
+            try:
+                cache.set(
+                    request.symbol, "kline", interval, result, source="tdx_pytdx"
+                )
+            except Exception:
+                pass
+
+        return result
 
     def get_order_book(self, request: AStockRequest) -> Dict[str, Any]:
         """Fetch real-time snapshot / 盘口 from TDX."""
@@ -500,10 +657,268 @@ class TdxProvider:
         )
         return self._parse_transactions(raw, request)
 
-    # ── Stub methods required by router dispatch ─────────────────────
+    # ── Capability methods: valuation / price_limit / f10 / fundamentals ──
 
     def get_valuation(self, request: AStockRequest):
-        return self._unavailable(request, "valuation not supported via TDX")
+        """Fetch PE, PB, market cap from TDX via get_security_quotes."""
+        code = astock_code(request.symbol)
+        market = _market_code(request.symbol)
+        raw = self._call(request, "get_security_quotes", codes=[(market, code)])
+        if isinstance(raw, (list, tuple)) and len(raw) > 0:
+            row = raw[0]
+        else:
+            row = raw
+
+        last_close = _coerce_float(_first_non_null(row, ("last_close",)))
+        capitalization = _coerce_float(_first_non_null(row, ("capitalization",)))
+        flow_capitalization = _coerce_float(_first_non_null(row, ("flow_capitalization",)))
+
+        market_cap = capitalization * last_close if capitalization and last_close else None
+        float_cap = flow_capitalization * last_close if flow_capitalization and last_close else None
+
+        return {
+            "symbol": request.symbol,
+            "pe": _coerce_float(_first_non_null(row, ("pe",))),
+            "pb": _coerce_float(_first_non_null(row, ("pb",))),
+            "market_cap": market_cap,
+            "float_cap": float_cap,
+            "capitalization": capitalization,
+            "flow_capitalization": flow_capitalization,
+            "last_close": last_close,
+        }
+
+    def get_price_limit_status(self, request: AStockRequest):
+        """Fetch 涨跌停 prices from TDX via get_security_quotes."""
+        code = astock_code(request.symbol)
+        market = _market_code(request.symbol)
+        raw = self._call(request, "get_security_quotes", codes=[(market, code)])
+        if isinstance(raw, (list, tuple)) and len(raw) > 0:
+            row = raw[0]
+        else:
+            row = raw
+
+        up_price = _coerce_float(_first_non_null(row, ("up_limit",)))
+        down_price = _coerce_float(_first_non_null(row, ("down_limit",)))
+        price = _coerce_float(_first_non_null(row, ("price", "last_close", "close")))
+
+        return {
+            "symbol": request.symbol,
+            "up_price": up_price,
+            "down_price": down_price,
+            "is_limit_up": price is not None and up_price is not None and price >= up_price,
+            "is_limit_down": price is not None and down_price is not None and price <= down_price,
+            "price": price,
+        }
+
+    def get_f10(self, request: AStockRequest):
+        """Fetch F10 company profile via pytdx get_company_info_Ex + get_finance_info."""
+        code = astock_code(request.symbol)
+        market = _market_code(request.symbol)
+
+        company_info = self._call(request, "get_company_info_Ex", market=market, code=code)
+        finance_info = self._call(request, "get_finance_info", market=market, code=code)
+
+        result: Dict[str, Any] = {"symbol": request.symbol, "code": code}
+
+        if company_info:
+            crow = company_info[0] if isinstance(company_info, (list, tuple)) and len(company_info) > 0 else company_info
+            result["company_name"] = _first_non_null(crow, ("name", "company_name", "zqmc"), "")
+            result["listing_date"] = _first_non_null(crow, ("listing_date", "ssrq"), "")
+            result["industry"] = _first_non_null(crow, ("industry", "hy"), "")
+            result["business_scope"] = _first_non_null(crow, ("business_scope", "jyfw"), "")
+            result["total_shares"] = _coerce_float(_first_non_null(crow, ("total_shares", "zgb")))
+
+        if finance_info:
+            frow = finance_info[0] if isinstance(finance_info, (list, tuple)) and len(finance_info) > 0 else finance_info
+            result["eps"] = _coerce_float(_first_non_null(frow, ("eps", "meigu")))
+            result["net_asset_per_share"] = _coerce_float(_first_non_null(frow, ("net_asset_per_share", "jingzichan")))
+            result["total_equity"] = _coerce_float(_first_non_null(frow, ("total_equity", "jingli", "gudong")))
+            result["total_revenue"] = _coerce_float(_first_non_null(frow, ("total_revenue", "shouyi")))
+            result["net_profit"] = _coerce_float(_first_non_null(frow, ("net_profit", "jinglilirun")))
+            result["operating_revenue"] = _coerce_float(_first_non_null(frow, ("operating_revenue", "zhuyinglirun")))
+
+        return result
+
+    def get_fundamentals(self, request: AStockRequest):
+        """Fetch fundamental indicators via pytdx get_finance_info."""
+        code = astock_code(request.symbol)
+        market = _market_code(request.symbol)
+
+        raw = self._call(request, "get_finance_info", market=market, code=code)
+        if isinstance(raw, (list, tuple)) and len(raw) > 0:
+            row = raw[0]
+        else:
+            row = raw
+
+        return {
+            "symbol": request.symbol,
+            "eps": _coerce_float(_first_non_null(row, ("eps", "meigu"))),
+            "net_asset_per_share": _coerce_float(_first_non_null(row, ("net_asset_per_share", "jingzichan"))),
+            "total_equity": _coerce_float(_first_non_null(row, ("total_equity", "jingli", "gudong"))),
+            "total_revenue": _coerce_float(_first_non_null(row, ("total_revenue", "shouyi"))),
+            "net_profit": _coerce_float(_first_non_null(row, ("net_profit", "jinglilirun"))),
+            "total_shares": _coerce_float(_first_non_null(row, ("total_shares", "zongguben"))),
+            "current_assets": _coerce_float(_first_non_null(row, ("current_assets", "liudong"))),
+            "total_liabilities": _coerce_float(_first_non_null(row, ("total_liabilities", "fuzhai"))),
+            "investment_income": _coerce_float(_first_non_null(row, ("investment_income", "touzishouyi"))),
+            "operating_profit": _coerce_float(_first_non_null(row, ("operating_profit", "yingyeshang"))),
+        }
+
+    def get_quarterly_financials(self, request: AStockRequest):
+        """Fetch quarterly financial data via pytdx get_finance_info."""
+        code = astock_code(request.symbol)
+        market = _market_code(request.symbol)
+
+        raw = self._call(request, "get_finance_info", market=market, code=code)
+        if isinstance(raw, (list, tuple)) and len(raw) > 0:
+            row = raw[0]
+        else:
+            row = raw
+
+        return {
+            "symbol": request.symbol,
+            "total_revenue": _coerce_float(_first_non_null(row, ("total_revenue", "shouyi"))),
+            "net_profit": _coerce_float(_first_non_null(row, ("net_profit", "jinglilirun"))),
+            "operating_revenue": _coerce_float(_first_non_null(row, ("operating_revenue", "zhuyinglirun"))),
+            "investment_income": _coerce_float(_first_non_null(row, ("investment_income", "touzishouyi"))),
+            "total_assets": _coerce_float(_first_non_null(row, ("total_assets", "zichanghd"))),
+            "total_equity": _coerce_float(_first_non_null(row, ("total_equity", "jingli"))),
+            "total_liabilities": _coerce_float(_first_non_null(row, ("total_liabilities", "fuzhai"))),
+            "eps": _coerce_float(_first_non_null(row, ("eps", "meigu"))),
+            "retained_earnings": _coerce_float(_first_non_null(row, ("retained_earnings", "baoliu1"))),
+        }
+
+    # ── Announcement / news via pytdx ────────────────────────────────
+
+    def get_announcement_full(self, request: AStockRequest):
+        """Fetch full announcements/news via pytdx get_company_news_content."""
+        code = astock_code(request.symbol)
+        market = _market_code(request.symbol)
+
+        news_count = self._call(request, "get_company_news_count", market=market, code=code)
+        total = (
+            _coerce_int(news_count)
+            if not isinstance(news_count, (list, tuple))
+            else _coerce_int(news_count[0]) if news_count else 0
+        ) or 0
+
+        page = request.page or 1
+        limit = request.limit or 20
+
+        news_content = self._call(
+            request, "get_company_news_content", market=market, code=code, page=page, count=limit
+        )
+
+        items: List[Dict[str, Any]] = []
+        if news_content:
+            rows = news_content if isinstance(news_content, (list, tuple)) else [news_content]
+            for row in rows:
+                if not row:
+                    continue
+                items.append({
+                    "title": _first_non_null(row, ("title",), ""),
+                    "date": _first_non_null(row, ("datetime", "date"), ""),
+                    "content": _first_non_null(row, ("content",), ""),
+                    "url": _first_non_null(row, ("url",), ""),
+                })
+
+        return {"items": items, "count": len(items), "total": total or len(items)}
+
+    def get_announcement_summary(self, request: AStockRequest):
+        """Fetch announcement summary/news headlines via pytdx."""
+        code = astock_code(request.symbol)
+        market = _market_code(request.symbol)
+
+        news_count = self._call(request, "get_company_news_count", market=market, code=code)
+        total = (
+            _coerce_int(news_count)
+            if not isinstance(news_count, (list, tuple))
+            else _coerce_int(news_count[0]) if news_count else 0
+        ) or 0
+
+        page = request.page or 1
+        limit = request.limit or 20
+
+        news_content = self._call(
+            request, "get_company_news_content", market=market, code=code, page=page, count=limit
+        )
+
+        items: List[Dict[str, Any]] = []
+        if news_content:
+            rows = news_content if isinstance(news_content, (list, tuple)) else [news_content]
+            for row in rows:
+                if not row:
+                    continue
+                content = _first_non_null(row, ("content",), "")
+                items.append({
+                    "title": _first_non_null(row, ("title",), ""),
+                    "date": _first_non_null(row, ("datetime", "date"), ""),
+                    "summary": content[:200] if content else "",
+                })
+
+        return {"items": items, "count": len(items), "total": total or len(items)}
+
+    # ── Index / market summary ───────────────────────────────────────
+
+    def get_market_summary(self, request: AStockRequest):
+        """Fetch major index summaries via pytdx get_security_quotes."""
+        indices = [
+            (1, "000001"),  # 上证指数
+            (0, "399001"),  # 深证成指
+            (0, "399300"),  # 沪深300
+            (0, "399006"),  # 创业板指
+        ]
+
+        raw = self._call(request, "get_security_quotes", codes=indices)
+
+        items: List[Dict[str, Any]] = []
+        if raw:
+            for row in raw if isinstance(raw, (list, tuple)) else [raw]:
+                if not row:
+                    continue
+                name = _first_non_null(row, ("name",), "")
+                price = _coerce_float(_first_non_null(row, ("price",)))
+                last_close = _coerce_float(_first_non_null(row, ("last_close",)))
+                change_pct = (
+                    round((price - last_close) / last_close * 100, 2)
+                    if price is not None and last_close is not None and last_close != 0
+                    else None
+                )
+                items.append({
+                    "code": _first_non_null(row, ("code",), ""),
+                    "name": name,
+                    "price": price,
+                    "change_pct": change_pct,
+                    "open": _coerce_float(_first_non_null(row, ("open",))),
+                    "high": _coerce_float(_first_non_null(row, ("high",))),
+                    "low": _coerce_float(_first_non_null(row, ("low",))),
+                    "volume": _coerce_float(_first_non_null(row, ("vol", "volume"))),
+                    "amount": _coerce_float(_first_non_null(row, ("amount",))),
+                })
+
+        return {"items": items, "count": len(items)}
+
+    # ── Sector / industry data ───────────────────────────────────────
+
+    def get_sector_data(self, request: AStockRequest):
+        """Fetch sector/industry list via pytdx get_and_parse_block_info."""
+        raw = self._call(request, "get_and_parse_block_info")
+
+        items: List[Dict[str, Any]] = []
+        if raw:
+            for row in raw if isinstance(raw, (list, tuple)) else [raw]:
+                if not row:
+                    continue
+                items.append({
+                    "sector_code": _first_non_null(row, ("code", "block_code"), ""),
+                    "sector_name": _first_non_null(row, ("name", "block_name"), ""),
+                    "sector_type": _first_non_null(row, ("type", "block_type"), ""),
+                })
+
+        return {"items": items, "count": len(items)}
+
+    # ── Stub methods — TDX can't provide these, keep as _unavailable ─
+    # (research, news, etc.)
 
     def get_research_list(self, request: AStockRequest):
         return self._unavailable(request, "research not supported via TDX")
@@ -525,24 +940,6 @@ class TdxProvider:
 
     def get_global_news(self, request: AStockRequest):
         return self._unavailable(request, "news not supported via TDX")
-
-    def get_quarterly_financials(self, request: AStockRequest):
-        return self._unavailable(request, "financials not supported via TDX")
-
-    def get_f10(self, request: AStockRequest):
-        return self._unavailable(request, "F10 not supported via TDX")
-
-    def get_fundamentals(self, request: AStockRequest):
-        return self._unavailable(request, "fundamentals not supported via TDX")
-
-    def get_announcement_full(self, request: AStockRequest):
-        return self._unavailable(request, "announcements not supported via TDX")
-
-    def get_announcement_summary(self, request: AStockRequest):
-        return self._unavailable(request, "announcements not supported via TDX")
-
-    def get_price_limit_status(self, request: AStockRequest):
-        return self._unavailable(request, "price limit not supported via TDX")
 
     # ── Cleanup ──────────────────────────────────────────────────────
 

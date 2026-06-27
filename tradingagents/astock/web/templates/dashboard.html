@@ -602,12 +602,17 @@ async function loadMarketSummary() {
         const idx = r.value;
         const d = idx.data;
         const price = d.latest_price || 0;
-        // For change%, we can compute from pe/pb or just show level
-        // Market summary doesn't have change% directly, so we show level only
+        const source = d.source || '';
+        const updatedAt = d.updated_at || '';
+        // Show source tag if provider info is available
+        const sourceTag = source
+          ? `<span class="source-tag" style="font-size:9px;color:#4a5a6a;margin-top:2px;display:inline-block;">来源: ${source}</span>`
+          : '';
         html += `<div class="idx-card">
           <div>
             <div class="idx-name">${idx.name}</div>
             <div class="idx-price" style="color:#d1d4dc;">${isFinite(price) ? price.toLocaleString('zh-CN', {minimumFractionDigits:2,maximumFractionDigits:2}) : '--'}</div>
+            ${sourceTag}
           </div>
         </div>`;
         okCount++;

@@ -19,6 +19,8 @@ from .adapters import (
     build_default_adapters,
 )
 from .tdx_provider import TdxProvider
+from .tdx_vipdoc import TdxVipdocReader, create_vipdoc_reader
+from .tdx_cache import TdxCache
 from .cache import AStockCachePolicy, FileAStockCache, InMemoryAStockCache
 from .errors import AStockDataError, AStockNoDataError, AStockRouteNote, AStockSchemaError, AStockSourceUnavailableError
 from .quality import DataQualityTag, FreshnessInfo, DataQualityMetadata
@@ -62,6 +64,9 @@ __all__ = [
     "PROVIDER_ENV_VARS",
     "QMTAdapter",
     "TdxProvider",
+    "TdxVipdocReader",
+    "create_vipdoc_reader",
+    "TdxCache",
     "TencentFinanceAdapter",
     "build_default_adapters",
     "AStockCachePolicy",

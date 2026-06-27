@@ -21,13 +21,13 @@ DEFAULT_ELIMINATED_SOURCES = frozenset(("tushare", "ashare"))
 
 DEFAULT_ROUTE_POLICY = {
     # 行情层
-    "kline": ("baostock", "mootdx", "tdx", "tencent", "akshare", "qmt"),
-    "order_book": ("mootdx", "tdx", "tencent", "qmt"),
-    "trade_tape": ("mootdx", "tdx", "tencent", "qmt"),
-    "valuation": ("tencent", "akshare", "mootdx"),
-    "pe_pb": ("tencent", "akshare", "mootdx"),
-    "market_cap": ("tencent", "akshare", "mootdx"),
-    "turnover_rate": ("tencent", "akshare", "mootdx"),
+    "kline": ("tdx", "baostock", "mootdx", "tencent", "akshare", "qmt"),
+    "order_book": ("tdx", "mootdx", "tencent", "qmt"),
+    "trade_tape": ("tdx", "mootdx", "tencent", "qmt"),
+    "valuation": ("tdx", "tencent", "akshare", "mootdx"),
+    "pe_pb": ("tdx", "tencent", "akshare", "mootdx"),
+    "market_cap": ("tdx", "tencent", "akshare", "mootdx"),
+    "turnover_rate": ("tdx", "tencent", "akshare", "mootdx"),
     # 研报层
     "research_list": ("iwencai", "akshare"),
     "download_research_pdf": ("iwencai", "akshare"),
@@ -38,14 +38,18 @@ DEFAULT_ROUTE_POLICY = {
     "flash_news": ("akshare", "tencent"),
     "global_news": ("akshare", "tencent"),
     # 涨跌停层
-    "price_limit": ("akshare", "eastmoney"),
+    "price_limit": ("tdx", "akshare", "eastmoney"),
     # 基础数据层
-    "quarterly_financials": ("akshare", "mootdx"),
-    "f10": ("mootdx", "akshare"),
-    "fundamentals": ("akshare", "mootdx"),
+    "quarterly_financials": ("tdx", "akshare", "mootdx"),
+    "f10": ("tdx", "mootdx", "akshare"),
+    "fundamentals": ("tdx", "akshare", "mootdx"),
     # 公告层
-    "announcement_full": ("cninfo", "mootdx"),
-    "announcement_summary": ("cninfo", "mootdx"),
+    "announcement_full": ("tdx", "cninfo", "mootdx"),
+    "announcement_summary": ("tdx", "cninfo", "mootdx"),
+    # 大盘/指数层
+    "market_summary": ("tdx", "tencent", "akshare"),
+    # 板块层
+    "sector": ("tdx", "akshare"),
 }
 
 CAPABILITY_TO_METHOD = {
@@ -69,6 +73,8 @@ CAPABILITY_TO_METHOD = {
     "fundamentals": "get_fundamentals",
     "announcement_full": "get_announcement_full",
     "announcement_summary": "get_announcement_summary",
+    "market_summary": "get_market_summary",
+    "sector": "get_sector_data",
 }
 
 HISTORY_CAPABILITIES = frozenset(("kline",))
@@ -479,6 +485,12 @@ class AStockDataRouter(object):
     def get_price_limit_status(self, symbol: str, **kwargs: Any) -> AStockResponse:
         return self.query("price_limit", symbol, **kwargs)
 
+    def get_market_summary(self, symbol: str = "000001.SH", **kwargs: Any) -> AStockResponse:
+        return self.query("market_summary", symbol, **kwargs)
+
+    def get_sector_data(self, symbol: str = "all", **kwargs: Any) -> AStockResponse:
+        return self.query("sector", symbol, **kwargs)
+
 
 class AStockDataFacade(object):
     """Thin convenience wrapper that keeps the upper layers router-agnostic."""
@@ -548,3 +560,9 @@ class AStockDataFacade(object):
 
     def get_price_limit_status(self, symbol: str, **kwargs: Any) -> AStockResponse:
         return self.router.get_price_limit_status(symbol, **kwargs)
+
+    def get_market_summary(self, symbol: str = "000001.SH", **kwargs: Any) -> AStockResponse:
+        return self.router.get_market_summary(symbol, **kwargs)
+
+    def get_sector_data(self, symbol: str = "all", **kwargs: Any) -> AStockResponse:
+        return self.router.get_sector_data(symbol, **kwargs)

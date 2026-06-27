@@ -81,6 +81,7 @@ def data_health() -> tuple[Response, int]:
             QMTAdapter,
             TencentFinanceAdapter,
         )
+        from tradingagents.astock.data_sources.tdx_provider import TdxProvider
 
         adapter_classes = [
             ("Akshare (akshare)", AkshareAdapter),
@@ -89,6 +90,7 @@ def data_health() -> tuple[Response, int]:
             ("Iwencai (iwencai)", IwencaiAdapter),
             ("Mootdx (通达信)", MootdxAdapter),
             ("QMT", QMTAdapter),
+            ("TDX (通达信在线)", TdxProvider),
             ("Tencent Finance", TencentFinanceAdapter),
         ]
     except ImportError:
