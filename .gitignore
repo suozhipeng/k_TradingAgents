@@ -133,6 +133,9 @@ celerybeat.pid
 
 # Redis
 *.rdb
+
+# DuckDB binary database files
+*.duckdb
 *.aof
 *.pid
 

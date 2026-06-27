@@ -48,7 +48,145 @@ app = typer.Typer(
     name="TradingAgents",
     help="TradingAgents CLI: Multi-Agents LLM Financial Trading Framework",
     add_completion=True,  # Enable shell completion
+    rich_markup_mode="rich",
 )
+
+# ── CLI Startup Banner ──
+def _show_banner():
+    """Display a professional ASCII banner for the CLI."""
+    banner = Panel(
+        Text.from_markup("""
+[bold #2962FF]┌──────────────────────────────────────────────┐[/]
+[bold #2962FF]│[/]  [bold white]AStock Pro · 量化交易终端[/]             [bold #2962FF]│[/]
+[bold #2962FF]│[/]  [dim]Multi-Agent LLM Financial Trading Platform[/]  [bold #2962FF]│[/]
+[bold #2962FF]├──────────────────────────────────────────────┤[/]
+[bold #2962FF]│[/]  [green]●[/] [bold]Trading[/bold]  |  [blue]●[/] [bold]Research[/bold]  |  [yellow]●[/] [bold]Risk[/bold]  [bold #2962FF]│[/]
+[bold #2962FF]│[/]  [dim]Agent-driven Quantitative Framework[/]        [bold #2962FF]│[/]
+[bold #2962FF]├──────────────────────────────────────────────┤[/]
+[bold #2962FF]│[/]  WebUI: [underline #2962FF]http://localhost:5001[/]         [bold #2962FF]│[/]
+[bold #2962FF]│[/]  Help:  [italic]tradingagents --help[/]                 [bold #2962FF]│[/]
+[bold #2962FF]├──────────────────────────────────────────────┤[/]
+[bold #2962FF]│[/]  [dim]Commands:[/]                                      [bold #2962FF]│[/]
+[bold #2962FF]│[/]  [bold]research[/bold]  — AI-driven multi-agent analysis  [bold #2962FF]│[/]
+[bold #2962FF]│[/]  [bold]analyze[/bold]   — Quick stock analysis           [bold #2962FF]│[/]
+[bold #2962FF]│[/]  [bold]webui[/bold]     — Launch WebUI dashboard         [bold #2962FF]│[/]
+[bold #2962FF]│[/]  [bold]backtest[/bold]  — Run strategy backtest          [bold #2962FF]│[/]
+[bold #2962FF]└──────────────────────────────────────────────┘[/]"""),
+        border_style="#1e2a3a",
+        padding=(0, 1),
+    )
+    console.print(banner)
+
+
+# ── WebUI Launcher ──
+@app.command()
+def webui(
+    port: int = typer.Option(5001, "--port", "-p", help="WebUI port number"),
+    open_browser: bool = typer.Option(False, "--open", "-o", help="Open browser automatically"),
+):
+    """🚀 Launch AStock Pro WebUI dashboard."""
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    repo = Path(__file__).resolve().parent.parent
+    webui_script = repo / "run_webui.py"
+
+    if not webui_script.exists():
+        console.print("[red]✗ run_webui.py not found[/red]")
+        raise typer.Exit(1)
+
+    console.print(f"[bold #2962FF]🚀 Starting AStock Pro WebUI on port {port}...[/]")
+    console.print(f"[dim]   Dashboard: http://localhost:{port}[/]")
+    if open_browser:
+        import webbrowser
+        webbrowser.open(f"http://localhost:{port}")
+
+    env = os.environ.copy()
+    env["PORT"] = str(port)
+    try:
+        subprocess.run(
+            [sys.executable, str(webui_script)],
+            env=env,
+            cwd=str(repo),
+        )
+    except KeyboardInterrupt:
+        console.print("\n[yellow]WebUI stopped.[/]")
+
+
+# ── Quick Backtest Command ──
+@app.command()
+def backtest(
+    symbol: str = typer.Argument(..., help="Stock symbol (e.g. 600519.SH)"),
+    strategy: str = typer.Option("MovingAverageTrend", "--strategy", "-s", help="Strategy name"),
+    start: str = typer.Option("2024-01-01", "--start", help="Start date"),
+    end: str = typer.Option("2025-12-31", "--end", help="End date"),
+    json_output: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
+):
+    """📊 Run a quick backtest and show results."""
+    import json as json_lib
+
+    try:
+        from modules.backtest_engine import (
+            create_strategy, run_backtest_pipeline, PipelineParams,
+        )
+    except ImportError:
+        console.print("[red]✗ backtest_engine module not found. Run from project root.[/red]")
+        raise typer.Exit(1)
+
+    with console.status(f"[blue]Running {strategy} on {symbol}..."):
+        try:
+            params = PipelineParams(
+                symbol=symbol,
+                strategy_name=strategy,
+                start_date=start,
+                end_date=end,
+                strategy_config={},
+            )
+            result = run_backtest_pipeline(params)
+        except Exception as e:
+            console.print(f"[red]✗ Backtest failed: {e}[/red]")
+            raise typer.Exit(1)
+
+    m = result.metrics
+    if json_output:
+        console.print(json_lib.dumps({
+            "symbol": symbol,
+            "strategy": strategy,
+            "total_return": m.total_return,
+            "annualized_return": m.annualized_return,
+            "sharpe_ratio": m.sharpe_ratio,
+            "max_drawdown": m.max_drawdown,
+            "win_rate": m.win_rate,
+            "total_trades": m.total_trades,
+        }, indent=2))
+        return
+
+    table = Table(title=f"[bold]{strategy}[/] on {symbol}", box=box.MINIMAL_HEAVY_HEAD)
+    table.add_column("Metric", style="#787b86")
+    table.add_column("Value", style="#d1d4dc", justify="right")
+
+    def fmt_pct(v):
+        if v is None: return "--"
+        v = float(v)
+        color = "#089981" if v >= 0 else "#f23645"
+        return f"[{color}]{v*100:+.2f}%[/]"
+
+    def fmt_num(v, decimals=2):
+        if v is None: return "--"
+        return f"{float(v):.{decimals}f}"
+
+    table.add_row("总收益 Total Return", fmt_pct(m.total_return))
+    table.add_row("年化 Annualized Return", fmt_pct(m.annualized_return))
+    table.add_row("夏普 Sharpe Ratio", fmt_num(m.sharpe_ratio))
+    table.add_row("最大回撤 Max Drawdown", f"[#f23645]{fmt_pct(m.max_drawdown)}[/]")
+    table.add_row("胜率 Win Rate", fmt_pct(m.win_rate))
+    table.add_row("交易次数 Total Trades", str(m.total_trades or 0))
+    table.add_row("周期 Num Periods", str(getattr(m, 'num_periods', '--')))
+
+    console.print()
+    console.print(table)
+    console.print(f"[dim]Period: {start} → {end}  |  {symbol}[/]")
 
 
 # Create a deque to store recent messages with a maximum length
@@ -1568,4 +1706,5 @@ def astock_blueprint():
 
 
 if __name__ == "__main__":
+    _show_banner()
     app()

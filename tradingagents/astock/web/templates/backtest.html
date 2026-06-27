@@ -1,0 +1,1299 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>三位一体策略研究控制台 — AStock Pro</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            tv: { bg: '#131722', surface: '#1c2030', card: '#2a2e39', border: '#2a2e39', hover: '#363a45', blue: '#2962FF', green: '#16a34a', red: '#dc2626', orange: '#ff9800', text: '#d1d4dc', muted: '#787b86' },
+          },
+          fontFamily: { sans: ['Inter', '-apple-system', 'sans-serif'], mono: ['JetBrains Mono', 'monospace'] },
+        }
+      }
+    }
+  </script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      background: #131722; color: #d1d4dc; -webkit-font-smoothing: antialiased;
+      height: 100vh; overflow: hidden;
+    }
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #363a45; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #4a4e5a; }
+    ::selection { background: rgba(41,98,255,0.3); }
+
+    /* ── Layout ── */
+    .bt-layout { display: flex; height: 100vh; overflow: hidden; }
+
+    /* ── Sidebar (left) ── */
+    .bt-sidebar {
+      width: 300px; min-width: 300px; height: 100vh; overflow-y: auto; overflow-x: hidden;
+      background: #1c2030; border-right: 1px solid #2a2e39; padding: 12px;
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .bt-sidebar::-webkit-scrollbar { width: 4px; }
+    .bt-sidebar::-webkit-scrollbar-thumb { background: #2a2e39; border-radius: 2px; }
+
+    /* ── Main view ── */
+    .bt-main { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
+
+    /* ── Trade log (right) ── */
+    .bt-log {
+      width: 340px; min-width: 340px; height: 100vh; overflow-y: auto; overflow-x: hidden;
+      background: #1c2030; border-left: 1px solid #2a2e39; padding: 4px;
+      font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    }
+    .bt-log::-webkit-scrollbar { width: 4px; }
+    .bt-log::-webkit-scrollbar-thumb { background: #2a2e39; border-radius: 2px; }
+
+    /* ── Sidebar components ── */
+    .bt-sidebar-title {
+      font-size: 12px; font-weight: 700; color: #d1d4dc; letter-spacing: 0.3px;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .bt-field { margin-bottom: 6px; }
+    .bt-field label {
+      display: block; font-size: 10px; color: #787b86; margin-bottom: 2px;
+      text-transform: uppercase; letter-spacing: 0.4px;
+    }
+    .tv-input {
+      width: 100%; padding: 6px 8px; font-size: 12px; font-family: 'JetBrains Mono', monospace;
+      background: #131722; border: 1px solid #2a2e39; border-radius: 4px;
+      color: #d1d4dc; outline: none; transition: border .15s;
+    }
+    .tv-input:focus { border-color: #2962FF; }
+    .tv-input-sm { font-size: 11px; padding: 4px 6px; }
+    .tv-btn {
+      padding: 7px 14px; font-size: 12px; font-weight: 600; border: none; border-radius: 4px;
+      cursor: pointer; transition: all .15s; color: #fff;
+    }
+    .tv-btn-primary { background: #2962FF; }
+    .tv-btn-primary:hover { background: #1a4fdb; }
+    .tv-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    .tv-btn-sm { padding: 4px 10px; font-size: 11px; }
+
+    /* ── Risk gate collapsible ── */
+    .bt-risk-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 6px 0; cursor: pointer; user-select: none;
+      font-size: 11px; font-weight: 600; color: #d1d4dc;
+    }
+    .bt-risk-header:hover { color: #2962FF; }
+    .bt-risk-body { padding: 4px 0 6px 8px; display: none; }
+    .bt-risk-body.open { display: block; }
+    .bt-risk-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; font-size: 11px; }
+    .bt-risk-row input[type="checkbox"] { accent-color: #2962FF; width: 13px; height: 13px; cursor: pointer; }
+    .bt-risk-row input[type="radio"] { accent-color: #2962FF; width: 13px; height: 13px; cursor: pointer; }
+    .bt-risk-arrow { transition: transform .2s; display: inline-block; font-size: 10px; }
+    .bt-risk-arrow.open { transform: rotate(90deg); }
+
+    /* ── Strategy mode ── */
+    .bt-strat-toggle {
+      display: flex; gap: 0; margin-bottom: 6px; border-radius: 4px; overflow: hidden;
+    }
+    .bt-strat-toggle button {
+      flex: 1; padding: 4px 8px; font-size: 10px; font-weight: 600;
+      border: 1px solid #2a2e39; cursor: pointer; transition: all .12s;
+      background: #131722; color: #787b86;
+    }
+    .bt-strat-toggle button.active { background: #2962FF; color: #fff; border-color: #2962FF; }
+    .bt-strat-toggle button:first-child { border-radius: 4px 0 0 4px; }
+    .bt-strat-toggle button:last-child { border-radius: 0 4px 4px 0; }
+
+    /* ── Strategy selector ── */
+    #bt-strat-single-wrap { display: block; }
+    #bt-strat-multi-wrap { display: none; }
+    .bt-strat-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 2px;
+      max-height: 180px; overflow-y: auto; margin-bottom: 6px;
+    }
+    .bt-strat-grid::-webkit-scrollbar { width: 4px; }
+    .bt-strat-grid::-webkit-scrollbar-thumb { background: #2a2e39; border-radius: 2px; }
+    .bt-strat-item {
+      display: flex; align-items: center; gap: 4px; padding: 2px 5px;
+      border-radius: 3px; cursor: pointer; transition: background .12s;
+      font-size: 10px; color: #d1d4dc;
+    }
+    .bt-strat-item:hover { background: #2a2e39; }
+    .bt-strat-item input { accent-color: #2962FF; width: 11px; height: 11px; cursor: pointer; }
+
+    /* ── Action buttons ── */
+    .bt-actions { display: flex; gap: 6px; margin-top: 4px; }
+    .bt-actions button { flex: 1; }
+
+    /* ── Status bar ── */
+    .bt-status { font-size: 10px; color: #787b86; margin-top: 4px; min-height: 1.2em; padding: 2px 0; }
+
+    /* ── Tabs ── */
+    .bt-tabs {
+      display: flex; gap: 0; background: #1c2030; border-bottom: 1px solid #2a2e39;
+      flex-shrink: 0;
+    }
+    .bt-tab {
+      padding: 8px 16px; font-size: 12px; font-weight: 600; cursor: pointer;
+      transition: all .15s; color: #787b86; border-bottom: 2px solid transparent;
+      user-select: none;
+    }
+    .bt-tab:hover { color: #d1d4dc; background: #2a2e39; }
+    .bt-tab.active { color: #2962FF; border-bottom-color: #2962FF; }
+    .bt-panels { flex: 1; position: relative; overflow: hidden; }
+    .bt-panel {
+      display: none; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+      padding: 8px; overflow: auto;
+    }
+    .bt-panel.active { display: block; }
+
+    /* ── Chart containers ── */
+    .bt-chart-box { width: 100%; height: 48%; margin-bottom: 4px; }
+    .bt-chart-full { width: 100%; height: 100%; }
+    .bt-chart-half { width: 100%; height: 50%; }
+
+    /* ── Comparison ── */
+    .bt-comp-chart { width: 100%; height: 55%; }
+    .bt-comp-table-wrap { width: 100%; height: 42%; margin-top: 8px; overflow: auto; }
+
+    /* ── Trade log items ── */
+    .bt-log-entry {
+      padding: 3px 2px; border-bottom: 1px solid #2a2e39; cursor: pointer;
+      transition: background .12s; display: flex; gap: 4px; align-items: baseline;
+      line-height: 1.4;
+    }
+    .bt-log-entry:hover { background: #2a2e39; }
+    .bt-log-date { color: #787b86; flex-shrink: 0; }
+    .bt-log-side { font-weight: 600; flex-shrink: 0; }
+    .bt-log-side.buy { color: #dc2626; }
+    .bt-log-side.sell { color: #16a34a; }
+    .bt-log-price { color: #d1d4dc; }
+    .bt-log-pnl { font-weight: 600; font-size: 10px; }
+    .bt-log-pnl.pos { color: #dc2626; }
+    .bt-log-pnl.neg { color: #16a34a; }
+    .bt-log-pnl.zero { color: #3b82f6; }
+    .bt-log-reason { color: #787b86; font-size: 9px; }
+    .bt-log-empty {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      height: 100%; color: #787b86; font-size: 11px; gap: 8px;
+    }
+
+    /* ── Heatmap calendar ── */
+    .bt-heatmap-wrap { width: 100%; height: 100%; }
+
+    /* ── Performance ladder table ── */
+    .bt-ladder-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    .bt-ladder-table th {
+      text-align: right; padding: 4px 8px; background: #1c2030;
+      color: #787b86; font-weight: 600; font-size: 10px;
+      border-bottom: 1px solid #2a2e39; position: sticky; top: 0; z-index: 1;
+    }
+    .bt-ladder-table th:first-child { text-align: left; }
+    .bt-ladder-table td { padding: 4px 8px; border-bottom: 1px solid #2a2e39; font-family: 'JetBrains Mono', monospace; text-align: right; }
+    .bt-ladder-table td:first-child { text-align: left; font-family: 'Inter', sans-serif; font-weight: 600; }
+    .bt-ladder-table tr:hover td { background: #2a2e39; }
+    .rank-badge {
+      display: inline-block; width: 20px; height: 20px; line-height: 20px;
+      text-align: center; border-radius: 3px; font-weight: 700; font-size: 11px;
+    }
+    .rank-1 { background: #ffd700; color: #131722; }
+    .rank-2 { background: #c0c0c0; color: #131722; }
+    .rank-3 { background: #cd7f32; color: #131722; }
+    .rank-n { background: #2a2e39; color: #787b86; }
+
+    /* ── Metric cards (explore tab) ── */
+    .bt-metrics { display: flex; gap: 6px; margin-bottom: 6px; flex-wrap: wrap; }
+    .bt-metric {
+      flex: 1; min-width: 70px; background: #1c2030; border: 1px solid #2a2e39;
+      border-radius: 4px; padding: 6px 8px; text-align: center;
+    }
+    .bt-metric .val { font-size: 16px; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
+    .bt-metric .lbl { font-size: 9px; color: #787b86; text-transform: uppercase; letter-spacing: 0.3px; margin-top: 1px; }
+
+    /* ── Label hint ── */
+    .bt-hint { font-size: 9px; color: #787b86; margin-top: 1px; }
+
+    /* ── Empty state ── */
+    .bt-empty {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      height: 100%; color: #787b86; font-size: 13px; gap: 12px;
+    }
+    .bt-empty .icon { font-size: 36px; }
+  </style>
+</head>
+<body>
+<div class="bt-layout">
+
+  <!-- ═══════════════ LEFT SIDEBAR ═══════════════ -->
+  <div class="bt-sidebar">
+    <div class="bt-sidebar-title">🛠️ 策略研究控制台</div>
+
+    <!-- Symbol + Date -->
+    <div class="bt-field">
+      <label>股票代码</label>
+      <input type="text" id="bt-symbol" class="tv-input tv-input-sm" placeholder="e.g. 600519.SH" value="600519.SH">
+    </div>
+    <div style="display:flex;gap:6px;">
+      <div class="bt-field" style="flex:1;">
+        <label>开始</label>
+        <input type="date" id="bt-start" class="tv-input tv-input-sm">
+      </div>
+      <div class="bt-field" style="flex:1;">
+        <label>结束</label>
+        <input type="date" id="bt-end" class="tv-input tv-input-sm">
+      </div>
+    </div>
+
+    <!-- ═══ Risk Gate ═══ -->
+    <div>
+      <div class="bt-risk-header" onclick="toggleRiskGate()">
+        <span>🛡️ 风险控制</span>
+        <span class="bt-risk-arrow" id="bt-risk-arrow">▶</span>
+      </div>
+      <div class="bt-risk-body" id="bt-risk-body">
+        <div class="bt-risk-row">
+          <input type="checkbox" id="bt-risk-csi300" checked>
+          <label for="bt-risk-csi300" style="font-size:11px;color:#d1d4dc;cursor:pointer;">沪深300 20日线风控</label>
+        </div>
+        <div style="font-size:10px;color:#787b86;margin:4px 0 2px;">调仓频率</div>
+        <div class="bt-risk-row">
+          <input type="radio" name="bt-rebalance" id="bt-rebal-w" value="W" checked>
+          <label for="bt-rebal-w" style="font-size:11px;color:#d1d4dc;cursor:pointer;">周频</label>
+        </div>
+        <div class="bt-risk-row">
+          <input type="radio" name="bt-rebalance" id="bt-rebal-m" value="M">
+          <label for="bt-rebal-m" style="font-size:11px;color:#d1d4dc;cursor:pointer;">月频</label>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ Strategy Mode Toggle ═══ -->
+    <div>
+      <div class="bt-strat-toggle">
+        <button class="active" id="bt-mode-single" onclick="toggleStrategyMode('single')">单策略</button>
+        <button id="bt-mode-multi" onclick="toggleStrategyMode('multi')">多策略</button>
+      </div>
+
+      <!-- Single strategy -->
+      <div id="bt-strat-single-wrap">
+        <div class="bt-field">
+          <label>策略</label>
+          <select id="bt-strategy" class="tv-input tv-input-sm">
+            <option value="MovingAverageTrend">MovingAverageTrend</option>
+            <option value="BullTrend">BullTrend</option>
+            <option value="ValueAverage">ValueAverage</option>
+            <option value="MeanReversion">MeanReversion</option>
+            <option value="RSIRange">RSIRange</option>
+            <option value="DefensiveMomentum">DefensiveMomentum</option>
+            <option value="PutWrite">PutWrite</option>
+            <option value="MACDTrend">MACDTrend</option>
+            <option value="BollingerBands">BollingerBands</option>
+            <option value="GridTrading">GridTrading</option>
+            <option value="StockFlow">StockFlow</option>
+            <option value="MomentumRotation">MomentumRotation</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Multi strategy -->
+      <div id="bt-strat-multi-wrap">
+        <div style="display:flex;gap:4px;margin-bottom:4px;">
+          <button class="tv-btn tv-btn-primary tv-btn-sm" onclick="btSelectAll(true)" style="flex:1;">全选</button>
+          <button class="tv-btn tv-btn-sm" onclick="btSelectAll(false)" style="flex:1;background:#2a2e39;color:#d1d4dc;">清除</button>
+        </div>
+        <div class="bt-strat-grid" id="bt-strat-grid">
+          <!-- populated dynamically, but pre-seeded for initial render -->
+          <label class="bt-strat-item"><input type="checkbox" class="bt-strat-cb" value="MovingAverageTrend" checked><span>MovingAverageTrend</span></label>
+          <label class="bt-strat-item"><input type="checkbox" class="bt-strat-cb" value="BullTrend"><span>BullTrend</span></label>
+          <label class="bt-strat-item"><input type="checkbox" class="bt-strat-cb" value="ValueAverage"><span>ValueAverage</span></label>
+          <label class="bt-strat-item"><input type="checkbox" class="bt-strat-cb" value="MeanReversion"><span>MeanReversion</span></label>
+          <label class="bt-strat-item"><input type="checkbox" class="bt-strat-cb" value="RSIRange"><span>RSIRange</span></label>
+          <label class="bt-strat-item"><input type="checkbox" class="bt-strat-cb" value="DefensiveMomentum"><span>DefensiveMomentum</span></label>
+          <label class="bt-strat-item"><input type="checkbox" class="bt-strat-cb" value="PutWrite"><span>PutWrite</span></label>
+          <label class="bt-strat-item"><input type="checkbox" class="bt-strat-cb" value="MACDTrend"><span>MACDTrend</span></label>
+          <label class="bt-strat-item"><input type="checkbox" class="bt-strat-cb" value="BollingerBands"><span>BollingerBands</span></label>
+          <label class="bt-strat-item"><input type="checkbox" class="bt-strat-cb" value="GridTrading"><span>GridTrading</span></label>
+          <label class="bt-strat-item"><input type="checkbox" class="bt-strat-cb" value="StockFlow"><span>StockFlow</span></label>
+          <label class="bt-strat-item"><input type="checkbox" class="bt-strat-cb" value="MomentumRotation"><span>MomentumRotation</span></label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="bt-actions">
+      <button class="tv-btn tv-btn-primary" id="bt-run-btn" onclick="runBacktest()">▶ 运行回测</button>
+    </div>
+    <div class="bt-status" id="bt-status">就绪</div>
+  </div>
+
+  <!-- ═══════════════ MAIN VIEW ═══════════════ -->
+  <div class="bt-main">
+    <!-- Tabs -->
+    <div class="bt-tabs">
+      <div class="bt-tab active" data-tab="explore" onclick="btSwitchTab('explore')">🛠️ 探索</div>
+      <div class="bt-tab" data-tab="diagnosis" onclick="btSwitchTab('diagnosis')">📊 诊断</div>
+      <div class="bt-tab" data-tab="compare" onclick="btSwitchTab('compare')">⚔️ 对比</div>
+    </div>
+
+    <!-- Panels -->
+    <div class="bt-panels">
+      <!-- Tab 1: Explore -->
+      <div class="bt-panel active" id="panel-explore">
+        <div id="bt-metrics-area" class="bt-metrics"></div>
+        <div id="bt-equity-chart" class="bt-chart-box"></div>
+        <div id="bt-drawdown-chart" class="bt-chart-box"></div>
+        <div id="bt-explore-empty" class="bt-empty">
+          <div class="icon">🛠️</div>
+          <div>运行回测以查看净值曲线与回撤分析</div>
+        </div>
+      </div>
+
+      <!-- Tab 2: Diagnosis -->
+      <div class="bt-panel" id="panel-diagnosis">
+        <div id="bt-heatmap" class="bt-heatmap-wrap"></div>
+        <div id="bt-diagnosis-empty" class="bt-empty">
+          <div class="icon">📊</div>
+          <div>运行回测以查看收益率热力图</div>
+        </div>
+      </div>
+
+      <!-- Tab 3: Compare -->
+      <div class="bt-panel" id="panel-compare">
+        <div id="bt-comp-chart" class="bt-comp-chart"></div>
+        <div id="bt-comp-table" class="bt-comp-table-wrap"></div>
+        <div id="bt-compare-empty" class="bt-empty">
+          <div class="icon">⚔️</div>
+          <div>选择多策略并运行对比分析</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ RIGHT TRADE LOG ═══════════════ -->
+  <div class="bt-log" id="bt-trade-log">
+    <div style="font-size:10px;font-weight:600;color:#787b86;padding:2px 0 4px;border-bottom:1px solid #2a2e39;margin-bottom:2px;font-family:'Inter',sans-serif;text-transform:uppercase;letter-spacing:0.4px;">
+      📋 交易流水
+    </div>
+    <div id="bt-log-content">
+      <div class="bt-log-empty">
+        <div>暂无交易记录</div>
+        <div style="font-size:10px;">运行回测后显示</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════════════════════════
+
+let btCharts = {};
+let btActiveTab = 'explore';
+let btSingleMode = true;
+let btLastResult = null;        // raw result from /api/v1/backtest/run
+let btLastAnalyze = null;       // detailed data from /api/v1/backtest/analyze
+let btLastComparison = null;    // array from /api/v1/backtest/compare
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════════════════════════════════════
+
+function fmtNum(v) {
+  if (typeof v !== 'number' || !isFinite(v)) return '--';
+  return v.toFixed(2);
+}
+
+function fmtPct(v) {
+  if (typeof v !== 'number' || !isFinite(v)) return '--';
+  return (v >= 0 ? '+' : '') + (v * 100).toFixed(2) + '%';
+}
+
+function fmtPctSigned(v) {
+  if (typeof v !== 'number' || !isFinite(v)) return '--';
+  return (v * 100).toFixed(2) + '%';
+}
+
+function escapeHtml(str) {
+  if (typeof str !== 'string') return str;
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+function noExpo(v) {
+  if (typeof v !== 'number' || !isFinite(v)) return '--';
+  return v.toFixed(4);
+}
+
+function btDestroyCharts(keys) {
+  if (keys) {
+    keys.forEach(k => { if (btCharts[k]) { try { btCharts[k].dispose(); } catch(e) {} delete btCharts[k]; } });
+  } else {
+    Object.values(btCharts).forEach(c => { try { c.dispose(); } catch(e) {} });
+    btCharts = {};
+  }
+}
+
+function btSwitchTab(tabId) {
+  btActiveTab = tabId;
+  document.querySelectorAll('.bt-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tabId));
+  document.querySelectorAll('.bt-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + tabId));
+
+  // Update run button
+  const btn = document.getElementById('bt-run-btn');
+  if (tabId === 'compare') {
+    btn.textContent = '⚔️ 对比运行';
+  } else {
+    btn.textContent = '▶ 运行回测';
+  }
+
+  // Resize charts after tab switch
+  setTimeout(() => {
+    Object.values(btCharts).forEach(c => { try { c.resize(); } catch(e) {} });
+  }, 150);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  TOGGLES
+// ═══════════════════════════════════════════════════════════════════════════
+
+function toggleRiskGate() {
+  const body = document.getElementById('bt-risk-body');
+  const arrow = document.getElementById('bt-risk-arrow');
+  body.classList.toggle('open');
+  arrow.classList.toggle('open');
+}
+
+function toggleStrategyMode(mode) {
+  btSingleMode = (mode === 'single');
+  document.getElementById('bt-mode-single').classList.toggle('active', btSingleMode);
+  document.getElementById('bt-mode-multi').classList.toggle('active', !btSingleMode);
+  document.getElementById('bt-strat-single-wrap').style.display = btSingleMode ? 'block' : 'none';
+  document.getElementById('bt-strat-multi-wrap').style.display = btSingleMode ? 'none' : 'block';
+
+  const btn = document.getElementById('bt-run-btn');
+  if (btActiveTab === 'compare' || !btSingleMode) {
+    btn.textContent = '⚔️ 对比运行';
+  } else {
+    btn.textContent = '▶ 运行回测';
+  }
+}
+
+function btSelectAll(checked) {
+  document.querySelectorAll('.bt-strat-cb').forEach(cb => cb.checked = checked);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  MAIN: runBacktest() — POST /api/v1/backtest/run + /api/v1/backtest/analyze
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function runBacktest() {
+  let symbol = document.getElementById('bt-symbol').value.trim();
+  if (!symbol.includes('.')) symbol += '.SH';
+  const start = document.getElementById('bt-start').value.trim();
+  const end = document.getElementById('bt-end').value.trim();
+  const statusEl = document.getElementById('bt-status');
+
+  if (!symbol || !start || !end) { statusEl.textContent = '⚠️ 请填写完整参数'; return; }
+
+  // If multi-strategy mode or compare tab, run comparison
+  if (!btSingleMode || btActiveTab === 'compare') {
+    await runMultiBacktest();
+    return;
+  }
+
+  const strategy = document.getElementById('bt-strategy').value;
+  statusEl.textContent = '⏳ 运行回测...';
+
+  try {
+    // Step 1: POST /api/v1/backtest/run
+    const runRes = await fetch('/api/v1/backtest/run', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ symbol, strategy, start, end }),
+    });
+    const runData = await runRes.json();
+    if (runData.error) { statusEl.textContent = '❌ ' + runData.error; return; }
+    btLastResult = runData;
+
+    statusEl.textContent = '⏳ 加载绩效分析...';
+
+    // Step 2: POST /api/v1/backtest/analyze for equity curve + returns
+    const anaRes = await fetch('/api/v1/backtest/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ strategy, symbol, start_date: start, end_date: end }),
+    });
+    const anaData = await anaRes.json();
+    btLastAnalyze = anaData.error ? runData : anaData;
+
+    // Render
+    renderExploreView(runData, btLastAnalyze);
+    renderDiagnosisView(btLastAnalyze);
+    renderTradeLog(runData.trades || []);
+    statusEl.textContent = '✅ ' + strategy + ' · ' + symbol + ' 完成';
+
+    if (btActiveTab !== 'explore') btSwitchTab('explore');
+
+  } catch (e) {
+    statusEl.textContent = '❌ ' + e.message;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  MAIN: runMultiBacktest() — GET /api/v1/backtest/compare
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function runMultiBacktest() {
+  let symbol = document.getElementById('bt-symbol').value.trim();
+  if (!symbol.includes('.')) symbol += '.SH';
+  const start = document.getElementById('bt-start').value.trim();
+  const end = document.getElementById('bt-end').value.trim();
+  const statusEl = document.getElementById('bt-status');
+
+  if (!symbol || !start || !end) { statusEl.textContent = '⚠️ 请填写完整参数'; return; }
+
+  const selected = [];
+  document.querySelectorAll('.bt-strat-cb:checked').forEach(cb => selected.push(cb.value));
+  if (selected.length < 2) { statusEl.textContent = '⚠️ 请至少选择两个策略'; return; }
+
+  statusEl.textContent = '⏳ 运行多策略对比...';
+
+  try {
+    const params = new URLSearchParams({
+      strategies: selected.join(','), symbol, start, end, mock_data: '0',
+    });
+    const res = await fetch('/api/v1/backtest/compare?' + params.toString());
+    const data = await res.json();
+    if (data.error) { statusEl.textContent = '❌ ' + data.error; return; }
+
+    btLastComparison = data.comparison || [];
+    if (btLastComparison.length === 0) { statusEl.textContent = '⚠️ 无对比结果'; return; }
+
+    renderComparisonView(btLastComparison);
+    statusEl.textContent = '✅ 对比完成 (' + btLastComparison.length + ' 个策略)';
+
+    if (btActiveTab !== 'compare') btSwitchTab('compare');
+
+  } catch (e) {
+    statusEl.textContent = '❌ ' + e.message;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  RENDER: Explore Tab — Equity + Drawdown charts + Metrics
+// ═══════════════════════════════════════════════════════════════════════════
+
+function renderExploreView(btData, ad) {
+  const metrics = ad.metrics || {};
+  const equityCurve = ad.equity_curve || [];
+  const returns = ad.returns || [];
+
+  // Extract dates and values from equity_curve [{period, value}, ...]
+  const dates = equityCurve.map(e => e.period);
+  const values = equityCurve.map(e => e.value);
+  const initVal = values.length > 0 ? values[0] : 100000;
+
+  // Build benchmark curve (flat 1.0 baseline for now — actual API may provide)
+  const benchmark = values.map(() => 1.0);
+
+  // Compute drawdown
+  const drawdownValues = [];
+  let peak = values[0] || 0;
+  for (let i = 0; i < values.length; i++) {
+    if (values[i] > peak) peak = values[i];
+    const dd = peak > 0 ? (values[i] - peak) / peak : 0;
+    drawdownValues.push(parseFloat(dd.toFixed(6)));
+  }
+
+  // ── Metrics cards ──
+  const tr = metrics.total_return !== undefined ? metrics.total_return : btData.total_return;
+  const ar = metrics.annualized_return !== undefined ? metrics.annualized_return : btData.annualized_return;
+  const sh = metrics.sharpe_ratio !== undefined ? metrics.sharpe_ratio : btData.sharpe_ratio;
+  const dd = metrics.max_drawdown !== undefined ? metrics.max_drawdown : btData.max_drawdown;
+  const wr = metrics.win_rate !== undefined ? metrics.win_rate : btData.win_rate;
+  const tc = metrics.total_trades !== undefined ? metrics.total_trades : btData.total_trades;
+
+  const metricsHtml = `
+    <div class="bt-metric"><div class="val" style="color:${tr >= 0 ? '#dc2626' : '#16a34a'}">${fmtPct(tr)}</div><div class="lbl">总收益</div></div>
+    <div class="bt-metric"><div class="val" style="color:${ar >= 0 ? '#dc2626' : '#16a34a'}">${fmtPct(ar)}</div><div class="lbl">年化收益</div></div>
+    <div class="bt-metric"><div class="val" style="color:${sh >= 1 ? '#dc2626' : sh > 0 ? '#d1d4dc' : '#16a34a'}">${fmtNum(sh)}</div><div class="lbl">夏普比率</div></div>
+    <div class="bt-metric"><div class="val" style="color:#16a34a">${fmtPct(dd)}</div><div class="lbl">最大回撤</div></div>
+    <div class="bt-metric"><div class="val">${fmtPct(wr)}</div><div class="lbl">胜率</div></div>
+    <div class="bt-metric"><div class="val">${isFinite(tc) ? tc : '--'}</div><div class="lbl">交易次数</div></div>
+  `;
+  document.getElementById('bt-metrics-area').innerHTML = metricsHtml;
+
+  // Hide empty state
+  document.getElementById('bt-explore-empty').style.display = 'none';
+
+  // ── Render charts ──
+  renderEquityChart({ dates, values, benchmark, label: (btData.strategy_name || '策略') });
+  renderDrawdownChart({ dates, values: drawdownValues });
+
+  // Resize
+  setTimeout(() => {
+    Object.values(btCharts).forEach(c => { try { c.resize(); } catch(e) {} });
+  }, 100);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  renderEquityChart(data) — ECharts 净值+基准双线图
+// ═══════════════════════════════════════════════════════════════════════════
+
+function renderEquityChart(data) {
+  btDestroyCharts(['equity']);
+  const dom = document.getElementById('bt-equity-chart');
+  if (!dom) return;
+  const chart = echarts.init(dom, 'dark');
+  btCharts['equity'] = chart;
+
+  // Normalise equity to initial value = 1.0 for overlay
+  const initVal = data.values.length > 0 ? data.values[0] : 1;
+  const normEq = data.values.map(v => initVal > 0 ? v / initVal : 1);
+
+  const option = {
+    backgroundColor: 'transparent',
+    tooltip: {
+      trigger: 'axis',
+      backgroundColor: '#1c2030',
+      borderColor: '#2a2e39',
+      textStyle: { color: '#d1d4dc', fontSize: 11 },
+      formatter: function(params) {
+        let s = '<b>' + params[0].axisValue + '</b><br/>';
+        params.forEach(p => {
+          const val = p.seriesName === '基准' ? p.value : p.value;
+          s += p.marker + ' ' + p.seriesName + ': <b>' + ((p.seriesName === '基准') ? (val * 100).toFixed(2) + '%' : val.toFixed(4)) + '</b><br/>';
+        });
+        return s;
+      }
+    },
+    legend: {
+      data: ['策略净值', '基准'],
+      textStyle: { color: '#787b86', fontSize: 10 },
+      top: 0,
+      right: 10,
+    },
+    grid: { top: 28, bottom: 50, left: 50, right: 20 },
+    xAxis: {
+      type: 'category',
+      data: data.dates,
+      axisLine: { lineStyle: { color: '#2a2e39' } },
+      axisLabel: { color: '#787b86', fontSize: 9 },
+      splitLine: { show: false },
+    },
+    yAxis: {
+      type: 'value',
+      axisLine: { show: false },
+      axisLabel: {
+        color: '#787b86', fontSize: 9,
+        formatter: function(v) { if (typeof v !== 'number' || !isFinite(v)) return '--'; return v.toFixed(2); }
+      },
+      splitLine: { lineStyle: { color: '#2a2e39', type: 'dashed' } },
+    },
+    dataZoom: [
+      { type: 'inside', start: 0, end: 100, xAxisIndex: [0, 1] },
+      { type: 'slider', start: 0, end: 100, height: 20, bottom: 20, borderColor: '#2a2e39', backgroundColor: '#1c2030', fillerColor: 'rgba(41,98,255,0.2)', textStyle: { color: '#787b86', fontSize: 9 } }
+    ],
+    series: [
+      {
+        name: '策略净值',
+        type: 'line',
+        data: normEq,
+        symbol: 'none',
+        lineStyle: { width: 2, color: '#2962FF' },
+        areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+          { offset: 0, color: 'rgba(41,98,255,0.25)' },
+          { offset: 1, color: 'rgba(41,98,255,0.02)' }
+        ])},
+      },
+      {
+        name: '基准',
+        type: 'line',
+        data: data.benchmark,
+        symbol: 'none',
+        lineStyle: { width: 1.5, color: '#787b86', type: 'dashed' },
+      }
+    ]
+  };
+
+  chart.setOption(option, true);
+  chart.on('dataZoom', function() {
+    // Sync to drawdown chart
+    const ddChart = btCharts['drawdown'];
+    if (ddChart) {
+      const opt = chart.getOption();
+      const ranges = opt.dataZoom || [];
+      if (ranges.length > 0 && ranges[0].startValue !== undefined) {
+        ddChart.dispatchAction({
+          type: 'dataZoom',
+          startValue: ranges[0].startValue,
+          endValue: ranges[0].endValue,
+        });
+      } else if (ranges.length > 0 && ranges[0].start !== undefined) {
+        ddChart.dispatchAction({
+          type: 'dataZoom',
+          start: ranges[0].start,
+          end: ranges[0].end,
+        });
+      }
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  renderDrawdownChart(data) — ECharts 水下回撤
+// ═══════════════════════════════════════════════════════════════════════════
+
+function renderDrawdownChart(data) {
+  btDestroyCharts(['drawdown']);
+  const dom = document.getElementById('bt-drawdown-chart');
+  if (!dom) return;
+  const chart = echarts.init(dom, 'dark');
+  btCharts['drawdown'] = chart;
+
+  const option = {
+    backgroundColor: 'transparent',
+    tooltip: {
+      trigger: 'axis',
+      backgroundColor: '#1c2030',
+      borderColor: '#2a2e39',
+      textStyle: { color: '#d1d4dc', fontSize: 11 },
+      formatter: function(params) {
+        if (!params || params.length === 0) return '';
+        const p = params[0];
+        const val = typeof p.value === 'number' && isFinite(p.value) ? (p.value * 100).toFixed(2) + '%' : '--';
+        return '<b>' + p.axisValue + '</b><br/>' + p.marker + ' 回撤: <b style="color:#16a34a">' + val + '</b>';
+      }
+    },
+    grid: { top: 8, bottom: 50, left: 50, right: 20 },
+    xAxis: {
+      type: 'category',
+      data: data.dates,
+      axisLine: { lineStyle: { color: '#2a2e39' } },
+      axisLabel: { color: '#787b86', fontSize: 9, show: true },
+      splitLine: { show: false },
+    },
+    yAxis: {
+      type: 'value',
+      min: function(val) {
+        const m = Math.min(0, val.min || -0.01);
+        return m - Math.abs(m) * 0.1;
+      },
+      max: 0,
+      axisLine: { show: false },
+      axisLabel: {
+        color: '#787b86', fontSize: 9,
+        formatter: function(v) { if (typeof v !== 'number' || !isFinite(v)) return '--'; return (v * 100).toFixed(1) + '%'; }
+      },
+      splitLine: { lineStyle: { color: '#2a2e39', type: 'dashed' } },
+    },
+    dataZoom: [
+      { type: 'inside', start: 0, end: 100, xAxisIndex: [0] },
+    ],
+    series: [
+      {
+        name: '回撤',
+        type: 'line',
+        data: data.values,
+        symbol: 'none',
+        lineStyle: { width: 1.5, color: '#16a34a' },
+        areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+          { offset: 0, color: 'rgba(22,163,74,0.3)' },
+          { offset: 1, color: 'rgba(22,163,74,0.02)' }
+        ])},
+      }
+    ]
+  };
+
+  chart.setOption(option, true);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  RENDER: Diagnosis Tab — 月度/年度收益率热力图矩阵
+// ═══════════════════════════════════════════════════════════════════════════
+
+function renderDiagnosisView(ad) {
+  document.getElementById('bt-diagnosis-empty').style.display = 'none';
+  renderHeatmap(ad);
+}
+
+function renderHeatmap(data) {
+  btDestroyCharts(['heatmap']);
+  const dom = document.getElementById('bt-heatmap');
+  if (!dom) { return; }
+
+  const returns = data.returns || [];
+  if (returns.length === 0) {
+    dom.innerHTML = '<div class="bt-empty"><div class="icon">📊</div><div>无收益率数据</div></div>';
+    return;
+  }
+
+  // Group returns by year and month
+  const monthlyData = {};
+  returns.forEach(r => {
+    if (!r.period) return;
+    const parts = r.period.split('-');
+    if (parts.length < 2) return;
+    const year = parts[0];
+    const month = parseInt(parts[1], 10);
+    if (!monthlyData[year]) monthlyData[year] = {};
+    monthlyData[year][month] = (monthlyData[year][month] || 0) + (r.return || 0);
+  });
+
+  // Also compute yearly returns
+  const yearlyReturns = {};
+  Object.keys(monthlyData).sort().forEach(year => {
+    let yr = 0;
+    for (let m = 1; m <= 12; m++) {
+      yr += monthlyData[year][m] || 0;
+    }
+    yearlyReturns[year] = yr;
+  });
+
+  const years = Object.keys(monthlyData).sort();
+  if (years.length === 0) {
+    dom.innerHTML = '<div class="bt-empty"><div class="icon">📊</div><div>无收益率数据</div></div>';
+    return;
+  }
+
+  const months = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+  const monthNames = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
+
+  // Build heatmap data
+  const heatData = [];
+  years.forEach((year, yi) => {
+    months.forEach((month, mi) => {
+      const val = monthlyData[year][month];
+      if (val !== undefined && val !== null && isFinite(val)) {
+        heatData.push([mi, yi, parseFloat(val.toFixed(4))]);
+      } else {
+        heatData.push([mi, yi, null]);
+      }
+    });
+  });
+
+  const chart = echarts.init(dom, 'dark');
+  btCharts['heatmap'] = chart;
+
+  // Find max abs value for color scale
+  let maxAbs = 0.01;
+  heatData.forEach(d => { if (d[2] !== null && Math.abs(d[2]) > maxAbs) maxAbs = Math.abs(d[2]); });
+
+  const option = {
+    backgroundColor: 'transparent',
+    tooltip: {
+      position: 'top',
+      backgroundColor: '#1c2030',
+      borderColor: '#2a2e39',
+      textStyle: { color: '#d1d4dc', fontSize: 11 },
+      formatter: function(params) {
+        if (!params || params.data === undefined) return '';
+        const d = params.data;
+        const m = monthNames[d[0]];
+        const y = years[d[1]];
+        const v = d[2] !== null && isFinite(d[2]) ? (d[2] * 100).toFixed(2) + '%' : 'N/A';
+        return '<b>' + y + ' ' + m + '</b><br/>收益率: <b style="color:' + (d[2] >= 0 ? '#dc2626' : '#16a34a') + '">' + v + '</b>';
+      }
+    },
+    grid: { top: 20, bottom: 60, left: 60, right: 80 },
+    xAxis: {
+      type: 'category',
+      data: monthNames,
+      axisLine: { lineStyle: { color: '#2a2e39' } },
+      axisLabel: { color: '#787b86', fontSize: 9, rotate: 15 },
+      splitArea: { show: true, areaStyle: { color: ['rgba(0,0,0,0)', 'rgba(0,0,0,0.05)'] } },
+    },
+    yAxis: {
+      type: 'category',
+      data: years,
+      axisLine: { lineStyle: { color: '#2a2e39' } },
+      axisLabel: { color: '#787b86', fontSize: 10 },
+      splitArea: { show: true, areaStyle: { color: ['rgba(0,0,0,0)', 'rgba(0,0,0,0.05)'] } },
+    },
+    visualMap: {
+      min: -maxAbs,
+      max: maxAbs,
+      calculable: true,
+      orient: 'vertical',
+      right: 10,
+      top: 'center',
+      inRange: {
+        color: ['#16a34a', '#1c2030', '#dc2626'],
+      },
+      textStyle: { color: '#787b86', fontSize: 9 },
+    },
+    series: [{
+      type: 'heatmap',
+      data: heatData,
+      label: {
+        show: true,
+        color: '#d1d4dc',
+        fontSize: 9,
+        formatter: function(p) {
+          if (p.data[2] === null || !isFinite(p.data[2])) return '';
+          return (p.data[2] * 100).toFixed(1);
+        },
+      },
+      emphasis: {
+        itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0,0,0,0.5)' }
+      }
+    }]
+  };
+
+  chart.setOption(option, true);
+
+  // Add yearly return annotation
+  setTimeout(() => {
+    try {
+      chart.setOption({
+        visualMap: undefined,
+        series: [{
+          type: 'heatmap',
+          data: heatData,
+          label: {
+            show: true,
+            color: '#d1d4dc',
+            fontSize: 9,
+            formatter: function(p) {
+              if (p.data[2] === null || !isFinite(p.data[2])) return '';
+              return (p.data[2] * 100).toFixed(1);
+            },
+          },
+        }]
+      });
+    } catch(e) { /* ignore */ }
+  }, 50);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  RENDER: Compare Tab — 多曲线叠加 + 绩效天梯表
+// ═══════════════════════════════════════════════════════════════════════════
+
+function renderComparisonView(results) {
+  document.getElementById('bt-compare-empty').style.display = 'none';
+  renderComparisonChart(results);
+}
+
+function renderComparisonChart(results) {
+  btDestroyCharts(['comparison']);
+  const dom = document.getElementById('bt-comp-chart');
+  if (!dom) return;
+
+  // Collect all dates from all equity curves
+  const allDates = new Set();
+  const seriesData = [];
+  const colors = ['#2962FF', '#dc2626', '#16a34a', '#ff9800', '#3b82f6', '#a855f7', '#ec4899', '#14b8a6', '#eab308', '#f97316', '#6366f1', '#84cc16'];
+
+  results.forEach((r, i) => {
+    const eq = r.equity_curve || [];
+    eq.forEach(e => { if (e.period) allDates.add(e.period); });
+
+    const dates = eq.map(e => e.period);
+    const values = eq.map(e => e.value);
+    const initVal = values.length > 0 ? values[0] : 1;
+    const norm = initVal > 0 ? values.map(v => v / initVal) : values;
+
+    seriesData.push({
+      name: r.strategy_name,
+      dates: dates,
+      values: norm,
+      color: colors[i % colors.length],
+    });
+  });
+
+  const sortedDates = Array.from(allDates).sort();
+
+  // Build aligned series
+  const series = seriesData.map(sd => {
+    const aligned = sortedDates.map(d => {
+      const idx = sd.dates.indexOf(d);
+      return idx >= 0 ? sd.values[idx] : null;
+    });
+    return {
+      name: sd.name,
+      type: 'line',
+      data: aligned,
+      symbol: 'none',
+      lineStyle: { width: 2, color: sd.color },
+      emphasis: { lineStyle: { width: 3 } },
+    };
+  });
+
+  const chart = echarts.init(dom, 'dark');
+  btCharts['comparison'] = chart;
+
+  const option = {
+    backgroundColor: 'transparent',
+    tooltip: {
+      trigger: 'axis',
+      backgroundColor: '#1c2030',
+      borderColor: '#2a2e39',
+      textStyle: { color: '#d1d4dc', fontSize: 11 },
+    },
+    legend: {
+      data: results.map(r => r.strategy_name),
+      textStyle: { color: '#787b86', fontSize: 10 },
+      top: 0,
+      right: 10,
+      type: 'scroll',
+    },
+    grid: { top: 36, bottom: 50, left: 50, right: 20 },
+    xAxis: {
+      type: 'category',
+      data: sortedDates,
+      axisLine: { lineStyle: { color: '#2a2e39' } },
+      axisLabel: { color: '#787b86', fontSize: 9 },
+      splitLine: { show: false },
+    },
+    yAxis: {
+      type: 'value',
+      axisLine: { show: false },
+      axisLabel: {
+        color: '#787b86', fontSize: 9,
+        formatter: function(v) { if (typeof v !== 'number' || !isFinite(v)) return '--'; return v.toFixed(2); }
+      },
+      splitLine: { lineStyle: { color: '#2a2e39', type: 'dashed' } },
+    },
+    dataZoom: [
+      { type: 'inside', start: 0, end: 100 },
+      { type: 'slider', start: 0, end: 100, height: 20, bottom: 20, borderColor: '#2a2e39', backgroundColor: '#1c2030', fillerColor: 'rgba(41,98,255,0.2)', textStyle: { color: '#787b86', fontSize: 9 } }
+    ],
+    series: series,
+  };
+
+  chart.setOption(option, true);
+
+  // ── Render ladder table ──
+  renderLadderTable(results);
+}
+
+function renderLadderTable(results) {
+  const wrap = document.getElementById('bt-comp-table');
+  if (!wrap) return;
+
+  const table = document.createElement('table');
+  table.className = 'bt-ladder-table';
+  table.innerHTML = `
+    <thead><tr>
+      <th>排名</th>
+      <th>策略</th>
+      <th>综合评分</th>
+      <th>总收益</th>
+      <th>年化收益</th>
+      <th>夏普</th>
+      <th>最大回撤</th>
+      <th>胜率</th>
+      <th>交易次数</th>
+    </tr></thead>
+    <tbody>
+      ${results.map((r, i) => {
+        const rank = r.rank || i + 1;
+        const rankClass = rank <= 3 ? 'rank-' + rank : 'rank-n';
+        const tr = r.total_return || 0;
+        const ar = r.annualized_return || 0;
+        const sh = r.sharpe_ratio || 0;
+        const dd = r.max_drawdown || 0;
+        const wr = r.win_rate || 0;
+        const tc = r.total_trades || 0;
+        // Composite score
+        const score = 0.5 * sh + 0.3 * tr - 0.2 * dd;
+
+        return `<tr>
+          <td><span class="rank-badge ${rankClass}">#${rank}</span></td>
+          <td>${escapeHtml(r.strategy_name)}</td>
+          <td style="color:#2962FF;font-weight:700;">${noExpo(score)}</td>
+          <td style="color:${tr >= 0 ? '#dc2626' : '#16a34a'}">${fmtPct(tr)}</td>
+          <td style="color:${ar >= 0 ? '#dc2626' : '#16a34a'}">${fmtPct(ar)}</td>
+          <td style="color:${sh >= 1 ? '#dc2626' : sh > 0 ? '#d1d4dc' : '#16a34a'}">${fmtNum(sh)}</td>
+          <td style="color:#16a34a">${fmtPct(dd)}</td>
+          <td>${fmtPct(wr)}</td>
+          <td>${isFinite(tc) ? tc : '--'}</td>
+        </tr>`;
+      }).join('')}
+    </tbody>
+  `;
+  wrap.innerHTML = '';
+  wrap.appendChild(table);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  RENDER: Trade Log — 右侧栏交易流水
+// ═══════════════════════════════════════════════════════════════════════════
+
+function renderTradeLog(trades) {
+  const container = document.getElementById('bt-log-content');
+  if (!container) return;
+
+  if (!trades || trades.length === 0) {
+    container.innerHTML = '<div class="bt-log-empty"><div>暂无交易记录</div></div>';
+    return;
+  }
+
+  container.innerHTML = trades.map((t, i) => {
+    const direction = (t.direction || '').toLowerCase();
+    const sideClass = (direction === 'buy' || direction === 'b') ? 'buy' : 'sell';
+    const sideLabel = (direction === 'buy' || direction === 'b') ? '买入' : '卖出';
+    const price = t.price || 0;
+    const shares = t.shares || 0;
+    const pnl = t.pnl || 0;
+    const pnlClass = pnl > 0.001 ? 'pos' : (pnl < -0.001 ? 'neg' : 'zero');
+    const pnlStr = pnl > 0 ? '+' + pnl.toFixed(2) : pnl.toFixed(2);
+    const date = t.date || t.period || '';
+    const reason = t.reason || '';
+
+    return `<div class="bt-log-entry" data-date="${escapeHtml(date)}" onclick="handleLogClick('${escapeHtml(date)}')">
+      <span class="bt-log-date">${escapeHtml(date)}</span>
+      <span class="bt-log-side ${sideClass}">${sideLabel}</span>
+      <span class="bt-log-price">${fmtNum(price)}</span>
+      <span style="color:#787b86;font-size:9px;">${isFinite(shares) ? shares.toFixed(0) : 0}股</span>
+      <span class="bt-log-pnl ${pnlClass}">${pnlStr}</span>
+      ${reason ? `<span class="bt-log-reason">${escapeHtml(reason)}</span>` : ''}
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  handleLogClick(date) — dispatchAction dataZoom 平移到日期
+// ═══════════════════════════════════════════════════════════════════════════
+
+function handleLogClick(date) {
+  if (!date) return;
+  const eqChart = btCharts['equity'];
+  if (!eqChart) return;
+
+  // Find index of date in equity chart data
+  const opt = eqChart.getOption();
+  const xData = opt.xAxis && opt.xAxis[0] && opt.xAxis[0].data;
+  if (!xData) return;
+
+  let idx = -1;
+  for (let i = 0; i < xData.length; i++) {
+    if (String(xData[i]) === String(date)) { idx = i; break; }
+  }
+  if (idx < 0) return;
+
+  // Calculate zoom window: ±10 periods around the date
+  const halfWindow = 10;
+  const startIdx = Math.max(0, idx - halfWindow);
+  const endIdx = Math.min(xData.length - 1, idx + halfWindow);
+
+  eqChart.dispatchAction({
+    type: 'dataZoom',
+    startValue: xData[startIdx],
+    endValue: xData[endIdx],
+  });
+
+  // Sync drawdown chart
+  const ddChart = btCharts['drawdown'];
+  if (ddChart) {
+    ddChart.dispatchAction({
+      type: 'dataZoom',
+      startValue: xData[startIdx],
+      endValue: xData[endIdx],
+    });
+  }
+
+  // Switch to explore tab if not already
+  if (btActiveTab !== 'explore') btSwitchTab('explore');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  loadSnapshot(id) — URL参数解析+异步加载
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function loadSnapshot(runId) {
+  if (!runId) return;
+  const statusEl = document.getElementById('bt-status');
+  statusEl.textContent = '⏳ 加载快照 ' + runId + '...';
+
+  try {
+    const res = await fetch('/api/v1/backtest/results');
+    const data = await res.json();
+    if (data.error) { statusEl.textContent = '❌ ' + data.error; return; }
+
+    const results = data.results || [];
+    const target = results.find(r => String(r.run_id) === String(runId));
+    if (!target) {
+      statusEl.textContent = '⚠️ 未找到快照: ' + runId;
+      return;
+    }
+
+    // Re-run the backtest to get analyze data
+    const symbol = target.symbol || '600519.SH';
+    const strategy = target.strategy_name || '';
+    const start = target.start_date || '';
+    const end = target.end_date || '';
+
+    if (!strategy || !start || !end) {
+      statusEl.textContent = '⚠️ 快照数据不完整';
+      return;
+    }
+
+    document.getElementById('bt-symbol').value = symbol;
+    document.getElementById('bt-start').value = start;
+    document.getElementById('bt-end').value = end;
+    document.getElementById('bt-strategy').value = strategy;
+
+    // Run analyze
+    const anaRes = await fetch('/api/v1/backtest/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ strategy, symbol, start_date: start, end_date: end }),
+    });
+    const anaData = await anaRes.json();
+
+    btLastResult = target;
+    btLastAnalyze = anaData.error ? target : anaData;
+
+    renderExploreView(target, btLastAnalyze);
+    renderDiagnosisView(btLastAnalyze);
+    renderTradeLog(target.trades || []);
+    statusEl.textContent = '✅ 已加载快照 ' + runId;
+
+    if (btActiveTab !== 'explore') btSwitchTab('explore');
+
+  } catch (e) {
+    statusEl.textContent = '❌ 加载快照失败: ' + e.message;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════════════════════
+
+function btSetDefaultDates() {
+  const now = new Date();
+  const oneYearAgo = new Date(now);
+  oneYearAgo.setFullYear(now.getFullYear() - 2);
+  document.getElementById('bt-start').value = oneYearAgo.toISOString().slice(0, 10);
+  document.getElementById('bt-end').value = now.toISOString().slice(0, 10);
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  btSetDefaultDates();
+
+  // Check URL for snapshot parameter
+  const params = new URLSearchParams(window.location.search);
+  const snapshotId = params.get('snapshot');
+  if (snapshotId) {
+    loadSnapshot(snapshotId);
+  }
+
+  // Handle window resize
+  window.addEventListener('resize', function() {
+    Object.values(btCharts).forEach(c => { try { c.resize(); } catch(e) {} });
+  });
+});
+</script>
+</body>
+</html>
