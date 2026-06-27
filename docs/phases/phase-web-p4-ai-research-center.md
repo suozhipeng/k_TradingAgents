@@ -2,7 +2,7 @@
 
 ## 元数据
 
-- Status: `partial`
+- Status: `accept`
 - Started: `2026-06-27`
 - Completed: `2026-06-27`
 - Owner: `Hermes (DeepSeek)`
@@ -93,11 +93,11 @@
 
 ## 验证结论
 
-**Verdict: partial — research.html 含 1 个内部 iframe，需要评估是否接受**
+**Verdict: accept — research.html kc_chart iframe 已替换为按钮（commit 4c407e9），三页面全部通过合规检查**
 
 | 页面 | loading | empty | error | labels | no iframe | zh-CN | TV dark | Verdict |
 |-------|---------|-------|-------|--------|-----------|-------|---------|---------|
-| research.html | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ | partial |
+| research.html | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | accept |
 | ai_agent.html | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | accept |
 | reports.html | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | accept |
 

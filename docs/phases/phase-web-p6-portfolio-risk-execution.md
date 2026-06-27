@@ -2,7 +2,7 @@
 
 ## 元数据
 
-- Status: `partial`
+- Status: `accept`
 - Started: `2026-06-27`
 - Completed: `2026-06-27`
 - Owner: `Hermes (DeepSeek)`
@@ -141,13 +141,13 @@
 
 ## 验证结论
 
-**Verdict: partial — risk.html 和 paper.html 当前为功能占位页面，缺少动态 loading/error 状态**
+**Verdict: accept — risk.html/paper.html 占位已替换为真实数据 + 动态 loading/error 状态（commit 4c407e9），六页面全部通过合规检查**
 
 | 页面 | loading | empty | error | labels | no iframe | zh-CN | TV dark | Verdict |
 |-------|---------|-------|-------|--------|-----------|-------|---------|---------|
 | portfolio | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | accept |
-| risk | ❌ | ✅ | ⚠️ | ✅ | ✅ | ✅ | ✅ | partial |
-| paper | ❌ | ✅ | ⚠️ | ✅ | ✅ | ✅ | ✅ | partial |
+| risk | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | accept |
+| paper | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | accept |
 | trading | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | accept |
 | qmt | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | accept |
 | ops_audit | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | accept |
