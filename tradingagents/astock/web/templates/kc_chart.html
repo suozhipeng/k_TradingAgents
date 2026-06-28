@@ -6,7 +6,6 @@
 {% block title %}KC Chart — {{ symbol }}{% endblock %}
 {% block head_extra %}
 <script src="{{ url_for('web.static', filename='tv/klinecharts/klinecharts.min.js') }}"></script>
-<script src="{{ url_for('web.static', filename='js/kc-data-loader.js') }}"></script>
 <style>
 #kc-chart { width: 100%; height: calc(100vh - 160px); min-height: 500px; }
 .kc-topbar { display: flex; flex-direction: column; gap: 5px; padding: 6px 14px; background: #1e222d; border-bottom: 1px solid #2a2e39; }

@@ -34,13 +34,30 @@ def _store() -> Any:
 
 
 def _get_paper_trader() -> Any:
-    """Lazy import + instantiate PaperTraderState."""
-    from tradingagents.astock.execution.paper_trader import PaperTraderState
+    """Lazy import + instantiate PaperTrader (shared with routes_paper)."""
+    # Reuse the global paper trader from routes_paper module
+    from tradingagents.astock.api.routes_paper import _get_trader as _paper_get_trader
+    return _paper_get_trader()
 
-    if not hasattr(current_app, "_paper_state"):
-        store = _store()
-        current_app._paper_state = PaperTraderState(store=store)  # type: ignore[attr-defined]
-    return current_app._paper_state  # type: ignore[attr-defined]
+
+def _get_paper_state() -> dict[str, Any]:
+    """Return paper state as a plain dict, or empty defaults on error."""
+    try:
+        trader = _get_paper_trader()
+        state = trader.get_state()
+        if hasattr(state, "model_dump"):
+            return state.model_dump()
+        if isinstance(state, dict):
+            return state
+        return {
+            "positions": getattr(state, "positions", {}),
+            "cash": getattr(state, "cash", 0.0),
+            "total_value": getattr(state, "total_value", 0.0),
+            "pnl": getattr(state, "pnl", 0.0),
+            "trades": getattr(state, "trades", []),
+        }
+    except Exception:
+        return {}
 
 
 # ---------------------------------------------------------------------------
@@ -65,7 +82,7 @@ def dashboard_overview() -> tuple[Response, int]:
 
         # Count unique symbols across kline, valuation tables
         symbols_tracked = 0
-        for table in ("klines", "valuations"):
+        for table in ("kline_bars", "valuations"):
             t_stats = stats.get(table, {})
             if t_stats.get("rows", 0) > 0:
                 try:
@@ -81,11 +98,15 @@ def dashboard_overview() -> tuple[Response, int]:
         paper_return_pct = 0.0
         paper_total_value = 0.0
         try:
-            trader = _get_paper_trader()
-            state = trader.get_state()
-            paper_positions = len(getattr(state, "positions", []) or [])
-            paper_return_pct = getattr(state, "pnl", {}).get("return_pct", 0)
-            paper_total_value = getattr(state, "total_value", 0)
+            pstate = _get_paper_state()
+            if pstate:
+                positions = pstate.get("positions", {})
+                paper_positions = len(positions) if isinstance(positions, dict) else len(positions) if isinstance(positions, (list, tuple)) else 0
+                pnl_val = pstate.get("pnl", 0.0) or 0.0
+                cash = pstate.get("cash", 100000.0) or 100000.0
+                total_value = pstate.get("total_value", 0.0) or 0.0
+                paper_total_value = total_value
+                paper_return_pct = pnl_val / (total_value - pnl_val) if (total_value - pnl_val) > 0 else 0.0
         except Exception:
             pass
 
@@ -100,18 +121,25 @@ def dashboard_overview() -> tuple[Response, int]:
         except Exception:
             pass
 
-        # Latest equity curve from most recent backtest
+        # Latest equity curve from most recent backtest (periods stored in params_json)
+        import json as _json
         latest_equity_curve = []
         if recent_backtests:
-            # If the first result has a periods_json or periods col
             latest = recent_backtests[0]
-            periods = latest.get("periods") or latest.get("periods_json") or []
-            if isinstance(periods, str):
-                import json
-
+            periods = []
+            # Try direct periods column first, then extract from params_json
+            if "periods" in latest and latest["periods"]:
+                periods = latest["periods"]
+            elif latest.get("params_json"):
                 try:
-                    periods = json.loads(periods)
-                except (json.JSONDecodeError, TypeError):
+                    pj = _json.loads(latest["params_json"]) if isinstance(latest["params_json"], str) else latest["params_json"]
+                    periods = pj.get("periods", [])
+                except (_json.JSONDecodeError, TypeError, AttributeError):
+                    periods = []
+            if isinstance(periods, str):
+                try:
+                    periods = _json.loads(periods)
+                except (_json.JSONDecodeError, TypeError):
                     periods = []
             latest_equity_curve = [
                 {"period": p["period"], "value": p["end_value"]}
@@ -131,22 +159,34 @@ def dashboard_overview() -> tuple[Response, int]:
         except Exception:
             pass
 
-        # Paper positions (for pie chart)
+        # Paper positions (for pie chart) — from paper state
         paper_positions_detail = []
         try:
-            trader = _get_paper_trader()
-            state = trader.get_state()
-            positions = getattr(state, "positions", []) or []
-            paper_positions_detail = [
-                {
-                    "symbol": p.get("symbol", "?"),
-                    "value": abs(p.get("quantity", 0) * p.get("current_price", 0)),
-                    "pnl": p.get("pnl", 0),
-                    "quantity": p.get("quantity", 0),
-                }
-                for p in positions
-                if p.get("quantity", 0) > 0
-            ]
+            pstate = _get_paper_state()
+            if pstate:
+                positions = pstate.get("positions", {})
+                if isinstance(positions, dict):
+                    paper_positions_detail = [
+                        {
+                            "symbol": sym,
+                            "value": abs(qty) * 100.0,
+                            "pnl": 0,
+                            "quantity": qty,
+                        }
+                        for sym, qty in positions.items()
+                        if qty > 0
+                    ]
+                elif isinstance(positions, list):
+                    paper_positions_detail = [
+                        {
+                            "symbol": p.get("symbol", "?"),
+                            "value": abs(p.get("quantity", 0) * p.get("current_price", 0)),
+                            "pnl": p.get("pnl", 0),
+                            "quantity": p.get("quantity", 0),
+                        }
+                        for p in positions
+                        if p.get("quantity", 0) > 0
+                    ]
         except Exception:
             pass
 
