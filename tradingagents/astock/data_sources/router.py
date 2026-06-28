@@ -21,13 +21,13 @@ DEFAULT_ELIMINATED_SOURCES = frozenset(("tushare", "ashare"))
 
 DEFAULT_ROUTE_POLICY = {
     # 行情层
-    "kline": ("tdx", "baostock", "mootdx", "tencent", "akshare", "qmt"),
-    "order_book": ("tdx", "mootdx", "tencent", "qmt"),
-    "trade_tape": ("tdx", "mootdx", "tencent", "qmt"),
-    "valuation": ("tdx", "tencent", "akshare", "mootdx"),
-    "pe_pb": ("tdx", "tencent", "akshare", "mootdx"),
-    "market_cap": ("tdx", "tencent", "akshare", "mootdx"),
-    "turnover_rate": ("tdx", "tencent", "akshare", "mootdx"),
+    "kline": ("baostock", "mootdx", "tencent", "akshare", "qmt", "tdx"),
+    "order_book": ("mootdx", "tencent", "qmt", "tdx"),
+    "trade_tape": ("mootdx", "tencent", "qmt", "tdx"),
+    "valuation": ("tencent", "akshare", "mootdx"),
+    "pe_pb": ("tencent", "akshare", "mootdx"),
+    "market_cap": ("tencent", "akshare", "mootdx"),
+    "turnover_rate": ("tencent", "akshare", "mootdx"),
     # 研报层
     "research_list": ("iwencai", "akshare"),
     "download_research_pdf": ("iwencai", "akshare"),
@@ -38,18 +38,18 @@ DEFAULT_ROUTE_POLICY = {
     "flash_news": ("akshare", "tencent"),
     "global_news": ("akshare", "tencent"),
     # 涨跌停层
-    "price_limit": ("tdx", "akshare", "eastmoney"),
+    "price_limit": ("akshare", "eastmoney"),
     # 基础数据层
-    "quarterly_financials": ("tdx", "akshare", "mootdx"),
-    "f10": ("tdx", "mootdx", "akshare"),
-    "fundamentals": ("tdx", "akshare", "mootdx"),
+    "quarterly_financials": ("akshare", "mootdx"),
+    "f10": ("mootdx", "akshare"),
+    "fundamentals": ("akshare", "mootdx"),
     # 公告层
-    "announcement_full": ("tdx", "cninfo", "mootdx"),
-    "announcement_summary": ("tdx", "cninfo", "mootdx"),
+    "announcement_full": ("cninfo", "mootdx"),
+    "announcement_summary": ("cninfo", "mootdx"),
     # 大盘/指数层
-    "market_summary": ("tdx", "tencent", "akshare"),
+    "market_summary": ("tencent", "akshare"),
     # 板块层
-    "sector": ("tdx", "akshare"),
+    "sector": ("akshare",),
 }
 
 CAPABILITY_TO_METHOD = {

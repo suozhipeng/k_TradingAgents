@@ -1,34 +1,36 @@
 """Flask REST API factory for AStock — Phase 15.
 
 Creates a Flask app with CORS and registers all blueprints under
-``/api/v1/``.  The store defaults to ``~/.tradingagents/astock/astock.duckdb``.
+``/api/v1/``.  Supports both DuckDB (local dev) and PostgreSQL/TimescaleDB
+(production) backends.
 
-All ``tradingagents.astock`` imports are lazy (inside functions) to avoid
-triggering the full package dependency chain at module load time.
+Backend selection (priority order)
+----------------------------------
+1. ``backend.json`` persistent config (``~/.tradingagents/backend.json``)
+2. ``ASTOCK_DB_BACKEND`` env var at first run
+
+Switch at runtime via ``POST /api/v1/admin/backend``.
+
+ClickHouse sync automatically uses the currently active backend.
 """
 
 from __future__ import annotations
 
-import os
+import logging
 from typing import Any
 
-from flask import Flask, jsonify
+from flask import Flask, g, jsonify
 from flask_cors import CORS
+
+from tradingagents.astock.store.backend import backend_mgr
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Default settings
 # ---------------------------------------------------------------------------
 
-DEFAULT_DB_PATH = "~/.tradingagents/astock/astock.duckdb"
 DEFAULT_CORS_ORIGIN = "http://localhost:5173"
-
-
-def _init_store(db_path: str) -> Any:
-    """Lazy import + init of AStockStore so ``tradingagents.astock`` is
-    not imported at module level."""
-    from tradingagents.astock.store.schema import init_astock_db
-
-    return init_astock_db(db_path)
 
 
 def create_app(
@@ -41,8 +43,7 @@ def create_app(
     Parameters
     ----------
     db_path : str or None
-        DuckDB file path.  Defaults to ``~/.tradingagents/astock/astock.duckdb``.
-        Pass ``':memory:'`` for testing.
+        DuckDB file path for development (defaults to backend config).
     cors_origin : str or None
         CORS allowed origin.  Defaults to ``http://localhost:5173``.
     test_config : dict or None
@@ -56,23 +57,57 @@ def create_app(
     app = Flask(__name__)
 
     # -- CORS -----------------------------------------------------------------
+    import os
     origin = cors_origin or os.environ.get("CORS_ORIGIN", DEFAULT_CORS_ORIGIN)
     CORS(app, origins=[origin])
 
-    # -- Store ----------------------------------------------------------------
-    resolved_db = db_path or os.environ.get(
-        "ASTOCK_DB_PATH", DEFAULT_DB_PATH
-    )
-    store = _init_store(resolved_db)
-    app.config["STORE"] = store
-    app.config["DB_PATH"] = resolved_db
+    # -- Backend selection via BackendManager ---------------------------------
+    # An explicit db_path is a factory-level override used by tests and local
+    # one-off apps.  It must not reuse the process-wide BackendManager store,
+    # otherwise ":memory:" databases leak state across app instances.
+    if db_path is not None:
+        from tradingagents.astock.store.schema import init_astock_db
 
-    # -- Data facade (router + loaders for refresh API) -----------------------
+        store = init_astock_db(db_path)
+        app.config["DB_BACKEND"] = "duckdb"
+        app.config["STORE"] = store
+        app.config["PG_STORE"] = None
+    else:
+        backend = backend_mgr.current_backend
+        app.config["DB_BACKEND"] = backend
+
+        # Initialise the active store (lazy — BackendManager only connects on demand)
+        if backend == "postgresql":
+            store = backend_mgr.get_pg_store()
+            if store is None:
+                raise RuntimeError(
+                    "Backend is 'postgresql' but PGStore connection failed. "
+                    "Run POST /api/v1/admin/backend to check PG_HOST/PG_PORT/PG_DB."
+                )
+            app.config["STORE"] = store
+            app.config["PG_STORE"] = store
+        else:
+            store = backend_mgr.get_duck_store()
+            app.config["STORE"] = store
+            app.config["PG_STORE"] = None
+
+    # Wrap store with quality-gated ValidatedStore
+    from tradingagents.astock.quality import QualityExecutor, ValidatedStore
+    raw_store = app.config["STORE"]
+    executor = QualityExecutor(raw_store, dry_run=False)
+    app.config["STORE"] = ValidatedStore(raw_store, executor)
+
+    # Always make BackendManager available to routes
+    app.config["BACKEND_MGR"] = backend_mgr
+
+    # DataJobManager
+    from tradingagents.astock.store.jobs import DataJobManager
+    app.config["DATA_JOB_MANAGER"] = DataJobManager()
+
+    # Data facade (router + loaders)
     try:
         from tradingagents.astock.data_sources.router import AStockDataFacade
-
-        facade = AStockDataFacade()
-        app.config["DATA_FACADE"] = facade
+        app.config["DATA_FACADE"] = AStockDataFacade()
     except Exception:
         app.config["DATA_FACADE"] = None
 
@@ -80,23 +115,147 @@ def create_app(
     if test_config:
         app.config.update(test_config)
 
+    # -- before_request: inject globals per request --------------------------
+    @app.before_request
+    def _inject_globals() -> None:
+        g.store = app.config.get("STORE")
+        g.pg_store = app.config.get("PG_STORE")
+        g.backend_mgr = app.config.get("BACKEND_MGR")
+        g.actor = "anonymous"
+        g.role = "public"
+        g.key_id = ""
+        g.allowed_capabilities = ""
+
+    # -- Write-operation auth gate (postgresql mode only) --------------------
+    @app.before_request
+    def _require_auth_on_writes() -> tuple[Any, int] | None:
+        from flask import request
+
+        backend = app.config.get("DB_BACKEND", "duckdb")
+        if backend != "postgresql":
+            return None
+        if request.method not in ("POST", "PUT", "DELETE", "PATCH"):
+            return None
+        if any(request.path.startswith(p) for p in ("/api/v1/health",)):
+            return None
+
+        auth = request.headers.get("Authorization", "")
+        if not auth.startswith("Bearer "):
+            return jsonify({"error": "missing_auth",
+                            "message": "Bearer token required for write operations"}), 401
+
+        import hashlib
+        key_hash = hashlib.sha256(auth[7:].encode()).hexdigest()
+        store = app.config.get("PG_STORE") or app.config.get("STORE")
+
+        record = None
+        if store and hasattr(store, "validate_api_key"):
+            try:
+                import asyncio
+                if asyncio.iscoroutinefunction(store.validate_api_key):
+                    record = asyncio.run(store.validate_api_key(key_hash))
+                else:
+                    record = store.validate_api_key(key_hash)
+            except Exception:
+                record = None
+
+        if record is None:
+            return jsonify({"error": "invalid_key",
+                            "message": "Invalid or expired API key"}), 401
+
+        g.actor = record.get("key_id", "unknown")
+        g.role = record.get("role", "readonly")
+        g.key_id = record.get("key_id", "")
+        g.allowed_capabilities = record.get("allowed_capabilities", "")
+        return None
+
+    # -- after_request: auto-write audit log for write operations ----------
+    @app.after_request
+    def _audit_write_operations(response: Any) -> Any:
+        """Non-blocking audit for all POST/PUT/DELETE/PATCH operations."""
+        from flask import request
+
+        if request.method not in ("POST", "PUT", "DELETE", "PATCH"):
+            return response
+        if request.path.startswith("/api/v1/health"):
+            return response
+
+        store = app.config.get("STORE")
+        if store is None:
+            return response
+
+        try:
+            import uuid, json as _json, time
+            actor = getattr(g, "actor", "anonymous")
+            status_code = response.status_code if hasattr(response, "status_code") else 200
+
+            detail = {
+                "path": request.path,
+                "method": request.method,
+                "status": status_code,
+                "query": dict(request.args),
+            }
+            try:
+                body = request.get_json(silent=True)
+                if body:
+                    detail["body_keys"] = list(body.keys())[:20]
+            except Exception:
+                pass
+
+            segs = request.path.strip("/").split("/")
+            resource_type = segs[2] if len(segs) > 2 else "api"
+
+            audit_data = {
+                "event_id": uuid.uuid4().hex,
+                "event_type": "api_write",
+                "actor": actor,
+                "resource_type": resource_type,
+                "resource_id": segs[-1] if segs else "",
+                "action": f"{request.method} {request.path}",
+                "detail_json": _json.dumps(detail, ensure_ascii=False, default=str),
+                "outcome": "success" if status_code < 400 else "error",
+            }
+
+            import asyncio as _asyncio
+            insert_fn = getattr(store, "store_audit_log", None)
+            if insert_fn is not None:
+                if _asyncio.iscoroutinefunction(insert_fn):
+                    try:
+                        _asyncio.run(insert_fn(**audit_data))
+                    except RuntimeError:
+                        pass
+                else:
+                    insert_fn(**audit_data)
+        except Exception:
+            pass
+        return response
+
     # -- Error handlers -------------------------------------------------------
     @app.errorhandler(400)
     def bad_request(_e: Any) -> tuple[Any, int]:
         return jsonify({"error": "Bad request", "status": 400}), 400
 
+    @app.errorhandler(401)
+    def unauthorized(_e: Any) -> tuple[Any, int]:
+        return jsonify({"error": "Unauthorized", "status": 401}), 401
+
+    @app.errorhandler(403)
+    def forbidden(_e: Any) -> tuple[Any, int]:
+        return jsonify({"error": "Forbidden", "status": 403}), 403
+
     @app.errorhandler(404)
     def not_found(_e: Any) -> tuple[Any, int]:
         return jsonify({"error": "Not found", "status": 404}), 404
+
+    @app.errorhandler(429)
+    def rate_limited(_e: Any) -> tuple[Any, int]:
+        return jsonify({"error": "Rate limited", "status": 429}), 429
 
     @app.errorhandler(500)
     def server_error(_e: Any) -> tuple[Any, int]:
         return jsonify({"error": "Internal server error", "status": 500}), 500
 
-    # -- Register blueprints (lazy imports) ----------------------------------
-    # Each blueprint module uses lazy imports internally; loading them here
-    # only triggers the top-level Python module import, not the full astock
-    # dependency chain.
+    # -- Register blueprints --------------------------------------------------
     from . import routes_data
     from . import routes_backtest
     from . import routes_paper
@@ -117,6 +276,7 @@ def create_app(
     from . import routes_notifications
     from . import routes_alerts
     from . import routes_analysis
+    from . import routes_admin
 
     app.register_blueprint(routes_data.bp, url_prefix="/api/v1")
     app.register_blueprint(routes_backtest.bp, url_prefix="/api/v1")
@@ -138,18 +298,24 @@ def create_app(
     app.register_blueprint(routes_notifications.bp, url_prefix="/api/v1")
     app.register_blueprint(routes_alerts.bp, url_prefix="/api/v1")
     app.register_blueprint(routes_analysis.bp, url_prefix="/api/v1")
+    app.register_blueprint(routes_admin.bp, url_prefix="/api/v1")
 
-    # -- Phase 17: Web UI (Jinja2) blueprint -------------------------------
+    # -- Phase 17: Web UI (Jinja2) blueprint ---------------------------------
     from tradingagents.astock.web import bp as web_bp
-
     app.register_blueprint(web_bp)
 
     # -- Health check ---------------------------------------------------------
     @app.route("/api/v1/health")
     def health() -> tuple[Any, int]:
-        return jsonify({"status": "ok", "version": "0.2.5"}), 200
+        status = backend_mgr.status()
+        return jsonify({
+            "status": "ok",
+            "version": "0.2.5",
+            "backend": status["backend"],
+            "store_connected": status["duckdb_connected"] or status["postgresql_connected"],
+        }), 200
 
     return app
 
 
-__all__ = ["create_app", "DEFAULT_DB_PATH", "DEFAULT_CORS_ORIGIN"]
+__all__ = ["create_app", "DEFAULT_CORS_ORIGIN"]

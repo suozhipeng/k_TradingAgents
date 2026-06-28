@@ -118,11 +118,20 @@ def sample_trade_tape_df() -> pd.DataFrame:
 
 
 def test_init_schema(store: AStockStore) -> None:
-    """Verify all 10 managed tables exist after init_schema."""
+    """Verify all managed tables exist after init_schema (currently 31 tables)."""
     tables = store.list_tables()
     expected = [
+        "database_storage_profiles",
+        "security_master",
+        "trading_calendar",
+        "security_status_history",
+        "industry_classification_history",
+        "suspension_events",
+        "price_limit_rules",
         "kline_bars",
         "valuations",
+        "corporate_actions",
+        "adjust_factors",
         "order_book_snapshots",
         "trade_tape",
         "research_reports",
@@ -131,6 +140,18 @@ def test_init_schema(store: AStockStore) -> None:
         "backtest_results",
         "paper_trades",
         "market_indicators",
+        "technical_indicators",
+        "data_sources",
+        "data_quality_checks",
+        "data_snapshots",
+        "data_partitions",
+        "data_ingestion_jobs",
+        "data_ingestion_job_events",
+        "migration_versions",
+        "audit_log",
+        "api_keys",
+        "data_quality_rules",
+        "data_quarantine",
     ]
     for t in expected:
         assert t in tables, f"Missing table: {t}"
@@ -139,7 +160,7 @@ def test_init_schema(store: AStockStore) -> None:
 
 def test_drop_all_tables(store: AStockStore) -> None:
     """drop_all_tables removes all managed tables."""
-    assert len(store.list_tables()) == 10
+    assert len(store.list_tables()) == 31
     store.drop_all_tables()
     assert store.list_tables() == []
 
@@ -638,7 +659,7 @@ def test_concurrent_writes(store: AStockStore) -> None:
 def test_init_astock_db_factory() -> None:
     store = init_astock_db(":memory:")
     assert store.db_path == ":memory:"
-    assert len(store.list_tables()) == 10
+    assert len(store.list_tables()) == 31
     store.close()
 
 
@@ -679,3 +700,147 @@ def test_store_backtest_result_model() -> None:
     assert df.iloc[0]["run_id"] == "bt-model-001"
 
     store.close()
+
+
+# ===================================================================
+# Phase 13: Commercial-grade additions (new tables)
+# ===================================================================
+
+
+def test_new_tables_exist(store: AStockStore) -> None:
+    """Verify Phase 13 tables are created by init_schema."""
+    tables = store.list_tables()
+    for t in ("migration_versions", "audit_log", "api_keys", "data_quality_rules", "data_quarantine"):
+        assert t in tables, f"Missing Phase 13 table: {t}"
+
+
+def test_migration_engine(store: AStockStore) -> None:
+    """Apply a trivial migration and verify it's tracked."""
+    store._MIGRATIONS = []
+    store._MIGRATIONS.append(
+        ("test_v1", "Test: create temp table", "CREATE TABLE IF NOT EXISTS _mig_test (x INTEGER)", "DROP TABLE IF EXISTS _mig_test")
+    )
+
+    results = store.migrate()
+    assert len(results) == 1
+    assert results[0]["version_id"] == "test_v1"
+    assert results[0]["status"] == "applied"
+
+    results2 = store.migrate()
+    assert len(results2) == 0
+
+    df = store.list_migrations()
+    assert len(df) == 1
+    assert df.iloc[0]["version_id"] == "test_v1"
+
+    store.conn.execute("DROP TABLE IF EXISTS _mig_test")
+    store._MIGRATIONS = []
+
+
+def test_migration_rollback(store: AStockStore) -> None:
+    """Roll back a migration that has rollback_sql."""
+    store._MIGRATIONS = []
+    store._MIGRATIONS.append(
+        ("test_rollback_v1", "Rollback test", "CREATE TABLE IF NOT EXISTS _mig_rb (y VARCHAR)", "DROP TABLE IF EXISTS _mig_rb")
+    )
+    store.migrate()
+    store.rollback_migration("test_rollback_v1")
+    assert not store.table_exists("_mig_rb")
+    store._MIGRATIONS = []
+
+
+def test_audit_log(store: AStockStore) -> None:
+    """Write and query audit log entries."""
+    eid = store.store_audit_log(
+        event_type="data_import",
+        action="import_kline",
+        actor="system",
+        resource_type="kline_bars",
+        resource_id="000001.SZ",
+        detail={"rows": 250},
+        outcome="success",
+    )
+    assert eid
+
+    df = store.query_audit_log(actor="system")
+    assert len(df) == 1
+    assert df.iloc[0]["event_type"] == "data_import"
+
+    df2 = store.query_audit_log(resource_type="kline_bars")
+    assert len(df2) == 1
+
+
+def test_api_keys(store: AStockStore) -> None:
+    """CRUD for API keys."""
+    import hashlib
+    key = "sk-test-secret-123"
+    key_hash = hashlib.sha256(key.encode()).hexdigest()
+
+    kid = store.add_api_key(
+        key_hash=key_hash,
+        key_prefix="sk-test",
+        label="Test Key",
+        role="readonly",
+        owner="tester",
+        allowed_capabilities="kline,valuation",
+        rate_limit=50,
+    )
+    assert kid
+
+    record = store.validate_api_key(key_hash)
+    assert record is not None
+    assert record["role"] == "readonly"
+    assert record["rate_limit"] == 50
+
+    bad = store.validate_api_key("nonexistent")
+    assert bad is None
+
+    store.revoke_api_key(kid)
+    revoked = store.validate_api_key(key_hash)
+    assert revoked is None
+
+
+def test_quality_rules(store: AStockStore) -> None:
+    """Register and run a quality rule."""
+    df = pd.DataFrame({
+        "trade_date": [date(2024, 1, 2)],
+        "open": [10.0], "high": [11.0], "low": [9.0], "close": [10.5],
+        "volume": [100000.0],
+    })
+    store.insert_kline("000001.SZ", df)
+
+    rid = store.store_quality_rule(
+        rule_name="check:negative_close",
+        description="Flag negative close prices",
+        scope_dataset="kline_bars",
+        check_sql="SELECT '000001.SZ' as symbol, '1d' as interval, 0 as violations WHERE 1=0",
+        severity="warn",
+    )
+    assert rid
+
+    result = store.run_quality_rule(rid)
+    assert result["status"] in ("pass", "warn")
+
+    all_results = store.run_all_quality_rules()
+    assert len(all_results) >= 1
+
+
+def test_quarantine(store: AStockStore) -> None:
+    """Store and resolve quarantined records."""
+    qid = store.store_quarantine(
+        source_dataset="kline_bars",
+        symbol="000001.SZ",
+        interval="1d",
+        reason="Negative price detected",
+        original_values={"close": -1.0, "volume": 1000},
+        severity="error",
+    )
+    assert qid
+
+    df = store.query_quarantine(severity="error")
+    assert len(df) == 1
+    assert df.iloc[0]["resolution"] == "unresolved"
+
+    store.resolve_quarantine(qid, resolved_by="admin")
+    df2 = store.query_quarantine(severity="error", resolution="resolved")
+    assert len(df2) == 1

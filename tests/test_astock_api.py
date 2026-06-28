@@ -13,7 +13,10 @@ Verifies:
 from __future__ import annotations
 
 import json
+import sqlite3
 import sys
+import tempfile
+import time
 from pathlib import Path
 from typing import Any
 from unittest.mock import patch
@@ -207,6 +210,149 @@ class TestDataEndpoints:
     def test_get_valuation_missing_symbol(self, app):
         resp = app.get("/api/v1/valuation")
         assert resp.status_code == 400
+
+    def test_manual_insert_kline(self, app):
+        resp = app.post(
+            "/api/v1/data/manual/kline_bars",
+            json={
+                "symbol": "000001.SZ",
+                "trade_date": "2024-01-02",
+                "interval": "1d",
+                "source": "manual",
+                "record": {
+                    "open": 10.0,
+                    "high": 11.0,
+                    "low": 9.5,
+                    "close": 10.5,
+                    "volume": 1000,
+                },
+            },
+        )
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["rows_inserted"] == 1
+
+        check = app.get("/api/v1/kline?symbol=000001.SZ")
+        assert check.status_code == 200
+        bars = check.get_json()["bars"]
+        assert len(bars) == 1
+        assert bars[0]["source"] == "manual"
+
+    def test_manual_insert_rejects_unknown_field(self, app):
+        resp = app.post(
+            "/api/v1/data/manual/kline_bars",
+            json={
+                "symbol": "000001.SZ",
+                "trade_date": "2024-01-02",
+                "record": {
+                    "open": 10.0,
+                    "high": 11.0,
+                    "low": 9.5,
+                    "close": 10.5,
+                    "not_a_column": "bad",
+                },
+            },
+        )
+        assert resp.status_code == 400
+        data = resp.get_json()
+        assert data["error"] == "invalid_input"
+        assert "not_a_column" in data["message"]
+
+    def test_manual_insert_rejects_missing_required_kline_fields(self, app):
+        resp = app.post(
+            "/api/v1/data/manual/kline_bars",
+            json={
+                "record": {
+                    "trade_date": "2024-01-02",
+                    "open": 10.0,
+                    "high": 11.0,
+                    "low": 9.5,
+                    "close": 10.5,
+                },
+            },
+        )
+        assert resp.status_code == 400
+        data = resp.get_json()
+        assert data["error"] == "invalid_input"
+        assert "symbol is required" in data["message"]
+
+    def test_manual_insert_reports_quality_block(self, app):
+        resp = app.post(
+            "/api/v1/data/manual/kline_bars",
+            json={
+                "symbol": "000001.SZ",
+                "trade_date": "2024-01-02",
+                "record": {
+                    "open": 10.0,
+                    "high": 9.0,
+                    "low": 11.0,
+                    "close": 10.5,
+                    "volume": 1000,
+                },
+            },
+        )
+        assert resp.status_code == 422
+        data = resp.get_json()
+        assert data["error"] == "data_quality_blocked"
+        assert "violations" in data
+
+    def test_database_import_job_status(self, app):
+        with tempfile.NamedTemporaryFile(suffix=".sqlite", delete=False) as tmp:
+            source_path = tmp.name
+        try:
+            with sqlite3.connect(source_path) as conn:
+                conn.execute(
+                    """
+                    CREATE TABLE kline_bars (
+                        symbol TEXT,
+                        trade_date TEXT,
+                        open REAL,
+                        high REAL,
+                        low REAL,
+                        close REAL,
+                        volume REAL,
+                        interval TEXT,
+                        source TEXT
+                    )
+                    """
+                )
+                conn.execute(
+                    """
+                    INSERT INTO kline_bars VALUES
+                    ('000002.SZ', '2024-01-02', 20, 21, 19, 20.5, 2000, '1d', 'sqlite')
+                    """
+                )
+
+            resp = app.post(
+                "/api/v1/data/jobs/import-database",
+                json={
+                    "source_db_path": source_path,
+                    "source_table": "kline_bars",
+                    "target_table": "kline_bars",
+                    "source_type": "sqlite",
+                },
+            )
+            assert resp.status_code == 202
+            job_id = resp.get_json()["job"]["job_id"]
+
+            job = None
+            for _ in range(20):
+                status = app.get(f"/api/v1/data/jobs/{job_id}")
+                assert status.status_code == 200
+                job = status.get_json()["job"]
+                if job["status"] in ("succeeded", "failed"):
+                    break
+                time.sleep(0.05)
+
+            assert job is not None
+            assert job["status"] == "succeeded"
+            assert job["progress"] == 1.0
+
+            check = app.get("/api/v1/kline?symbol=000002.SZ")
+            assert check.status_code == 200
+            assert check.get_json()["bars"][0]["source"] == "sqlite"
+        finally:
+            Path(source_path).unlink(missing_ok=True)
 
     def test_get_orderbook(self, app):
         resp = app.get("/api/v1/orderbook?symbol=600519.SH")

@@ -1,35 +1,111 @@
+name: astock
+
+# ── Main deployment stack ───────────────────────────────────────────
+# Start full stack:
+#   docker compose up -d
+# ─────────────────────────────────────────────────────────────────────
+
 services:
-  tradingagents:
-    build: .
-    env_file:
-      - .env
-    volumes:
-      - tradingagents_data:/home/appuser/.tradingagents
-    tty: true
-    stdin_open: true
-
-  ollama:
-    image: ollama/ollama:latest
-    volumes:
-      - ollama_data:/root/.ollama
-    profiles:
-      - ollama
-
-  tradingagents-ollama:
-    build: .
-    env_file:
-      - .env
+  # ── Application (Flask) ────────────────────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: astock-app
+    restart: unless-stopped
+    ports:
+      - "5001:5001"
     environment:
-      - LLM_PROVIDER=ollama
+      ASTOCK_DB_BACKEND: postgresql
+      PG_HOST: postgres
+      PG_PORT: 5432
+      PG_DB: astock
+      PG_USER: astock
+      PG_PASSWORD: astock_prod_2026
+      CORS_ORIGIN: http://localhost:5173
+      FLASK_ENV: production
     volumes:
-      - tradingagents_data:/home/appuser/.tradingagents
+      - ./tradingagents:/app/tradingagents
+      - ~/.tradingagents:/root/.tradingagents
     depends_on:
-      - ollama
-    tty: true
-    stdin_open: true
+      postgres:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/api/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ── PostgreSQL (production primary) ────────────────────────────────
+  postgres:
+    image: postgres:16
+    container_name: astock-pg
+    restart: unless-stopped
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_DB: astock
+      POSTGRES_USER: astock
+      POSTGRES_PASSWORD: astock_prod_2026
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./deploy/pg_init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U astock -d astock"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    command: >
+      postgres
+      -c max_connections=200
+      -c effective_cache_size=4GB
+      -c work_mem=64MB
+      -c maintenance_work_mem=256MB
+
+  # ── ClickHouse (OLAP analytic replica) ────────────────────────────
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.12
+    container_name: astock-ch
+    restart: unless-stopped
+    ports:
+      - "8123:8123"   # HTTP
+      - "9000:9000"   # Native protocol
+    environment:
+      CLICKHOUSE_DB: astock
+      CLICKHOUSE_USER: astock
+      CLICKHOUSE_PASSWORD: astock_ch_2026
+    volumes:
+      - ch_data:/var/lib/clickhouse
+      - ./deploy/ch_init:/docker-entrypoint-initdb.d
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    healthcheck:
+      test: ["CMD", "clickhouse-client", "--user", "astock", "--password", "astock_ch_2026", "--query", "SELECT 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ── PGAdmin (admin console, optional) ─────────────────────────────
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: astock-pgadmin
+    restart: unless-stopped
+    ports:
+      - "5050:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@astock.local
+      PGADMIN_DEFAULT_PASSWORD: admin_2026
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
     profiles:
-      - ollama
+      - admin
 
 volumes:
-  tradingagents_data:
-  ollama_data:
+  pg_data:
+  ch_data:
+  pgadmin_data:

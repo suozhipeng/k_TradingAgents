@@ -9,7 +9,7 @@ GET /api/v1/tv/symbols?symbol=600519.SH
 Resolution mapping:
   1, 5, 15, 30, 60  → 1m, 5m, 15m, 30m, 60m
   240               → 1d  (4h = 240m, also D, 1D)
-  1W, 1M             → 1w, 1mo
+  1W, 1M, 1Y         → 1w, 1mo, 1y
 """
 
 from __future__ import annotations
@@ -32,6 +32,7 @@ RESOLUTION_MAP: dict[str, str] = {
     "240": "1d", "1440": "1d", "D": "1d", "1D": "1d", "1d": "1d",
     "1W": "1w", "W": "1w", "10080": "1w",
     "1M": "1mo", "M": "1mo", "43200": "1mo",
+    "1Y": "1y", "Y": "1y", "12M": "1y", "525600": "1y",
 }
 
 
@@ -143,7 +144,7 @@ def _check_index_membership(symbol: str) -> list[str]:
 
 
 def _aggregate_bars(daily_bars: list[dict[str, Any]], interval: str) -> list[dict[str, Any]]:
-    """Aggregate daily bars into weekly (1w) or monthly (1mo) bars."""
+    """Aggregate daily bars into weekly, monthly, or yearly bars."""
     from datetime import datetime
 
     grouped: dict[str, dict[str, Any]] = {}
@@ -156,6 +157,8 @@ def _aggregate_bars(daily_bars: list[dict[str, Any]], interval: str) -> list[dic
             # ISO week: year + '-' + week number
             iso = dt.isocalendar()
             key = f"{iso[0]}-W{iso[1]:02d}"
+        elif interval == "1y":
+            key = f"{dt.year}"
         else:
             # Monthly: year + '-' + month
             key = f"{dt.year}-{dt.month:02d}"
@@ -434,8 +437,8 @@ def tv_history() -> tuple[Response, int]:
         df = store.query_kline(symbol, interval=interval, start=start_str, end=end_str)
         bars = _df_to_json(df)
 
-        # Weekly/Monthly: aggregate from daily data
-        if not bars and interval in ("1w", "1mo"):
+        # Weekly/Monthly/Yearly: aggregate from daily data
+        if not bars and interval in ("1w", "1mo", "1y"):
             df_daily = store.query_kline(symbol, interval="1d", start=start_str, end=end_str)
             daily_bars = _df_to_json(df_daily)
             if daily_bars:

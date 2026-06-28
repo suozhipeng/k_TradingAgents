@@ -6,7 +6,10 @@ Usage
     python3 scripts/astock_db_tool.py list-tables
     python3 scripts/astock_db_tool.py stats
     python3 scripts/astock_db_tool.py export --table kline_bars --format csv --output ./data/
+    python3 scripts/astock_db_tool.py export-all --format csv --output ./data/
     python3 scripts/astock_db_tool.py import --table kline_bars --format csv --file ./data/bars.csv
+    python3 scripts/astock_db_tool.py import-dir --format csv --input ./data/
+    python3 scripts/astock_db_tool.py schema --target postgresql --output ./schema.sql
     python3 scripts/astock_db_tool.py query --sql "SELECT symbol, count(*) FROM kline_bars GROUP BY symbol"
     python3 scripts/astock_db_tool.py vacuum
 """
@@ -76,6 +79,45 @@ def cmd_import(args: argparse.Namespace) -> None:
     store.close()
 
 
+def cmd_export_all(args: argparse.Namespace) -> None:
+    store = _get_store(args)
+    tables = args.tables or None
+    exported = store.export_tables(tables, fmt=args.format, output_dir=args.output)
+    for table, path in sorted(exported.items()):
+        print(f"Exported {table} → {path}")
+    store.close()
+
+
+def cmd_import_dir(args: argparse.Namespace) -> None:
+    store = _get_store(args)
+    input_dir = Path(args.input)
+    _, ext = store.EXPORT_FORMAT_MAP[args.format]
+    table_files = {}
+    for table in store.list_tables():
+        path = input_dir / f"{table}{ext}"
+        if path.exists():
+            table_files[table] = str(path)
+    if not table_files:
+        print(f"No {args.format} table files found in {input_dir}")
+    else:
+        imported = store.import_tables(table_files, fmt=args.format)
+        for table, count in sorted(imported.items()):
+            print(f"Imported {count} rows into {table}")
+    store.close()
+
+
+def cmd_schema(args: argparse.Namespace) -> None:
+    store = _get_store(args)
+    sql = store.schema_sql(args.target)
+    if args.output:
+        Path(args.output).parent.mkdir(parents=True, exist_ok=True)
+        Path(args.output).write_text(sql, encoding="utf-8")
+        print(f"Wrote {args.target} schema → {args.output}")
+    else:
+        print(sql)
+    store.close()
+
+
 def cmd_query(args: argparse.Namespace) -> None:
     store = _get_store(args)
     df = store.query_sql(args.sql)
@@ -126,6 +168,17 @@ def main() -> None:
     )
     export_p.add_argument("--output", default=None, help="Output file or directory")
 
+    # export-all
+    export_all_p = subparsers.add_parser("export-all", help="Export all or selected managed tables")
+    export_all_p.add_argument(
+        "--format",
+        default="csv",
+        choices=["csv", "parquet", "json"],
+        help="Export format",
+    )
+    export_all_p.add_argument("--output", default="./data", help="Output directory")
+    export_all_p.add_argument("--tables", nargs="*", default=None, help="Optional table names")
+
     # import
     import_p = subparsers.add_parser("import", help="Import data from file into table")
     import_p.add_argument("--table", required=True, help="Table name")
@@ -136,6 +189,26 @@ def main() -> None:
         help="Import format",
     )
     import_p.add_argument("--file", required=True, help="Source file path")
+
+    # import-dir
+    import_dir_p = subparsers.add_parser("import-dir", help="Import matching managed table files from a directory")
+    import_dir_p.add_argument(
+        "--format",
+        default="csv",
+        choices=["csv", "parquet", "json"],
+        help="Import format",
+    )
+    import_dir_p.add_argument("--input", required=True, help="Input directory")
+
+    # schema
+    schema_p = subparsers.add_parser("schema", help="Print or write schema DDL")
+    schema_p.add_argument(
+        "--target",
+        default="duckdb",
+        choices=["duckdb", "postgresql"],
+        help="DDL target",
+    )
+    schema_p.add_argument("--output", default=None, help="Optional output file")
 
     # query
     query_p = subparsers.add_parser("query", help="Run a raw SQL query")
@@ -150,7 +223,10 @@ def main() -> None:
         "list-tables": cmd_list_tables,
         "stats": cmd_stats,
         "export": cmd_export,
+        "export-all": cmd_export_all,
         "import": cmd_import,
+        "import-dir": cmd_import_dir,
+        "schema": cmd_schema,
         "query": cmd_query,
         "vacuum": cmd_vacuum,
     }
