@@ -106,8 +106,8 @@ while rs.next():
 Strategy Lab 重构前，新增策略必须同时更新：
 
 - 本文档。
-- `docs/ASTOCK_TECH_REQUIREMENTS.md` 的 Strategy Lab 目标模块。
-- `docs/ASTOCK_BACKLOG.md` 中 `BL-100` 的完成标准。
+- `04-dev/PRD.md` 的 Strategy Lab 目标模块。
+- `BACKLOG.md` 中 `BL-100` 的完成标准。
 - 对应测试：策略信号、回测结果、优化器排序、API registry。
 
 Phase 30 的目标不是增加更多策略，而是把现有策略、回测、优化、绩效、对比和动量轮动收敛到一个可审计的产品/工程模块。

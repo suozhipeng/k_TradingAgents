@@ -44,7 +44,7 @@ Phase：
 
 - brief 必须保持在当前 active phase 边界内。
 - 涉及 A 股策略、回测、优化器、风控指标、provider 链路或 WebUI 产品边界时，必须加载 `tradingagents-core`。
-- 涉及新增策略时，必须遵守 `docs/ASTOCK_STRATEGY_DEVELOPMENT_GUIDE.md`。
+- 涉及新增策略时，必须遵守 `02-guide/strategy-dev.md`。
 - 只允许修改后来新增的 A 股层、WebUI、API、执行层或文档；不要改动原 TradingAgents 底层 AI 分析核心，除非用户明确批准。
 - 代码或测试发生变化后，必须经过 Codex review gate 才能验收。
 - phase 结论必须写入 `docs/phases/`，不要回写到 `.hermes/`。

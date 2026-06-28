@@ -2,7 +2,7 @@
 
 | 更新时间：2026-06-24 |
 
-本文把 `docs/ASTOCK_DEVELOPMENT_PROGRESS_AND_5MIN_PLAN.md` 中的 5 分钟任务转换为 Hermes 可以直接分派给 DeepSeek 的执行任务包。本文只覆盖核心功能开发，不展开安全与隐私、SLA 与故障分级、用户角色/RBAC。
+本文把 `04-dev/hermes-tasks.md` 中的 5 分钟任务转换为 Hermes 可以直接分派给 DeepSeek 的执行任务包。本文只覆盖核心功能开发，不展开安全与隐私、SLA 与故障分级、用户角色/RBAC。
 
 ## 1. Hermes 执行总规则
 
@@ -28,10 +28,10 @@ Goal:
 - <one-sentence goal>
 
 Inputs:
-- docs/ASTOCK_DEVELOPMENT_PROGRESS_AND_5MIN_PLAN.md
-- docs/ASTOCK_BACKEND_API_REFERENCE.md
-- docs/ASTOCK_REQUIREMENTS_TRACEABILITY_MATRIX.md
-- docs/ASTOCK_TEST_ACCEPTANCE_PLAN.md
+- 04-dev/hermes-tasks.md
+- 01-arch/API.md
+- 04-dev/traceability-matrix.md
+- 04-dev/test-plan.md
 - <task-specific docs/files>
 
 Allowed scope:
@@ -65,9 +65,9 @@ Return to Hermes:
 
 Common inputs:
 
-- `docs/ASTOCK_LIVE_TRADING_RUNBOOK.md`
-- `docs/ASTOCK_API_CONTRACTS.md`
-- `docs/ASTOCK_RISK_DISCLOSURE_AND_COMPLIANCE.md`
+- `03-ops/live-trading.md`
+- `01-arch/API.md`
+- `03-ops/compliance.md`
 - `tradingagents/astock/api/routes_trade.py`
 - `tradingagents/astock/api/routes_paper.py`
 - `tradingagents/astock/api/routes_qmt.py`
@@ -76,23 +76,23 @@ Common inputs:
 | Task ID | Hermes brief | Allowed scope | Tests | Acceptance |
 |---|---|---|---|---|
 | 30-01 | 搜索所有 `/trade`, `/paper`, `/qmt` API 返回字段，形成字段清单。 | docs only preferred; API files read-only unless fixing obvious label drift | `git diff --check -- docs` | 字段清单写入 phase 草稿或 runbook，不遗漏 trade/paper/qmt endpoints |
-| 30-02 | 为每个交易 API 标注 capability：research/paper/managed/live-ready/mock。 | `docs/ASTOCK_API_CONTRACTS.md`, phase doc; API meta only if explicitly approved | `tests/test_astock_api.py -q` if code changes | 所有交易 API 有 capability，不把 paper/mock 描述为 real |
-| 30-03 | 梳理 `trade_state` 当前 paper 语义，更新文档和页面验收要求。 | `docs/ASTOCK_LIVE_TRADING_RUNBOOK.md`, `docs/ASTOCK_WEBUI_PAGE_ACCEPTANCE_CHECKLIST.md` | docs check | trade_state 明确为 Paper Trading，不代表真实账户 |
-| 30-04 | 定义 `TradingMode` enum 文档 schema。 | `docs/ASTOCK_API_CONTRACTS.md`, `docs/ASTOCK_LIVE_TRADING_RUNBOOK.md` | docs check | enum 包含 research/paper/managed/live-ready |
+| 30-02 | 为每个交易 API 标注 capability：research/paper/managed/live-ready/mock。 | `01-arch/API.md`, phase doc; API meta only if explicitly approved | `tests/test_astock_api.py -q` if code changes | 所有交易 API 有 capability，不把 paper/mock 描述为 real |
+| 30-03 | 梳理 `trade_state` 当前 paper 语义，更新文档和页面验收要求。 | `03-ops/live-trading.md`, `README.md` | docs check | trade_state 明确为 Paper Trading，不代表真实账户 |
+| 30-04 | 定义 `TradingMode` enum 文档 schema。 | `01-arch/API.md`, `03-ops/live-trading.md` | docs check | enum 包含 research/paper/managed/live-ready |
 | 30-05 | 定义 `ExecutionCapability` schema。 | API contracts, runbook | docs check | schema 可被交易 API 和页面复用 |
 | 30-06 | 绘制订单生命周期 Mermaid 状态机。 | runbook, phase doc | docs check | 覆盖 created/submitted/confirmed/partial_filled/filled/cancelled/rejected/expired/error |
 | 30-07 | 梳理风控 reason code。 | runbook, risk disclosure, future phase doc | `tests/test_astock_execution_risk_gate.py -q` if code changes | Risk Gate reason code 可用于 API 和页面 |
 | 30-08 | 定义 kill switch 文档行为。 | runbook, risk disclosure | docs check | kill switch 激活后默认阻断后续执行 |
-| 30-09 | 更新交易页页面验收清单。 | `docs/ASTOCK_WEBUI_PAGE_ACCEPTANCE_CHECKLIST.md` | docs check | paper/managed/live-ready disabled 标签截图要求明确 |
+| 30-09 | 更新交易页页面验收清单。 | `README.md` | docs check | paper/managed/live-ready disabled 标签截图要求明确 |
 | 30-10 | 运行 paper trader 验收并记录结果。 | phase doc only unless fixing tests | `tests/test_astock_paper_trader.py -q` | 测试结果写入 phase 证据；失败需记录原因 |
 
 ## 4. Phase 31 Data Quality & Bias Control
 
 Common inputs:
 
-- `docs/ASTOCK_DATA_DICTIONARY_AND_LINEAGE.md`
-- `docs/ASTOCK_DATA_MIGRATION_AND_UPGRADE.md`
-- `docs/ASTOCK_DATA_SOURCE_LICENSE_AND_USAGE.md`
+- `03-ops/data-sources.md`
+- `04-dev/PRD.md`
+- `03-ops/data-sources.md`
 - `tradingagents/astock/data_sources/router.py`
 - `tradingagents/astock/data_sources/adapters.py`
 - `tradingagents/astock/api/routes_data.py`
@@ -115,8 +115,8 @@ Common inputs:
 
 Common inputs:
 
-- `docs/ASTOCK_STRATEGY_DEVELOPMENT_GUIDE.md`
-- `docs/ASTOCK_API_CONTRACTS.md`
+- `02-guide/strategy-dev.md`
+- `01-arch/API.md`
 - `tradingagents/astock/execution/`
 - `tradingagents/astock/api/routes_backtest.py`
 - `tradingagents/astock/api/routes_market.py`
@@ -139,8 +139,8 @@ Common inputs:
 
 Common inputs:
 
-- `docs/ASTOCK_MODEL_GOVERNANCE.md`
-- `docs/ASTOCK_RISK_DISCLOSURE_AND_COMPLIANCE.md`
+- `03-ops/compliance.md`
+- `03-ops/compliance.md`
 - `tradingagents/astock/runtime.py`
 - `tradingagents/astock/api/routes_ai_agent.py`
 - `tradingagents/astock/api/routes_reports.py`
@@ -190,7 +190,7 @@ Common inputs:
 
 Common inputs:
 
-- `docs/ASTOCK_LIVE_TRADING_RUNBOOK.md`
+- `03-ops/live-trading.md`
 - `tradingagents/astock/api/routes_trade.py`
 - `tradingagents/astock/api/routes_paper.py`
 - `tradingagents/astock/execution/paper_trader.py`
@@ -213,8 +213,8 @@ Common inputs:
 
 Common inputs:
 
-- `docs/ASTOCK_PRODUCT_OPTIMIZATION_ROADMAP.md`
-- `docs/ASTOCK_API_CONTRACTS.md`
+- `BACKLOG.md`
+- `01-arch/API.md`
 - `tradingagents/astock/execution/metrics.py`
 - `tradingagents/astock/api/routes_dashboard.py`
 - `tradingagents/astock/web/templates/dashboard.html`
@@ -236,7 +236,7 @@ Common inputs:
 
 Common inputs:
 
-- `docs/ASTOCK_PRODUCT_METRICS_AND_OPS_REQUIREMENTS.md`
+- `03-ops/ops-metrics.md`
 - `tradingagents/astock/api/routes_sse.py`
 - `tradingagents/astock/execution/event_bus.py`
 - `tradingagents/astock/api/routes_dashboard.py`
@@ -259,8 +259,8 @@ Common inputs:
 
 Common inputs:
 
-- `docs/ASTOCK_WEBUI_PRODUCT_SPEC.md`
-- `docs/ASTOCK_WEBUI_PAGE_ACCEPTANCE_CHECKLIST.md`
+- `02-guide/USER_MANUAL.md`
+- `README.md`
 - `tradingagents/astock/web/templates/`
 - `tradingagents/astock/web/__init__.py`
 
@@ -282,11 +282,11 @@ Common inputs:
 每个 task 完成后，Hermes 必须回填：
 
 - `docs/phases/phase-XX-*.md`：scope、修改文件、测试结果、风险、下一入口条件。
-- `docs/ASTOCK_REQUIREMENTS_TRACEABILITY_MATRIX.md`：需求状态和证据列。
-- `docs/ASTOCK_BACKEND_API_REFERENCE.md`：如新增、删除或调整 endpoint、数据源、能力等级或测试验收。
-- `docs/ASTOCK_PROJECT_RISK_REGISTER.md`：相关风险状态。
-- `docs/ASTOCK_ARCHITECTURE_DECISION_RECORDS.md`：如有重大决策变化。
-- `docs/ASTOCK_CURRENT_STATUS.md`：只有 phase 完成且 review accept 后更新。
+- `04-dev/traceability-matrix.md`：需求状态和证据列。
+- `01-arch/API.md`：如新增、删除或调整 endpoint、数据源、能力等级或测试验收。
+- `03-ops/risk-register.md`：相关风险状态。
+- `01-arch/ADR.md`：如有重大决策变化。
+- `phases/README.md`：只有 phase 完成且 review accept 后更新。
 
 ## 13. Hermes 禁止事项
 

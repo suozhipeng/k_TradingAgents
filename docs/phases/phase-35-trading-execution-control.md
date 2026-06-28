@@ -60,7 +60,7 @@ pytest tests/test_astock_qmt_execution.py -q
 
 ### 排除项（明确不处理）
 
-以下能力因产品定位调整（详见 `ASTOCK_PRODUCT_OPTIMIZATION_ROADMAP.md` §1 "实盘交易降级为远期探索"）标记为 P3 暂不处理，不影响本 phase 的 done-with-exclusions 状态：
+以下能力因产品定位调整（详见 `BACKLOG.md` §1 "实盘交易降级为远期探索"）标记为 P3 暂不处理，不影响本 phase 的 done-with-exclusions 状态：
 
 - 真实券商账户/委托/成交/回报 reconciliation
 - `/qmt/orders` 从 mock 升级为真实 QMT 订单查询

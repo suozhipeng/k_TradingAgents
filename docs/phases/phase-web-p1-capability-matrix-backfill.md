@@ -15,10 +15,10 @@
 
 ### 包含
 
-- 读取 `docs/ASTOCK_BACKLOG.md`，对 BL-200 ~ BL-404 共 39 项逐一检查 API endpoint、HTML 页面、路由注册和测试覆盖的实际存在情况
-- 读取 `docs/ASTOCK_REQUIREMENTS_TRACEABILITY_MATRIX.md`，对 FR-11 ~ FR-26 共 16 项按实际代码路径更新状态（`done` / `partial` / `planned` / `blocked`）
-- 读取 `docs/ASTOCK_WEBUI_PRODUCT_SPEC.md`，确认 7 模块 IA 是否需要同步更新
-- 读取 `docs/ASTOCK_WEBUI_PAGE_ACCEPTANCE_CHECKLIST.md`，确认新页面是否需要补充验收细节
+- 读取 `BACKLOG.md`，对 BL-200 ~ BL-404 共 39 项逐一检查 API endpoint、HTML 页面、路由注册和测试覆盖的实际存在情况
+- 读取 `04-dev/traceability-matrix.md`，对 FR-11 ~ FR-26 共 16 项按实际代码路径更新状态（`done` / `partial` / `planned` / `blocked`）
+- 读取 `02-guide/USER_MANUAL.md`，确认 7 模块 IA 是否需要同步更新
+- 读取 `README.md`，确认新页面是否需要补充验收细节
 - 创建本 phase 归档文档
 
 ### 排除
@@ -209,10 +209,10 @@ except Exception as e:
 
 # 统计 BL 文档中状态分布
 echo "=== Backlog status distribution ==="
-grep -c '状态.*done\|状态.*partial\|状态.*planned\|状态.*blocked' docs/ASTOCK_BACKLOG.md 2>/dev/null || echo "check inline"
+grep -c '状态.*done\|状态.*partial\|状态.*planned\|状态.*blocked' BACKLOG.md 2>/dev/null || echo "check inline"
 
 echo "=== Traceability FR-11~26 status ==="
-grep 'FR-1[1-6]\|FR-2[0-6]' docs/ASTOCK_REQUIREMENTS_TRACEABILITY_MATRIX.md 2>/dev/null
+grep 'FR-1[1-6]\|FR-2[0-6]' 04-dev/traceability-matrix.md 2>/dev/null
 ```
 
 ## 7. 产品决策

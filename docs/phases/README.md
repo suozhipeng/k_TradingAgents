@@ -12,7 +12,7 @@
 4. 记录精确测试命令和结果。
 5. 记录未解决风险和下一 phase 进入条件。
 6. phase commit 完成后补充最终 Git commit SHA。
-7. 同步更新本索引和 `docs/ASTOCK_CURRENT_STATUS.md`。
+7. 同步更新本索引和 `phases/README.md`。
 
 如果 commit SHA 在提交前未知，可以先写 `pending`，并在下一个文档 checkpoint 更新。
 
@@ -87,8 +87,6 @@ phase-12-duckdb-local-database.md
 
 phase 归档由仓库级执行治理文档补充：
 
-- [Hermes Skills Playbook](../HERMES_SKILLS_PLAYBOOK.md)
-- [Hermes / Codex / DeepSeek 协作流程](../HERMES_CODEX_DEEPSEEK_WORKFLOW.md)
-- [Phase 09 Hermes 执行 brief](phase-09-hermes-execution-brief.md)
-
-涉及策略、回测、优化器、动量轮动和 Strategy Lab 的新 phase，必须同时参考 [A 股策略开发规范](../ASTOCK_STRATEGY_DEVELOPMENT_GUIDE.md)。
+- [Hermes Skills Playbook](../hermes-skills.md)
+- [Hermes / Codex / DeepSeek 协作流程](../hermes-workflow.md)
+- [A 股策略开发规范](../02-guide/strategy-dev.md)

@@ -6,9 +6,6 @@
 
 ## 1. 产品概述
 
-
-## 1. 产品概述
-
 ### 1.1 产品名称
 
 `TradingAgents-Astock`
@@ -210,7 +207,7 @@
 
 ## 9.1 后续产品路线
 
-后续路线以 `docs/ASTOCK_PRODUCT_OPTIMIZATION_ROADMAP.md` 为准：
+后续路线以 `BACKLOG.md` 为准：
 
 1. Phase 30：Live Trading Readiness
 2. Phase 31：Data Quality & Bias Control
@@ -226,42 +223,42 @@
 
 后续开发必须按以下文档闭环执行：
 
-- API 变更先更新 `docs/ASTOCK_API_CONTRACTS.md`，再进入代码实现。
-- 数据字段、provider、质量标签、血缘和快照变更先更新 `docs/ASTOCK_DATA_DICTIONARY_AND_LINEAGE.md`。
-- DuckDB、cache、schema、报告归档和回测结果结构变更先更新 `docs/ASTOCK_DATA_MIGRATION_AND_UPGRADE.md`。
-- 受控执行、QMT、订单、风控、故障处理和回滚流程先更新 `docs/ASTOCK_LIVE_TRADING_RUNBOOK.md`。
-- 每个 phase 必须按 `docs/ASTOCK_TEST_ACCEPTANCE_PLAN.md` 留存测试命令、结果和阻断项。
-- 页面、报告、AI 输出、回测结果和交易入口必须遵守 `docs/ASTOCK_RISK_DISCLOSURE_AND_COMPLIANCE.md`。
-- 核心功能启动、依赖和健康检查必须遵守 `docs/ASTOCK_DEPLOYMENT_AND_ENVIRONMENT.md`。
-- AI provider、prompt、模型输出和降级必须遵守 `docs/ASTOCK_MODEL_GOVERNANCE.md`。
-- WebUI 页面状态、能力标签和顶层导航必须遵守 `docs/ASTOCK_WEBUI_PRODUCT_SPEC.md`。
-- WebUI 页面输入、输出、状态、错误态和截图证据必须遵守 `docs/ASTOCK_WEBUI_PAGE_ACCEPTANCE_CHECKLIST.md`。
-- API/data/AI/trading/UI 兼容性变化必须遵守 `docs/ASTOCK_RELEASE_AND_CHANGE_MANAGEMENT.md`。
-- 当前暂不纳入范围必须以 `docs/ASTOCK_DOCUMENT_SCOPE_REGISTER.md` 为准，不得隐式扩展。
+- API 变更先更新 `01-arch/API.md`，再进入代码实现。
+- 数据字段、provider、质量标签、血缘和快照变更先更新 `03-ops/data-sources.md`。
+- DuckDB、cache、schema、报告归档和回测结果结构变更先更新 `04-dev/PRD.md`。
+- 受控执行、QMT、订单、风控、故障处理和回滚流程先更新 `03-ops/live-trading.md`。
+- 每个 phase 必须按 `04-dev/test-plan.md` 留存测试命令、结果和阻断项。
+- 页面、报告、AI 输出、回测结果和交易入口必须遵守 `03-ops/compliance.md`。
+- 核心功能启动、依赖和健康检查必须遵守 `03-ops/deployment.md`。
+- AI provider、prompt、模型输出和降级必须遵守 `03-ops/compliance.md`。
+- WebUI 页面状态、能力标签和顶层导航必须遵守 `02-guide/USER_MANUAL.md`。
+- WebUI 页面输入、输出、状态、错误态和截图证据必须遵守 `README.md`。
+- API/data/AI/trading/UI 兼容性变化必须遵守 `03-ops/deployment.md`。
+- 当前暂不纳入范围必须以 `README.md` 为准，不得隐式扩展。
 
 ## 10. 关联文档
 
-- `docs/ASTOCK_REQUIREMENTS.md`
-- `docs/ASTOCK_TECH_REQUIREMENTS.md`
-- `docs/ASTOCK_BACKLOG.md`
-- `docs/ASTOCK_BOUNDARY_AND_UI_REFACTOR_PLAN.md`
-- `docs/ASTOCK_PRODUCT_OPTIMIZATION_ROADMAP.md`
-- `docs/ASTOCK_REQUIREMENTS_TRACEABILITY_MATRIX.md`
-- `docs/ASTOCK_PRODUCT_METRICS_AND_OPS_REQUIREMENTS.md`
-- `docs/ASTOCK_API_CONTRACTS.md`
-- `docs/ASTOCK_DATA_DICTIONARY_AND_LINEAGE.md`
-- `docs/ASTOCK_DATA_MIGRATION_AND_UPGRADE.md`
-- `docs/ASTOCK_DATA_SOURCE_LICENSE_AND_USAGE.md`
-- `docs/ASTOCK_MODEL_GOVERNANCE.md`
-- `docs/ASTOCK_LIVE_TRADING_RUNBOOK.md`
-- `docs/ASTOCK_DEPLOYMENT_AND_ENVIRONMENT.md`
-- `docs/ASTOCK_TEST_ACCEPTANCE_PLAN.md`
-- `docs/ASTOCK_RELEASE_AND_CHANGE_MANAGEMENT.md`
-- `docs/ASTOCK_RISK_DISCLOSURE_AND_COMPLIANCE.md`
-- `docs/ASTOCK_WEBUI_PRODUCT_SPEC.md`
-- `docs/ASTOCK_WEBUI_PAGE_ACCEPTANCE_CHECKLIST.md`
-- `docs/ASTOCK_DOCUMENT_SCOPE_REGISTER.md`
-- `docs/ASTOCK_CURRENT_STATUS.md`
+- `04-dev/PRD.md`
+- `04-dev/PRD.md`
+- `BACKLOG.md`
+- `04-dev/PRD.md`
+- `BACKLOG.md`
+- `04-dev/traceability-matrix.md`
+- `03-ops/ops-metrics.md`
+- `01-arch/API.md`
+- `03-ops/data-sources.md`
+- `04-dev/PRD.md`
+- `03-ops/data-sources.md`
+- `03-ops/compliance.md`
+- `03-ops/live-trading.md`
+- `03-ops/deployment.md`
+- `04-dev/test-plan.md`
+- `03-ops/deployment.md`
+- `03-ops/compliance.md`
+- `02-guide/USER_MANUAL.md`
+- `README.md`
+- `README.md`
+- `phases/README.md`
 
 
 
@@ -283,33 +280,33 @@
 使用规则：
 
 - 需求目标以本文档和 `planning/codebase/ASTOCK_RESOURCE_PLAN.md` 为准
-- 当前实现事实以 `docs/ASTOCK_CURRENT_STATUS.md` 为准
+- 当前实现事实以 `phases/README.md` 为准
 - 每个阶段的实现证据以 `docs/phases/` 为准
 
 配套拆分文档：
 
-- `docs/ASTOCK_PRD.md`：产品需求 PRD
-- `docs/ASTOCK_TECH_REQUIREMENTS.md`：技术需求与模块拆解
-- `docs/ASTOCK_BACKLOG.md`：待开发 backlog
-- `docs/ASTOCK_BOUNDARY_AND_UI_REFACTOR_PLAN.md`：专业金融缺口、文档/代码/WebUI 边界与设计图
-- `docs/ASTOCK_PRODUCT_OPTIMIZATION_ROADMAP.md`：Phase 30-38 产品优化路线图
-- `docs/ASTOCK_REQUIREMENTS_TRACEABILITY_MATRIX.md`：需求、模块、API/页面、测试、phase 追踪矩阵
-- `docs/ASTOCK_PROJECT_RISK_REGISTER.md`：项目级技术、数据、交易、AI、UI、迁移风险台账
-- `docs/ASTOCK_ARCHITECTURE_DECISION_RECORDS.md`：架构和产品边界关键决策记录
-- `docs/ASTOCK_PRODUCT_METRICS_AND_OPS_REQUIREMENTS.md`：产品指标、运行指标、告警和 Ops 需求
-- `docs/ASTOCK_API_CONTRACTS.md`：API envelope、错误码、能力等级和 schema 稳定性
-- `docs/ASTOCK_DATA_DICTIONARY_AND_LINEAGE.md`：核心实体、数据质量、provider 血缘和快照要求
-- `docs/ASTOCK_DATA_MIGRATION_AND_UPGRADE.md`：DuckDB、cache、schema 变化后的迁移策略
-- `docs/ASTOCK_DATA_SOURCE_LICENSE_AND_USAGE.md`：核心数据源用途、来源标注和使用边界
-- `docs/ASTOCK_MODEL_GOVERNANCE.md`：AI provider、prompt、模型输出和降级治理
-- `docs/ASTOCK_LIVE_TRADING_RUNBOOK.md`：实盘/受控执行运行流程、故障处理和回滚
-- `docs/ASTOCK_DEPLOYMENT_AND_ENVIRONMENT.md`：核心功能环境、依赖、启动和健康检查
-- `docs/ASTOCK_TEST_ACCEPTANCE_PLAN.md`：测试分层、验收门槛和发布阻断条件
-- `docs/ASTOCK_RELEASE_AND_CHANGE_MANAGEMENT.md`：核心功能变更、兼容和回滚要求
-- `docs/ASTOCK_RISK_DISCLOSURE_AND_COMPLIANCE.md`：风险披露、合规边界和禁止声明
-- `docs/ASTOCK_WEBUI_PRODUCT_SPEC.md`：WebUI 信息架构、页面状态、能力标签和页面验收
-- `docs/ASTOCK_WEBUI_PAGE_ACCEPTANCE_CHECKLIST.md`：WebUI 页面输入、输出、状态、错误态和截图验收清单
-- `docs/ASTOCK_DOCUMENT_SCOPE_REGISTER.md`：当前纳入范围和暂不纳入范围登记
+- `04-dev/PRD.md`：产品需求 PRD
+- `04-dev/PRD.md`：技术需求与模块拆解
+- `BACKLOG.md`：待开发 backlog
+- `04-dev/PRD.md`：专业金融缺口、文档/代码/WebUI 边界与设计图
+- `BACKLOG.md`：Phase 30-38 产品优化路线图
+- `04-dev/traceability-matrix.md`：需求、模块、API/页面、测试、phase 追踪矩阵
+- `03-ops/risk-register.md`：项目级技术、数据、交易、AI、UI、迁移风险台账
+- `01-arch/ADR.md`：架构和产品边界关键决策记录
+- `03-ops/ops-metrics.md`：产品指标、运行指标、告警和 Ops 需求
+- `01-arch/API.md`：API envelope、错误码、能力等级和 schema 稳定性
+- `03-ops/data-sources.md`：核心实体、数据质量、provider 血缘和快照要求
+- `04-dev/PRD.md`：DuckDB、cache、schema 变化后的迁移策略
+- `03-ops/data-sources.md`：核心数据源用途、来源标注和使用边界
+- `03-ops/compliance.md`：AI provider、prompt、模型输出和降级治理
+- `03-ops/live-trading.md`：实盘/受控执行运行流程、故障处理和回滚
+- `03-ops/deployment.md`：核心功能环境、依赖、启动和健康检查
+- `04-dev/test-plan.md`：测试分层、验收门槛和发布阻断条件
+- `03-ops/deployment.md`：核心功能变更、兼容和回滚要求
+- `03-ops/compliance.md`：风险披露、合规边界和禁止声明
+- `02-guide/USER_MANUAL.md`：WebUI 信息架构、页面状态、能力标签和页面验收
+- `README.md`：WebUI 页面输入、输出、状态、错误态和截图验收清单
+- `README.md`：当前纳入范围和暂不纳入范围登记
 
 ## 2. 项目目标
 
@@ -534,7 +531,7 @@ A 股研究与执行链必须遵守：
 - 风控拦截率、人工确认率和订单异常率
 - 审计事件覆盖率
 
-指标定义和 Ops 要求以 `docs/ASTOCK_PRODUCT_METRICS_AND_OPS_REQUIREMENTS.md` 为准。
+指标定义和 Ops 要求以 `03-ops/ops-metrics.md` 为准。
 
 ### NFR-06 API 契约稳定性
 
@@ -546,7 +543,7 @@ A 股研究与执行链必须遵守：
 - mock/paper/managed/live-ready 不得混用或误导
 - 交易相关 API 必须返回风控、确认和审计引用
 
-API 口径以 `docs/ASTOCK_API_CONTRACTS.md` 为准。
+API 口径以 `01-arch/API.md` 为准。
 
 ### NFR-07 数据字典与血缘
 
@@ -558,7 +555,7 @@ API 口径以 `docs/ASTOCK_API_CONTRACTS.md` 为准。
 - 复权、交易日历、停牌、涨跌停、ST/退市等数据假设
 - 可被 AI Research、Strategy Lab、Trading、Ops 复用的数据快照 ID
 
-数据口径以 `docs/ASTOCK_DATA_DICTIONARY_AND_LINEAGE.md` 为准。
+数据口径以 `03-ops/data-sources.md` 为准。
 
 ### NFR-08 测试验收与发布门槛
 
@@ -569,7 +566,7 @@ API 口径以 `docs/ASTOCK_API_CONTRACTS.md` 为准。
 - API/schema/store/UI 变化必须有对应验收项
 - 失败、跳过、风险、回滚和 commit SHA 必须进入 phase 归档
 
-测试与验收口径以 `docs/ASTOCK_TEST_ACCEPTANCE_PLAN.md` 为准。
+测试与验收口径以 `04-dev/test-plan.md` 为准。
 
 ### NFR-09 风险披露与合规边界
 
@@ -581,7 +578,7 @@ API 口径以 `docs/ASTOCK_API_CONTRACTS.md` 为准。
 - 未完成 live-ready checklist 前，不得声称完整自动实盘生产能力
 - 真实交易前必须保留人工确认、风控拦截和审计证据
 
-风险与合规口径以 `docs/ASTOCK_RISK_DISCLOSURE_AND_COMPLIANCE.md` 为准。
+风险与合规口径以 `03-ops/compliance.md` 为准。
 
 ### NFR-10 核心功能环境可复现
 
@@ -593,7 +590,7 @@ API 口径以 `docs/ASTOCK_API_CONTRACTS.md` 为准。
 - provider / DuckDB / LLM / QMT 健康检查
 - degraded 状态说明
 
-环境口径以 `docs/ASTOCK_DEPLOYMENT_AND_ENVIRONMENT.md` 为准。
+环境口径以 `03-ops/deployment.md` 为准。
 
 ### NFR-11 AI 模型治理
 
@@ -605,7 +602,7 @@ AI Research 和 advisory 输出必须具备：
 - advisory-only 标记
 - LLM 不可用时的 fail closed 或 degraded 行为
 
-模型治理口径以 `docs/ASTOCK_MODEL_GOVERNANCE.md` 为准。
+模型治理口径以 `03-ops/compliance.md` 为准。
 
 ### NFR-12 核心功能变更兼容
 
@@ -618,7 +615,7 @@ AI Research 和 advisory 输出必须具备：
 - 回滚路径
 - 是否影响原 TradingAgents core
 
-变更口径以 `docs/ASTOCK_RELEASE_AND_CHANGE_MANAGEMENT.md` 为准。
+变更口径以 `03-ops/deployment.md` 为准。
 
 ### NFR-13 WebUI 页面级一致性
 
@@ -629,7 +626,7 @@ WebUI 核心页面必须统一：
 - research / paper / managed / live-ready / mock 能力标签
 - 旧入口迁移策略
 
-WebUI 口径以 `docs/ASTOCK_WEBUI_PRODUCT_SPEC.md` 为准。
+WebUI 口径以 `02-guide/USER_MANUAL.md` 为准。
 
 ### NFR-16 数据迁移与升级
 
@@ -641,7 +638,7 @@ DuckDB、cache、schema、报告归档和回测结果结构变化必须具备：
 - API/WebUI 回归验证
 - 回滚或不可回滚说明
 
-迁移口径以 `docs/ASTOCK_DATA_MIGRATION_AND_UPGRADE.md` 为准。
+迁移口径以 `04-dev/PRD.md` 为准。
 
 ### NFR-17 WebUI 页面级验收
 
@@ -653,15 +650,15 @@ DuckDB、cache、schema、报告归档和回测结果结构变化必须具备：
 - 错误码、用户提示和重试动作
 - success、empty、error/degraded 截图或替代证据
 
-页面验收口径以 `docs/ASTOCK_WEBUI_PAGE_ACCEPTANCE_CHECKLIST.md` 为准。
+页面验收口径以 `README.md` 为准。
 
 ## 8. 当前实现对照
 
 截至当前仓库状态：
 
 - 正式归档已执行到 `Phase 29`
-- `Phase 0-29` 已在 `docs/ASTOCK_CURRENT_STATUS.md` 与 `docs/phases/README.md` 中标记完成
-- 当前专业评审口径以 `docs/ASTOCK_BOUNDARY_AND_UI_REFACTOR_PLAN.md` 为准：已完成能力不等同于完整实盘生产能力
+- `Phase 0-29` 已在 `phases/README.md` 与 `docs/phases/README.md` 中标记完成
+- 当前专业评审口径以 `04-dev/PRD.md` 为准：已完成能力不等同于完整实盘生产能力
 
 当前已大面积落地的需求：
 
@@ -693,7 +690,7 @@ DuckDB、cache、schema、报告归档和回测结果结构变化必须具备：
 
 ## 10. 后续需求入口
 
-后续需求主线以 `docs/ASTOCK_PRODUCT_OPTIMIZATION_ROADMAP.md` 为准。当前建议顺序为：
+后续需求主线以 `BACKLOG.md` 为准。当前建议顺序为：
 
 1. Phase 30：Live Trading Readiness，先定实盘准入和能力口径。
 2. Phase 31：Data Quality & Bias Control，补数据可信和回测可信。
@@ -705,32 +702,32 @@ DuckDB、cache、schema、报告归档和回测结果结构变化必须具备：
 8. Phase 37：Ops & Audit，统一运行、错误、审计和健康状态。
 9. Phase 38：Product Navigation Cleanup，清理 UI 入口和体验一致性。
 
-所有后续 phase 必须在 `docs/ASTOCK_REQUIREMENTS_TRACEABILITY_MATRIX.md` 中有需求 ID 映射。
+所有后续 phase 必须在 `04-dev/traceability-matrix.md` 中有需求 ID 映射。
 
 ## 11. 关联文档
 
 - `planning/codebase/ASTOCK_RESOURCE_PLAN.md`
-- `docs/ASTOCK_PRD.md`
-- `docs/ASTOCK_TECH_REQUIREMENTS.md`
-- `docs/ASTOCK_BACKLOG.md`
-- `docs/ASTOCK_BOUNDARY_AND_UI_REFACTOR_PLAN.md`
-- `docs/ASTOCK_PRODUCT_OPTIMIZATION_ROADMAP.md`
-- `docs/ASTOCK_REQUIREMENTS_TRACEABILITY_MATRIX.md`
-- `docs/ASTOCK_PRODUCT_METRICS_AND_OPS_REQUIREMENTS.md`
-- `docs/ASTOCK_API_CONTRACTS.md`
-- `docs/ASTOCK_DATA_DICTIONARY_AND_LINEAGE.md`
-- `docs/ASTOCK_DATA_MIGRATION_AND_UPGRADE.md`
-- `docs/ASTOCK_DATA_SOURCE_LICENSE_AND_USAGE.md`
-- `docs/ASTOCK_MODEL_GOVERNANCE.md`
-- `docs/ASTOCK_LIVE_TRADING_RUNBOOK.md`
-- `docs/ASTOCK_DEPLOYMENT_AND_ENVIRONMENT.md`
-- `docs/ASTOCK_TEST_ACCEPTANCE_PLAN.md`
-- `docs/ASTOCK_RELEASE_AND_CHANGE_MANAGEMENT.md`
-- `docs/ASTOCK_RISK_DISCLOSURE_AND_COMPLIANCE.md`
-- `docs/ASTOCK_WEBUI_PRODUCT_SPEC.md`
-- `docs/ASTOCK_WEBUI_PAGE_ACCEPTANCE_CHECKLIST.md`
-- `docs/ASTOCK_DOCUMENT_SCOPE_REGISTER.md`
-- `docs/ASTOCK_CURRENT_STATUS.md`
+- `04-dev/PRD.md`
+- `04-dev/PRD.md`
+- `BACKLOG.md`
+- `04-dev/PRD.md`
+- `BACKLOG.md`
+- `04-dev/traceability-matrix.md`
+- `03-ops/ops-metrics.md`
+- `01-arch/API.md`
+- `03-ops/data-sources.md`
+- `04-dev/PRD.md`
+- `03-ops/data-sources.md`
+- `03-ops/compliance.md`
+- `03-ops/live-trading.md`
+- `03-ops/deployment.md`
+- `04-dev/test-plan.md`
+- `03-ops/deployment.md`
+- `03-ops/compliance.md`
+- `02-guide/USER_MANUAL.md`
+- `README.md`
+- `README.md`
+- `phases/README.md`
 - `docs/phases/README.md`
 - `docs/phases/phase-00-boundary-blueprint.md`
 - `docs/phases/phase-09-trader-risk-portfolio.md`
@@ -976,7 +973,7 @@ DuckDB、cache、schema、报告归档和回测结果结构变化必须具备：
 
 ### 3.10 Strategy Lab 目标模块
 
-策略开发的具体规范以 `docs/ASTOCK_STRATEGY_DEVELOPMENT_GUIDE.md` 为准。该规范来自 Hermes `tradingagents-core` skill 的 Section 12 蒸馏内容，覆盖 `StrategyBase -> generate_signals` 生命周期、五类信号模式、三个策略注册点、优化器复合评分、多股票组合策略和 baostock 批量拉取约束。
+策略开发的具体规范以 `02-guide/strategy-dev.md` 为准。该规范来自 Hermes `tradingagents-core` skill 的 Section 12 蒸馏内容，覆盖 `StrategyBase -> generate_signals` 生命周期、五类信号模式、三个策略注册点、优化器复合评分、多股票组合策略和 baostock 批量拉取约束。
 
 目标模块：
 
@@ -1086,9 +1083,9 @@ data_sources
 
 ## 7. 关联文档
 
-- `docs/ASTOCK_REQUIREMENTS.md`
-- `docs/ASTOCK_PRD.md`
-- `docs/ASTOCK_BACKLOG.md`
-- `docs/ASTOCK_BOUNDARY_AND_UI_REFACTOR_PLAN.md`
-- `docs/ASTOCK_CURRENT_STATUS.md`
+- `04-dev/PRD.md`
+- `04-dev/PRD.md`
+- `BACKLOG.md`
+- `04-dev/PRD.md`
+- `phases/README.md`
 

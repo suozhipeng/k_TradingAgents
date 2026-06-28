@@ -30,14 +30,14 @@ pip install ".[astock-providers]"
 cp .env.example .env
 
 # 编辑 .env，填入必要的 API key
-# 至少需要 DEEPSEEK_API_KEY 用于 AI Research
+# 至少需要 LLM_API_KEY 用于 AI Research
 nano .env
 ```
 
 最少必需配置：
 
 ```bash
-DEEPSEEK_API_KEY=your_key_here
+LLM_API_KEY=your_key_here
 TRADINGAGENTS_ASTOCK_RUNTIME_PROFILE=deterministic_verification
 ```
 
@@ -45,7 +45,7 @@ TRADINGAGENTS_ASTOCK_RUNTIME_PROFILE=deterministic_verification
 
 ```bash
 TRADINGAGENTS_ASTOCK_RUNTIME_PROFILE=live_research
-DEEPSEEK_API_KEY=your_key_here
+LLM_API_KEY=your_key_here
 ```
 
 ## 3. 启动 WebUI
@@ -81,14 +81,14 @@ python3 -m pytest -q
 ## 5b. 启动 Flask REST API
 
 ```bash
-# 默认端口 5860
+# 默认端口 5001
 python scripts/run_astock_api.py
 
 # 带定时调度
 python scripts/run_astock_api.py --scheduler --interval 30
 
 # 自定义端口
-python scripts/run_astock_api.py --port 5861
+python scripts/run_astock_api.py --port 5002
 ```
 
 ## 5c. 启动 DuckDB 数据库工具
@@ -135,27 +135,16 @@ python scripts/smoke_structured_output.py
 | 板块轮动 | WebUI screener + sectors | ECharts treemap 热力图 |
 | 动量轮动 | WebUI momentum_dashboard / momentum_rotation | 龙头股动量实时看板 |
 
-## 7. 常见问题
-
-- **Q: 数据源连接失败？**
-  A: 检查 `docs/ASTOCK_LIVE_RESEARCH_SETUP.md` 中的 provider 配置说明。
-
-- **Q: AI 分析失败？**
-  A: 确认 `.env` 中有有效的 `DEEPSEEK_API_KEY`，且 `TRADINGAGENTS_ASTOCK_RUNTIME_PROFILE` 设置为 `live_research`。
-
-- **Q: WebUI 打不开？**
-  A: 确认 8080 端口未被占用，或改用 `PORT=其他端口 python run_webui.py`。
-
 ## 8. 常见问题
 
 - **Q: 数据源连接失败？**
-  A: 检查 `docs/ASTOCK_LIVE_RESEARCH_SETUP.md` 中的 provider 配置说明。
+  A: 检查 `03-ops/data-sources.md` 中的 provider 配置说明。
 
 - **Q: AI 分析失败？**
-  A: 确认 `.env` 中有有效的 `DEEPSEEK_API_KEY`，且 `TRADINGAGENTS_ASTOCK_RUNTIME_PROFILE` 设置为 `live_research`。
+  A: 确认 `.env` 中有有效的 API KEY，且 `TRADINGAGENTS_ASTOCK_RUNTIME_PROFILE` 设置为 `live_research`。
 
 - **Q: WebUI 打不开？**
-  A: 确认 8080 端口未被占用，或改用 `PORT=其他端口 python run_webui.py`。
+  A: 确认端口未被占用，或改用 `PORT=其他端口 python run_webui.py`。
 
 - **Q: Flask API 启动失败？**
   A: 确认已安装 `pip install '.[astock-providers]'`，且 DuckDB 数据库文件路径可写。
@@ -165,6 +154,8 @@ python scripts/smoke_structured_output.py
 
 ## 9. 下一步
 
-- 完整产品需求：[`docs/ASTOCK_PRD.md`](ASTOCK_PRD.md)
-- 当前状态：[`docs/ASTOCK_CURRENT_STATUS.md`](ASTOCK_CURRENT_STATUS.md)
-- 文档体系入口：[`docs/README.md`](README.md)
+- 完整产品需求：[`04-dev/PRD.md`](04-dev/PRD.md)
+- 当前状态：[`phases/README.md`](phases/README.md)
+- 文档体系入口：[`README.md`](README.md)
+- 数据库白皮书：[`database_module_whitepaper.md`](database_module_whitepaper.md)
+- 全功能文档：[`full_function_documentation.md`](full_function_documentation.md)

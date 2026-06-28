@@ -1,6 +1,6 @@
 # A 股部署与环境文档
 
-| 更新时间：2026-06-23 |
+| 更新时间：2026-06-28（Docker + 三数据库后端已实装） |
 
 本文定义 TradingAgents-Astock 核心功能实现所需的环境、依赖、启动和健康检查要求。本文只服务研究、回测、模拟盘、受控执行和 WebUI 等核心功能，不扩展为企业级部署、安全与隐私策略、SLA 或故障等级。
 
@@ -19,8 +19,8 @@
 |---|---|---|
 | Python runtime | 后端、CLI、Agent runtime | 版本固定，可复现安装 |
 | Flask WebUI | 产品页面和 API | 启动命令、端口、健康检查可记录 |
-| Streamlit viewer | 只读研究 viewer | 与 Flask 角色分离 |
-| DuckDB | 本地缓存和数据存储 | 数据目录、备份、迁移边界明确 |
+| PostgreSQL / ClickHouse | 生产级 OLTP + OLAP | Docker compose 部署，容器化 |
+| DuckDB | 本地 OLAP 分析缓存 | 数据目录、备份、迁移边界明确 |
 | akshare / mootdx / Tencent / EastMoney / Sina | A 股数据 provider | 记录来源、fallback、质量和授权边界 |
 | LLM provider | AI Research | 记录模型、prompt、失败降级 |
 | QMT | 受控执行 | 未通过准入前只允许 managed/dry-run 口径 |

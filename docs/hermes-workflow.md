@@ -76,7 +76,7 @@ Codex 优先级：
 3. DeepSeek 只实现 scoped work，并返回修改文件、关键行为变化、测试结果、开放风险和假设。
 4. Codex 使用 `ecc-readonly-review` 或 `ecc-self-test` 执行 review gate。
 5. 如果 Codex 返回 `partial` 或 `fail`，Hermes 必须生成 correction brief 并交回 DeepSeek。
-6. 只有 Codex 返回 `accept` 后，Hermes 才能更新 `docs/phases/`、`docs/phases/README.md`、`docs/ASTOCK_CURRENT_STATUS.md`，提交通过 review 的变更，并记录最终 commit SHA。
+6. 只有 Codex 返回 `accept` 后，Hermes 才能更新 `docs/phases/`、`docs/phases/README.md`、`phases/README.md`，提交通过 review 的变更，并记录最终 commit SHA。
 
 ## 4. skill 加载规则
 
@@ -89,7 +89,7 @@ Codex 优先级：
 - 静态 review 使用 `ecc-readonly-review`。
 - 回归执行使用 `ecc-self-test`。
 
-涉及策略开发时必须同步参考 `docs/ASTOCK_STRATEGY_DEVELOPMENT_GUIDE.md`。
+涉及策略开发时必须同步参考 `02-guide/strategy-dev.md`。
 
 ## 5. fallback review gate
 
@@ -231,7 +231,7 @@ scripts/hermes_phase_loop.sh --mode continue
 - `.hermes/human_input_request.md`：阻塞在人类输入或环境问题时的请求。
 - `.hermes/runs/*.txt`：带时间戳的执行历史。
 
-当所有编号 phase 已完成时，phase loop 必须自动进入 backlog / maintenance 模式，而不是因为不存在下一个 phase 就停止。此时 Hermes 应先处理 `docs/ASTOCK_CURRENT_STATUS.md` 中最高优先级 gap，再处理未提交或未推送的 accepted work，最后才请求人类决策。
+当所有编号 phase 已完成时，phase loop 必须自动进入 backlog / maintenance 模式，而不是因为不存在下一个 phase 就停止。此时 Hermes 应先处理 `phases/README.md` 中最高优先级 gap，再处理未提交或未推送的 accepted work，最后才请求人类决策。
 
 推荐 cron：
 
@@ -249,8 +249,8 @@ hermes cron create \
 
 - `docs/phases/` 是 canonical phase archive。
 - `docs/HERMES_SKILLS_PLAYBOOK.md` 是顶层 skill dispatch contract。
-- `docs/ASTOCK_CURRENT_STATUS.md` 是当前事实基线。
-- `docs/ASTOCK_STRATEGY_DEVELOPMENT_GUIDE.md` 是策略开发规范。
+- `phases/README.md` 是当前事实基线。
+- `02-guide/strategy-dev.md` 是策略开发规范。
 - `docs/hermes/` 只保存可复用模板，不保存运行态。
 - `docs/verification_provenance/` 保存 live provider 验证溯源。
 - phase 不能只基于 DeepSeek 输出关闭。

@@ -421,7 +421,7 @@ API：
 | ID | Hermes brief | DeepSeek allowed scope | Codex acceptance |
 |---|---|---|---|
 | 30-01 | 搜索 `/trade`、`/paper`、`/qmt` API 当前返回字段，输出字段清单。 | docs only；源码只读。 | 已完成；见 `phase-30-evidence-field-inventory.md`。 |
-| 30-02 | 为交易 API 标注 `research/paper/managed/live-ready/mock` capability。 | `docs/ASTOCK_API_CONTRACTS.md`、本 phase 文档；代码 meta 变更需单独批准。 | 已完成文档口径；代码 meta 未在本 phase 强制落地。 |
+| 30-02 | 为交易 API 标注 `research/paper/managed/live-ready/mock` capability。 | `01-arch/API.md`、本 phase 文档；代码 meta 变更需单独批准。 | 已完成文档口径；代码 meta 未在本 phase 强制落地。 |
 | 30-03 | 梳理 `trade_state` paper 语义。 | runbook、风险披露、页面验收清单。 | 已完成；见 `phase-30-evidence-paper-semantics.md`。 |
 | 30-04 | 定义 `TradingMode` enum。 | API contracts、runbook。 | 已完成文档 schema。 |
 | 30-05 | 定义 `ExecutionCapability` schema。 | API contracts、runbook。 | 已完成文档 schema。 |

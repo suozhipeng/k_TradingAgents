@@ -46,7 +46,7 @@ TradingAgents-Astock 是**本地部署**的分析工具，默认不向任何第�
 
 - 数据源请求通过公开 API 进行
 - 数据源提供商的隐私政策独立于本项目
-- 参见 [`docs/ASTOCK_DATA_SOURCE_LICENSE_AND_USAGE.md`](ASTOCK_DATA_SOURCE_LICENSE_AND_USAGE.md)
+- 参见 [`03-ops/data-sources.md`](03-ops/data-sources.md)
 
 ## 5. 用户权利
 

@@ -223,7 +223,7 @@ Phase 30 约束：
 
 | 更新时间：2026-06-26 |
 
-本文梳理 TradingAgents-Astock 当前后台 API、所属模块、数据源、能力等级、真实/模拟边界和测试验收。`docs/ASTOCK_API_CONTRACTS.md` 定义 API 规范；本文列出现有与 Phase 30-38 目标 API 清单。
+本文梳理 TradingAgents-Astock 当前后台 API、所属模块、数据源、能力等级、真实/模拟边界和测试验收。`01-arch/API.md` 定义 API 规范；本文列出现有与 Phase 30-38 目标 API 清单。
 
 ## 1. API 通用约定
 
@@ -526,9 +526,9 @@ curl -X GET "http://localhost:8080/api/v1/kline?symbol=INVALID&start=2025-01-01"
 
 ## 12. 更新规则
 
-- 新增 endpoint 必须同步本文和 `docs/ASTOCK_API_CONTRACTS.md`。
-- 数据源变化必须同步 `docs/ASTOCK_DATA_SOURCE_LICENSE_AND_USAGE.md`。
-- schema 变化必须同步 `docs/ASTOCK_DATA_MIGRATION_AND_UPGRADE.md`。
-- 页面依赖 API 变化必须同步 `docs/ASTOCK_WEBUI_PAGE_ACCEPTANCE_CHECKLIST.md`。
+- 新增 endpoint 必须同步本文和 `01-arch/API.md`。
+- 数据源变化必须同步 `03-ops/data-sources.md`。
+- schema 变化必须同步 `04-dev/PRD.md`。
+- 页面依赖 API 变化必须同步 `README.md`。
 - Hermes 执行任务时必须把 API 变化写入对应 phase 文档。
 

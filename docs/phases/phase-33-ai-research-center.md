@@ -82,7 +82,7 @@ pytest tests/test_astock_web.py -q
 | 33-03 Advisory-only 强制 | ✅ | schema 层 + API 响应层 | `ResearchAudit.advisory=True` 默认；API 返回 `"advisory": True` |
 | 33-04 LLM 降级结构化 | ✅ | `routes_ai_agent.py:_run_analysis` | LLM 不可用时返回 `status: degraded` + `llm_error` 字段 + context 仍返回 |
 | 33-05 Report archive schema | ✅ | `tradingagents/astock/schemas/report_archive.py` | ReportItem + ReportArchive 统一 markdown/json/ppt/web 归档字段 |
-| 33-06 文档更新 | ✅ | 本文件 + `ASTOCK_MODEL_GOVERNANCE.md` 已覆盖 Phase 33 要求 |
+| 33-06 文档更新 | ✅ | 本文件 + `03-ops/compliance.md` 已覆盖 Phase 33 要求 |
 
 ## 新增 schemas
 

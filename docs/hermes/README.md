@@ -32,4 +32,4 @@
 
 - `docs/hermes/` 保留。
 - 当前文件数量足够，不需要继续拆更多模板。
-- 如果 Hermes skill 发生新增或蒸馏，应优先更新 `docs/HERMES_SKILLS_PLAYBOOK.md`；只有模板本身发生变化时才更新本目录。
+- 如果 Hermes skill 发生新增或蒸馏，应优先更新 `docs/hermes-skills.md`；只有模板本身发生变化时才更新本目录。

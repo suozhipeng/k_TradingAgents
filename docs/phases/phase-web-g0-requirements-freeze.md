@@ -15,10 +15,10 @@
 
 ### 包含
 
-- 创建 / 更新 `docs/ASTOCK_BACKLOG.md`，纳入 Web 工作台改造 P0/P1/P2 项，含 DSA/AIS/TA/REF/TDX 矩阵映射
-- 创建 / 更新 `docs/ASTOCK_REQUIREMENTS_TRACEABILITY_MATRIX.md`，为每个竞品能力分配需求 ID，标注归属模块、phase、验收证据位置
-- 创建 / 更新 `docs/ASTOCK_WEBUI_PRODUCT_SPEC.md`，定义 7 模块信息架构（今日工作台、盯盘中心、AI 研究、策略实验室、组合与风控、交易执行、系统与配置）
-- 创建 / 更新 `docs/ASTOCK_WEBUI_PAGE_ACCEPTANCE_CHECKLIST.md`，纳入全新 dashboard 页面及其所有状态（success / empty / error / degraded / caching / paper/managed 标签）
+- 创建 / 更新 `BACKLOG.md`，纳入 Web 工作台改造 P0/P1/P2 项，含 DSA/AIS/TA/REF/TDX 矩阵映射
+- 创建 / 更新 `04-dev/traceability-matrix.md`，为每个竞品能力分配需求 ID，标注归属模块、phase、验收证据位置
+- 创建 / 更新 `02-guide/USER_MANUAL.md`，定义 7 模块信息架构（今日工作台、盯盘中心、AI 研究、策略实验室、组合与风控、交易执行、系统与配置）
+- 创建 / 更新 `README.md`，纳入全新 dashboard 页面及其所有状态（success / empty / error / degraded / caching / paper/managed 标签）
 - 修改 `/` 路由默认行为：从 `trading.html` 改为 `302 -> /dashboard`
 - 明确 `/dashboard` 为产品默认首页
 - 明确 QMT/miniQMT 默认值：`managed` 或 `paper`，非自动实盘
@@ -34,10 +34,10 @@
 
 | ID | 任务 | 产物 | 验收 |
 |----|------|------|------|
-| G0-01 | 创建 / 更新 `ASTOCK_BACKLOG.md`，纳入 Web 工作台 P0/P1/P2 需求项，含 DSA/AIS/TA/REF/TDX 矩阵到需求 ID 的映射 | `docs/ASTOCK_BACKLOG.md` | 每个 DSA/AIS/TA/REF/TDX 编号至少对应一个 backlog 条目；P0/P1/P2 标记明确 |
-| G0-02 | 创建 / 更新 `ASTOCK_REQUIREMENTS_TRACEABILITY_MATRIX.md`，为每个能力分配唯一需求 ID，标注归属模块、目标 phase、验收证据位置 | `docs/ASTOCK_REQUIREMENTS_TRACEABILITY_MATRIX.md` | 所有 P0/P1 能力均有需求 ID、模块、phase、验收证据位置 |
-| G0-03 | 创建 / 更新 `ASTOCK_WEBUI_PRODUCT_SPEC.md`，定义 7 模块信息架构及其目标、默认能力等级 | `docs/ASTOCK_WEBUI_PRODUCT_SPEC.md` | 7 模块覆盖：今日工作台、盯盘中心、AI 研究、策略实验室、组合与风控、交易执行、系统与配置 |
-| G0-04 | 创建 / 更新 `ASTOCK_WEBUI_PAGE_ACCEPTANCE_CHECKLIST.md`，纳入新 dashboard 页面及其所有状态 | `docs/ASTOCK_WEBUI_PAGE_ACCEPTANCE_CHECKLIST.md` | dashboard 页面列出 success / empty / error / degraded / caching / paper/managed 标签验收项 |
+| G0-01 | 创建 / 更新 `ASTOCK_BACKLOG.md`，纳入 Web 工作台 P0/P1/P2 需求项，含 DSA/AIS/TA/REF/TDX 矩阵到需求 ID 的映射 | `BACKLOG.md` | 每个 DSA/AIS/TA/REF/TDX 编号至少对应一个 backlog 条目；P0/P1/P2 标记明确 |
+| G0-02 | 创建 / 更新 `ASTOCK_REQUIREMENTS_TRACEABILITY_MATRIX.md`，为每个能力分配唯一需求 ID，标注归属模块、目标 phase、验收证据位置 | `04-dev/traceability-matrix.md` | 所有 P0/P1 能力均有需求 ID、模块、phase、验收证据位置 |
+| G0-03 | 创建 / 更新 `ASTOCK_WEBUI_PRODUCT_SPEC.md`，定义 7 模块信息架构及其目标、默认能力等级 | `02-guide/USER_MANUAL.md` | 7 模块覆盖：今日工作台、盯盘中心、AI 研究、策略实验室、组合与风控、交易执行、系统与配置 |
+| G0-04 | 创建 / 更新 `ASTOCK_WEBUI_PAGE_ACCEPTANCE_CHECKLIST.md`，纳入新 dashboard 页面及其所有状态 | `README.md` | dashboard 页面列出 success / empty / error / degraded / caching / paper/managed 标签验收项 |
 | G0-05 | 修改 `/` 路由默认目标，从 `trading.html` 改为 `302 -> /dashboard` | `tradingagents/astock/web/__init__.py`（路由定义） | curl / 浏览器访问 `/` 返回 302 且 Location 指向 `/dashboard` |
 | G0-06 | 在所有文档中明确 `/dashboard` 为默认首页 | 所有更新的 doc 文件 | TODO doc、Product Spec、Backlog、Traceability 中均标注 `/dashboard` 为默认首页 |
 | G0-07 | 在所有文档中明确 QMT/miniQMT 默认值为 `managed` 或 `paper`，非自动实盘 | 所有更新的 doc 文件 | TODO doc、Product Spec 中 QMT/miniQMT 入口标注默认 managed/paper |
@@ -73,16 +73,16 @@ except Exception as e:
 
 # 文档完整性检查
 echo "=== Backlog coverage ==="
-grep -cE '(DSA|AIS|TA|REF|TDX)-' docs/ASTOCK_BACKLOG.md 2>/dev/null || echo "No backlog file yet"
+grep -cE '(DSA|AIS|TA|REF|TDX)-' BACKLOG.md 2>/dev/null || echo "No backlog file yet"
 
 echo "=== Traceability coverage ==="
-head -1 docs/ASTOCK_REQUIREMENTS_TRACEABILITY_MATRIX.md 2>/dev/null || echo "No traceability file yet"
+head -1 04-dev/traceability-matrix.md 2>/dev/null || echo "No traceability file yet"
 
 echo "=== Product Spec coverage ==="
-grep -cE '(今日工作台|盯盘中心|AI 研究|策略实验室|组合与风控|交易执行|系统与配置)' docs/ASTOCK_WEBUI_PRODUCT_SPEC.md 2>/dev/null || echo "No product spec file yet"
+grep -cE '(今日工作台|盯盘中心|AI 研究|策略实验室|组合与风控|交易执行|系统与配置)' 02-guide/USER_MANUAL.md 2>/dev/null || echo "No product spec file yet"
 
 echo "=== Acceptance Checklist ==="
-grep -cE '(dashboard|empty|error|degraded)' docs/ASTOCK_WEBUI_PAGE_ACCEPTANCE_CHECKLIST.md 2>/dev/null || echo "No checklist file yet"
+grep -cE '(dashboard|empty|error|degraded)' README.md 2>/dev/null || echo "No checklist file yet"
 ```
 
 ## 5. 产品决策

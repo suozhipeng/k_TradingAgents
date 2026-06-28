@@ -12,27 +12,27 @@
 - P1：高价值增强
 - P2：后续优化
 
-更完整的金融产品优化路线图见 `docs/ASTOCK_PRODUCT_OPTIMIZATION_ROADMAP.md`。Backlog 负责记录执行队列，路线图负责说明为什么做、先做什么、每个模块如何达到金融产品可用口径。
+更完整的金融产品优化路线图见 `BACKLOG.md` 自身。Backlog 负责记录执行队列，路线图负责说明为什么做、先做什么、每个模块如何达到金融产品可用口径。
 
-需求到模块、测试和 phase 的映射见 `docs/ASTOCK_REQUIREMENTS_TRACEABILITY_MATRIX.md`。产品指标、运行指标、告警和 Ops 要求见 `docs/ASTOCK_PRODUCT_METRICS_AND_OPS_REQUIREMENTS.md`。
+需求到模块、测试和 phase 的映射见 `04-dev/traceability-matrix.md`。产品指标、运行指标、告警和 Ops 要求见 `03-ops/ops-metrics.md`。
 
 生产级交付还必须同步以下文档：
 
-- API 契约：`docs/ASTOCK_API_CONTRACTS.md`
-- 项目风险登记表：`docs/ASTOCK_PROJECT_RISK_REGISTER.md`
-- 架构决策记录 ADR：`docs/ASTOCK_ARCHITECTURE_DECISION_RECORDS.md`
-- 数据字典与血缘：`docs/ASTOCK_DATA_DICTIONARY_AND_LINEAGE.md`
-- 数据迁移与升级手册：`docs/ASTOCK_DATA_MIGRATION_AND_UPGRADE.md`
-- 数据源授权与使用边界：`docs/ASTOCK_DATA_SOURCE_LICENSE_AND_USAGE.md`
-- AI 模型治理：`docs/ASTOCK_MODEL_GOVERNANCE.md`
-- 实盘运行手册：`docs/ASTOCK_LIVE_TRADING_RUNBOOK.md`
-- 核心功能部署与环境：`docs/ASTOCK_DEPLOYMENT_AND_ENVIRONMENT.md`
-- 测试与验收计划：`docs/ASTOCK_TEST_ACCEPTANCE_PLAN.md`
-- 发布与变更管理：`docs/ASTOCK_RELEASE_AND_CHANGE_MANAGEMENT.md`
-- 风险披露与合规边界：`docs/ASTOCK_RISK_DISCLOSURE_AND_COMPLIANCE.md`
-- WebUI 产品规范：`docs/ASTOCK_WEBUI_PRODUCT_SPEC.md`
-- WebUI 页面级验收清单：`docs/ASTOCK_WEBUI_PAGE_ACCEPTANCE_CHECKLIST.md`
-- 文档范围登记：`docs/ASTOCK_DOCUMENT_SCOPE_REGISTER.md`
+- API 契约：`01-arch/API.md`
+- 项目风险登记表：`03-ops/risk-register.md`
+- 架构决策记录 ADR：`01-arch/ADR.md`
+- 数据字典与血缘：`03-ops/data-sources.md`
+- 数据迁移与升级手册：见 `04-dev/PRD.md` 数据迁移章节
+- 数据源授权与使用边界：`03-ops/data-sources.md`
+- AI 模型治理：见 `03-ops/compliance.md` 模型治理章节
+- 实盘运行手册：`03-ops/live-trading.md`
+- 核心功能部署与环境：`03-ops/deployment.md`
+- 测试与验收计划：`04-dev/test-plan.md`
+- 发布与变更管理：见 `03-ops/deployment.md` 部署章节
+- 风险披露与合规边界：`03-ops/compliance.md`
+- WebUI 产品规范：见 `02-guide/USER_MANUAL.md` WebUI 章节
+- WebUI 页面级验收清单：见 `phases/README.md` 阶段索引
+- 文档范围登记：见 `README.md` 文档索引
 
 ## 2. P0
 

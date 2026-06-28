@@ -1,6 +1,6 @@
 # A 股数据源授权与使用边界
 
-| 更新时间：2026-06-23 |
+| 更新时间：2026-06-28（数据库模块 v1.0 已发布） |
 
 本文记录 TradingAgents-Astock 核心功能使用外部数据源时的来源、用途、标注和使用边界。本文只用于指导数据接入、AI Research、回测和 WebUI 展示，不构成法律意见，也不扩展为完整法务审查文档。
 
@@ -47,10 +47,10 @@
 
 ## 5. 与其他文档关系
 
-- 字段、质量、血缘见 `docs/ASTOCK_DATA_DICTIONARY_AND_LINEAGE.md`。
-- API source/meta 要求见 `docs/ASTOCK_API_CONTRACTS.md`。
-- 风险披露见 `docs/ASTOCK_RISK_DISCLOSURE_AND_COMPLIANCE.md`。
-- 数据源检查必须进入 `docs/ASTOCK_TEST_ACCEPTANCE_PLAN.md` 的验收证据。
+- 字段、质量、血缘见 `03-ops/data-sources.md`。
+- API source/meta 要求见 `01-arch/API.md`。
+- 风险披露见 `03-ops/compliance.md`。
+- 数据源检查必须进入 `04-dev/test-plan.md` 的验收证据。
 
 ## 6. 验收要求
 
@@ -66,11 +66,11 @@
 
 ---
 
-> 以下内容合并自 `ASTOCK_DATA_DICTIONARY_AND_LINEAGE.md`
+> 以下内容合并自 `03-ops/data-sources.md`（数据字典部分）
 
 # A 股数据字典与数据血缘
 
-| 更新时间：2026-06-23 |
+| 更新时间：2026-06-28（数据库模块 v1.0 已发布） |
 
 本文定义 A 股数据字段、数据来源、质量标签和血缘要求。它用于支撑 Data Quality & Bias Control、Strategy Lab、AI Research、Trading 和 Ops 的生产级数据可信闭环。
 
