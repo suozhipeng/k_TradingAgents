@@ -78,7 +78,7 @@ def list_alerts() -> tuple[Response, int]:
             }
         ), 200
     except Exception as exc:
-        return jsonify({"error": str(exc), "alerts": [], "total": 0, "status": "error"}), 500
+        return jsonify({"error": str(exc), "status": 500, "alerts": [], "total": 0}), 500
 
 
 # ---------------------------------------------------------------------------
@@ -101,7 +101,7 @@ def list_rules() -> tuple[Response, int]:
             }
         ), 200
     except Exception as exc:
-        return jsonify({"error": str(exc), "rules": [], "total": 0, "status": "error"}), 500
+        return jsonify({"error": str(exc), "status": 500, "rules": [], "total": 0}), 500
 
 
 # ---------------------------------------------------------------------------
@@ -274,7 +274,7 @@ def check_alerts() -> tuple[Response, int]:
             }
         ), 200
     except Exception as exc:
-        return jsonify({"error": str(exc), "checked": 0, "triggered": 0, "status": "error"}), 500
+        return jsonify({"error": str(exc), "checked": 0, "triggered": 0, "status": 500}), 500
 
 
 # ---------------------------------------------------------------------------

@@ -1197,6 +1197,8 @@ class AStockStore:
                 rename[src_col] = column_map[src_col]
         if rename:
             df = df.rename(columns=rename)
+        # Drop duplicate columns after rename (e.g. ``date`` + ``datetime`` both → ``bar_time``)
+        df = df.loc[:, ~df.columns.duplicated()]
         # Keep only columns that exist in the column_map *values*
         target_cols = set(column_map.values())
         cols_to_keep = [c for c in df.columns if c in target_cols]
@@ -1383,18 +1385,33 @@ class AStockStore:
         start: str | None = None,
         end: str | None = None,
         interval: str = "1d",
+        limit: int | None = None,
     ) -> pd.DataFrame:
-        """Return kline bars as a DataFrame, sorted by bar_time."""
+        """Return kline bars as a DataFrame, sorted by bar_time (ascending).
+
+        When *limit* is set, the SQL-level query uses a **descending** subquery
+        with ``LIMIT N``, then re-wraps in an outer ``ORDER BY bar_time ASC`` so
+        that the caller always receives chronologically ordered data regardless
+        of whether a pushdown limit was applied.
+        """
         interval = self._normalise_interval(interval)
-        sql = 'SELECT * FROM kline_bars WHERE symbol = ? AND "interval" = ?'
+        inner = 'SELECT * FROM kline_bars WHERE symbol = ? AND "interval" = ?'
         params: list[Any] = [symbol, interval]
         if start:
-            sql += " AND bar_time >= ?"
+            inner += " AND bar_time >= ?"
             params.append(start)
         if end:
-            sql += " AND bar_time <= ?"
+            inner += " AND bar_time <= ?"
             params.append(end)
-        sql += " ORDER BY bar_time"
+
+        if limit is not None and limit > 0:
+            # Descending limit pushdown → outer re-sort
+            inner += " ORDER BY bar_time DESC LIMIT ?"
+            params.append(limit)
+            sql = f"SELECT * FROM ({inner}) sub ORDER BY bar_time ASC"
+        else:
+            sql = inner + " ORDER BY bar_time"
+
         return self.conn.execute(sql, params).fetchdf()
 
     # ---- valuations ------------------------------------------------------
@@ -1576,7 +1593,7 @@ class AStockStore:
 
     def query_announcements(self, symbol: str) -> pd.DataFrame:
         return self.conn.execute(
-            "SELECT * FROM announcements WHERE symbol = ? ORDER BY publish_date",
+            "SELECT * FROM announcements WHERE symbol = ? ORDER BY publish_date DESC",
             [symbol],
         ).fetchdf()
 
@@ -1622,9 +1639,17 @@ class AStockStore:
                                 "max_drawdown",
                                 "win_rate",
                                 "total_trades",
-                                "periods",
                                 "fee_config_used",
                                 "execution_signal",
+                                "decision_scope",
+                                "trades",
+                                "data_assumption",
+                                "benchmark_symbol",
+                                "benchmark_return",
+                                "benchmark_max_drawdown",
+                                "alpha",
+                                "beta",
+                                "cost_breakdown",
                             )
                         },
                         ensure_ascii=False,

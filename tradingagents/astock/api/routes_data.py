@@ -16,7 +16,7 @@ import pandas as pd
 
 from flask import Blueprint, Response, current_app, jsonify, request
 
-from ._helpers import df_to_json
+from ._helpers import df_to_json, sanitise_records
 
 # Backward-compatible alias
 _df_to_json = df_to_json
@@ -196,10 +196,18 @@ def _insert_error_response(exc: Exception) -> tuple[Response, int]:
 
 @bp.route("/kline")
 def get_kline() -> tuple[Response, int]:
-    """GET /api/v1/kline?symbol=600519.SH&start=2024-01-01&end=2024-06-01&interval=1d&limit=5
+    """GET /api/v1/kline?symbol=600519.SH&start=2024-01-01&end=2024-06-01&interval=1d&limit=500
 
     Store-first: reads from DuckDB.  If empty, fetches live via the router chain,
     persists the result to DuckDB, then returns.
+
+    Default *limit* is 500 (soft cap).  Pass ``limit=0`` to request all rows
+    (not recommended for production; use *start*/*end* instead).
+    Live fallback always uses its own fetch_limit (400) regardless of
+    the user-supplied *limit* parameter.
+
+    Response includes ``count``, ``limit``, ``has_more``, and ``range``
+    metadata so the frontend knows whether more data is available.
     """
     symbol = request.args.get("symbol", "")
     if not symbol:
@@ -207,18 +215,30 @@ def get_kline() -> tuple[Response, int]:
     start = request.args.get("start")
     end = request.args.get("end")
     interval = request.args.get("interval", "1d")
-    limit = _int_param("limit", 0)
+    limit = _int_param("limit", 500)
+
+    # Live-fetch always uses an independent fetch budget (not the user's limit)
+    _FETCH_LIMIT = 400
+
     try:
         store = _store()
-        df = store.query_kline(symbol, start=start, end=end, interval=interval)
+        # Over-fetch by 1 to detect has_more
+        store_limit = limit + 1 if limit > 0 else None
+        df = store.query_kline(symbol, start=start, end=end, interval=interval, limit=store_limit)
         bars = _df_to_json(df)
+
+        # Detect has_more: if over-fetch returned one extra row, there's more
+        has_more = False
+        if limit > 0 and len(bars) > limit:
+            bars = bars[-limit:]   # keep the latest *limit* rows
+            has_more = True
 
         # If store has no data, try live fetch and persist
         if not bars:
             router = _router()
             if router is not None:
                 try:
-                    resp = router.get_kline(symbol, interval=interval, limit=limit or 400)
+                    resp = router.get_kline(symbol, interval=interval, limit=_FETCH_LIMIT)
                     if resp.status == "ok" and resp.data:
                         data = resp.data
                         items = data.get("items") or data.get("bars", [])
@@ -236,18 +256,42 @@ def get_kline() -> tuple[Response, int]:
                                     item["trade_date"] = item["date"]
 
                             df_live = pd.DataFrame(items)
-                            if "trade_date" in df_live.columns:
+                            # insert_kline handles bar_time from date/trade_date/time/datetime via _normalise_kline_times
+                            date_col_present = any(
+                                c in df_live.columns
+                                for c in ("trade_date", "date", "datetime", "time")
+                            )
+                            if date_col_present:
                                 store.insert_kline(symbol, df_live, interval=interval, source=source_str)
 
                             # Re-query to get the persisted data within requested range
-                            df2 = store.query_kline(symbol, start=start, end=end, interval=interval)
+                            df2 = store.query_kline(symbol, start=start, end=end, interval=interval, limit=store_limit)
                             bars = _df_to_json(df2)
+                            has_more = False
+                            if limit > 0 and len(bars) > limit:
+                                bars = bars[-limit:]
+                                has_more = True
                 except Exception:
                     logger.warning("live kline fetch failed for %s interval=%s", symbol, interval, exc_info=True)
 
-        if limit > 0 and bars:
-            bars = bars[-limit:]
-        return jsonify({"symbol": symbol, "interval": interval, "bars": bars}), 200
+        # Build range metadata from returned bars
+        bar_count = len(bars)
+        date_range: dict[str, str | None] = {"start": None, "end": None}
+        if bars:
+            first_key = next((k for k in ("bar_time", "trade_date", "date") if k in bars[0]), None)
+            if first_key:
+                date_range["start"] = bars[0].get(first_key)
+                date_range["end"] = bars[-1].get(first_key)
+
+        return jsonify({
+            "symbol": symbol,
+            "interval": interval,
+            "bars": bars,
+            "count": bar_count,
+            "limit": limit,
+            "has_more": has_more,
+            "range": date_range,
+        }), 200
     except Exception as exc:
         return jsonify({"error": str(exc), "status": 500}), 500
 
@@ -284,7 +328,12 @@ def get_valuation() -> tuple[Response, int]:
                         if items:
                             source_str = resp.source or ""
                             df_live = pd.DataFrame(items)
-                            if "trade_date" not in df_live.columns and "date" not in df_live.columns:
+                            # insert_valuations handles trade_date/date via _canonicalise_dates
+                            date_col_present = any(
+                                c in df_live.columns
+                                for c in ("trade_date", "date")
+                            )
+                            if not date_col_present:
                                 from datetime import date
                                 df_live["trade_date"] = date.today()
                             store.insert_valuations(symbol, df_live, source=source_str)
@@ -527,7 +576,7 @@ def get_fundamentals() -> tuple[Response, int]:
         if resp.status == "ok" and resp.data:
             items = resp.data.get("items", [])
             # 清除 NaN 值（Flask jsonify 不兼容 NaN）
-            items = _clean_nan(items)
+            sanitise_records(items)
             return jsonify(_with_meta({"symbol": symbol, "items": items, "count": len(items)}, resp)), 200
         return jsonify({"symbol": symbol, "items": [], "note": resp.error_message or "no data"}), 200
     except Exception as exc:

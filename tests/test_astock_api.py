@@ -802,4 +802,114 @@ def test_404_not_found(app):
     assert resp.status_code == 404
 
 
+# ---------------------------------------------------------------------------
+# New tests: kline response metadata
+# ---------------------------------------------------------------------------
+
+
+def test_kline_returns_count_limit_has_more(app):
+    """Kline response includes count/limit/has_more/range metadata."""
+    resp = app.get("/api/v1/kline?symbol=600519.SH")
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert isinstance(data.get("count"), int)
+    assert isinstance(data.get("limit"), int)
+    assert isinstance(data.get("has_more"), bool)
+    assert isinstance(data.get("range"), dict)
+    assert "start" in data["range"]
+    assert "end" in data["range"]
+    assert data["count"] == len(data["bars"])
+
+
+def test_kline_default_limit_is_500(app):
+    """Default limit is 500 (not 0 = unlimited)."""
+    resp = app.get("/api/v1/kline?symbol=600519.SH")
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["limit"] == 500
+
+
+def test_kline_limit_zero_returns_all(app):
+    """Passing limit=0 returns all rows (backward compat)."""
+    resp = app.get("/api/v1/kline?symbol=600519.SH&limit=0")
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["count"] == 2
+    assert data["has_more"] is False
+
+
+# ---------------------------------------------------------------------------
+# New tests: announcements ordering (DESC fix)
+# ---------------------------------------------------------------------------
+
+
+def test_announcements_returns_latest_first(app):
+    """Announcements should return newest publish_date first."""
+    # Seed a second, newer announcement
+    import pandas as pd
+    store = app.application.config["STORE"]
+    newer_df = pd.DataFrame([{
+        "publish_date": "2024-06-15",
+        "title": "Newer test announcement",
+        "summary": "A more recent summary",
+        "url": "http://example.com/ann/2",
+    }])
+    store.insert_announcements("600519.SH", newer_df)
+
+    resp = app.get("/api/v1/announcements?symbol=600519.SH&limit=10")
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert len(data["announcements"]) == 2
+    assert data["announcements"][0]["title"] == "Newer test announcement"
+    assert data["announcements"][1]["title"] == "Test announcement"
+
+
+# ---------------------------------------------------------------------------
+# New tests: paper trades with limit
+# ---------------------------------------------------------------------------
+
+
+def test_paper_trades_with_limit(app):
+    """Paper trades endpoint respects limit and returns count metadata."""
+    # Execute two trades
+    for side, price in [("600519.SH", 100.0), ("000001.SZ", 50.0)]:
+        app.post(
+            "/api/v1/paper/cycle",
+            json={"signals": {side: 1}, "prices": {side: price}},
+            content_type="application/json",
+        )
+
+    resp = app.get("/api/v1/paper/trades?limit=1")
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert isinstance(data.get("count"), int)
+    assert isinstance(data.get("limit"), int)
+    assert len(data["trades"]) >= 1
+
+
+# ---------------------------------------------------------------------------
+# New tests: error envelope consistency
+# ---------------------------------------------------------------------------
+
+
+def test_all_errors_use_int_status(app):
+    """All endpoints return error status as int, not string."""
+    resp = app.get("/api/v1/kline")  # missing symbol → 400
+    assert resp.status_code == 400
+    data = resp.get_json()
+    assert isinstance(data["status"], int)
+    assert data["status"] == 400
+
+    resp = app.get("/api/v1/valuation")  # missing symbol → 400
+    assert resp.status_code == 400
+    data = resp.get_json()
+    assert isinstance(data["status"], int)
+
+    resp = app.post("/api/v1/alerts/9999999/ack")  # non-existent alert
+    assert resp.status_code == 404
+    data = resp.get_json()
+    if "status" in data:
+        assert isinstance(data["status"], int)
+
+
 # end of tests

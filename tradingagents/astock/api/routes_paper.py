@@ -99,10 +99,23 @@ def paper_state() -> tuple[Response, int]:
 
 @bp.route("/paper/trades")
 def paper_trades() -> tuple[Response, int]:
-    """Return all historical paper trades."""
+    """Return paper trade history with optional limit.
+
+    Query params:
+        limit (int, optional) — max trades to return (default 0 = all).
+    """
     try:
+        limit = int(request.args.get("limit", "0"))
         trader = _get_trader()
         state = trader.get_state()
-        return jsonify({"trades": state.trades}), 200
+        trades = state.trades
+        count = len(trades)
+        if limit > 0:
+            trades = trades[-limit:]
+        return jsonify({
+            "trades": trades,
+            "count": count,
+            "limit": limit or count,
+        }), 200
     except Exception as exc:
         return jsonify({"error": str(exc), "status": 500}), 500

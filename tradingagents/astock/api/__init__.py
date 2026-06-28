@@ -278,27 +278,40 @@ def create_app(
     from . import routes_analysis
     from . import routes_admin
 
-    app.register_blueprint(routes_data.bp, url_prefix="/api/v1")
-    app.register_blueprint(routes_backtest.bp, url_prefix="/api/v1")
-    app.register_blueprint(routes_paper.bp, url_prefix="/api/v1")
-    app.register_blueprint(routes_market.bp, url_prefix="/api/v1")
-    app.register_blueprint(routes_qmt.bp, url_prefix="/api/v1")
-    app.register_blueprint(routes_sse.bp, url_prefix="/api/v1")
-    app.register_blueprint(routes_reports.bp, url_prefix="/api/v1")
-    app.register_blueprint(routes_dashboard.bp, url_prefix="/api/v1")
-    app.register_blueprint(routes_screener.bp, url_prefix="/api/v1")
-    app.register_blueprint(routes_market_data.bp, url_prefix="/api/v1")
-    app.register_blueprint(routes_data_health.bp, url_prefix="/api/v1")
-    app.register_blueprint(routes_trade.bp, url_prefix="/api/v1")
-    app.register_blueprint(routes_tv.bp, url_prefix="/api/v1")
-    app.register_blueprint(routes_ai_agent.bp, url_prefix="/api/v1")
-    app.register_blueprint(routes_portfolio.bp, url_prefix="/api/v1")
-    app.register_blueprint(routes_ops.bp, url_prefix="/api/v1")
-    app.register_blueprint(routes_watchlist.bp, url_prefix="/api/v1")
-    app.register_blueprint(routes_notifications.bp, url_prefix="/api/v1")
-    app.register_blueprint(routes_alerts.bp, url_prefix="/api/v1")
-    app.register_blueprint(routes_analysis.bp, url_prefix="/api/v1")
-    app.register_blueprint(routes_admin.bp, url_prefix="/api/v1")
+    # -- 使用模式分组（仅标注，不拆分文件） --
+    #   [summary] 轻量聚合，用于 dashboard 首屏
+    #   [detail]  明细数据，按 symbol + start/end + interval + limit/offset 拉取
+    #   [stream]  实时/准实时 SSE 或轮询
+    #   [direct]  直接操作（下单、管理）
+
+    # [summary]
+    app.register_blueprint(routes_dashboard.bp,        url_prefix="/api/v1")
+    app.register_blueprint(routes_data_health.bp,      url_prefix="/api/v1")
+    app.register_blueprint(routes_market.bp,           url_prefix="/api/v1")
+    app.register_blueprint(routes_watchlist.bp,        url_prefix="/api/v1")
+    app.register_blueprint(routes_reports.bp,          url_prefix="/api/v1")
+    app.register_blueprint(routes_ops.bp,              url_prefix="/api/v1")
+
+    # [detail]
+    app.register_blueprint(routes_data.bp,             url_prefix="/api/v1")
+    app.register_blueprint(routes_backtest.bp,         url_prefix="/api/v1")
+    app.register_blueprint(routes_market_data.bp,      url_prefix="/api/v1")
+    app.register_blueprint(routes_screener.bp,         url_prefix="/api/v1")
+    app.register_blueprint(routes_portfolio.bp,        url_prefix="/api/v1")
+    app.register_blueprint(routes_analysis.bp,         url_prefix="/api/v1")
+    app.register_blueprint(routes_notifications.bp,    url_prefix="/api/v1")
+    app.register_blueprint(routes_alerts.bp,           url_prefix="/api/v1")
+    app.register_blueprint(routes_qmt.bp,              url_prefix="/api/v1")
+    app.register_blueprint(routes_tv.bp,               url_prefix="/api/v1")
+
+    # [stream]
+    app.register_blueprint(routes_sse.bp,              url_prefix="/api/v1")
+
+    # [direct]
+    app.register_blueprint(routes_paper.bp,            url_prefix="/api/v1")
+    app.register_blueprint(routes_trade.bp,            url_prefix="/api/v1")
+    app.register_blueprint(routes_ai_agent.bp,         url_prefix="/api/v1")
+    app.register_blueprint(routes_admin.bp,            url_prefix="/api/v1")
 
     # -- Phase 17: Web UI (Jinja2) blueprint ---------------------------------
     from tradingagents.astock.web import bp as web_bp

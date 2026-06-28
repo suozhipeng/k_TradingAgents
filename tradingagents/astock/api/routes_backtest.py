@@ -182,6 +182,12 @@ def run_backtest() -> tuple[Response, int]:
             "fee_config_used": result.fee_config_used,
             "execution_signal": result.execution_signal,
             "data_assumption": result.data_assumption,
+            "benchmark_symbol": result.benchmark_symbol,
+            "benchmark_return": result.benchmark_return,
+            "benchmark_max_drawdown": result.benchmark_max_drawdown,
+            "alpha": result.alpha,
+            "beta": result.beta,
+            "cost_breakdown": result.cost_breakdown,
         }
         return jsonify(payload), 200
     except Exception as exc:
@@ -327,6 +333,12 @@ def compare_backtests() -> tuple[Response, int]:
                     "periods": result.periods,
                     "equity_curve": equity_curve,
                     "returns": returns,
+                    "benchmark_symbol": result.benchmark_symbol,
+                    "benchmark_return": result.benchmark_return,
+                    "benchmark_max_drawdown": result.benchmark_max_drawdown,
+                    "alpha": result.alpha,
+                    "beta": result.beta,
+                    "cost_breakdown": result.cost_breakdown,
                 }
             )
 

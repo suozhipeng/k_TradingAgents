@@ -1314,18 +1314,31 @@ class PGStore:
         start: str | None = None,
         end: str | None = None,
         interval: str = "1d",
+        limit: int | None = None,
     ) -> pd.DataFrame:
-        """Return kline bars as a DataFrame, sorted by bar_time."""
+        """Return kline bars as a DataFrame, sorted by bar_time (ascending).
+
+        When *limit* is set, the SQL-level query uses a **descending** subquery
+        with ``LIMIT N``, then re-wraps in an outer ``ORDER BY bar_time ASC`` so
+        that the caller always receives chronologically ordered data regardless
+        of whether a pushdown limit was applied.
+        """
         interval = self._normalise_interval(interval)
-        sql = 'SELECT * FROM kline_bars WHERE symbol = :symbol AND "interval" = :interval'
+        inner = 'SELECT * FROM kline_bars WHERE symbol = :symbol AND "interval" = :interval'
         params: dict[str, Any] = {"symbol": symbol, "interval": interval}
         if start:
-            sql += " AND bar_time >= :start"
+            inner += " AND bar_time >= :start"
             params["start"] = start
         if end:
-            sql += " AND bar_time <= :end"
+            inner += " AND bar_time <= :end"
             params["end"] = end
-        sql += " ORDER BY bar_time"
+
+        if limit is not None and limit > 0:
+            inner += " ORDER BY bar_time DESC LIMIT :limit"
+            params["limit"] = limit
+            sql = f"SELECT * FROM ({inner}) sub ORDER BY bar_time ASC"
+        else:
+            sql = inner + " ORDER BY bar_time"
 
         if self._sync:
             with self._sync_engine.connect() as conn:
@@ -1636,7 +1649,7 @@ class PGStore:
         )
 
     async def query_announcements(self, symbol: str) -> pd.DataFrame:
-        sql = "SELECT * FROM announcements WHERE symbol = :symbol ORDER BY publish_date"
+        sql = "SELECT * FROM announcements WHERE symbol = :symbol ORDER BY publish_date DESC"
         params = {"symbol": symbol}
         if self._sync:
             with self._sync_engine.connect() as conn:
