@@ -24,6 +24,9 @@ from .loader import (
 )
 from .schema import AStockStore, init_astock_db
 
+# ORM models package (split for maintainability)
+from . import models
+
 # Production PostgreSQL/TimescaleDB store
 try:
     from .pg_store import PGConfig, PGStore

@@ -194,10 +194,28 @@ class BackendManager:
                 use_timescaledb=cfg.pg_use_timescaledb,
             )
             store = PGStore(config, sync=True)
+            # Use the same _run_async pattern as PGStore to avoid asyncio.run() nesting
             import asyncio
 
-            asyncio.run(store.connect())
-            asyncio.run(store.init_schema())
+            def _do_connect():
+                import asyncio as _asyncio
+                try:
+                    _loop = _asyncio.get_running_loop()
+                except RuntimeError:
+                    _loop = None
+                if _loop is not None:
+                    # Event loop already running — use thread executor
+                    import concurrent.futures
+                    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                        future = pool.submit(_asyncio.run, store.connect())
+                        future.result()
+                        future = pool.submit(_asyncio.run, store.init_schema())
+                        future.result()
+                else:
+                    asyncio.run(store.connect())
+                    asyncio.run(store.init_schema())
+
+            _do_connect()
             logger.info(
                 "PGStore connected: %s@%s:%s/%s",
                 cfg.pg_user, cfg.pg_host, cfg.pg_port, cfg.pg_database,

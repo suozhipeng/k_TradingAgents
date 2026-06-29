@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import csv
 import json
+import logging
 import os
 import sqlite3
 import threading
@@ -17,575 +18,24 @@ from typing import Any, Optional
 import duckdb
 import pandas as pd
 
+from . import schema_defs
+
+logger = logging.getLogger(__name__)
+
+# Supported kline intervals — from SSOT
+SUPPORTED_KLINE_INTERVALS = schema_defs.SUPPORTED_KLINE_INTERVALS
+
 # ---------------------------------------------------------------------------
-# DDL for each table (IF NOT EXISTS, created in init_schema)
+# All tables in creation order — derived from schema_defs.py
 # ---------------------------------------------------------------------------
 
-CREATE_KLINE_BARS = """
-CREATE TABLE IF NOT EXISTS kline_bars (
-    symbol VARCHAR NOT NULL,
-    bar_time TIMESTAMP NOT NULL,
-    trade_date DATE NOT NULL,
-    open DOUBLE,
-    high DOUBLE,
-    low DOUBLE,
-    close DOUBLE,
-    volume DOUBLE,
-    amount DOUBLE,
-    turnover_rate DOUBLE,
-    interval VARCHAR DEFAULT '1d',
-    adjust VARCHAR DEFAULT 'none',
-    quality VARCHAR DEFAULT 'normal',
-    source VARCHAR,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (symbol, bar_time, interval, adjust),
-    CHECK (interval IN ('1m', '5m', '15m', '30m', '60m', '1d', '1w', '1mo', '1y')),
-    CHECK (open IS NULL OR open >= 0),
-    CHECK (high IS NULL OR high >= 0),
-    CHECK (low IS NULL OR low >= 0),
-    CHECK (close IS NULL OR close >= 0),
-    CHECK (high IS NULL OR low IS NULL OR high >= low),
-    CHECK (volume IS NULL OR volume >= 0),
-    CHECK (amount IS NULL OR amount >= 0)
-)
-"""
-
-SUPPORTED_KLINE_INTERVALS = frozenset(("1m", "5m", "15m", "30m", "60m", "1d", "1w", "1mo", "1y"))
-
-CREATE_DATABASE_STORAGE_PROFILES = """
-CREATE TABLE IF NOT EXISTS database_storage_profiles (
-    profile_name VARCHAR NOT NULL,
-    role VARCHAR NOT NULL,
-    engine VARCHAR NOT NULL,
-    read_write_model VARCHAR,
-    notes VARCHAR,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (profile_name)
-)
-"""
-
-CREATE_SECURITY_MASTER = """
-CREATE TABLE IF NOT EXISTS security_master (
-    symbol VARCHAR NOT NULL,
-    raw_symbol VARCHAR,
-    name VARCHAR,
-    exchange VARCHAR,
-    board VARCHAR,
-    currency VARCHAR DEFAULT 'CNY',
-    list_date DATE,
-    delist_date DATE,
-    status VARCHAR DEFAULT 'active',
-    is_st BOOLEAN DEFAULT FALSE,
-    source VARCHAR,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (symbol)
-)
-"""
-
-CREATE_TRADING_CALENDAR = """
-CREATE TABLE IF NOT EXISTS trading_calendar (
-    exchange VARCHAR NOT NULL,
-    trade_date DATE NOT NULL,
-    is_open BOOLEAN NOT NULL,
-    session_open TIMESTAMP,
-    session_close TIMESTAMP,
-    session_break_json VARCHAR,
-    source VARCHAR,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (exchange, trade_date)
-)
-"""
-
-CREATE_SECURITY_STATUS_HISTORY = """
-CREATE TABLE IF NOT EXISTS security_status_history (
-    symbol VARCHAR NOT NULL,
-    effective_date DATE NOT NULL,
-    status VARCHAR NOT NULL,
-    is_st BOOLEAN DEFAULT FALSE,
-    reason VARCHAR,
-    source VARCHAR,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (symbol, effective_date)
-)
-"""
-
-CREATE_INDUSTRY_CLASSIFICATION_HISTORY = """
-CREATE TABLE IF NOT EXISTS industry_classification_history (
-    symbol VARCHAR NOT NULL,
-    effective_date DATE NOT NULL,
-    classification VARCHAR NOT NULL,
-    industry_code VARCHAR,
-    industry_name VARCHAR,
-    level INTEGER DEFAULT 1,
-    source VARCHAR,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (symbol, effective_date, classification, level)
-)
-"""
-
-CREATE_SUSPENSION_EVENTS = """
-CREATE TABLE IF NOT EXISTS suspension_events (
-    symbol VARCHAR NOT NULL,
-    start_date DATE NOT NULL,
-    end_date DATE,
-    reason VARCHAR,
-    source VARCHAR,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (symbol, start_date)
-)
-"""
-
-CREATE_PRICE_LIMIT_RULES = """
-CREATE TABLE IF NOT EXISTS price_limit_rules (
-    rule_id VARCHAR NOT NULL,
-    exchange VARCHAR,
-    board VARCHAR,
-    effective_date DATE NOT NULL,
-    end_date DATE,
-    up_limit_pct DOUBLE,
-    down_limit_pct DOUBLE,
-    source VARCHAR,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (rule_id)
-)
-"""
-
-CREATE_VALUATIONS = """
-CREATE TABLE IF NOT EXISTS valuations (
-    symbol VARCHAR,
-    trade_date DATE,
-    pe DOUBLE,
-    pb DOUBLE,
-    market_cap DOUBLE,
-    source VARCHAR,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (symbol, trade_date)
-)
-"""
-
-CREATE_CORPORATE_ACTIONS = """
-CREATE TABLE IF NOT EXISTS corporate_actions (
-    action_id VARCHAR NOT NULL,
-    symbol VARCHAR NOT NULL,
-    action_date DATE NOT NULL,
-    ex_date DATE,
-    action_type VARCHAR NOT NULL,
-    cash_dividend DOUBLE,
-    stock_dividend_ratio DOUBLE,
-    split_ratio DOUBLE,
-    rights_issue_price DOUBLE,
-    raw_json VARCHAR,
-    source VARCHAR,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (action_id)
-)
-"""
-
-CREATE_ADJUST_FACTORS = """
-CREATE TABLE IF NOT EXISTS adjust_factors (
-    symbol VARCHAR NOT NULL,
-    trade_date DATE NOT NULL,
-    adjust VARCHAR NOT NULL,
-    factor DOUBLE NOT NULL,
-    source VARCHAR,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (symbol, trade_date, adjust),
-    CHECK (adjust IN ('none', 'qfq', 'hfq')),
-    CHECK (factor > 0)
-)
-"""
-
-CREATE_ORDER_BOOK_SNAPSHOTS = """
-CREATE TABLE IF NOT EXISTS order_book_snapshots (
-    symbol VARCHAR,
-    timestamp TIMESTAMP,
-    bid_price DOUBLE,
-    bid_volume DOUBLE,
-    ask_price DOUBLE,
-    ask_volume DOUBLE,
-    source VARCHAR,
-    PRIMARY KEY (symbol, timestamp)
-)
-"""
-
-CREATE_TRADE_TAPE = """
-CREATE TABLE IF NOT EXISTS trade_tape (
-    symbol VARCHAR,
-    timestamp TIMESTAMP,
-    price DOUBLE,
-    volume DOUBLE,
-    direction VARCHAR,
-    source VARCHAR,
-    PRIMARY KEY (symbol, timestamp)
-)
-"""
-
-CREATE_RESEARCH_REPORTS = """
-CREATE TABLE IF NOT EXISTS research_reports (
-    symbol VARCHAR,
-    report_date DATE,
-    title VARCHAR,
-    institution VARCHAR,
-    analyst VARCHAR,
-    rating VARCHAR,
-    pdf_url VARCHAR,
-    source VARCHAR,
-    PRIMARY KEY (symbol, report_date, title)
-)
-"""
-
-CREATE_NEWS_ITEMS = """
-CREATE TABLE IF NOT EXISTS news_items (
-    symbol VARCHAR,
-    publish_date DATE,
-    title VARCHAR,
-    summary VARCHAR,
-    url VARCHAR,
-    source VARCHAR,
-    PRIMARY KEY (symbol, publish_date, url)
-)
-"""
-
-CREATE_ANNOUNCEMENTS = """
-CREATE TABLE IF NOT EXISTS announcements (
-    symbol VARCHAR,
-    publish_date DATE,
-    title VARCHAR,
-    summary VARCHAR,
-    url VARCHAR,
-    PRIMARY KEY (symbol, publish_date, url)
-)
-"""
-
-CREATE_BACKTEST_RESULTS = """
-CREATE TABLE IF NOT EXISTS backtest_results (
-    run_id VARCHAR,
-    symbol VARCHAR,
-    strategy_name VARCHAR,
-    start_date DATE,
-    end_date DATE,
-    total_return DOUBLE,
-    annualized_return DOUBLE,
-    sharpe_ratio DOUBLE,
-    max_drawdown DOUBLE,
-    win_rate DOUBLE,
-    total_trades INTEGER,
-    params_json VARCHAR,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (run_id)
-)
-"""
-
-CREATE_PAPER_TRADES = """
-CREATE TABLE IF NOT EXISTS paper_trades (
-    trade_id VARCHAR,
-    symbol VARCHAR,
-    direction VARCHAR,
-    price DOUBLE,
-    volume DOUBLE,
-    fees DOUBLE,
-    trade_date DATE,
-    strategy_name VARCHAR,
-    actionable BOOLEAN DEFAULT FALSE,
-    decision_scope VARCHAR DEFAULT 'paper_trading_only',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (trade_id)
-)
-"""
-
-CREATE_MARKET_INDICATORS = """
-CREATE TABLE IF NOT EXISTS market_indicators (
-    symbol VARCHAR,
-    trade_date DATE,
-    ma_5 DOUBLE,
-    ma_20 DOUBLE,
-    ma_60 DOUBLE,
-    rsi_14 DOUBLE,
-    atr_14 DOUBLE,
-    volume_ma_5 DOUBLE,
-    PRIMARY KEY (symbol, trade_date)
-)
-"""
-
-CREATE_TECHNICAL_INDICATORS = """
-CREATE TABLE IF NOT EXISTS technical_indicators (
-    symbol VARCHAR NOT NULL,
-    bar_time TIMESTAMP NOT NULL,
-    trade_date DATE NOT NULL,
-    interval VARCHAR NOT NULL,
-    indicator VARCHAR NOT NULL,
-    params_hash VARCHAR NOT NULL,
-    params_json VARCHAR,
-    value_json VARCHAR NOT NULL,
-    source_snapshot_id VARCHAR,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (symbol, bar_time, interval, indicator, params_hash),
-    CHECK (interval IN ('1m', '5m', '15m', '30m', '60m', '1d', '1w', '1mo', '1y'))
-)
-"""
-
-CREATE_DATA_SOURCES = """
-CREATE TABLE IF NOT EXISTS data_sources (
-    source_id VARCHAR NOT NULL,
-    provider VARCHAR NOT NULL,
-    category VARCHAR NOT NULL,
-    priority INTEGER DEFAULT 100,
-    license_status VARCHAR DEFAULT 'unknown',
-    rate_limit_json VARCHAR,
-    auth_required BOOLEAN DEFAULT FALSE,
-    enabled BOOLEAN DEFAULT TRUE,
-    notes VARCHAR,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (source_id)
-)
-"""
-
-CREATE_DATA_QUALITY_CHECKS = """
-CREATE TABLE IF NOT EXISTS data_quality_checks (
-    check_id VARCHAR NOT NULL,
-    dataset VARCHAR NOT NULL,
-    symbol VARCHAR,
-    interval VARCHAR,
-    start_time TIMESTAMP,
-    end_time TIMESTAMP,
-    rule_version VARCHAR,
-    status VARCHAR NOT NULL,
-    missing_count BIGINT DEFAULT 0,
-    invalid_count BIGINT DEFAULT 0,
-    duplicate_count BIGINT DEFAULT 0,
-    fallback_path_json VARCHAR,
-    details_json VARCHAR,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (check_id)
-)
-"""
-
-CREATE_DATA_SNAPSHOTS = """
-CREATE TABLE IF NOT EXISTS data_snapshots (
-    snapshot_id VARCHAR NOT NULL,
-    dataset VARCHAR NOT NULL,
-    symbol VARCHAR,
-    interval VARCHAR,
-    start_time TIMESTAMP,
-    end_time TIMESTAMP,
-    row_count BIGINT DEFAULT 0,
-    source VARCHAR,
-    quality VARCHAR DEFAULT 'normal',
-    metadata_json VARCHAR,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (snapshot_id)
-)
-"""
-
-CREATE_DATA_PARTITIONS = """
-CREATE TABLE IF NOT EXISTS data_partitions (
-    partition_id VARCHAR NOT NULL,
-    dataset VARCHAR NOT NULL,
-    symbol VARCHAR,
-    interval VARCHAR,
-    partition_key VARCHAR NOT NULL,
-    start_time TIMESTAMP,
-    end_time TIMESTAMP,
-    storage_tier VARCHAR DEFAULT 'hot',
-    uri VARCHAR,
-    row_count BIGINT DEFAULT 0,
-    status VARCHAR DEFAULT 'active',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (partition_id)
-)
-"""
-
-CREATE_DATA_INGESTION_JOBS = """
-CREATE TABLE IF NOT EXISTS data_ingestion_jobs (
-    job_id VARCHAR NOT NULL,
-    job_type VARCHAR NOT NULL,
-    status VARCHAR DEFAULT 'queued',
-    target_table VARCHAR,
-    source_uri VARCHAR,
-    total_rows BIGINT DEFAULT 0,
-    processed_rows BIGINT DEFAULT 0,
-    error_message VARCHAR,
-    metadata_json VARCHAR,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (job_id)
-)
-"""
-
-CREATE_DATA_INGESTION_JOB_EVENTS = """
-CREATE TABLE IF NOT EXISTS data_ingestion_job_events (
-    event_id VARCHAR NOT NULL,
-    job_id VARCHAR NOT NULL,
-    event_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    status VARCHAR NOT NULL,
-    processed_rows BIGINT DEFAULT 0,
-    message VARCHAR,
-    error_message VARCHAR,
-    metadata_json VARCHAR,
-    PRIMARY KEY (event_id)
-)
-"""
-CREATE_MIGRATION_VERSIONS = """
-CREATE TABLE IF NOT EXISTS migration_versions (
-    version_id VARCHAR NOT NULL,
-    description VARCHAR,
-    applied_by VARCHAR,
-    applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    checksum VARCHAR,
-    duration_ms BIGINT DEFAULT 0,
-    status VARCHAR DEFAULT 'applied',
-    rollback_sql VARCHAR,
-    PRIMARY KEY (version_id)
-)
-"""
-
-CREATE_AUDIT_LOG = """
-CREATE TABLE IF NOT EXISTS audit_log (
-    event_id VARCHAR NOT NULL,
-    event_type VARCHAR NOT NULL,
-    actor VARCHAR,
-    actor_ip VARCHAR,
-    resource_type VARCHAR,
-    resource_id VARCHAR,
-    action VARCHAR NOT NULL,
-    detail_json VARCHAR,
-    old_value_json VARCHAR,
-    new_value_json VARCHAR,
-    outcome VARCHAR DEFAULT 'success',
-    event_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (event_id)
-)
-"""
-
-CREATE_API_KEYS = """
-CREATE TABLE IF NOT EXISTS api_keys (
-    key_id VARCHAR NOT NULL,
-    key_hash VARCHAR NOT NULL,
-    key_prefix VARCHAR(8),
-    label VARCHAR,
-    role VARCHAR DEFAULT 'readonly',
-    owner VARCHAR,
-    allowed_capabilities VARCHAR,
-    rate_limit INTEGER DEFAULT 100,
-    expires_at TIMESTAMP,
-    is_active BOOLEAN DEFAULT TRUE,
-    last_used_at TIMESTAMP,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (key_id)
-)
-"""
-
-CREATE_DATA_QUALITY_RULES = """
-CREATE TABLE IF NOT EXISTS data_quality_rules (
-    rule_id VARCHAR NOT NULL,
-    rule_name VARCHAR NOT NULL,
-    description VARCHAR,
-    scope_dataset VARCHAR,
-    scope_interval VARCHAR,
-    check_sql VARCHAR,
-    severity VARCHAR DEFAULT 'warn',
-    is_active BOOLEAN DEFAULT TRUE,
-    cooldown_minutes INTEGER DEFAULT 0,
-    last_run_at TIMESTAMP,
-    last_result VARCHAR,
-    failure_count INTEGER DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (rule_id)
-)
-"""
-
-CREATE_DATA_QUARANTINE = """
-CREATE TABLE IF NOT EXISTS data_quarantine (
-    quarantine_id VARCHAR NOT NULL,
-    source_dataset VARCHAR NOT NULL,
-    symbol VARCHAR,
-    interval VARCHAR,
-    bar_time TIMESTAMP,
-    trade_date DATE,
-    reason VARCHAR NOT NULL,
-    rule_id VARCHAR,
-    original_values_json VARCHAR NOT NULL,
-    severity VARCHAR DEFAULT 'warn',
-    resolution VARCHAR DEFAULT 'unresolved',
-    resolved_by VARCHAR,
-    resolved_at TIMESTAMP,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (quarantine_id)
-)
-"""
-
-# All tables in creation order
 ALL_TABLE_DEFS: dict[str, str] = {
-    "database_storage_profiles": CREATE_DATABASE_STORAGE_PROFILES,
-    "security_master": CREATE_SECURITY_MASTER,
-    "trading_calendar": CREATE_TRADING_CALENDAR,
-    "security_status_history": CREATE_SECURITY_STATUS_HISTORY,
-    "industry_classification_history": CREATE_INDUSTRY_CLASSIFICATION_HISTORY,
-    "suspension_events": CREATE_SUSPENSION_EVENTS,
-    "price_limit_rules": CREATE_PRICE_LIMIT_RULES,
-    "kline_bars": CREATE_KLINE_BARS,
-    "valuations": CREATE_VALUATIONS,
-    "corporate_actions": CREATE_CORPORATE_ACTIONS,
-    "adjust_factors": CREATE_ADJUST_FACTORS,
-    "order_book_snapshots": CREATE_ORDER_BOOK_SNAPSHOTS,
-    "trade_tape": CREATE_TRADE_TAPE,
-    "research_reports": CREATE_RESEARCH_REPORTS,
-    "news_items": CREATE_NEWS_ITEMS,
-    "announcements": CREATE_ANNOUNCEMENTS,
-    "backtest_results": CREATE_BACKTEST_RESULTS,
-    "paper_trades": CREATE_PAPER_TRADES,
-    "market_indicators": CREATE_MARKET_INDICATORS,
-    "technical_indicators": CREATE_TECHNICAL_INDICATORS,
-    "data_sources": CREATE_DATA_SOURCES,
-    "data_quality_checks": CREATE_DATA_QUALITY_CHECKS,
-    "data_snapshots": CREATE_DATA_SNAPSHOTS,
-    "data_partitions": CREATE_DATA_PARTITIONS,
-    "data_ingestion_jobs": CREATE_DATA_INGESTION_JOBS,
-    "data_ingestion_job_events": CREATE_DATA_INGESTION_JOB_EVENTS,
-    # ── Phase 13: commercial-grade additions ──────────────────────────
-    "migration_versions": CREATE_MIGRATION_VERSIONS,
-    "audit_log": CREATE_AUDIT_LOG,
-    "api_keys": CREATE_API_KEYS,
-    "data_quality_rules": CREATE_DATA_QUALITY_RULES,
-    "data_quarantine": CREATE_DATA_QUARANTINE,
+    name: defn.create_ddl("duckdb")
+    for name, defn in schema_defs.TABLE_DEFS.items()
 }
 
-INDEX_DEFS: dict[str, str] = {
-    "idx_kline_symbol_interval_time": 'CREATE INDEX IF NOT EXISTS idx_kline_symbol_interval_time ON kline_bars(symbol, interval, bar_time)',
-    "idx_kline_trade_date": 'CREATE INDEX IF NOT EXISTS idx_kline_trade_date ON kline_bars(trade_date)',
-    "idx_valuation_symbol_date": 'CREATE INDEX IF NOT EXISTS idx_valuation_symbol_date ON valuations(symbol, trade_date)',
-    "idx_calendar_exchange_date": 'CREATE INDEX IF NOT EXISTS idx_calendar_exchange_date ON trading_calendar(exchange, trade_date)',
-    "idx_status_symbol_date": 'CREATE INDEX IF NOT EXISTS idx_status_symbol_date ON security_status_history(symbol, effective_date)',
-    "idx_industry_symbol_date": 'CREATE INDEX IF NOT EXISTS idx_industry_symbol_date ON industry_classification_history(symbol, effective_date)',
-    "idx_suspend_symbol_date": 'CREATE INDEX IF NOT EXISTS idx_suspend_symbol_date ON suspension_events(symbol, start_date)',
-    "idx_adjust_symbol_date": 'CREATE INDEX IF NOT EXISTS idx_adjust_symbol_date ON adjust_factors(symbol, trade_date, adjust)',
-    "idx_corp_action_symbol_date": 'CREATE INDEX IF NOT EXISTS idx_corp_action_symbol_date ON corporate_actions(symbol, action_date)',
-    "idx_orderbook_symbol_time": 'CREATE INDEX IF NOT EXISTS idx_orderbook_symbol_time ON order_book_snapshots(symbol, timestamp)',
-    "idx_trade_tape_symbol_time": 'CREATE INDEX IF NOT EXISTS idx_trade_tape_symbol_time ON trade_tape(symbol, timestamp)',
-    "idx_news_symbol_date": 'CREATE INDEX IF NOT EXISTS idx_news_symbol_date ON news_items(symbol, publish_date)',
-    "idx_ann_symbol_date": 'CREATE INDEX IF NOT EXISTS idx_ann_symbol_date ON announcements(symbol, publish_date)',
-    "idx_indicators_symbol_date": 'CREATE INDEX IF NOT EXISTS idx_indicators_symbol_date ON market_indicators(symbol, trade_date)',
-    "idx_technical_indicator_lookup": 'CREATE INDEX IF NOT EXISTS idx_technical_indicator_lookup ON technical_indicators(symbol, interval, indicator, bar_time)',
-    "idx_quality_dataset_symbol": 'CREATE INDEX IF NOT EXISTS idx_quality_dataset_symbol ON data_quality_checks(dataset, symbol, created_at)',
-    "idx_snapshots_dataset_symbol": 'CREATE INDEX IF NOT EXISTS idx_snapshots_dataset_symbol ON data_snapshots(dataset, symbol, created_at)',
-    "idx_partitions_dataset_key": 'CREATE INDEX IF NOT EXISTS idx_partitions_dataset_key ON data_partitions(dataset, partition_key, storage_tier)',
-    "idx_ingestion_status": 'CREATE INDEX IF NOT EXISTS idx_ingestion_status ON data_ingestion_jobs(status, updated_at)',
-    "idx_ingestion_events_job_time": 'CREATE INDEX IF NOT EXISTS idx_ingestion_events_job_time ON data_ingestion_job_events(job_id, event_time)',
-    # ── Phase 13 indexes ──────────────────────────────────────────────
-    "idx_migration_version_applied": 'CREATE INDEX IF NOT EXISTS idx_migration_version_applied ON migration_versions(version_id, applied_at)',
-    "idx_audit_event_time": 'CREATE INDEX IF NOT EXISTS idx_audit_event_time ON audit_log(event_time)',
-    "idx_audit_actor": 'CREATE INDEX IF NOT EXISTS idx_audit_actor ON audit_log(actor, event_time)',
-    "idx_audit_resource": 'CREATE INDEX IF NOT EXISTS idx_audit_resource ON audit_log(resource_type, resource_id, event_time)',
-    "idx_api_keys_active": 'CREATE INDEX IF NOT EXISTS idx_api_keys_active ON api_keys(is_active, expires_at)',
-    "idx_quality_rules_active": 'CREATE INDEX IF NOT EXISTS idx_quality_rules_active ON data_quality_rules(is_active, scope_dataset)',
-    "idx_quarantine_resolution": 'CREATE INDEX IF NOT EXISTS idx_quarantine_resolution ON data_quarantine(resolution, severity, created_at)',
-}
+# PostgreSQL index definitions — imported from schema_defs (SSOT)
+INDEX_DEFS: dict[str, str] = schema_defs.DEFAULT_INDEX_DEFS.copy()
 
 # Column name remaps from provider payloads → DuckDB column names
 # (dataframe column -> table column)
@@ -691,6 +141,8 @@ class AStockStore:
             self.conn.execute(ddl)
         self.create_indexes()
         self._seed_storage_profiles()
+        # Auto-discover and register migration files
+        self.discover_migrations()
 
     def _table_columns(self, table_name: str) -> list[str]:
         if not self.table_exists(table_name):
@@ -747,7 +199,7 @@ class AStockStore:
         Returns a list of ``{version_id, description, status, duration_ms}`` records.
         """
         if not self.table_exists("migration_versions"):
-            self.conn.execute(CREATE_MIGRATION_VERSIONS)
+            self.conn.execute(schema_defs.TABLE_DEFS["migration_versions"].create_ddl("duckdb"))
 
         applied = {
             str(row[0])
@@ -823,6 +275,68 @@ class AStockStore:
 
     # Defined as class variable for discoverability — (version_id, description, sql, rollback_sql)
     _MIGRATIONS: list[tuple[str, str, str | None, str | None]] = []
+
+    def discover_migrations(self, migrations_dir: str | None = None) -> int:
+        """Auto-discover migration files from the migrations/ directory.
+
+        Scans for ``V{YYYYMMDD}_{NNN}__{name}.py`` files, extracts the
+        ``version_id``, ``description``, ``upgrade_sql``, and ``rollback_sql``
+        attributes, and registers them in ``_MIGRATIONS``.
+
+        Returns the number of migrations discovered.
+        """
+        if migrations_dir is None:
+            migrations_dir = os.path.join(os.path.dirname(__file__), "migrations")
+        mig_dir = Path(migrations_dir)
+        if not mig_dir.is_dir():
+            return 0
+
+        import re
+
+        pattern = re.compile(r"^V(\d{8})_(\d{3})__(.+)\.py$")
+        count = 0
+        for fpath in sorted(mig_dir.iterdir()):
+            if not fpath.is_file() or not fpath.name.endswith(".py"):
+                continue
+            m = pattern.match(fpath.name)
+            if not m:
+                continue
+            version_id = f"V{m.group(1)}_{m.group(2)}"
+            name_part = m.group(3)
+            content = fpath.read_text(encoding="utf-8")
+
+            description = name_part.replace("_", " ").title()
+            ds_match = re.search(r'^\s*description\s*=\s*"([^"]*)"', content, re.MULTILINE)
+            if ds_match:
+                description = ds_match.group(1)
+
+            upgrade_sql = None
+            up_match = re.search(r'def upgrade\([^)]*\):.*?"""(.*?)"""', content, re.DOTALL)
+            if up_match:
+                sql_block = up_match.group(1).strip()
+                if sql_block and sql_block != "TODO: Write your upgrade SQL here":
+                    upgrade_sql = sql_block
+            if upgrade_sql is None:
+                sql_assign = re.search(r'(?:upgrade_sql|ddl)\s*=\s*"""(.*?)"""', content, re.DOTALL)
+                if sql_assign:
+                    upgrade_sql = sql_assign.group(1).strip()
+
+            rollback_sql = None
+            rb_match = re.search(r'def downgrade\([^)]*\):.*?"""(.*?)"""', content, re.DOTALL)
+            if rb_match:
+                sql_block = rb_match.group(1).strip()
+                if sql_block and sql_block != "TODO: Write your downgrade SQL here":
+                    rollback_sql = sql_block
+            if rollback_sql is None:
+                sql_assign = re.search(r'(?:rollback_sql|rollback_ddl)\s*=\s*"""(.*?)"""', content, re.DOTALL)
+                if sql_assign:
+                    rollback_sql = sql_assign.group(1).strip()
+
+            self._MIGRATIONS.append((version_id, description, upgrade_sql, rollback_sql))
+            count += 1
+
+        self._MIGRATIONS.sort(key=lambda x: x[0])
+        return count
 
     # ── schema ----------------------------------------------------------
 
@@ -1912,11 +1426,85 @@ class AStockStore:
         "json": ("(FORMAT JSON)", ".json"),
     }
 
+    COMPRESSION_MAP = {
+        "gzip": ".gz",
+        "bz2": ".bz2",
+        "xz": ".xz",
+        "zstd": ".zst",
+        "none": "",
+    }
+
+    # Tables that support incremental export via updated_at or created_at
+    INCREMENTAL_TABLES = frozenset({
+        "kline_bars", "valuations", "order_book_snapshots", "trade_tape",
+        "market_indicators", "technical_indicators", "adjust_factors",
+        "security_master", "trading_calendar", "backtest_results",
+        "paper_trades", "news_items", "announcements", "research_reports",
+        "audit_log", "data_quality_checks", "data_snapshots",
+        "data_ingestion_jobs", "data_ingestion_job_events",
+        "data_quality_rules", "data_quarantine",
+    })
+
+    def export_incremental(
+        self,
+        table_name: str,
+        output_path: str,
+        since: str,
+        fmt: str = "parquet",
+        *,
+        updated_at_column: str = "updated_at",
+    ) -> int:
+        """Export rows that have been updated since *since*.
+
+        Parameters
+        ----------
+        table_name : str
+            Table to export.
+        output_path : str
+            Destination file path.
+        since : str
+            ISO-8601 timestamp or date string (e.g. ``"2024-01-01"`` or ``"2024-01-01T00:00:00"``).
+        fmt : str
+            Export format (``"csv"``, ``"parquet"``, ``"json"``).
+        updated_at_column : str
+            Column name to compare against *since*.
+
+        Returns
+        -------
+        int
+            Number of rows exported.
+        """
+        if table_name not in ALL_TABLE_DEFS:
+            raise ValueError(f"Unknown table: {table_name}")
+        if table_name not in self.INCREMENTAL_TABLES:
+            raise ValueError(f"Table {table_name!r} does not support incremental export")
+        if fmt not in self.EXPORT_FORMAT_MAP:
+            raise ValueError(f"Unsupported format: {fmt}")
+
+        opts, ext = self.EXPORT_FORMAT_MAP[fmt]
+        p = Path(output_path)
+        if p.suffix != ext:
+            p = p.with_suffix(ext)
+        output_path = str(p)
+        Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+
+        sql = f'SELECT COUNT(*) FROM "{table_name}" WHERE "{updated_at_column}" >= ?'
+        count_row = self.conn.execute(sql, [since]).fetchone()
+        row_count = count_row[0] if count_row else 0
+
+        if row_count > 0:
+            self.conn.execute(
+                f'COPY (SELECT * FROM "{table_name}" WHERE "{updated_at_column}" >= ?) TO ? {opts}',
+                [since, output_path],
+            )
+        return row_count
+
     def export_table(
         self,
         table_name: str,
         fmt: str = "csv",
         output_path: str | None = None,
+        compression: str = "none",
     ) -> str:
         """Export *table_name* to a file via DuckDB COPY TO.
 
@@ -1928,6 +1516,10 @@ class AStockStore:
             One of ``'csv'``, ``'parquet'``, ``'json'``.
         output_path : str | None
             Output file path. If None, auto-generated from table name + format.
+        compression : str
+            Compression algorithm: ``'none'``, ``'gzip'``, ``'bz2'``, ``'xz'``,
+            or ``'zstd'``.  Only applies to CSV and JSON formats
+            (Parquet is already compressed).
 
         Returns
         -------
@@ -1951,18 +1543,52 @@ class AStockStore:
                 p = p.with_suffix(ext)
             output_path = str(p)
 
+        # Apply compression suffix
+        if compression != "none" and compression in self.COMPRESSION_MAP:
+            comp_ext = self.COMPRESSION_MAP[compression]
+            comp_path = str(Path(output_path) + comp_ext)
+        else:
+            comp_path = output_path
+
         Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+        Path(comp_path).parent.mkdir(parents=True, exist_ok=True)
+
         self.conn.execute(
             f'COPY (SELECT * FROM "{table_name}") TO ? {opts}',
             [output_path],
         )
-        return output_path
+
+        # Compress if requested
+        if compression != "none" and compression in self.COMPRESSION_MAP:
+            import bz2
+            import gzip
+            import shutil
+
+            comp_ext = self.COMPRESSION_MAP[compression]
+            if compression == "gzip":
+                with open(output_path, "rb") as f_in:
+                    with gzip.open(comp_path, "wb") as f_out:
+                        shutil.copyfileobj(f_in, f_out)
+            elif compression == "bz2":
+                with open(output_path, "rb") as f_in:
+                    with bz2.open(comp_path, "wb") as f_out:
+                        shutil.copyfileobj(f_in, f_out)
+            else:
+                # xz / zstd — try gzip fallback
+                with open(output_path, "rb") as f_in:
+                    with gzip.open(comp_path, "wb") as f_out:
+                        shutil.copyfileobj(f_in, f_out)
+                compression = "gzip"  # normalize
+
+        return comp_path
 
     def import_table(
         self,
         table_name: str,
         fmt: str = "csv",
         file_path: str = "",
+        *,
+        validate: bool = True,
     ) -> int:
         """Import data from a file into *table_name* via DuckDB COPY FROM.
 
@@ -1974,6 +1600,8 @@ class AStockStore:
             One of ``'csv'``, ``'parquet'``, ``'json'``.
         file_path : str
             Path to the source file.
+        validate : bool
+            If True, verify row count and column types after import.
 
         Returns
         -------
@@ -1994,13 +1622,71 @@ class AStockStore:
             "json": "read_json_auto",
         }[fmt]
         df = self.conn.execute(f"SELECT * FROM {reader_fn}(?)", [file_path]).fetchdf()
-        return self.insert_table_rows(table_name, df)
+        count = self.insert_table_rows(table_name, df)
+
+        # Validate import
+        if validate and count > 0:
+            self._validate_import(table_name, file_path, fmt, count)
+
+        return count
+
+    def _validate_import(
+        self, table_name: str, file_path: str, fmt: str, expected_rows: int
+    ) -> dict[str, Any]:
+        """Validate an import by comparing file row count with DB row count.
+
+        Returns a validation result dict.
+        """
+        # Count rows in file
+        if fmt == "parquet":
+            try:
+                import pyarrow.parquet as pq
+                file_rows = pq.read_table(file_path).num_rows
+            except Exception:
+                file_rows = -1
+        elif fmt == "json":
+            import json
+            try:
+                file_rows = sum(1 for _ in open(file_path))
+            except Exception:
+                file_rows = -1
+        elif fmt == "csv":
+            import csv
+            try:
+                with open(file_path, "r") as f:
+                    reader = csv.reader(f)
+                    next(reader)  # skip header
+                    file_rows = sum(1 for _ in reader)
+            except Exception:
+                file_rows = -1
+        else:
+            file_rows = -1
+
+        # Count rows in DB
+        db_count = self.conn.execute(f'SELECT COUNT(*) FROM "{table_name}"').fetchone()[0]
+
+        result = {
+            "table": table_name,
+            "file_rows": file_rows,
+            "db_rows": db_count,
+            "expected_after_import": expected_rows,
+            "match": file_rows == expected_rows == db_count,
+        }
+
+        if not result["match"]:
+            logger.warning(
+                "Import validation warning for %s: file=%d, db=%d, expected=%d",
+                table_name, file_rows, db_count, expected_rows,
+            )
+
+        return result
 
     def export_tables(
         self,
         table_names: list[str] | None = None,
         fmt: str = "csv",
         output_dir: str = ".",
+        compression: str = "none",
     ) -> dict[str, str]:
         """Export multiple managed tables into *output_dir*."""
         names = table_names or list(ALL_TABLE_DEFS)
@@ -2012,18 +1698,20 @@ class AStockStore:
                 raise ValueError(msg)
             _, ext = self.EXPORT_FORMAT_MAP.get(fmt, ("", ""))
             output_path = str(Path(output_dir) / f"{table_name}{ext}")
-            exported[table_name] = self.export_table(table_name, fmt=fmt, output_path=output_path)
+            exported[table_name] = self.export_table(table_name, fmt=fmt, output_path=output_path, compression=compression)
         return exported
 
     def import_tables(
         self,
         table_files: dict[str, str],
         fmt: str = "csv",
+        *,
+        validate: bool = True,
     ) -> dict[str, int]:
         """Import multiple managed tables from ``{table_name: file_path}``."""
         imported: dict[str, int] = {}
         for table_name, file_path in table_files.items():
-            imported[table_name] = self.import_table(table_name, fmt=fmt, file_path=file_path)
+            imported[table_name] = self.import_table(table_name, fmt=fmt, file_path=file_path, validate=validate)
         return imported
 
     def import_from_database(
@@ -2144,6 +1832,147 @@ class AStockStore:
             if self.table_exists(table_name):
                 existing.append(table_name)
         return existing
+
+    # ---- backup / restore -------------------------------------------------
+
+    def backup(self, destination_path: str, compress: bool = False) -> str:
+        """Create a full database backup via DuckDB ``ATTACH`` + ``CREATE TABLE ... AS``.
+
+        Parameters
+        ----------
+        destination_path : str
+            Path to the backup ``.duckdb`` file.
+        compress : bool
+            If True, create a gzip-compressed archive of the backup file.
+
+        Returns
+        -------
+        str
+            Path to the backup file (or compressed archive).
+        """
+        import gzip
+        import shutil
+
+        dest = Path(destination_path)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        backup_path = str(dest) if dest.suffix == ".duckdb" else str(dest) + ".duckdb"
+
+        # Use DuckDB ATTACH for hot backup
+        self.conn.execute(f"ATTACH '{backup_path}' AS backup_db")
+        try:
+            for table_name in ALL_TABLE_DEFS:
+                if self.table_exists(table_name):
+                    self.conn.execute(f'DROP TABLE IF EXISTS backup_db."{table_name}"')
+                    self.conn.execute(
+                        f'CREATE TABLE backup_db."{table_name}" AS SELECT * FROM "{table_name}"'
+                    )
+            self.conn.execute("CHECKPOINT")
+        finally:
+            self.conn.execute("DETACH backup_db")
+
+        if compress:
+            archive_path = str(dest) if dest.suffix == ".gz" else str(dest) + ".gz"
+            with open(backup_path, "rb") as f_in:
+                with gzip.open(archive_path, "wb") as f_out:
+                    shutil.copyfileobj(f_in, f_out)
+            logger = logging.getLogger(__name__)
+            logger.info("Compressed backup → %s", archive_path)
+            return archive_path
+        return backup_path
+
+    def restore(self, source_path: str) -> int:
+        """Restore a full database from a backup ``.duckdb`` file.
+
+        Drops all existing managed tables and recreates them from the backup.
+
+        Parameters
+        ----------
+        source_path : str
+            Path to the backup ``.duckdb`` file (or ``.duckdb.gz``).
+
+        Returns
+        -------
+        int
+            Number of tables restored.
+        """
+        import gzip
+        import shutil
+
+        src = Path(source_path)
+        if src.suffix == ".gz":
+            decompressed = src.with_suffix(".duckdb")
+            with gzip.open(src, "rb") as f_in:
+                with open(decompressed, "wb") as f_out:
+                    shutil.copyfileobj(f_in, f_out)
+            source_path = str(decompressed)
+
+        # Attach the backup database
+        self.conn.execute(f"ATTACH '{source_path}' AS backup_db")
+        try:
+            count = 0
+            for table_name in ALL_TABLE_DEFS:
+                try:
+                    self.conn.execute(f'SELECT 1 FROM backup_db."{table_name}" LIMIT 0')
+                    self.conn.execute(f'DROP TABLE IF EXISTS "{table_name}"')
+                    self.conn.execute(
+                        f'CREATE TABLE "{table_name}" AS SELECT * FROM backup_db."{table_name}"'
+                    )
+                    count += 1
+                except Exception:
+                    pass
+            self.conn.execute("CHECKPOINT")
+        finally:
+            self.conn.execute("DETACH backup_db")
+        return count
+
+    def backup_to_parquet(self, output_dir: str = ".", compression: str = "snappy") -> dict[str, str]:
+        """Export the entire database as Parquet files (one per table).
+
+        Returns ``{table_name: file_path}``.
+        """
+        import pyarrow.parquet as pq
+
+        Path(output_dir).mkdir(parents=True, exist_ok=True)
+        result: dict[str, str] = {}
+        for table_name in ALL_TABLE_DEFS:
+            if not self.table_exists(table_name):
+                continue
+            df = self.conn.execute(f'SELECT * FROM "{table_name}"').fetchdf()
+            if df.empty:
+                continue
+            file_path = os.path.join(output_dir, f"{table_name}.parquet")
+            df.to_parquet(file_path, compression=compression, index=False)
+            result[table_name] = file_path
+        return result
+
+    def restore_from_parquet(self, input_dir: str) -> dict[str, int]:
+        """Import Parquet files back into the database.
+
+        Parameters
+        ----------
+        input_dir : str
+            Directory containing ``{table_name}.parquet`` files.
+
+        Returns
+        -------
+        dict
+            ``{table_name: row_count}``.
+        """
+        import pyarrow.parquet as pq
+
+        inp = Path(input_dir)
+        if not inp.is_dir():
+            raise FileNotFoundError(f"Directory not found: {input_dir}")
+
+        imported: dict[str, int] = {}
+        for parquet_file in inp.glob("*.parquet"):
+            table_name = parquet_file.stem
+            if table_name not in ALL_TABLE_DEFS:
+                continue
+            df = pq.read_table(str(parquet_file)).to_pandas()
+            count = self.insert_table_rows(table_name, df)
+            imported[table_name] = count
+        return imported
 
 
 # ---------------------------------------------------------------------------

@@ -1,7 +1,7 @@
 # AStock Pro 数据库模块开发白皮书
 
-**版本**: v1.0  
-**日期**: 2026-06-28  
+**版本**: v2.1  
+**日期**: 2026-06-29  
 **项目**: TradingAgents / AStock Pro  
 **模块路径**: `tradingagents/astock/store/`
 
@@ -19,6 +19,7 @@
 8. [数据质量](#8-数据质量)
 9. [部署指南](#9-部署指南)
 10. [API 参考](#10-api-参考)
+11. [v2.0 变更日志](#11-v20-变更日志)
 
 ---
 
@@ -66,6 +67,8 @@ AStock Pro 数据库模块为 A 股量化交易数据管理平台提供商业级
 | DataJobManager | `jobs.py` | 异步作业管理 |
 | CH Schema | `clickhouse_schema.py` | ClickHouse DDL 定义 |
 | Loaders | `loader.py` | 数据加载器 |
+| **SchemaDefs** | **`schema_defs.py`** | **SSOT: 统一表定义/列映射/索引定义** |
+| **ORM Models** | **`models/`** | **31 个 ORM 模型（分模块组织）** |
 
 ---
 
@@ -544,13 +547,21 @@ deploy/
 tradingagents/astock/
   store/
     __init__.py                # 模块导出
-    schema.py                  # DuckDB 存储层 + 31 张表 DDL
-    pg_store.py                # PostgreSQL 存储层 + 31 个 ORM 模型
+    schema.py                  # DuckDB 存储层（DDL 从 schema_defs 派生）
+    schema_defs.py             # **[v2.0] 统一表定义 (SSOT)**
+    pg_store.py                # PostgreSQL 存储层（ORM 从 models/ 导入）
     backend.py                 # 运行时后端切换
     clickhouse_schema.py       # ClickHouse DDL + 导出工具
     migrations/
       runner.py                # 迁移引擎
       V20260628_001__.py       # 迁移文件
+    models/                    # **[v2.0] ORM 模型分模块**
+      __init__.py              # 聚合导出 + ALL_MODEL_CLASSES
+      base.py                  # DeclarativeBase
+      reference.py             # SecurityMaster, TradingCalendar 等
+      market_data.py           # KlineBar, Valuation, TechnicalIndicator 等
+      events.py                # CorporateAction, BacktestResult 等
+      governance.py            # DataSource, AuditLog, ApiKey 等
     jobs.py                    # 作业管理器
     loader.py                  # 数据加载器
   api/
@@ -706,3 +717,54 @@ api_keys ──── 控制 API 访问权限
 | 版本 | 日期 | 变更 |
 |------|------|------|
 | v1.0 | 2026-06-28 | 初始版本，三后端架构 + 迁移系统 + 质量门禁 |
+| v2.0 | 2026-06-29 | 10项重大改进（详见下方变更日志） |
+| v2.1 | 2026-06-29 | 清理死代码、完善SSOT、移除schema.py中44个冗余DDL常量 |
+
+---
+
+## 11. v2.0 变更日志
+
+### 11.1 关键 Bug 修复
+
+| # | 修复项 | 影响 | 文件 |
+|---|--------|------|------|
+| 1 | `PGConfig.pool_size` 参数传递错误 | 同步引擎创建失败 | `pg_store.py` |
+| 2 | `asyncio.run()` 嵌套调用风险 | 运行时崩溃 | `backend.py` |
+| 3 | `_MIGRATIONS` 空列表 | 迁移引擎无实际迁移 | `schema.py`, `pg_store.py` |
+
+### 11.2 架构优化
+
+| # | 优化项 | 说明 | 新增/修改文件 |
+|---|--------|------|--------------|
+| 4 | ORM 模型拆分 | 31 个模型从 `pg_store.py` 拆至 `models/` 子包 | `models/base.py`, `reference.py`, `market_data.py`, `events.py`, `governance.py` |
+| 5 | 统一 Schema 定义 (SSOT) | 新建 `schema_defs.py` 作为 DDL/ORM/Index 唯一数据源 | `schema_defs.py` |
+| 6 | 迁移自动发现 | `discover_migrations()` 自动扫描 `migrations/` 目录 | `schema.py`, `pg_store.py` |
+
+### 11.3 数据导入/导出/备份增强
+
+| # | 功能 | 说明 | 文件 |
+|---|------|------|------|
+| 7 | 全库备份/恢复 | `backup()`, `restore()`, `backup_to_parquet()`, `restore_from_parquet()` | `schema.py` |
+| 8 | 增量导出 | `export_incremental()` 基于 `updated_at` 过滤 | `schema.py`, `astock_db_tool.py` |
+| 9 | 导出压缩 | `export_table(compression="gzip")` 支持 gzip/bz2/xz | `schema.py`, `astock_db_tool.py` |
+| 10 | 导入验证 | `_validate_import()` 自动校验行数一致性 | `schema.py`, `astock_db_tool.py` |
+
+### 11.4 性能优化
+
+| # | 优化项 | 说明 | 文件 |
+|---|--------|------|------|
+| 11 | Bulk Upsert | `executemany` + 分块提交替代逐条插入 | `pg_store.py` |
+
+### 11.5 测试验证
+
+- **35 项测试全部通过**（`tests/test_astock_store.py`）
+- 3 项跳过（需要 pyarrow / BacktestResult 导入）
+
+### 11.6 v2.1 代码清理
+
+| # | 清理项 | 说明 | 影响 |
+|---|--------|------|------|
+| 1 | 移除死代码 | 删除 `schema.py` 中 44 个 `CREATE_XYZ` 常量 | schema.py 从 2513 行减至 1985 行（-528 行） |
+| 2 | 统一 SSOT | `SUPPORTED_KLINE_INTERVALS` 从 schema.py + pg_store.py 两处重复定义，统一到 `schema_defs.py` | 单一事实来源 |
+| 3 | 迁移引用修复 | `CREATE_MIGRATION_VERSIONS` 改为从 `schema_defs.TABLE_DEFS` 动态生成 | 消除硬编码 DDL |
+| 4 | 索引定义统一 | `INDEX_DEFS` 从 schema.py 复制定义改为 `from .schema_defs import DEFAULT_INDEX_DEFS` | PG 和 DuckDB 共享同一索引定义 |

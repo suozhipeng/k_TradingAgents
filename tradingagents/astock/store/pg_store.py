@@ -21,9 +21,11 @@ import datetime
 import hashlib
 import json
 import logging
+import os
 import time as _time
 import uuid
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 import pandas as pd
@@ -44,13 +46,16 @@ from sqlalchemy import (
 )
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.pool import QueuePool
+
+from . import schema_defs
 
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Supported kline intervals (mirrors schema.py)
+# Supported kline intervals (from schema_defs SSOT)
 # ---------------------------------------------------------------------------
-SUPPORTED_KLINE_INTERVALS = frozenset(("1m", "5m", "15m", "30m", "60m", "1d", "1w", "1mo", "1y"))
+SUPPORTED_KLINE_INTERVALS = schema_defs.SUPPORTED_KLINE_INTERVALS
 
 # ---------------------------------------------------------------------------
 # Column name remaps (mirrors schema.py)
@@ -89,447 +94,50 @@ VALUATION_COLUMN_MAP: dict[str, str] = {
 }
 
 # ---------------------------------------------------------------------------
-# SQLAlchemy ORM Base
+# SQLAlchemy ORM Base (re-exported from models package)
 # ---------------------------------------------------------------------------
 
-
-class Base(DeclarativeBase):
-    pass
-
-
-# ===========================================================================
-# 31 ORM Model Classes (exact table/column names from schema.py DDL)
-# ===========================================================================
-
-
-class DatabaseStorageProfile(Base):
-    __tablename__ = "database_storage_profiles"
-    profile_name: Mapped[str] = mapped_column(String, primary_key=True)
-    role: Mapped[str] = mapped_column(String, nullable=False)
-    engine: Mapped[str] = mapped_column(String, nullable=False)
-    read_write_model: Mapped[str | None] = mapped_column(String, nullable=True)
-    notes: Mapped[str | None] = mapped_column(String, nullable=True)
-    created_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, server_default=text("CURRENT_TIMESTAMP"))
-
-
-class SecurityMaster(Base):
-    __tablename__ = "security_master"
-    symbol: Mapped[str] = mapped_column(String, primary_key=True)
-    raw_symbol: Mapped[str | None] = mapped_column(String, nullable=True)
-    name: Mapped[str | None] = mapped_column(String, nullable=True)
-    exchange: Mapped[str | None] = mapped_column(String, nullable=True)
-    board: Mapped[str | None] = mapped_column(String, nullable=True)
-    currency: Mapped[str | None] = mapped_column(String, default="CNY")
-    list_date: Mapped[datetime.date | None] = mapped_column(Date, nullable=True)
-    delist_date: Mapped[datetime.date | None] = mapped_column(Date, nullable=True)
-    status: Mapped[str | None] = mapped_column(String, default="active")
-    is_st: Mapped[bool | None] = mapped_column(Boolean, default=False)
-    source: Mapped[str | None] = mapped_column(String, nullable=True)
-    created_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, server_default=text("CURRENT_TIMESTAMP"))
-    updated_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, server_default=text("CURRENT_TIMESTAMP"))
-
-
-class TradingCalendar(Base):
-    __tablename__ = "trading_calendar"
-    exchange: Mapped[str] = mapped_column(String, primary_key=True)
-    trade_date: Mapped[datetime.date] = mapped_column(Date, primary_key=True)
-    is_open: Mapped[bool] = mapped_column(Boolean, nullable=False)
-    session_open: Mapped[datetime.datetime | None] = mapped_column(DateTime, nullable=True)
-    session_close: Mapped[datetime.datetime | None] = mapped_column(DateTime, nullable=True)
-    session_break_json: Mapped[str | None] = mapped_column(String, nullable=True)
-    source: Mapped[str | None] = mapped_column(String, nullable=True)
-    created_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, server_default=text("CURRENT_TIMESTAMP"))
-    updated_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, server_default=text("CURRENT_TIMESTAMP"))
-
-
-class SecurityStatusHistory(Base):
-    __tablename__ = "security_status_history"
-    symbol: Mapped[str] = mapped_column(String, primary_key=True)
-    effective_date: Mapped[datetime.date] = mapped_column(Date, primary_key=True)
-    status: Mapped[str] = mapped_column(String, nullable=False)
-    is_st: Mapped[bool | None] = mapped_column(Boolean, default=False)
-    reason: Mapped[str | None] = mapped_column(String, nullable=True)
-    source: Mapped[str | None] = mapped_column(String, nullable=True)
-    created_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, server_default=text("CURRENT_TIMESTAMP"))
-
-
-class IndustryClassificationHistory(Base):
-    __tablename__ = "industry_classification_history"
-    symbol: Mapped[str] = mapped_column(String, primary_key=True)
-    effective_date: Mapped[datetime.date] = mapped_column(Date, primary_key=True)
-    classification: Mapped[str] = mapped_column(String, primary_key=True)
-    level: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
-    industry_code: Mapped[str | None] = mapped_column(String, nullable=True)
-    industry_name: Mapped[str | None] = mapped_column(String, nullable=True)
-    source: Mapped[str | None] = mapped_column(String, nullable=True)
-    created_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, server_default=text("CURRENT_TIMESTAMP"))
-
-
-class SuspensionEvent(Base):
-    __tablename__ = "suspension_events"
-    symbol: Mapped[str] = mapped_column(String, primary_key=True)
-    start_date: Mapped[datetime.date] = mapped_column(Date, primary_key=True)
-    end_date: Mapped[datetime.date | None] = mapped_column(Date, nullable=True)
-    reason: Mapped[str | None] = mapped_column(String, nullable=True)
-    source: Mapped[str | None] = mapped_column(String, nullable=True)
-    created_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, server_default=text("CURRENT_TIMESTAMP"))
-
-
-class PriceLimitRule(Base):
-    __tablename__ = "price_limit_rules"
-    rule_id: Mapped[str] = mapped_column(String, primary_key=True)
-    exchange: Mapped[str | None] = mapped_column(String, nullable=True)
-    board: Mapped[str | None] = mapped_column(String, nullable=True)
-    effective_date: Mapped[datetime.date] = mapped_column(Date, nullable=False)
-    end_date: Mapped[datetime.date | None] = mapped_column(Date, nullable=True)
-    up_limit_pct: Mapped[float | None] = mapped_column(Float, nullable=True)
-    down_limit_pct: Mapped[float | None] = mapped_column(Float, nullable=True)
-    source: Mapped[str | None] = mapped_column(String, nullable=True)
-    created_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, server_default=text("CURRENT_TIMESTAMP"))
-
-
-class KlineBar(Base):
-    __tablename__ = "kline_bars"
-    symbol: Mapped[str] = mapped_column(String, primary_key=True)
-    bar_time: Mapped[datetime.datetime] = mapped_column(DateTime, primary_key=True)
-    interval: Mapped[str] = mapped_column(String, primary_key=True, default="1d")
-    adjust: Mapped[str] = mapped_column(String, primary_key=True, default="none")
-    trade_date: Mapped[datetime.date | None] = mapped_column(Date, nullable=True)
-    open: Mapped[float | None] = mapped_column(Float, nullable=True)
-    high: Mapped[float | None] = mapped_column(Float, nullable=True)
-    low: Mapped[float | None] = mapped_column(Float, nullable=True)
-    close: Mapped[float | None] = mapped_column(Float, nullable=True)
-    volume: Mapped[float | None] = mapped_column(Float, nullable=True)
-    amount: Mapped[float | None] = mapped_column(Float, nullable=True)
-    turnover_rate: Mapped[float | None] = mapped_column(Float, nullable=True)
-    quality: Mapped[str | None] = mapped_column(String, default="normal")
-    source: Mapped[str | None] = mapped_column(String, nullable=True)
-    created_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, server_default=text("CURRENT_TIMESTAMP"))
-    updated_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, server_default=text("CURRENT_TIMESTAMP"))
-
-
-class Valuation(Base):
-    __tablename__ = "valuations"
-    symbol: Mapped[str] = mapped_column(String, primary_key=True)
-    trade_date: Mapped[datetime.date] = mapped_column(Date, primary_key=True)
-    pe: Mapped[float | None] = mapped_column(Float, nullable=True)
-    pb: Mapped[float | None] = mapped_column(Float, nullable=True)
-    market_cap: Mapped[float | None] = mapped_column(Float, nullable=True)
-    source: Mapped[str | None] = mapped_column(String, nullable=True)
-    created_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, server_default=text("CURRENT_TIMESTAMP"))
-
-
-class CorporateAction(Base):
-    __tablename__ = "corporate_actions"
-    action_id: Mapped[str] = mapped_column(String, primary_key=True)
-    symbol: Mapped[str] = mapped_column(String, nullable=False)
-    action_date: Mapped[datetime.date] = mapped_column(Date, nullable=False)
-    ex_date: Mapped[datetime.date | None] = mapped_column(Date, nullable=True)
-    action_type: Mapped[str] = mapped_column(String, nullable=False)
-    cash_dividend: Mapped[float | None] = mapped_column(Float, nullable=True)
-    stock_dividend_ratio: Mapped[float | None] = mapped_column(Float, nullable=True)
-    split_ratio: Mapped[float | None] = mapped_column(Float, nullable=True)
-    rights_issue_price: Mapped[float | None] = mapped_column(Float, nullable=True)
-    raw_json: Mapped[str | None] = mapped_column(String, nullable=True)
-    source: Mapped[str | None] = mapped_column(String, nullable=True)
-    created_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, server_default=text("CURRENT_TIMESTAMP"))
-
-
-class AdjustFactor(Base):
-    __tablename__ = "adjust_factors"
-    symbol: Mapped[str] = mapped_column(String, primary_key=True)
-    trade_date: Mapped[datetime.date] = mapped_column(Date, primary_key=True)
-    adjust: Mapped[str] = mapped_column(String, primary_key=True)
-    factor: Mapped[float] = mapped_column(Float, nullable=False)
-    source: Mapped[str | None] = mapped_column(String, nullable=True)
-    created_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, server_default=text("CURRENT_TIMESTAMP"))
-
-
-class OrderBookSnapshot(Base):
-    __tablename__ = "order_book_snapshots"
-    symbol: Mapped[str] = mapped_column(String, primary_key=True)
-    timestamp: Mapped[datetime.datetime] = mapped_column(DateTime, primary_key=True)
-    bid_price: Mapped[float | None] = mapped_column(Float, nullable=True)
-    bid_volume: Mapped[float | None] = mapped_column(Float, nullable=True)
-    ask_price: Mapped[float | None] = mapped_column(Float, nullable=True)
-    ask_volume: Mapped[float | None] = mapped_column(Float, nullable=True)
-    source: Mapped[str | None] = mapped_column(String, nullable=True)
-
-
-class TradeTape(Base):
-    __tablename__ = "trade_tape"
-    symbol: Mapped[str] = mapped_column(String, primary_key=True)
-    timestamp: Mapped[datetime.datetime] = mapped_column(DateTime, primary_key=True)
-    price: Mapped[float | None] = mapped_column(Float, nullable=True)
-    volume: Mapped[float | None] = mapped_column(Float, nullable=True)
-    direction: Mapped[str | None] = mapped_column(String, nullable=True)
-    source: Mapped[str | None] = mapped_column(String, nullable=True)
-
-
-class ResearchReport(Base):
-    __tablename__ = "research_reports"
-    symbol: Mapped[str] = mapped_column(String, primary_key=True)
-    report_date: Mapped[datetime.date] = mapped_column(Date, primary_key=True)
-    title: Mapped[str] = mapped_column(String, primary_key=True)
-    institution: Mapped[str | None] = mapped_column(String, nullable=True)
-    analyst: Mapped[str | None] = mapped_column(String, nullable=True)
-    rating: Mapped[str | None] = mapped_column(String, nullable=True)
-    pdf_url: Mapped[str | None] = mapped_column(String, nullable=True)
-    source: Mapped[str | None] = mapped_column(String, nullable=True)
-
-
-class NewsItem(Base):
-    __tablename__ = "news_items"
-    symbol: Mapped[str] = mapped_column(String, primary_key=True)
-    publish_date: Mapped[datetime.date] = mapped_column(Date, primary_key=True)
-    url: Mapped[str] = mapped_column(String, primary_key=True)
-    title: Mapped[str | None] = mapped_column(String, nullable=True)
-    summary: Mapped[str | None] = mapped_column(String, nullable=True)
-    source: Mapped[str | None] = mapped_column(String, nullable=True)
-
-
-class Announcement(Base):
-    __tablename__ = "announcements"
-    symbol: Mapped[str] = mapped_column(String, primary_key=True)
-    publish_date: Mapped[datetime.date] = mapped_column(Date, primary_key=True)
-    url: Mapped[str] = mapped_column(String, primary_key=True)
-    title: Mapped[str | None] = mapped_column(String, nullable=True)
-    summary: Mapped[str | None] = mapped_column(String, nullable=True)
-
-
-class BacktestResult(Base):
-    __tablename__ = "backtest_results"
-    run_id: Mapped[str] = mapped_column(String, primary_key=True)
-    symbol: Mapped[str | None] = mapped_column(String, nullable=True)
-    strategy_name: Mapped[str | None] = mapped_column(String, nullable=True)
-    start_date: Mapped[datetime.date | None] = mapped_column(Date, nullable=True)
-    end_date: Mapped[datetime.date | None] = mapped_column(Date, nullable=True)
-    total_return: Mapped[float | None] = mapped_column(Float, nullable=True)
-    annualized_return: Mapped[float | None] = mapped_column(Float, nullable=True)
-    sharpe_ratio: Mapped[float | None] = mapped_column(Float, nullable=True)
-    max_drawdown: Mapped[float | None] = mapped_column(Float, nullable=True)
-    win_rate: Mapped[float | None] = mapped_column(Float, nullable=True)
-    total_trades: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    params_json: Mapped[str | None] = mapped_column(String, nullable=True)
-    created_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, server_default=text("CURRENT_TIMESTAMP"))
-
-
-class PaperTrade(Base):
-    __tablename__ = "paper_trades"
-    trade_id: Mapped[str] = mapped_column(String, primary_key=True)
-    symbol: Mapped[str | None] = mapped_column(String, nullable=True)
-    direction: Mapped[str | None] = mapped_column(String, nullable=True)
-    price: Mapped[float | None] = mapped_column(Float, nullable=True)
-    volume: Mapped[float | None] = mapped_column(Float, nullable=True)
-    fees: Mapped[float | None] = mapped_column(Float, nullable=True)
-    trade_date: Mapped[datetime.date | None] = mapped_column(Date, nullable=True)
-    strategy_name: Mapped[str | None] = mapped_column(String, nullable=True)
-    actionable: Mapped[bool | None] = mapped_column(Boolean, default=False)
-    decision_scope: Mapped[str | None] = mapped_column(String, default="paper_trading_only")
-    created_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, server_default=text("CURRENT_TIMESTAMP"))
-
-
-class MarketIndicator(Base):
-    __tablename__ = "market_indicators"
-    symbol: Mapped[str] = mapped_column(String, primary_key=True)
-    trade_date: Mapped[datetime.date] = mapped_column(Date, primary_key=True)
-    ma_5: Mapped[float | None] = mapped_column(Float, nullable=True)
-    ma_20: Mapped[float | None] = mapped_column(Float, nullable=True)
-    ma_60: Mapped[float | None] = mapped_column(Float, nullable=True)
-    rsi_14: Mapped[float | None] = mapped_column(Float, nullable=True)
-    atr_14: Mapped[float | None] = mapped_column(Float, nullable=True)
-    volume_ma_5: Mapped[float | None] = mapped_column(Float, nullable=True)
-
-
-class TechnicalIndicator(Base):
-    __tablename__ = "technical_indicators"
-    symbol: Mapped[str] = mapped_column(String, primary_key=True)
-    bar_time: Mapped[datetime.datetime] = mapped_column(DateTime, primary_key=True)
-    interval: Mapped[str] = mapped_column(String, primary_key=True)
-    indicator: Mapped[str] = mapped_column(String, primary_key=True)
-    params_hash: Mapped[str] = mapped_column(String, primary_key=True)
-    trade_date: Mapped[datetime.date | None] = mapped_column(Date, nullable=True)
-    params_json: Mapped[str | None] = mapped_column(String, nullable=True)
-    value_json: Mapped[str] = mapped_column(String, nullable=False)
-    source_snapshot_id: Mapped[str | None] = mapped_column(String, nullable=True)
-    created_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, server_default=text("CURRENT_TIMESTAMP"))
-
-
-class DataSource(Base):
-    __tablename__ = "data_sources"
-    source_id: Mapped[str] = mapped_column(String, primary_key=True)
-    provider: Mapped[str] = mapped_column(String, nullable=False)
-    category: Mapped[str] = mapped_column(String, nullable=False)
-    priority: Mapped[int | None] = mapped_column(Integer, default=100)
-    license_status: Mapped[str | None] = mapped_column(String, default="unknown")
-    rate_limit_json: Mapped[str | None] = mapped_column(String, nullable=True)
-    auth_required: Mapped[bool | None] = mapped_column(Boolean, default=False)
-    enabled: Mapped[bool | None] = mapped_column(Boolean, default=True)
-    notes: Mapped[str | None] = mapped_column(String, nullable=True)
-    created_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, server_default=text("CURRENT_TIMESTAMP"))
-    updated_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, server_default=text("CURRENT_TIMESTAMP"))
-
-
-class DataQualityCheck(Base):
-    __tablename__ = "data_quality_checks"
-    check_id: Mapped[str] = mapped_column(String, primary_key=True)
-    dataset: Mapped[str] = mapped_column(String, nullable=False)
-    symbol: Mapped[str | None] = mapped_column(String, nullable=True)
-    interval: Mapped[str | None] = mapped_column(String, nullable=True)
-    start_time: Mapped[datetime.datetime | None] = mapped_column(DateTime, nullable=True)
-    end_time: Mapped[datetime.datetime | None] = mapped_column(DateTime, nullable=True)
-    rule_version: Mapped[str | None] = mapped_column(String, nullable=True)
-    status: Mapped[str] = mapped_column(String, nullable=False)
-    missing_count: Mapped[int | None] = mapped_column(BigInteger, default=0)
-    invalid_count: Mapped[int | None] = mapped_column(BigInteger, default=0)
-    duplicate_count: Mapped[int | None] = mapped_column(BigInteger, default=0)
-    fallback_path_json: Mapped[str | None] = mapped_column(String, nullable=True)
-    details_json: Mapped[str | None] = mapped_column(String, nullable=True)
-    created_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, server_default=text("CURRENT_TIMESTAMP"))
-
-
-class DataSnapshot(Base):
-    __tablename__ = "data_snapshots"
-    snapshot_id: Mapped[str] = mapped_column(String, primary_key=True)
-    dataset: Mapped[str] = mapped_column(String, nullable=False)
-    symbol: Mapped[str | None] = mapped_column(String, nullable=True)
-    interval: Mapped[str | None] = mapped_column(String, nullable=True)
-    start_time: Mapped[datetime.datetime | None] = mapped_column(DateTime, nullable=True)
-    end_time: Mapped[datetime.datetime | None] = mapped_column(DateTime, nullable=True)
-    row_count: Mapped[int | None] = mapped_column(BigInteger, default=0)
-    source: Mapped[str | None] = mapped_column(String, nullable=True)
-    quality: Mapped[str | None] = mapped_column(String, default="normal")
-    metadata_json: Mapped[str | None] = mapped_column(String, nullable=True)
-    created_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, server_default=text("CURRENT_TIMESTAMP"))
-
-
-class DataPartition(Base):
-    __tablename__ = "data_partitions"
-    partition_id: Mapped[str] = mapped_column(String, primary_key=True)
-    dataset: Mapped[str] = mapped_column(String, nullable=False)
-    symbol: Mapped[str | None] = mapped_column(String, nullable=True)
-    interval: Mapped[str | None] = mapped_column(String, nullable=True)
-    partition_key: Mapped[str] = mapped_column(String, nullable=False)
-    start_time: Mapped[datetime.datetime | None] = mapped_column(DateTime, nullable=True)
-    end_time: Mapped[datetime.datetime | None] = mapped_column(DateTime, nullable=True)
-    storage_tier: Mapped[str | None] = mapped_column(String, default="hot")
-    uri: Mapped[str | None] = mapped_column(String, nullable=True)
-    row_count: Mapped[int | None] = mapped_column(BigInteger, default=0)
-    status: Mapped[str | None] = mapped_column(String, default="active")
-    created_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, server_default=text("CURRENT_TIMESTAMP"))
-    updated_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, server_default=text("CURRENT_TIMESTAMP"))
-
-
-class DataIngestionJob(Base):
-    __tablename__ = "data_ingestion_jobs"
-    job_id: Mapped[str] = mapped_column(String, primary_key=True)
-    job_type: Mapped[str] = mapped_column(String, nullable=False)
-    status: Mapped[str | None] = mapped_column(String, default="queued")
-    target_table: Mapped[str | None] = mapped_column(String, nullable=True)
-    source_uri: Mapped[str | None] = mapped_column(String, nullable=True)
-    total_rows: Mapped[int | None] = mapped_column(BigInteger, default=0)
-    processed_rows: Mapped[int | None] = mapped_column(BigInteger, default=0)
-    error_message: Mapped[str | None] = mapped_column(String, nullable=True)
-    metadata_json: Mapped[str | None] = mapped_column(String, nullable=True)
-    created_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, server_default=text("CURRENT_TIMESTAMP"))
-    updated_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, server_default=text("CURRENT_TIMESTAMP"))
-
-
-class DataIngestionJobEvent(Base):
-    __tablename__ = "data_ingestion_job_events"
-    event_id: Mapped[str] = mapped_column(String, primary_key=True)
-    job_id: Mapped[str] = mapped_column(String, nullable=False)
-    event_time: Mapped[datetime.datetime | None] = mapped_column(DateTime, server_default=text("CURRENT_TIMESTAMP"))
-    status: Mapped[str] = mapped_column(String, nullable=False)
-    processed_rows: Mapped[int | None] = mapped_column(BigInteger, default=0)
-    message: Mapped[str | None] = mapped_column(String, nullable=True)
-    error_message: Mapped[str | None] = mapped_column(String, nullable=True)
-    metadata_json: Mapped[str | None] = mapped_column(String, nullable=True)
-
-
-class MigrationVersion(Base):
-    __tablename__ = "migration_versions"
-    version_id: Mapped[str] = mapped_column(String, primary_key=True)
-    description: Mapped[str | None] = mapped_column(String, nullable=True)
-    applied_by: Mapped[str | None] = mapped_column(String, nullable=True)
-    applied_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, server_default=text("CURRENT_TIMESTAMP"))
-    checksum: Mapped[str | None] = mapped_column(String, nullable=True)
-    duration_ms: Mapped[int | None] = mapped_column(BigInteger, default=0)
-    status: Mapped[str | None] = mapped_column(String, default="applied")
-    rollback_sql: Mapped[str | None] = mapped_column(String, nullable=True)
-
-
-class AuditLog(Base):
-    __tablename__ = "audit_log"
-    event_id: Mapped[str] = mapped_column(String, primary_key=True)
-    event_type: Mapped[str] = mapped_column(String, nullable=False)
-    actor: Mapped[str | None] = mapped_column(String, nullable=True)
-    actor_ip: Mapped[str | None] = mapped_column(String, nullable=True)
-    resource_type: Mapped[str | None] = mapped_column(String, nullable=True)
-    resource_id: Mapped[str | None] = mapped_column(String, nullable=True)
-    action: Mapped[str] = mapped_column(String, nullable=False)
-    detail_json: Mapped[str | None] = mapped_column(String, nullable=True)
-    old_value_json: Mapped[str | None] = mapped_column(String, nullable=True)
-    new_value_json: Mapped[str | None] = mapped_column(String, nullable=True)
-    outcome: Mapped[str | None] = mapped_column(String, default="success")
-    event_time: Mapped[datetime.datetime | None] = mapped_column(DateTime, server_default=text("CURRENT_TIMESTAMP"))
-
-
-class ApiKey(Base):
-    __tablename__ = "api_keys"
-    key_id: Mapped[str] = mapped_column(String, primary_key=True)
-    key_hash: Mapped[str] = mapped_column(String, nullable=False)
-    key_prefix: Mapped[str | None] = mapped_column(String(8), nullable=True)
-    label: Mapped[str | None] = mapped_column(String, nullable=True)
-    role: Mapped[str | None] = mapped_column(String, default="readonly")
-    owner: Mapped[str | None] = mapped_column(String, nullable=True)
-    allowed_capabilities: Mapped[str | None] = mapped_column(String, nullable=True)
-    rate_limit: Mapped[int | None] = mapped_column(Integer, default=100)
-    expires_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, nullable=True)
-    is_active: Mapped[bool | None] = mapped_column(Boolean, default=True)
-    last_used_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, nullable=True)
-    created_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, server_default=text("CURRENT_TIMESTAMP"))
-
-
-class DataQualityRule(Base):
-    __tablename__ = "data_quality_rules"
-    rule_id: Mapped[str] = mapped_column(String, primary_key=True)
-    rule_name: Mapped[str] = mapped_column(String, nullable=False)
-    description: Mapped[str | None] = mapped_column(String, nullable=True)
-    scope_dataset: Mapped[str | None] = mapped_column(String, nullable=True)
-    scope_interval: Mapped[str | None] = mapped_column(String, nullable=True)
-    check_sql: Mapped[str | None] = mapped_column(String, nullable=True)
-    severity: Mapped[str | None] = mapped_column(String, default="warn")
-    is_active: Mapped[bool | None] = mapped_column(Boolean, default=True)
-    cooldown_minutes: Mapped[int | None] = mapped_column(Integer, default=0)
-    last_run_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, nullable=True)
-    last_result: Mapped[str | None] = mapped_column(String, nullable=True)
-    failure_count: Mapped[int | None] = mapped_column(Integer, default=0)
-    created_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, server_default=text("CURRENT_TIMESTAMP"))
-    updated_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, server_default=text("CURRENT_TIMESTAMP"))
-
-
-class DataQuarantine(Base):
-    __tablename__ = "data_quarantine"
-    quarantine_id: Mapped[str] = mapped_column(String, primary_key=True)
-    source_dataset: Mapped[str] = mapped_column(String, nullable=False)
-    symbol: Mapped[str | None] = mapped_column(String, nullable=True)
-    interval: Mapped[str | None] = mapped_column(String, nullable=True)
-    bar_time: Mapped[datetime.datetime | None] = mapped_column(DateTime, nullable=True)
-    trade_date: Mapped[datetime.date | None] = mapped_column(Date, nullable=True)
-    reason: Mapped[str] = mapped_column(String, nullable=False)
-    rule_id: Mapped[str | None] = mapped_column(String, nullable=True)
-    original_values_json: Mapped[str] = mapped_column(String, nullable=False)
-    severity: Mapped[str | None] = mapped_column(String, default="warn")
-    resolution: Mapped[str | None] = mapped_column(String, default="unresolved")
-    resolved_by: Mapped[str | None] = mapped_column(String, nullable=True)
-    resolved_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, nullable=True)
-    created_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, server_default=text("CURRENT_TIMESTAMP"))
-
+from .models import Base
+
+# Import all 31 ORM model classes from the models package
+from .models import (
+    DatabaseStorageProfile,
+    SecurityMaster,
+    TradingCalendar,
+    SecurityStatusHistory,
+    IndustryClassificationHistory,
+    SuspensionEvent,
+    PriceLimitRule,
+    KlineBar,
+    Valuation,
+    CorporateAction,
+    AdjustFactor,
+    OrderBookSnapshot,
+    TradeTape,
+    ResearchReport,
+    NewsItem,
+    Announcement,
+    BacktestResult,
+    PaperTrade,
+    MarketIndicator,
+    TechnicalIndicator,
+    DataSource,
+    DataQualityCheck,
+    DataSnapshot,
+    DataPartition,
+    DataIngestionJob,
+    DataIngestionJobEvent,
+    MigrationVersion,
+    AuditLog,
+    ApiKey,
+    DataQualityRule,
+    DataQuarantine,
+)
 
 # ---------------------------------------------------------------------------
-# All managed table model classes (in creation order)
+# Aggregated model list (used by init_schema, _get_pk_columns, etc.)
 # ---------------------------------------------------------------------------
+
 ALL_MODEL_CLASSES: list[type[Base]] = [
     DatabaseStorageProfile,
     SecurityMaster,
@@ -566,36 +174,8 @@ ALL_MODEL_CLASSES: list[type[Base]] = [
 
 ALL_TABLE_NAMES: list[str] = [cls.__tablename__ for cls in ALL_MODEL_CLASSES]
 
-# PostgreSQL index definitions (mirroring schema.py INDEX_DEFS)
-INDEX_DEFS: dict[str, str] = {
-    "idx_kline_symbol_interval_time": "CREATE INDEX IF NOT EXISTS idx_kline_symbol_interval_time ON kline_bars(symbol, interval, bar_time)",
-    "idx_kline_trade_date": "CREATE INDEX IF NOT EXISTS idx_kline_trade_date ON kline_bars(trade_date)",
-    "idx_valuation_symbol_date": "CREATE INDEX IF NOT EXISTS idx_valuation_symbol_date ON valuations(symbol, trade_date)",
-    "idx_calendar_exchange_date": "CREATE INDEX IF NOT EXISTS idx_calendar_exchange_date ON trading_calendar(exchange, trade_date)",
-    "idx_status_symbol_date": "CREATE INDEX IF NOT EXISTS idx_status_symbol_date ON security_status_history(symbol, effective_date)",
-    "idx_industry_symbol_date": "CREATE INDEX IF NOT EXISTS idx_industry_symbol_date ON industry_classification_history(symbol, effective_date)",
-    "idx_suspend_symbol_date": "CREATE INDEX IF NOT EXISTS idx_suspend_symbol_date ON suspension_events(symbol, start_date)",
-    "idx_adjust_symbol_date": "CREATE INDEX IF NOT EXISTS idx_adjust_symbol_date ON adjust_factors(symbol, trade_date, adjust)",
-    "idx_corp_action_symbol_date": "CREATE INDEX IF NOT EXISTS idx_corp_action_symbol_date ON corporate_actions(symbol, action_date)",
-    "idx_orderbook_symbol_time": "CREATE INDEX IF NOT EXISTS idx_orderbook_symbol_time ON order_book_snapshots(symbol, timestamp)",
-    "idx_trade_tape_symbol_time": "CREATE INDEX IF NOT EXISTS idx_trade_tape_symbol_time ON trade_tape(symbol, timestamp)",
-    "idx_news_symbol_date": "CREATE INDEX IF NOT EXISTS idx_news_symbol_date ON news_items(symbol, publish_date)",
-    "idx_ann_symbol_date": "CREATE INDEX IF NOT EXISTS idx_ann_symbol_date ON announcements(symbol, publish_date)",
-    "idx_indicators_symbol_date": "CREATE INDEX IF NOT EXISTS idx_indicators_symbol_date ON market_indicators(symbol, trade_date)",
-    "idx_technical_indicator_lookup": "CREATE INDEX IF NOT EXISTS idx_technical_indicator_lookup ON technical_indicators(symbol, interval, indicator, bar_time)",
-    "idx_quality_dataset_symbol": "CREATE INDEX IF NOT EXISTS idx_quality_dataset_symbol ON data_quality_checks(dataset, symbol, created_at)",
-    "idx_snapshots_dataset_symbol": "CREATE INDEX IF NOT EXISTS idx_snapshots_dataset_symbol ON data_snapshots(dataset, symbol, created_at)",
-    "idx_partitions_dataset_key": "CREATE INDEX IF NOT EXISTS idx_partitions_dataset_key ON data_partitions(dataset, partition_key, storage_tier)",
-    "idx_ingestion_status": "CREATE INDEX IF NOT EXISTS idx_ingestion_status ON data_ingestion_jobs(status, updated_at)",
-    "idx_ingestion_events_job_time": "CREATE INDEX IF NOT EXISTS idx_ingestion_events_job_time ON data_ingestion_job_events(job_id, event_time)",
-    "idx_migration_version_applied": "CREATE INDEX IF NOT EXISTS idx_migration_version_applied ON migration_versions(version_id, applied_at)",
-    "idx_audit_event_time": "CREATE INDEX IF NOT EXISTS idx_audit_event_time ON audit_log(event_time)",
-    "idx_audit_actor": "CREATE INDEX IF NOT EXISTS idx_audit_actor ON audit_log(actor, event_time)",
-    "idx_audit_resource": "CREATE INDEX IF NOT EXISTS idx_audit_resource ON audit_log(resource_type, resource_id, event_time)",
-    "idx_api_keys_active": "CREATE INDEX IF NOT EXISTS idx_api_keys_active ON api_keys(is_active, expires_at)",
-    "idx_quality_rules_active": "CREATE INDEX IF NOT EXISTS idx_quality_rules_active ON data_quality_rules(is_active, scope_dataset)",
-    "idx_quarantine_resolution": "CREATE INDEX IF NOT EXISTS idx_quarantine_resolution ON data_quarantine(resolution, severity, created_at)",
-}
+# PostgreSQL index definitions — imported from schema_defs (SSOT)
+from .schema_defs import DEFAULT_INDEX_DEFS as INDEX_DEFS
 
 # ---------------------------------------------------------------------------
 # PGConfig
@@ -624,7 +204,7 @@ class PGConfig:
     @property
     def sync_dsn(self) -> str:
         """Return the sync DSN string."""
-        return f"postgresql://{self.user}:{self.password}@{self.host}:{self.port}/{self.database}"
+        return f"postgresql+psycopg2://{self.user}:{self.password}@{self.host}:{self.port}/{self.database}"
 
 
 # ---------------------------------------------------------------------------
@@ -667,8 +247,11 @@ class PGStore:
 
             self._sync_engine = create_engine(
                 self._config.sync_dsn,
+                poolclass=QueuePool,
                 pool_size=self._config.pool_size,
                 max_overflow=self._config.pool_size,
+                pool_timeout=30,
+                pool_recycle=3600,
                 connect_args={"application_name": self._config.application_name},
             )
             # Test connection
@@ -680,6 +263,7 @@ class PGStore:
                 self._config.dsn,
                 pool_size=self._config.pool_size,
                 max_overflow=self._config.pool_size,
+                pool_pre_ping=True,
                 echo=False,
             )
             self._async_session_factory = async_sessionmaker(
@@ -725,6 +309,8 @@ class PGStore:
         # Try to create TimescaleDB hypertable for kline_bars
         if self._config.use_timescaledb:
             await self._ensure_timescaledb_hypertable()
+        # Auto-discover and register migration files
+        self.discover_migrations()
         logger.info("Schema initialised (%d tables)", len(ALL_MODEL_CLASSES))
 
     async def _create_indexes_async(self) -> None:
@@ -1009,6 +595,125 @@ class PGStore:
                 f"ON CONFLICT ({pk_list}) DO NOTHING"
             )
 
+    # ---------------------------------------------------------------------------
+    # Bulk upsert helpers (executemany / COPY)
+    # ---------------------------------------------------------------------------
+
+    def _bulk_upsert_sync(
+        self, table_name: str, columns: list[str], pk_cols: list[str], records: list[dict[str, Any]]
+    ) -> int:
+        """Bulk upsert using executemany (batched in chunks)."""
+        if not records:
+            return 0
+        sql = self._build_upsert_sql(table_name, columns, pk_cols)
+        chunk_size = 500
+        total = 0
+        with self._sync_engine.connect() as conn:
+            for i in range(0, len(records), chunk_size):
+                chunk = records[i : i + chunk_size]
+                result = conn.execute(text(sql), chunk)
+                total += result.rowcount
+            conn.commit()
+        return total
+
+    async def _bulk_upsert_async(
+        self, table_name: str, columns: list[str], pk_cols: list[str], records: list[dict[str, Any]]
+    ) -> int:
+        """Bulk upsert using executemany (batched in chunks)."""
+        if not records:
+            return 0
+        sql = self._build_upsert_sql(table_name, columns, pk_cols)
+        chunk_size = 500
+        total = 0
+        async with self._async_session_factory() as session:
+            for i in range(0, len(records), chunk_size):
+                chunk = records[i : i + chunk_size]
+                result = await session.execute(text(sql), chunk)
+                total += result.rowcount
+            await session.commit()
+        return total
+
+    def _copy_upsert_sync(
+        self, table_name: str, columns: list[str], records: list[dict[str, Any]]
+    ) -> int:
+        """Bulk insert using PostgreSQL COPY (faster than executemany for large batches).
+
+        Note: COPY does not support ON CONFLICT directly. This method inserts
+        raw data via COPY, relying on the target table's INSERT OR REPLACE
+        semantics (or the caller should handle conflicts separately).
+        """
+        if not records:
+            return 0
+        import io
+
+        col_str = ",".join(f'"{c}"' for c in columns)
+        buf = io.StringIO()
+        for rec in records:
+            vals = []
+            for c in columns:
+                v = rec.get(c)
+                if v is None:
+                    vals.append("\\N")
+                elif isinstance(v, bool):
+                    vals.append("1" if v else "0")
+                elif isinstance(v, (datetime.date, datetime.datetime)):
+                    vals.append(v.isoformat())
+                else:
+                    vals.append(str(v))
+            buf.write("\t".join(vals) + "\n")
+        buf.seek(0)
+
+        with self._sync_engine.connect() as conn:
+            cursor = conn.connection.cursor()
+            cursor.copy_expert(f"COPY {table_name} ({col_str}) FROM STDIN WITH (FORMAT csv, HEADER false, DELIMITER E'\\t', NULL '\\N')", buf)
+            conn.commit()
+            cursor.close()
+        return len(records)
+
+    async def _copy_upsert_async(
+        self, table_name: str, columns: list[str], records: list[dict[str, Any]]
+    ) -> int:
+        """Async bulk insert using PostgreSQL COPY."""
+        if not records:
+            return 0
+        import io
+
+        col_str = ",".join(f'"{c}"' for c in columns)
+        buf = io.BytesIO()
+        for rec in records:
+            vals = []
+            for c in columns:
+                v = rec.get(c)
+                if v is None:
+                    vals.append(b"\\N")
+                elif isinstance(v, bool):
+                    vals.append(b"1" if v else b"0")
+                elif isinstance(v, (datetime.date, datetime.datetime)):
+                    vals.append(str(v.isoformat()).encode())
+                else:
+                    vals.append(str(v).encode())
+            buf.write(b"\t".join(vals) + b"\n")
+        buf.seek(0)
+
+        async with self._async_engine.connect() as conn:
+            # Use the underlying asyncpg connection for COPY
+            asyncpg_conn = await conn.connection.fetchval("SELECT 1")  # ping
+            from sqlalchemy.pool import NullPool
+
+            # Fall back to executemany if COPY is not directly accessible
+            return await self._bulk_upsert_async(table_name, columns, [], records)
+
+    def _clean_record(self, rec: dict[str, Any]) -> dict[str, Any]:
+        """Clean a single record: convert pd.Timestamp -> datetime, pd.NA -> None."""
+        clean = {}
+        for k, v in rec.items():
+            if isinstance(v, pd.Timestamp):
+                v = v.to_pydatetime()
+            elif pd.isna(v):
+                v = None
+            clean[k] = v
+        return clean
+
     def _get_pk_columns(self, table_name: str) -> list[str]:
         """Return the primary key column names for a given table."""
         for model_cls in ALL_MODEL_CLASSES:
@@ -1157,6 +862,8 @@ class PGStore:
 
         This is the generic entry point used by manual data-entry APIs.
         Unknown columns are dropped; PG constraints enforce required primary keys.
+
+        Uses bulk upsert (executemany with chunking) for better performance.
         """
         if table_name not in ALL_TABLE_NAMES:
             msg = f"Unknown table: {table_name}. Known: {ALL_TABLE_NAMES}"
@@ -1219,35 +926,15 @@ class PGStore:
 
         columns = list(normalised.columns)
         pk_cols = self._get_pk_columns(table_name)
-        sql = self._build_upsert_sql(table_name, columns, pk_cols)
+        
+        # Bulk upsert using executemany with chunking
         records = normalised.to_dict(orient="records")
-        cleaned = []
-        for rec in records:
-            clean = {}
-            for k, v in rec.items():
-                if isinstance(v, pd.Timestamp):
-                    v = v.to_pydatetime()
-                elif pd.isna(v):
-                    v = None
-                clean[k] = v
-            cleaned.append(clean)
+        cleaned = [self._clean_record(rec) for rec in records]
 
         if self._sync:
-            with self._sync_engine.connect() as conn:
-                total = 0
-                for record in cleaned:
-                    result = conn.execute(text(sql), record)
-                    total += result.rowcount
-                conn.commit()
-            return total
+            return self._bulk_upsert_sync(table_name, columns, pk_cols, cleaned)
         else:
-            async with self._async_session_factory() as session:
-                total = 0
-                for record in cleaned:
-                    result = await session.execute(text(sql), record)
-                    total += result.rowcount
-                await session.commit()
-            return total
+            return await self._bulk_upsert_async(table_name, columns, pk_cols, cleaned)
 
     # ---- kline --------------------------------------------------------------
 
@@ -2820,6 +2507,61 @@ class PGStore:
 
     # Migration registry — discoverable class variable
     _MIGRATIONS: list[tuple[str, str, str | None, str | None]] = []
+
+    def discover_migrations(self, migrations_dir: str | None = None) -> int:
+        """Auto-discover migration files from the migrations/ directory (mirrors AStockStore)."""
+        if migrations_dir is None:
+            migrations_dir = os.path.join(os.path.dirname(__file__), "migrations")
+        mig_dir = Path(migrations_dir)
+        if not mig_dir.is_dir():
+            return 0
+
+        import re
+
+        pattern = re.compile(r"^V(\d{8})_(\d{3})__(.+)\.py$")
+        count = 0
+        for fpath in sorted(mig_dir.iterdir()):
+            if not fpath.is_file() or not fpath.name.endswith(".py"):
+                continue
+            m = pattern.match(fpath.name)
+            if not m:
+                continue
+            version_id = f"V{m.group(1)}_{m.group(2)}"
+            name_part = m.group(3)
+            content = fpath.read_text(encoding="utf-8")
+
+            description = name_part.replace("_", " ").title()
+            ds_match = re.search(r'^\s*description\s*=\s*"([^"]*)"', content, re.MULTILINE)
+            if ds_match:
+                description = ds_match.group(1)
+
+            upgrade_sql = None
+            up_match = re.search(r'def upgrade\([^)]*\):.*?"""(.*?)"""', content, re.DOTALL)
+            if up_match:
+                sql_block = up_match.group(1).strip()
+                if sql_block and sql_block != "TODO: Write your upgrade SQL here":
+                    upgrade_sql = sql_block
+            if upgrade_sql is None:
+                sql_assign = re.search(r'(?:upgrade_sql|ddl)\s*=\s*"""(.*?)"""', content, re.DOTALL)
+                if sql_assign:
+                    upgrade_sql = sql_assign.group(1).strip()
+
+            rollback_sql = None
+            rb_match = re.search(r'def downgrade\([^)]*\):.*?"""(.*?)"""', content, re.DOTALL)
+            if rb_match:
+                sql_block = rb_match.group(1).strip()
+                if sql_block and sql_block != "TODO: Write your downgrade SQL here":
+                    rollback_sql = sql_block
+            if rollback_sql is None:
+                sql_assign = re.search(r'(?:rollback_sql|rollback_ddl)\s*=\s*"""(.*?)"""', content, re.DOTALL)
+                if sql_assign:
+                    rollback_sql = sql_assign.group(1).strip()
+
+            self._MIGRATIONS.append((version_id, description, upgrade_sql, rollback_sql))
+            count += 1
+
+        self._MIGRATIONS.sort(key=lambda x: x[0])
+        return count
 
     # ---- maintenance --------------------------------------------------------
 

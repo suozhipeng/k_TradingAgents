@@ -67,14 +67,14 @@ def cmd_export(args: argparse.Namespace) -> None:
     output = args.output or f"./{args.table}.{args.format}"
     if os.path.isdir(output):
         output = os.path.join(output, f"{args.table}.{args.format}")
-    result = store.export_table(args.table, fmt=args.format, output_path=output)
+    result = store.export_table(args.table, fmt=args.format, output_path=output, compression=args.compression)
     print(f"Exported {args.table} → {result}")
     store.close()
 
 
 def cmd_import(args: argparse.Namespace) -> None:
     store = _get_store(args)
-    count = store.import_table(args.table, fmt=args.format, file_path=args.file)
+    count = store.import_table(args.table, fmt=args.format, file_path=args.file, validate=not args.no_validate)
     print(f"Imported {count} rows into {args.table}")
     store.close()
 
@@ -82,7 +82,7 @@ def cmd_import(args: argparse.Namespace) -> None:
 def cmd_export_all(args: argparse.Namespace) -> None:
     store = _get_store(args)
     tables = args.tables or None
-    exported = store.export_tables(tables, fmt=args.format, output_dir=args.output)
+    exported = store.export_tables(tables, fmt=args.format, output_dir=args.output, compression=args.compression)
     for table, path in sorted(exported.items()):
         print(f"Exported {table} → {path}")
     store.close()
@@ -100,7 +100,7 @@ def cmd_import_dir(args: argparse.Namespace) -> None:
     if not table_files:
         print(f"No {args.format} table files found in {input_dir}")
     else:
-        imported = store.import_tables(table_files, fmt=args.format)
+        imported = store.import_tables(table_files, fmt=args.format, validate=not getattr(args, 'no_validate', False))
         for table, count in sorted(imported.items()):
             print(f"Imported {count} rows into {table}")
     store.close()
@@ -129,6 +129,13 @@ def cmd_vacuum(args: argparse.Namespace) -> None:
     store = _get_store(args)
     store.vacuum()
     print("Vacuum complete.")
+    store.close()
+
+
+def cmd_export_incremental(args: argparse.Namespace) -> None:
+    store = _get_store(args)
+    count = store.export_incremental(args.table, args.output, args.since, fmt=args.format)
+    print(f"Exported {count} rows from {args.table} (since {args.since}) → {args.output}")
     store.close()
 
 
@@ -167,6 +174,12 @@ def main() -> None:
         help="Export format",
     )
     export_p.add_argument("--output", default=None, help="Output file or directory")
+    export_p.add_argument(
+        "--compression",
+        default="none",
+        choices=["none", "gzip", "bz2", "xz"],
+        help="Compression algorithm",
+    )
 
     # export-all
     export_all_p = subparsers.add_parser("export-all", help="Export all or selected managed tables")
@@ -178,6 +191,12 @@ def main() -> None:
     )
     export_all_p.add_argument("--output", default="./data", help="Output directory")
     export_all_p.add_argument("--tables", nargs="*", default=None, help="Optional table names")
+    export_all_p.add_argument(
+        "--compression",
+        default="none",
+        choices=["none", "gzip", "bz2", "xz"],
+        help="Compression algorithm",
+    )
 
     # import
     import_p = subparsers.add_parser("import", help="Import data from file into table")
@@ -189,6 +208,11 @@ def main() -> None:
         help="Import format",
     )
     import_p.add_argument("--file", required=True, help="Source file path")
+    import_p.add_argument(
+        "--no-validate",
+        action="store_true",
+        help="Skip import validation",
+    )
 
     # import-dir
     import_dir_p = subparsers.add_parser("import-dir", help="Import matching managed table files from a directory")
@@ -217,6 +241,18 @@ def main() -> None:
     # vacuum
     subparsers.add_parser("vacuum", help="Reclaim storage / vacuum DB")
 
+    # export-incremental
+    inc_p = subparsers.add_parser("export-incremental", help="Export rows updated since a timestamp")
+    inc_p.add_argument("--table", required=True, help="Table name")
+    inc_p.add_argument("--since", required=True, help="ISO timestamp (e.g. 2024-01-01T00:00:00)")
+    inc_p.add_argument(
+        "--format",
+        default="parquet",
+        choices=["csv", "parquet", "json"],
+        help="Export format",
+    )
+    inc_p.add_argument("--output", required=True, help="Output file path")
+
     args = parser.parse_args()
 
     command_map = {
@@ -229,6 +265,7 @@ def main() -> None:
         "schema": cmd_schema,
         "query": cmd_query,
         "vacuum": cmd_vacuum,
+        "export-incremental": cmd_export_incremental,
     }
 
     handler = command_map.get(args.command)
