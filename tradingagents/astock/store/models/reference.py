@@ -70,9 +70,9 @@ class IndustryClassificationHistory(Base):
     symbol: Mapped[str] = mapped_column(String, primary_key=True)
     effective_date: Mapped[datetime.date] = mapped_column(Date, primary_key=True)
     classification: Mapped[str] = mapped_column(String, primary_key=True)
-    level: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
     industry_code: Mapped[str | None] = mapped_column(String, nullable=True)
     industry_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    level: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
     source: Mapped[str | None] = mapped_column(String, nullable=True)
     created_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, server_default=text("CURRENT_TIMESTAMP"))
 

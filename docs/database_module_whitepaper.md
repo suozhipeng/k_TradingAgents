@@ -718,7 +718,7 @@ api_keys ──── 控制 API 访问权限
 |------|------|------|
 | v1.0 | 2026-06-28 | 初始版本，三后端架构 + 迁移系统 + 质量门禁 |
 | v2.0 | 2026-06-29 | 10项重大改进（详见下方变更日志） |
-| v2.1 | 2026-06-29 | 清理死代码、完善SSOT、移除schema.py中44个冗余DDL常量 |
+| v2.2 | 2026-06-30 | ORM 列顺序对齐 schema_defs SSOT，新增 `test_orm_column_order_matches_schema_defs` 回归测试 |
 
 ---
 
@@ -768,3 +768,17 @@ api_keys ──── 控制 API 访问权限
 | 2 | 统一 SSOT | `SUPPORTED_KLINE_INTERVALS` 从 schema.py + pg_store.py 两处重复定义，统一到 `schema_defs.py` | 单一事实来源 |
 | 3 | 迁移引用修复 | `CREATE_MIGRATION_VERSIONS` 改为从 `schema_defs.TABLE_DEFS` 动态生成 | 消除硬编码 DDL |
 | 4 | 索引定义统一 | `INDEX_DEFS` 从 schema.py 复制定义改为 `from .schema_defs import DEFAULT_INDEX_DEFS` | PG 和 DuckDB 共享同一索引定义 |
+
+### 11.7 v2.2 ORM 列顺序对齐
+
+| # | 变更项 | 说明 | 影响文件 |
+|---|--------|------|----------|
+| 1 | ORM 列顺序对齐 schema_defs | 将 `KlineBar`, `TechnicalIndicator`, `NewsItem`, `Announcement`, `IndustryClassificationHistory` 的列声明顺序重排，使其与 `schema_defs.TABLE_DEFS` 的 SSOT 顺序完全一致 | `models/market_data.py`, `models/events.py`, `models/reference.py` |
+| 2 | 新增回归测试 | `test_orm_column_order_matches_schema_defs` 断言 ORM 模型的列顺序和主键顺序与 `schema_defs` 严格匹配，防止未来再次脱节 | `tests/test_astock_store.py` |
+| 3 | `interval`/`adjust` 默认值 | `KlineBar.interval` 添加 `default="1d"`，`KlineBar.adjust` 添加 `default="none"` | `models/market_data.py` |
+
+**迁移注意事项**:
+- 空库不受影响（`init_schema` 直接按新顺序建表）
+- 已有数据库需创建新的迁移文件执行 `ALTER TABLE` 重排序列
+- 主键列顺序变更不影响 `ON CONFLICT` 语义，但需确认上游查询无硬编码假设
+- 经调研确认：所有下游消费者（`pg_store.py` 的 `_get_pk_columns` fallback、`insert_kline` 硬编码、查询过滤）均与 `schema_defs` 一致，无需额外修改

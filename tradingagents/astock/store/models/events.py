@@ -45,9 +45,9 @@ class NewsItem(Base):
     __tablename__ = "news_items"
     symbol: Mapped[str] = mapped_column(String, primary_key=True)
     publish_date: Mapped[datetime.date] = mapped_column(Date, primary_key=True)
-    url: Mapped[str] = mapped_column(String, primary_key=True)
     title: Mapped[str | None] = mapped_column(String, nullable=True)
     summary: Mapped[str | None] = mapped_column(String, nullable=True)
+    url: Mapped[str] = mapped_column(String, primary_key=True)
     source: Mapped[str | None] = mapped_column(String, nullable=True)
 
 
@@ -55,9 +55,9 @@ class Announcement(Base):
     __tablename__ = "announcements"
     symbol: Mapped[str] = mapped_column(String, primary_key=True)
     publish_date: Mapped[datetime.date] = mapped_column(Date, primary_key=True)
-    url: Mapped[str] = mapped_column(String, primary_key=True)
     title: Mapped[str | None] = mapped_column(String, nullable=True)
     summary: Mapped[str | None] = mapped_column(String, nullable=True)
+    url: Mapped[str] = mapped_column(String, primary_key=True)
 
 
 class BacktestResult(Base):

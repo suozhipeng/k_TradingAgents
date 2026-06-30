@@ -37,6 +37,8 @@ except ImportError:
 
 from tradingagents.astock.store.schema import AStockStore, init_astock_db
 from tradingagents.astock.store.loader import KlineLoader, ValuationLoader, BatchLoader
+from tradingagents.astock.store import schema_defs
+from tradingagents.astock.store.pg_store import ALL_MODEL_CLASSES
 
 
 # ===================================================================
@@ -156,6 +158,19 @@ def test_init_schema(store: AStockStore) -> None:
     for t in expected:
         assert t in tables, f"Missing table: {t}"
     assert len(tables) == len(expected)
+
+
+def test_orm_column_order_matches_schema_defs() -> None:
+    """PostgreSQL ORM declarations preserve the schema_defs SSOT order."""
+    models = {cls.__tablename__: cls for cls in ALL_MODEL_CLASSES}
+    assert set(models) == set(schema_defs.TABLE_DEFS)
+
+    for table_name, table_def in schema_defs.TABLE_DEFS.items():
+        model_columns = [column.name for column in models[table_name].__table__.columns]
+        assert model_columns == table_def.column_names, table_name
+
+        model_pk = [column.name for column in models[table_name].__table__.primary_key.columns]
+        assert model_pk == table_def.primary_key, table_name
 
 
 def test_drop_all_tables(store: AStockStore) -> None:
