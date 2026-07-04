@@ -70,7 +70,7 @@ pytest tests/test_astock_api.py -q
 
 ---
 
-> 以下内容合并自 `phase-34-evidence-market-leaders.md`
+> 以下内容合并自 `../_archived/phase-34-evidence-market-leaders.md`
 
 # Phase 34 — Market Leaders (Evidence)
 

@@ -62,7 +62,7 @@ pytest tests/test_astock_api.py -q
 
 ---
 
-> 以下内容合并自 `phase-36-evidence-portfolio-risk.md`
+> 以下内容合并自 `../_archived/phase-36-evidence-portfolio-risk.md`
 
 # Phase 36 — Portfolio Risk & Attribution (Evidence)
 

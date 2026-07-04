@@ -41,13 +41,13 @@ TradingAgents 是一个面向 A 股市场的 AI 驱动量化研究与交易系�
 |--------|------|
 | **多 LLM 支持** | OpenAI / Anthropic / Google / Azure / DeepSeek / Qwen 等 10+ 提供商 |
 | **多智能体研究** | 基本面、情绪、新闻、社交、市场分析师 + 多空研究员辩论 + 交易员 + 风险管理 + 组合经理 |
-| **A 股数据接入** | 8 大供应商适配器，自动降级路由，覆盖 K 线、估值、新闻、研报、公告等 25+ 数据能力 |
+| **A 股数据接入** | 8 大供应商适配器，自动降级路由，覆盖 K 线、估值、新闻、研报、公告等 22 数据能力 |
 | **三后端存储** | DuckDB (本地) / PostgreSQL (生产 OLTP) / ClickHouse (生产 OLAP) |
 | **策略回测** | 12 种策略 + 遗传算法优化 + 滚动窗口分析 + T+1 结算约束 |
 | **模拟交易** | 完整模拟交易周期 + QMT 桥接 |
 | **数据质量门禁** | 内置校验规则 + 自定义规则引擎 + 数据隔离区 |
-| **Web UI** | 20+ 页面，Tailwind 暗色主题 |
-| **REST API** | 60+ 端点，Bearer Token 认证 + 速率限制 |
+| **Web UI** | 27 页面（25 功能页 + 2 布局模板），Tailwind 暗色主题 |
+| **REST API** | 88 端点（21 蓝图模块），Bearer Token 认证 + 速率限制 |
 | **CLI** | Typer + Rich TUI 交互式终端 |
 
 ---
@@ -302,12 +302,19 @@ DEFAULT_ADAPTER_FACTORIES = {
 def build_default_adapters(**configs) -> Dict[str, AStockAdapterBase]
 ```
 
-#### 7.2.3 公共工具
+#### 7.2.3 核心模块与工具
+
+核心模块：
 
 | 文件 | 职责 |
-|------|------|
+||------|------|
 | `adapters.py` | 8 大适配器实现 + 工具函数（类型转换、HTML 清理、反爬、重试） |
 | `router.py` | 统一路由器 `AStockDataRouter` + 便利包装 `AStockDataFacade` |
+
+公共工具文件：
+
+| 文件 | 职责 |
+||------|------|
 | `schema.py` | `AStockRequest` / `AStockResponse` 数据模型 |
 | `errors.py` | 自定义异常 (`AStockDataError`, `AStockNoDataError`, `AStockSourceUnavailableError`, `AStockSchemaError`) |
 | `symbols.py` | 符号规范化 `normalize_astock_symbol()`, `split_astock_symbol()` |
@@ -317,6 +324,7 @@ def build_default_adapters(**configs) -> Dict[str, AStockAdapterBase]
 | `cleaner.py` | 数据清洗 `clean_records()`, `CleaningReport` |
 | `adjustment.py` | 复权因子 `fetch_adjust_factors()`, `adjust_series()`, `adjust_bars()` |
 | `suspension.py` | 停牌/涨跌停检测 `is_suspended()`, `is_at_price_limit_external()` |
+| `sina_sectors.py` | 新浪板块数据 |
 
 ### 7.3 路由系统
 
@@ -356,7 +364,7 @@ DEFAULT_ROUTE_POLICY = {
 
 **路径**: `store/`
 
-详见[数据库模块白皮书](../database_module_whitepaper.md)。
+详见[数据库模块白皮书](database_module_whitepaper.md)。
 
 #### 7.4.1 三后端架构
 
@@ -371,8 +379,10 @@ DEFAULT_ROUTE_POLICY = {
 | 文件 | 职责 |
 |------|------|
 | `__init__.py` | 统一导出 |
-| `schema.py` | DuckDB 存储层，31 张表 DDL + `AStockStore` 类 |
-| `pg_store.py` | PostgreSQL 存储层，31 个 SQLAlchemy ORM 模型 + `PGStore` 类 |
+| `schema_defs.py` | **SSOT**: 31 张表统一列定义 / 索引 / DDL 生成 |
+| `models/` | 31 个 SQLAlchemy ORM 模型（分 reference / market_data / events / governance 子模块） |
+| `schema.py` | DuckDB 存储实现 `AStockStore` 类 |
+| `pg_store.py` | PostgreSQL 存储实现 `PGStore` 类（通过 `models/` 使用 ORM） |
 | `backend.py` | 运行时后端切换 `BackendManager` + `BackendConfig` |
 | `loader.py` | 数据加载器 `KlineLoader`, `ValuationLoader`, `BatchLoader` |
 | `jobs.py` | 异步作业管理 `DataJobManager` |
@@ -395,8 +405,8 @@ DEFAULT_ROUTE_POLICY = {
 | `ValueAverageStrategy` | 估值 | 价格低于历史分位数买入 |
 | `MeanReversionStrategy` | 均值回归 | 价格偏离 MA ± N 标准差 |
 | `RSIRangeStrategy` | 均值回归 | RSI 超买/超卖 |
-| `DefensiveMomentumStrategy` | 空头 | 正 ROC + 低波动率买入 |
-| `PutWriteStrategy` | 空头 | 均线空头排列卖出 |
+| `DefensiveMomentumStrategy` | 动量 | 正 ROC + 低波动率买入 |
+| `PutWriteStrategy` | 期权 | 均线空头排列卖出 |
 | `MACDTrendStrategy` | 趋势 | MACD 金叉/死叉 |
 | `BollingerBandsReversionStrategy` | 波动率 | 布林带上/下轨反转 |
 | `GridTradingStrategy` | 网格 | 固定网格买卖 |
@@ -587,6 +597,7 @@ class ReportGenerator:
 | `/research` | `research.html` | 研究页面 |
 | `/strategy_hub` | `strategy_hub.html` | 三合一策略控制台 |
 | `/strategies` | `strategies.html` | 策略页面 |
+| `/backtest` | `backtest.html` | 回测控制台 |
 | `/paper` | `paper.html` | 模拟交易 |
 | `/qmt` | `qmt.html` | QMT 集成 |
 | `/risk` | `risk.html` | 风险管理 |
@@ -594,15 +605,26 @@ class ReportGenerator:
 | `/watchlist` | `watchlist.html` | 自选股管理 |
 | `/batch-analyze` | `watchlist.html` (batch_mode) | 批量分析 |
 | `/settings` | `settings.html` | 设置 |
+| `/settings/notifications` | `settings.html` (section=notifications) | 通知设置 |
 | `/screener` | `screener.html` | 选股器 |
 | `/market_leaders` | `market_leaders.html` | 统一市场龙头 |
+| `/dragon_tiger` | `dragon_tiger.html` | 龙虎榜（旧入口→/market_leaders） |
+| `/sectors` | `sectors.html` | 板块强弱（旧入口→/market_leaders） |
+| `/northbound` | `northbound.html` | 北向资金（旧入口→/market_leaders） |
+| `/momentum_rotation` | `momentum_rotation.html` | 动量轮动（旧入口→/market_leaders） |
+| `/momentum_dashboard` | `momentum_dashboard.html` | 动量决策看板（旧入口→/market_leaders） |
+| `/momentum_standalone` | `momentum_dashboard.html` | 经典 Jinja2 版决策看板 |
 | `/portfolio` | `portfolio.html` | 组合工作台 |
 | `/ops_audit` | `ops_audit.html` | 运维审计面板 |
 | `/ai_agent` | `ai_agent.html` | AI 代理页面 |
 | `/tv_chart` | `tv_chart.html` | TradingView 图表 |
 | `/kc_chart` | `kc_chart.html` | K 线图表 |
 | `/data_health` | `data_health.html` | 数据健康 |
-| `/momentum_standalone` | `momentum_dashboard.html` | 独立动量仪表板 |
+|—|—|—|
+| **重定向路由** |||
+| `/comparison` | → `/strategy_hub` (301) | 旧策略对比入口 |
+| `/compare` | → `/strategy_hub` (301) | 旧策略对比入口 |
+| `/performance` | → `/strategy_hub` (301) | 旧绩效分析入口 |
 
 ---
 
@@ -641,6 +663,7 @@ class ReportGenerator:
 | `routes_market.py` | GET | `/market/summary`, `/market/strategies`, `/market/regime` | 市场综述/策略列表/制度分析 |
 | `routes_market_data.py` | GET | `/market/dragon-tiger`, `/market/sectors`, `/market/northbound`, `/market/blocks`, `/market/momentum`, `/market/calendar` | 龙虎榜/板块/北向/股票池/动量/日历 |
 | | POST | `/market/momentum-rotation` | 动量轮动回测 |
+| `routes_data_health.py` | GET | `/data/health` | 数据源健康探测 |
 | `routes_paper.py` | POST/GET | `/paper/cycle`, `/paper/state`, `/paper/trades` | 模拟交易周期/状态/成交 |
 | `routes_trade.py` | POST/GET | `/trade/order`, `/trade/quote`, `/trade/state` | 下单/实时报价/交易状态 |
 | `routes_qmt.py` | GET | `/qmt/health`, `/qmt/positions`, `/qmt/orders` | QMT 健康/持仓/订单 |
@@ -872,11 +895,11 @@ tradingagents/graph/
 | 数据源适配器 | 8 |
 | 策略数量 | 12 (10 单股 + 2 组合) |
 | 数据库表 | 31 (DuckDB/PG) + 12 (CH OLAP) |
-| Flask API 端点 | 60+ |
-| Web UI 页面 | 20+ |
-| 测试文件 | 60+ |
+| Flask API 端点 | 88 |
+| Web UI 页面 | 27 |
+| 测试文件 | 62 |
 | 支持的 LLM 提供商 | 10+ |
-| 数据能力 | 25+ |
+| 数据能力 | 22 |
 
 ## 附录 B: 版本历史
 

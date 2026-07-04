@@ -21,7 +21,7 @@ TradingAgents-Astock 是**投研分析 + 策略验证 + 模拟盘 + 受控执行
 
 ### 2.1 安装
 
-参见 [`docs/QUICK_START.md`](QUICK_START.md)。
+参见 [`QUICK_START.md`](QUICK_START.md)。
 
 ### 2.2 启动 WebUI
 
@@ -200,6 +200,5 @@ curl -X POST http://localhost:8080/api/v1/data/refresh/all
 
 ## 10. 支持与反馈
 
-- 产品文档：[`docs/README.md`](README.md)
-- 常见问题：[`docs/FAQ.md`](FAQ.md)
+- 产品文档：[`README.md`](../README.md)
 - 原 TradingAgents 社区：[Discord](https://discord.com/invite/hk9PGKShPK) | [GitHub](https://github.com/TauricResearch)

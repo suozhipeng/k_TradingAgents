@@ -23,7 +23,7 @@
 | 背景 | 原项目底层 AI 多 Agent 分析能力是项目核心资产 |
 | 决策 | 保留原 TradingAgents core，A 股能力优先在新增 astock/provider/WebUI/strategy/execution 模块扩展 |
 | 影响 | 后续改动必须先判断是否触及 core；触及时只做兼容性修复并补测试 |
-| 关联文档 | `ASTOCK_BOUNDARY_AND_UI_REFACTOR_PLAN.md`, `ASTOCK_MODEL_GOVERNANCE.md` |
+| 关联文档 | `03-ops/deployment.md`, `03-ops/compliance.md` |
 
 ### ADR-002 Flask WebUI 和 Streamlit viewer 不强行合并
 
@@ -83,7 +83,7 @@
 | 背景 | DuckDB、cache、回测结果、报告归档、AI audit 和交易状态都会影响历史可复查性 |
 | 决策 | schema 变化必须先更新数据迁移与升级手册，并说明校验和回滚 |
 | 影响 | 不能只改代码或页面；必须补迁移前后 schema、cache 重建、API/WebUI 回归 |
-| 关联文档 | `04-dev/PRD.md`, `BACKLOG.md` |
+| 关联文档 | `04-dev/PRD.md`, `BACKLOG.md`, `database_module_whitepaper.md` |
 
 ### ADR-008 Phase 证据是交付事实来源
 
@@ -91,7 +91,7 @@
 |---|---|
 | 状态 | `accepted` |
 | 背景 | 项目经历多个 phase，需求、状态和实现容易漂移 |
-| 决策 | 每个 phase 的真实交付证据以 `docs/phases/phase-XX-*.md` 为准，当前状态集中写入 `phases/README.md` |
+| 决策 | 每个 phase 的真实交付证据以 `phases/phase-XX-*.md` 为准，当前状态集中写入 `phases/README.md` |
 | 影响 | 后续开发必须补需求 ID、scope、测试、风险、下一入口条件和 commit SHA |
 | 关联文档 | `phases/README.md`, `04-dev/traceability-matrix.md` |
 

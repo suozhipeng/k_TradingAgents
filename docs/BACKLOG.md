@@ -1,38 +1,12 @@
 # Backlog
 
-> 待完成任务清单。已完成项已归档至 `_archived/ASTOCK_BACKLOG.md`
+> 待完成任务清单。历史 backlog 已随文档整合移除。
 
 # TradingAgents-Astock 待开发 Backlog
 
 ## 1. 文档目标
 
-本文档整理当前仓库后续最值得推进的需求项，按优先级划分为：
-
-- P0：必须尽快收口
-- P1：高价值增强
-- P2：后续优化
-
-更完整的金融产品优化路线图见 `BACKLOG.md` 自身。Backlog 负责记录执行队列，路线图负责说明为什么做、先做什么、每个模块如何达到金融产品可用口径。
-
-需求到模块、测试和 phase 的映射见 `04-dev/traceability-matrix.md`。产品指标、运行指标、告警和 Ops 要求见 `03-ops/ops-metrics.md`。
-
-生产级交付还必须同步以下文档：
-
-- API 契约：`01-arch/API.md`
-- 项目风险登记表：`03-ops/risk-register.md`
-- 架构决策记录 ADR：`01-arch/ADR.md`
-- 数据字典与血缘：`03-ops/data-sources.md`
-- 数据迁移与升级手册：见 `04-dev/PRD.md` 数据迁移章节
-- 数据源授权与使用边界：`03-ops/data-sources.md`
-- AI 模型治理：见 `03-ops/compliance.md` 模型治理章节
-- 实盘运行手册：`03-ops/live-trading.md`
-- 核心功能部署与环境：`03-ops/deployment.md`
-- 测试与验收计划：`04-dev/test-plan.md`
-- 发布与变更管理：见 `03-ops/deployment.md` 部署章节
-- 风险披露与合规边界：`03-ops/compliance.md`
-- WebUI 产品规范：见 `02-guide/USER_MANUAL.md` WebUI 章节
-- WebUI 页面级验收清单：见 `phases/README.md` 阶段索引
-- 文档范围登记：见 `README.md` 文档索引
+本文档整理当前仓库后续最值得推进的需求项，按优先级划分为 P0/P1/P2。需求到模块、测试和 phase 的映射见 `04-dev/traceability-matrix.md`。产品指标、运行指标、告警和 Ops 要求见 `03-ops/deployment.md` §8。
 
 ## 2. P0
 
@@ -109,15 +83,15 @@
 现状：
 
 - `trading.html`、`routes_trade.py`、相关测试已进入代码
-- 已建立独立 phase 归档 `docs/phases/phase-29-trading-page.md`
+- 已建立独立 phase 归档 `_archived/phase-29-trading-page.md`
 
 目标：
 
-- ✅ 已达成 — 有 scope、测试、风险说明、commit SHA
+- ✅ 已达成 — 有 scope、测试、风险说明、commit SHA（Phase 29 已归档至 `_archived/`）
 
 完成标准：
 
-- 有 scope — ✅ `phase-29-trading-page.md`
+- ✅ 已达成 — 有 scope — `_archived/phase-29-trading-page.md`（已归档至 `_archived/`）
 - 有测试 — ✅ WebUI + API 切片 150 passed
 - 有风险说明 — ✅ 实时报价依赖/缓存/持久化
 - 有 commit SHA — ✅ `268d326`, `87e5b73`, `1960c65` 等

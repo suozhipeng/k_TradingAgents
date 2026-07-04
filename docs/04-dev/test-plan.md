@@ -2,7 +2,7 @@
 
 | 更新时间：2026-06-26（含验收证据表 ✅） |
 
-本文定义 TradingAgents-Astock 的生产级测试、验收和发布门槛。它不替代 `tests/` 和 `docs/phases/`，而是规定后续 phase 如何证明“可以进入下一阶段”。
+本文定义 TradingAgents-Astock 的生产级测试、验收和发布门槛。它不替代 `tests/` 和 `phases/`，而是规定后续 phase 如何证明“可以进入下一阶段”。
 
 ## 1. 测试分层
 

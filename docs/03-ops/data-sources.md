@@ -47,7 +47,7 @@
 
 ## 5. 与其他文档关系
 
-- 字段、质量、血缘见 `03-ops/data-sources.md`。
+- 字段定义、质量标签、数据血缘的完整规范见 `full_function_documentation.md` §7。
 - API source/meta 要求见 `01-arch/API.md`。
 - 风险披露见 `03-ops/compliance.md`。
 - 数据源检查必须进入 `04-dev/test-plan.md` 的验收证据。

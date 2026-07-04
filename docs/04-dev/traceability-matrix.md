@@ -44,10 +44,10 @@
 || FR-25 | Portfolio Risk & Execution (Web-P6) — consolidated portfolio/risk/paper/trading/qmt | Trading & Execution / Portfolio Workbench | `web/portfolio_execution/` | Portfolio, Trading — consolidated | Web-P6 归档 | Web-P6 | partial |
 || FR-26 | Visual system (Web-P7) — unified CSS tokens, state components, capability labels | WebUI Shell | `web/visual_system/` | 全局 | Web-P7 归档 | Web-P7 | planned |
 | NFR-01 | 安全边界 | Trading & Execution / AI Research | `runtime_profile.py`, `phase9_schemas.py`, execution layer | 所有交易相关页面 | Phase 9/10/11/29 归档 | 9-11, 29 | partial |
-|| NFR-02 | 可审计性 | Ops & Audit | `verification_provenance.py`, phase docs, `audit_store.py` (Phase 37) | ops_audit.html, Ops Dashboard | `docs/verification_provenance/`, Phase 37 evidence | 4, 12, 19, 27, 37 | partial |
-| NFR-03 | 可维护性 | Docs / Governance | `docs/README.md`, `docs/phases/` | N/A | Phase 0-29 归档覆盖检查 | 0-29 | done |
+||| NFR-02 | 可审计性 | Ops & Audit | `verification_provenance.py`, phase docs, `audit_store.py` (Phase 37) | ops_audit.html, Ops Dashboard | Phase 37 evidence | 4, 12, 19, 27, 37 | partial |
+| NFR-03 | 可维护性 | Docs / Governance | `README.md`, `phases/` | N/A | Phase 0-29 归档覆盖检查 | 0-29 | done |
 | NFR-04 | 可扩展性 | All Modules | provider/strategy/API registries | API/WebUI | strategy/provider tests | 1, 14, 18, 30+ | partial |
-|| NFR-05 | 产品可观测性 | Data & Ops / Ops & Audit | current metrics: health/API/backtest pages; future metrics registry | Ops Dashboard / health pages / SSE | `03-ops/ops-metrics.md`, SSE TaskRun events | 30-38 | partial |
+|| NFR-05 | 产品可观测性 | Data & Ops / Ops & Audit | current metrics: health/API/backtest pages; future metrics registry | Ops Dashboard / health pages / SSE | `03-ops/deployment.md` §8, SSE TaskRun events | 30-38 | partial |
 || NFR-06 | API 契约稳定性 | API Platform | 62 Flask routes + contract doc | all `/api/v1/*` endpoints | `01-arch/API.md` (含验收证据表 ✅) | 30-38 | done |
 || NFR-07 | 数据字典与血缘 | Data & Ops / Strategy / AI / Trading | provider/store/schema docs + DataCleaner | Data Health / Strategy / AI / Trading pages | `03-ops/data-sources.md` | 31, 32, 33, 35, 37 | partial |
 || NFR-08 | 测试验收与发布门槛 | Test & Release | `tests/`, phase evidence, 1033 tests collected | N/A | `04-dev/test-plan.md` (含验收证据表 ✅) | 30-38 | done |

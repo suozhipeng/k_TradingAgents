@@ -60,7 +60,7 @@ pytest tests/test_astock_qmt_execution.py -q
 
 ### 排除项（明确不处理）
 
-以下能力因产品定位调整（详见 `BACKLOG.md` §1 "实盘交易降级为远期探索"）标记为 P3 暂不处理，不影响本 phase 的 done-with-exclusions 状态：
+以下能力因产品定位调整（详见 `../BACKLOG.md` §1 "实盘交易降级为远期探索"）标记为 P3 暂不处理，不影响本 phase 的 done-with-exclusions 状态：
 
 - 真实券商账户/委托/成交/回报 reconciliation
 - `/qmt/orders` 从 mock 升级为真实 QMT 订单查询
@@ -84,7 +84,7 @@ pytest tests/test_astock_qmt_execution.py -q
 
 ---
 
-> 以下内容合并自 `phase-35-evidence-trading-execution.md`
+> 以下内容合并自 `../_archived/phase-35-evidence-trading-execution.md`
 
 # Phase 35 — Trading Execution Control
 
@@ -161,7 +161,7 @@ pytest tests/test_astock_qmt_execution.py -q
 
 ### 范围排除
 - QMT 桥接 (`qmt_bridge.py`, `qmt_execution.py`) 保留接口占位，不纳入真实数据源
-- 见 `.hermes/backlog.md` vNext 项 QMT-1/QMT-2
+- 见 `../.hermes/backlog.md` vNext 项 QMT-1/QMT-2
 
 ---
 **Commit SHA**: b410074

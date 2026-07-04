@@ -74,7 +74,7 @@ pytest tests/test_astock_api.py -q
 
 ---
 
-> 以下内容合并自 `phase-32-evidence-strategy-lab.md`
+> 以下内容合并自 `../_archived/phase-32-evidence-strategy-lab.md`
 
 # Phase 32 — Strategy Lab 证据文档
 

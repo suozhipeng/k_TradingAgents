@@ -100,4 +100,4 @@ ASTOCK_IWENCAI_COOKIE=your_cookie_value_here
 
 当前仓库已经把 `live_research` 路径接入 config、CLI 和 Streamlit。真实运行仍要求当前 shell 或 app 进程环境中存在匹配 provider 的有效 key。
 
-live provider 的历史验证证据保存在 `docs/verification_provenance/`。这些文件是 provider 可用性溯源，不等同于当前网络环境仍可用；重新验证需要运行 live provider 测试并追加新的 dated provenance。
+live provider 的历史验证证据由 `tradingagents/astock/verification_provenance.py` 管理。这些记录是 provider 可用性溯源，不等同于当前网络环境仍可用；重新验证需要运行 live provider 测试并追加新的 dated provenance。

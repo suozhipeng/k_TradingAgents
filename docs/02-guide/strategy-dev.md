@@ -80,7 +80,7 @@ while rs.next():
 
 - 优先批量获取并本地聚合，避免单股票、单日期、单字段循环请求。
 - 对远程 provider 失败要保留 provider、symbol、日期范围和错误原因。
-- live provider 结果必须通过 `docs/verification_provenance/` 或运行日志记录验证环境。
+- live provider 结果必须通过 `tradingagents/astock/verification_provenance.py` 或运行日志记录验证环境。
 - 回测不能直接依赖实时接口，应优先使用 DuckDB/store 或可复现数据快照。
 
 ## 7. 已修复但必须防复发的问题

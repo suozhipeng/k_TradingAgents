@@ -13,7 +13,7 @@ Phase 30-38 每个 phase 的任务均为模块级文档/schema/测试任务，�
 
 - 执行 6 个跨模块端到端 UAT 场景
 - 每个场景记录执行步骤、通过/失败状态、root cause（如失败）
-- UAT 结果写入 `phases/README.md`
+- UAT 结果写入 `../README.md`
 
 ## 2. UAT 场景
 
@@ -34,7 +34,7 @@ Phase 30-38 每个 phase 的任务均为模块级文档/schema/测试任务，�
 | 39-02 | 为每个场景编写详细执行步骤 | 步骤清单 | 每步可复现 |
 | 39-03 | 执行 UAT 场景 1-3（研究链路/回测模拟盘/策略交易） | 执行结果 | 通过/失败记录 |
 | 39-04 | 执行 UAT 场景 4-6（龙头交易/数据AI归档/Ops审计） | 执行结果 | 通过/失败记录 |
-| 39-05 | 更新当前状态文档 | `phases/README.md` | 记录 UAT 结果 |
+| 39-05 | 更新当前状态文档 | `../README.md` | 记录 UAT 结果 |
 
 ## 4. 测试命令
 
@@ -51,9 +51,9 @@ pytest tests/test_astock_paper_trader.py -q
 
 - 所有 6 个 UAT 场景至少执行一次并记录结果
 - 失败场景必须有 root cause 分析和修复计划
-- UAT 结果写入 `phases/README.md`
+- UAT 结果写入 `../README.md`
 
 ---
 
-**来源**: `BACKLOG.md` §12.1
+**来源**: `../BACKLOG.md` §12.1
 **Commit SHA**: *(pending — Phase 39 启动后更新)*

@@ -69,7 +69,7 @@ pytest tests/test_astock_api.py -q
 
 ---
 
-> 以下内容合并自 `phase-38-evidence-navigation-cleanup.md`
+> 以下内容合并自 `../_archived/phase-38-evidence-navigation-cleanup.md`
 
 # Phase 38 — Product Navigation Cleanup (Evidence)
 

@@ -91,7 +91,9 @@
 | **Trading** | `/api/v1/trade/*` | `paper` / `managed` / `live-ready` | 返回模式、风控、确认、订单状态和审计 |
 | SSE / Tasks | `/api/v1/sse/*` | `research` / `paper` | 返回 task lifecycle、错误和进度 |
 
-### 4.1 实际 endpoint 能力等级（Phase 30）
+### 4.1 关键 endpoint 能力等级（Phase 30 快照）
+
+> 以下为代表性端点（代码中共有 88 个端点，详见完整端点参考 §2）。
 
 | Endpoint | 当前能力 | 说明 |
 |----------|----------|------|

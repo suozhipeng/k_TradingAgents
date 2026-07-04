@@ -63,7 +63,7 @@ pytest tests/test_astock_web.py -q
 
 ---
 
-> 以下内容合并自 `phase-37-evidence-ops-audit.md`
+> 以下内容合并自 `../_archived/phase-37-evidence-ops-audit.md`
 
 # Phase 37 — Ops & Audit Center (Evidence)
 

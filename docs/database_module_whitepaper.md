@@ -99,7 +99,7 @@ df = store.query_kline("000001.SZ", start="2024-01-01")
 
 **文件**: `tradingagents/astock/store/pg_store.py`
 
-基于 SQLAlchemy 2.0 + asyncpg 的异步优先设计，提供 31 个 ORM 模型类。
+基于 SQLAlchemy 2.0 + asyncpg 的异步优先设计，通过 `models/` 子目录使用 31 个 ORM 模型类。
 
 ```python
 from tradingagents.astock.store import PGConfig, PGStore
@@ -230,7 +230,7 @@ CREATE INDEX idx_kline_symbol_interval_time ON kline_bars(symbol, interval, bar_
 CREATE INDEX idx_audit_event_time ON audit_log(event_time);
 ```
 
-共 **26 个索引**，覆盖所有高频查询路径。
+共 **27 个索引**，覆盖所有高频查询路径。
 
 ### 4.3 数据类型规范
 

@@ -101,7 +101,7 @@ pytest tests/test_astock_backtest.py -q
 
 ---
 
-> 以下内容合并自 `phase-31-evidence-acceptance-checklist.md`
+> 以下内容合并自 `../_archived/phase-31-evidence-acceptance-checklist.md`
 
 # Phase 31 — Data & Ops 页面验收清单
 
@@ -130,7 +130,7 @@ pytest tests/test_astock_backtest.py -q
 
 ---
 
-> 以下内容合并自 `phase-31-evidence-data-constraints.md`
+> 以下内容合并自 `../_archived/phase-31-evidence-data-constraints.md`
 
 # Phase 31 — Data Source Assumptions & Constraints 文档
 
