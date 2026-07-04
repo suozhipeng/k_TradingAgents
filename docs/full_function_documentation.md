@@ -504,9 +504,9 @@ class ValidatedStore:
 
 ### 7.7 预警系统
 
-**路径**: `alert/`
+**路径**: `tradingagents/astock/alert/`
 
-**文件**: `alert_store.py`
+**文件**: `tradingagents/astock/alert/alert_store.py`
 
 ```python
 class AlertStore:
@@ -532,9 +532,9 @@ class AlertStore:
 
 ### 7.8 市场分析
 
-**路径**: `analysis/`
+**路径**: `tradingagents/astock/analysis/`
 
-**文件**: `market_analyzer.py`
+**文件**: `tradingagents/astock/analysis/market_analyzer.py`
 
 ```python
 class MarketAnalyzer:
@@ -566,9 +566,9 @@ def analyze_regime_from_df(df: pd.DataFrame) -> dict
 
 ### 7.9 报告生成
 
-**路径**: `reporting/`
+**路径**: `tradingagents/astock/reporting/`
 
-**文件**: `ppt.py`
+**文件**: `tradingagents/astock/reporting/ppt.py`
 
 ```python
 class ReportGenerator:
@@ -585,7 +585,7 @@ class ReportGenerator:
 
 ### 7.10 Web UI
 
-**路径**: `web/`
+**路径**: `tradingagents/astock/web/`
 
 20+ 页面，Tailwind 暗色主题，消费 Flask REST API (`/api/v1/`)。
 
@@ -630,9 +630,9 @@ class ReportGenerator:
 
 ## 8. Flask REST API
 
-**路径**: `api/`  
+**路径**: `tradingagents/astock/api/`  
 **基础路径**: `/api/v1/`  
-**应用工厂**: `create_app()` in `__init__.py`
+**应用工厂**: `create_app()` in `tradingagents/astock/api/__init__.py`
 
 ### 8.1 中间件
 
@@ -690,7 +690,7 @@ class ReportGenerator:
 
 ### 9.1 Typer CLI
 
-**文件**: `cli/main.py`
+**文件**: `cli/main.py` (root level)
 
 ```bash
 # 启动 WebUI

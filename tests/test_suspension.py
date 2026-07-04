@@ -520,7 +520,14 @@ class TestTradingPoolSuspension(unittest.TestCase):
     @patch.object(_susp, "_retry")
     def test_symbol_not_in_pool_return_suspended(self, mock_retry) -> None:
         """Symbol not found in any pool → likely suspended."""
-        # Use a weekday date (Monday 2024-06-03)
+        # Inject mock akshare so import succeeds
+        import types
+        mock_ak = types.ModuleType("akshare")
+        mock_ak.stock_zt_pool_em = MagicMock(return_value=pd.DataFrame({"代码": ["000001", "000002"]}))
+        mock_ak.stock_zt_pool_dtgc_em = MagicMock(return_value=pd.DataFrame({"代码": ["000001"]}))
+        mock_ak.stock_zt_pool_strong_em = MagicMock(return_value=pd.DataFrame({"代码": ["000001"]}))
+        sys.modules["akshare"] = mock_ak
+        # _retry must return a DataFrame (MagicMock default doesn't have .columns)
         mock_retry.return_value = pd.DataFrame({"代码": ["000001", "000002"]})
         suspended, reason = _susp.is_symbol_suspended_via_trading_pool("600519.SH", "2024-06-03")
         # 600519 not in pool → suspended
@@ -710,7 +717,19 @@ class TestFetchPriceLimitPoolAkshare(unittest.TestCase):
     @patch.object(_susp, "_retry")
     def test_parse_zt_pool_up(self, mock_retry) -> None:
         """Parse 涨停 pool DataFrame correctly."""
-        # First call returns up pool, second call returns empty (down pool)
+        # Inject mock akshare so import succeeds
+        import types
+        mock_ak = types.ModuleType("akshare")
+        mock_ak.stock_zt_pool_em = MagicMock(return_value=pd.DataFrame({
+            "代码": ["600519"],
+            "名称": ["贵州茅台"],
+            "最新价": [1500.0],
+            "涨跌幅": [10.0],
+            "连板数": [2],
+        }))
+        mock_ak.stock_zt_pool_dtgc_em = MagicMock(return_value=pd.DataFrame())
+        sys.modules["akshare"] = mock_ak
+        # _retry returns up-pool on first call, down-pool (empty) on second
         mock_retry.side_effect = [
             pd.DataFrame({
                 "代码": ["600519"],

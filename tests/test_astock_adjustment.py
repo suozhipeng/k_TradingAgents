@@ -5,7 +5,7 @@ import unittest
 from datetime import date
 
 import pandas as pd
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from tradingagents.astock.data_sources.adjustment import (
     _adjust_factor_for_date,
@@ -102,22 +102,31 @@ class TestFetchAdjustAkshareHist(unittest.TestCase):
 
     @patch("tradingagents.astock.data_sources.adjustment._retry")
     def test_derive_factors_from_adj_vs_raw(self, mock_retry):
-        adj_df = pd.DataFrame({
-            "日期": ["2024-01-02", "2024-01-03"],
-            "收盘": [150.0, 160.0],
-        })
-        raw_df = pd.DataFrame({
-            "日期": ["2024-01-02", "2024-01-03"],
-            "收盘": [100.0, 100.0],
-        })
-        mock_retry.side_effect = [adj_df, raw_df]
-
-        result = fetch_adjust_via_akshare_hist("600519.SH")
-        self.assertIsNotNone(result)
-        self.assertFalse(result.empty)
-        self.assertEqual(len(result), 2)
-        self.assertAlmostEqual(result.iloc[0]["adjust_factor"], 1.5)
-        self.assertAlmostEqual(result.iloc[1]["adjust_factor"], 1.6)
+        import sys
+        import types
+        # Mock akshare so the import succeeds
+        mock_ak = types.ModuleType("akshare")
+        sys.modules["akshare"] = mock_ak
+        
+        try:
+            adj_df = pd.DataFrame({
+                "日期": ["2024-01-02", "2024-01-03"],
+                "收盘": [150.0, 160.0],
+            })
+            raw_df = pd.DataFrame({
+                "日期": ["2024-01-02", "2024-01-03"],
+                "收盘": [100.0, 100.0],
+            })
+            mock_retry.side_effect = [adj_df, raw_df]
+    
+            result = fetch_adjust_via_akshare_hist("600519.SH")
+            self.assertIsNotNone(result)
+            self.assertFalse(result.empty)
+            self.assertEqual(len(result), 2)
+            self.assertAlmostEqual(result.iloc[0]["adjust_factor"], 1.5)
+            self.assertAlmostEqual(result.iloc[1]["adjust_factor"], 1.6)
+        finally:
+            del sys.modules["akshare"]
 
 
 if __name__ == "__main__":
