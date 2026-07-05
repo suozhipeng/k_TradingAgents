@@ -41,6 +41,7 @@ from .operations import (
     op_get_valuation,
     op_health_check,
     op_place_order,
+    _send_request,
 )
 
 _logger = logging.getLogger(__name__)
@@ -95,6 +96,16 @@ class QmtBridge:
     def is_mock(self) -> bool:
         """Return True if this bridge is in mock mode."""
         return self._use_mock
+
+    def _request(self, method: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """Send a raw request through the bridge client.
+
+        Kept as a narrow compatibility hook for callers/tests that verify the
+        bridge protocol directly.
+        """
+        if self._use_mock:
+            raise RuntimeError("QMT bridge raw request is unavailable in mock mode")
+        return _send_request(self._config.base_url, self._config.timeout, method, params)
 
     # -- health check -------------------------------------------------------
 

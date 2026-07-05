@@ -10,6 +10,8 @@ import sys
 import unittest
 from pathlib import Path
 
+from tests.astock_import_helpers import load_astock_submodule
+
 # ---------------------------------------------------------------------------
 # Direct module imports
 # ---------------------------------------------------------------------------
@@ -22,32 +24,7 @@ _PKG_PARENT = "tradingagents.astock.execution"
 
 def _load_submodule(rel_name: str):
     """Load a module without polluting sys.modules with fake packages."""
-    import importlib
-
-    fname = rel_name + ".py"
-    full_name = f"{_PKG_PARENT}.{rel_name}"
-    path = str(_EXEC / fname)
-    spec = importlib.util.spec_from_file_location(full_name, path)
-    if spec is None or spec.loader is None:
-        raise ImportError(f"Cannot load {full_name} from {path}")
-    for parent in ("tradingagents", "tradingagents.astock", _PKG_PARENT):
-        mod = sys.modules.get(parent)
-        if mod is not None and hasattr(mod, "__path__") and not getattr(mod, "__path__", []):
-            del sys.modules[parent]
-        if parent not in sys.modules:
-            try:
-                importlib.import_module(parent)
-            except ImportError:
-                pass
-    exec_pkg = sys.modules.get(_PKG_PARENT)
-    if exec_pkg:
-        exec_pkg.__path__ = [str(_EXEC)]
-    mod = importlib.util.module_from_spec(spec)
-    mod.__package__ = _PKG_PARENT
-    mod.__name__ = full_name
-    sys.modules[full_name] = mod
-    spec.loader.exec_module(mod)
-    return mod
+    return load_astock_submodule(rel_name, _PKG_PARENT, _EXEC)
 
 
 # fee_model must be loaded before paper_trader (paper_trader imports from it)

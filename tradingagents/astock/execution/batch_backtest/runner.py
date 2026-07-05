@@ -14,6 +14,8 @@ import pandas as pd
 from ..backtest_engine import BacktestEngine, BacktestResult
 from ..fee_model import AStockFeeConfig
 from ..strategy_base import StrategyBase
+from .ranking import rank_strategies as _rank_strategies
+from .selection import best_performing as _best_performing
 
 EXECUTION_SIGNAL: str = "ResearchOnly"
 
@@ -119,6 +121,18 @@ class BatchBacktestRunner:
                 ]
             )
         return df
+
+    def rank_strategies(self, results: pd.DataFrame) -> pd.DataFrame:
+        """Rank strategies by aggregate batch performance."""
+        return _rank_strategies(results)
+
+    def best_performing(
+        self,
+        results: pd.DataFrame,
+        top_n: int = 10,
+    ) -> pd.DataFrame:
+        """Return the top symbol/strategy rows from a batch result."""
+        return _best_performing(results, top_n=top_n)
 
     # ------------------------------------------------------------------
     # Internal helpers

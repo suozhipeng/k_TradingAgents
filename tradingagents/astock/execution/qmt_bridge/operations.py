@@ -8,10 +8,11 @@ from __future__ import annotations
 
 import json
 import logging
+import sys
 import uuid
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
-from urllib.request import Request as HTTPRequest, urlopen
+from urllib.request import Request as HTTPRequest, urlopen as _default_urlopen
 from urllib.error import URLError
 from urllib.parse import urljoin
 
@@ -21,6 +22,14 @@ _logger = logging.getLogger(__name__)
 DEFAULT_QMT_HOST = "127.0.0.1"
 DEFAULT_QMT_PORT = 58609
 DEFAULT_QMT_TIMEOUT = 10.0
+
+# Public patch point used by the package facade and compatibility tests.
+urlopen = _default_urlopen
+
+
+def _resolve_urlopen():
+    package = sys.modules.get(__package__)
+    return getattr(package, "urlopen", urlopen)
 
 
 def _mock_kline(symbol: str, period: str = "1d", count: int = 100) -> List[Dict[str, Any]]:
@@ -174,7 +183,7 @@ def _send_request(
     )
 
     try:
-        with urlopen(req, timeout=int(timeout)) as resp:
+        with _resolve_urlopen()(req, timeout=int(timeout)) as resp:
             raw = resp.read().decode("utf-8")
     except URLError as exc:
         raise ConnectionError(f"QMT bridge unreachable at {url}: {exc.reason}") from exc

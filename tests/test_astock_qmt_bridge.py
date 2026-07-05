@@ -18,6 +18,8 @@ from pathlib import Path
 from typing import Any, Dict
 from unittest.mock import MagicMock, patch
 
+from tests.astock_import_helpers import load_astock_submodule
+
 # ---------------------------------------------------------------------------
 # Direct module imports
 # ---------------------------------------------------------------------------
@@ -29,37 +31,7 @@ _PKG_PARENT = "tradingagents.astock.execution"
 
 def _load_submodule(rel_name: str):
     """Load a module from the execution package without polluting sys.modules."""
-    import importlib
-
-    fname = rel_name + ".py"
-    full_name = f"{_PKG_PARENT}.{rel_name}"
-    path = str(_EXEC / fname)
-    spec = importlib.util.spec_from_file_location(full_name, path)
-    if spec is None or spec.loader is None:
-        raise ImportError(f"Cannot load {full_name} from {path}")
-
-    # Ensure real parent packages exist (not empty shells from older runs)
-    for parent in ("tradingagents", "tradingagents.astock", _PKG_PARENT):
-        mod = sys.modules.get(parent)
-        if mod is not None and hasattr(mod, "__path__") and not getattr(mod, "__path__", []):
-            del sys.modules[parent]
-        if parent not in sys.modules:
-            try:
-                importlib.import_module(parent)
-            except ImportError:
-                pass
-
-    exec_pkg = sys.modules.get(_PKG_PARENT)
-    if exec_pkg:
-        exec_pkg.__path__ = [str(_EXEC)]
-
-    mod = importlib.util.module_from_spec(spec)
-    mod.__package__ = _PKG_PARENT
-    mod.__name__ = full_name
-    sys.modules[full_name] = mod
-    spec.loader.exec_module(mod)
-    # Clean up submodule so it doesn't shadow other imports
-    return mod
+    return load_astock_submodule(rel_name, _PKG_PARENT, _EXEC)
 
 
 _qb = _load_submodule("qmt_bridge")

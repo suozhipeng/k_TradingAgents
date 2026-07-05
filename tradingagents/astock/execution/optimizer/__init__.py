@@ -10,8 +10,15 @@ Usage
 >>> results[0]["params"]  # best parameter set
 """
 
-from .config import DEFAULT_SEARCH_SPACES, optimize_strategy
+from .config import DEFAULT_SEARCH_SPACES, _composite_score, _get_strategy_map, optimize_strategy
 from .optimizer import StrategyOptimizer
 from .walk_forward import WalkForwardAnalyzer
 
-__all__ = ["StrategyOptimizer", "WalkForwardAnalyzer", "DEFAULT_SEARCH_SPACES", "optimize_strategy"]
+__all__ = [
+    "StrategyOptimizer",
+    "WalkForwardAnalyzer",
+    "DEFAULT_SEARCH_SPACES",
+    "optimize_strategy",
+    "_get_strategy_map",
+    "_composite_score",
+]

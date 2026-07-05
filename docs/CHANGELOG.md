@@ -2,6 +2,20 @@
 
 > 记录每个版本的架构变更、模块清单和关键决策。对应 `CHANGELOG.md`。
 
+## v2.3 — 2026-07-06
+
+**架构优化：入口收敛与职责拆分**
+
+- `data_sources/adapters/` 保持包入口兼容，Provider 实现按供应商拆入 `providers/`，默认工厂通过 `registry.py` 懒加载构建，避免导入数据源时提前加载全部 SDK
+- `data_sources/suspension/` 包入口改为真实 facade，停牌、交易池推断、涨跌停池 fallback 均从统一入口调度，外部调用和测试不再依赖子模块细节
+- `store/pg_store.py` 收敛为 `PGStore` 兼容入口，连接、DataFrame I/O、行情写读、治理表、管理能力分别拆入 `pg_connection.py`、`pg_io.py`、`pg_market_data.py`、`pg_governance.py`、`pg_admin.py`
+- `execution/qmt_bridge/` 保持 `QmtBridge` 包入口，HTTP 发送逻辑集中在 `operations.py`，入口暴露统一 `urlopen` patch 点以保护协议测试和调用方兼容性
+- `execution/batch_backtest/` 保持 `BatchBacktestRunner` 主入口，`rank_strategies()`、`best_performing()` 委托到独立 ranking/selection 模块
+
+**验证**
+
+- 全量回归：`1070 passed, 15 skipped, 9 warnings, 120 subtests passed`（`.venv/bin/python -m pytest -q`）
+
 ## v2.2 — 2026-07-05
 
 **Bug 修复：路由冲突与策略映射**

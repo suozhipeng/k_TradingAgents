@@ -18,6 +18,8 @@ from unittest.mock import MagicMock, patch
 
 import pandas as pd
 
+from tests.astock_import_helpers import load_astock_submodule
+
 # ---------------------------------------------------------------------------
 # Direct module imports (same convention as test_astock_backtest.py)
 # ---------------------------------------------------------------------------
@@ -31,36 +33,7 @@ _EXEC_PKG = "tradingagents.astock.execution"
 
 
 def _load_module(rel_name: str, pkg: str, path: Path):
-    import importlib
-
-    fname = rel_name + ".py"
-    full_name = f"{pkg}.{rel_name}"
-    fpath = str(path / fname)
-    spec = importlib.util.spec_from_file_location(full_name, fpath)
-    if spec is None or spec.loader is None:
-        raise ImportError(f"Cannot load {full_name} from {fpath}")
-    for parent in [
-        "tradingagents",
-        "tradingagents.astock",
-        pkg,
-    ]:
-        mod = sys.modules.get(parent)
-        if mod is not None and hasattr(mod, "__path__") and not getattr(mod, "__path__", []):
-            del sys.modules[parent]
-        if parent not in sys.modules:
-            try:
-                importlib.import_module(parent)
-            except ImportError:
-                pass
-    parent_mod = sys.modules.get(pkg)
-    if parent_mod:
-        parent_mod.__path__ = [str(path)]
-    mod = importlib.util.module_from_spec(spec)
-    mod.__package__ = pkg
-    mod.__name__ = full_name
-    sys.modules[full_name] = mod
-    spec.loader.exec_module(mod)
-    return mod
+    return load_astock_submodule(rel_name, pkg, path)
 
 
 _susp = _load_module("suspension", _DATA_PKG, _DATA_DIR)

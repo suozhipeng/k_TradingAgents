@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Iterable, List, Mapping, MutableMapping, Optional, Sequence, Tuple
 
-from .adapters import build_default_adapters
+from .adapters.registry import build_default_adapters
 from .cache import FileAStockCache, InMemoryAStockCache
 from .errors import AStockDataError, AStockNoDataError, AStockSourceUnavailableError
 from .quality import DataQualityTag
@@ -114,7 +114,9 @@ class AStockDataRouter(object):
         if adapters is None:
             adapter_configs = dict(default_adapter_configs or {})
             adapters = build_default_adapters(**adapter_configs)
-        self.adapters: Dict[str, Any] = { _normalize_source_id(name): adapter for name, adapter in adapters.items() }
+            self.adapters = adapters
+        else:
+            self.adapters: Mapping[str, Any] = { _normalize_source_id(name): adapter for name, adapter in adapters.items() }
         self.cache = cache or InMemoryAStockCache()
         self.route_policy = dict(route_policy or DEFAULT_ROUTE_POLICY)
         self.eliminated_sources = frozenset(_normalize_source_id(source) for source in (eliminated_sources or DEFAULT_ELIMINATED_SOURCES))

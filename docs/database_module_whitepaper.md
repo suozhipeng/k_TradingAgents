@@ -97,9 +97,19 @@ df = store.query_kline("000001.SZ", start="2024-01-01")
 
 ### 3.2 PostgreSQL（生产主存储）
 
-**文件**: `tradingagents/astock/store/pg_store.py`
+**入口文件**: `tradingagents/astock/store/pg_store.py`
 
-基于 SQLAlchemy 2.0 + asyncpg 的异步优先设计，通过 `models/` 子目录使用 32 个 ORM 模型类。
+基于 SQLAlchemy 2.0 + asyncpg 的异步优先设计，通过 `models/` 子目录使用 32 个 ORM 模型类。`pg_store.py` 是 public compatibility entrypoint，具体职责已拆到 `pg_*` mixin：
+
+| 文件 | 职责 |
+|------|------|
+| `pg_common.py` | `PGConfig`、共享 SQLAlchemy 导入、ORM 模型集合 |
+| `pg_connection.py` | 同步/异步连接、schema 初始化、迁移 |
+| `pg_io.py` | DataFrame upsert/query 通用 I/O |
+| `pg_market_data.py` | K 线、估值、盘口等市场数据写读 |
+| `pg_governance.py` | 数据质量、审计、API key、通知等治理表操作 |
+| `pg_admin.py` | 备份、恢复、统计、清理等管理能力 |
+| `pg_store.py` | 组合 mixin，导出 `PGStore` / `init_pg_store` |
 
 ```python
 from tradingagents.astock.store import PGConfig, PGStore
@@ -550,7 +560,13 @@ tradingagents/astock/
     __init__.py                # 模块导出
     schema.py                  # DuckDB 存储层（DDL 从 schema_defs 派生）
     schema_defs.py             # **[v2.0] 统一表定义 (SSOT)**
-    pg_store.py                # PostgreSQL 存储层（ORM 从 models/ 导入）
+    pg_store.py                # PostgreSQL public entrypoint（组合 pg_* mixin）
+    pg_common.py               # PGConfig + ORM 模型集合
+    pg_connection.py           # 连接、schema 初始化、迁移
+    pg_io.py                   # DataFrame upsert/query 通用 I/O
+    pg_market_data.py          # 市场数据写读
+    pg_governance.py           # 治理表操作
+    pg_admin.py                # 管理/备份/统计能力
     backend.py                 # 运行时后端切换
     clickhouse_schema.py       # ClickHouse DDL + 导出工具
     migrations/
@@ -786,3 +802,12 @@ api_keys ──── 控制 API 访问权限
 - 已有数据库需创建新的迁移文件执行 `ALTER TABLE` 重排序列
 - 主键列顺序变更不影响 `ON CONFLICT` 语义，但需确认上游查询无硬编码假设
 - 经调研确认：所有下游消费者（`pg_store.py` 的 `_get_pk_columns` fallback、`insert_kline` 硬编码、查询过滤）均与 `schema_defs` 一致，无需额外修改
+
+### 11.8 v2.3 PGStore 职责拆分
+
+| # | 变更项 | 说明 | 影响文件 |
+|---|--------|------|----------|
+| 1 | `PGStore` public entrypoint 收敛 | `pg_store.py` 保持 `PGStore` / `init_pg_store` 导出，避免破坏既有导入路径 | `pg_store.py` |
+| 2 | 连接与 I/O 拆分 | 连接、schema 初始化、迁移拆入 `pg_connection.py`，DataFrame 通用写读拆入 `pg_io.py` | `pg_connection.py`, `pg_io.py` |
+| 3 | 领域能力拆分 | 市场数据写读、治理表操作、管理能力分别拆入独立 mixin | `pg_market_data.py`, `pg_governance.py`, `pg_admin.py` |
+| 4 | 回归基线 | 全量测试通过：`1070 passed, 15 skipped, 9 warnings, 120 subtests passed` | `tests/` |

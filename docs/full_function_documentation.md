@@ -1,7 +1,7 @@
 # TradingAgents 全功能文档
 
-**版本**: v1.0  
-**日期**: 2026-06-28  
+**版本**: v1.1
+**日期**: 2026-07-06
 **仓库**: /Users/szp/Desktop/Code/k-code/ai-lab/TradingAgents
 
 ---
@@ -299,8 +299,10 @@ DEFAULT_ADAPTER_FACTORIES = {
     "baostock": BaoStockAdapter,
 }
 
-def build_default_adapters(**configs) -> Dict[str, AStockAdapterBase]
+def build_default_adapters(**configs) -> Mapping[str, AStockAdapterBase]
 ```
+
+`build_default_adapters()` 返回懒加载映射，路由器按实际命中的 provider 初始化适配器，避免导入数据源时一次性加载所有第三方 SDK。
 
 #### 7.2.3 核心模块与工具
 
@@ -308,13 +310,16 @@ def build_default_adapters(**configs) -> Dict[str, AStockAdapterBase]
 
 | 文件 | 职责 |
 |------|------|
-| `adapters.py` | 7 个 Adapter 实现 + 默认 provider 工厂；`TdxProvider` 位于 `tdx_provider.py` |
+| `adapters/` | Adapter 包入口，兼容导出 `AkshareAdapter` 等 provider 类 |
+| `adapters/registry.py` | 默认 provider 工厂 + 懒加载映射 `LazyAdapterMapping` |
+| `adapters/providers/` | 按供应商拆分的实现：akshare/tencent/mootdx/cninfo/iwencai/qmt/baostock |
+| `tdx_provider.py` | 在线 TDX + 本地 VIPDOC Provider |
 | `router.py` | 统一路由器 `AStockDataRouter` + 便利包装 `AStockDataFacade` |
 
 公共工具文件：
 
 | 文件 | 职责 |
-||------|------|
+|------|------|
 | `schema.py` | `AStockRequest` / `AStockResponse` 数据模型 |
 | `errors.py` | 自定义异常 (`AStockDataError`, `AStockNoDataError`, `AStockSourceUnavailableError`, `AStockSchemaError`) |
 | `symbols.py` | 符号规范化 `normalize_astock_symbol()`, `split_astock_symbol()` |
@@ -323,7 +328,7 @@ def build_default_adapters(**configs) -> Dict[str, AStockAdapterBase]
 | `quality.py` | 质量标签 `DataQualityTag`, `FreshnessInfo`, `DataQualityMetadata` |
 | `cleaner.py` | 数据清洗 `clean_records()`, `CleaningReport` |
 | `adjustment.py` | 复权因子 `fetch_adjust_factors()`, `adjust_series()`, `adjust_bars()` |
-| `suspension.py` | 停牌/涨跌停检测 `is_suspended()`, `is_at_price_limit_external()` |
+| `suspension/` | 停牌/涨跌停 facade；子模块拆分 suspension / price_limit / common |
 | `sina_sectors.py` | 新浪板块数据 |
 
 ### 7.3 路由系统
@@ -371,7 +376,7 @@ DEFAULT_ROUTE_POLICY = {
 | 后端 | 类 | 用途 | 文件 |
 |------|---|------|------|
 | DuckDB | `AStockStore` | 本地 OLAP 分析缓存 | `schema.py` |
-| PostgreSQL | `PGStore` | 生产主存储 (OLTP) | `pg_store.py` |
+| PostgreSQL | `PGStore` | 生产主存储 (OLTP) | `pg_store.py` 兼容入口 + `pg_*` mixin |
 | ClickHouse | (DDL 定义) | 生产 OLAP 分析副本 | `clickhouse_schema.py` |
 
 #### 7.4.2 核心文件
@@ -382,7 +387,13 @@ DEFAULT_ROUTE_POLICY = {
 | `schema_defs.py` | **SSOT**: 32 张表统一列定义 / 索引 / DDL 生成 |
 | `models/` | 32 个 SQLAlchemy ORM 模型（分 reference / market_data / events / governance 子模块） |
 | `schema.py` | DuckDB 存储实现 `AStockStore` 类 |
-| `pg_store.py` | PostgreSQL 存储实现 `PGStore` 类（通过 `models/` 使用 ORM） |
+| `pg_store.py` | PostgreSQL public entrypoint，组合各 `pg_*` mixin 并导出 `PGStore` / `init_pg_store` |
+| `pg_common.py` | PG 配置、共享导入、ORM 模型集合 |
+| `pg_connection.py` | 同步/异步连接、schema 初始化、迁移 |
+| `pg_io.py` | DataFrame upsert/query 通用 I/O |
+| `pg_market_data.py` | K 线、估值、盘口等市场数据写读 |
+| `pg_governance.py` | 数据质量、审计、API key、通知等治理表操作 |
+| `pg_admin.py` | 备份、恢复、统计、清理等管理能力 |
 | `backend.py` | 运行时后端切换 `BackendManager` + `BackendConfig` |
 | `loader.py` | 数据加载器 `KlineLoader`, `ValuationLoader`, `BatchLoader` |
 | `jobs.py` | 异步作业管理 `DataJobManager` |
@@ -442,23 +453,23 @@ class BacktestEngine:
 
 | 文件 | 职责 |
 |------|------|
-| `optimizer.py` | 参数优化（网格搜索 + 遗传算法 + 滚动窗口） |
+| `optimizer/` | 参数优化（网格搜索 + 遗传算法 + 滚动窗口） |
 | `fee_model.py` | A 股费用配置 `AStockFeeConfig` + 费用计算 |
 | `metrics.py` | 绩效指标（夏普比率、最大回撤、胜率） |
-| `paper_trader.py` | 模拟交易 `PaperTrader` + `PaperTradeState` |
-| `risk_gate.py` | 交易前风控 `RiskGate` + ATR 止损 + 跟踪止损 |
-| `qmt_bridge.py` | QMT HTTP 桥接客户端 |
-| `qmt_execution.py` | QMT 受控执行层（SAFETY/AUTO 模式） |
+| `paper_trader/` | 模拟交易 `PaperTrader` + `PaperTradeState` |
+| `risk_gate/` | 交易前风控 `RiskGate` + ATR 止损 + 跟踪止损 |
+| `qmt_bridge/` | QMT HTTP 桥接客户端；`client.py` 为主入口，`operations.py` 负责协议发送 |
+| `qmt_execution/` | QMT 受控执行层（SAFETY/AUTO 模式） |
 | `momentum_rotation.py` | 龙头股动量轮动回测 |
 | `kill_switch.py` | 全局紧急停止（单例） |
-| `scheduler.py` | 周期性模拟交易调度 |
+| `scheduler/` | 周期性模拟交易调度 |
 | `event_bus.py` | 进程内发布/订阅环形缓冲区 |
 | `strategy_registry.py` | 可发现策略目录 |
-| `portfolio_risk.py` | 组合风险分析（VaR + Brinson 归因 + 风险敞口） |
-| `audit_store.py` | 线程安全审计/任务持久化 |
+| `portfolio_risk/` | 组合风险分析（VaR + Brinson 归因 + 风险敞口） |
+| `audit_store/` | 线程安全审计/任务持久化 |
 | `leader_pool.py` | 龙头池条目 |
-| `batch_backtest.py` | 批量回测支持 |
-| `strategy_base.py` | 策略基类 `StrategyBase` + `PortfolioStrategyBase` |
+| `batch_backtest/` | 批量回测 Runner + ranking/selection 工具 |
+| `strategy_base/` | 策略基类 `StrategyBase` + `PortfolioStrategyBase` + 单股策略实现 |
 
 ### 7.6 数据质量
 
@@ -801,7 +812,9 @@ services:
 
 **路径**: `tests/`
 
-63 个测试文件，关键测试：
+当前全量回归基线：`1070 passed, 15 skipped, 9 warnings, 120 subtests passed`（2026-07-06，`.venv/bin/python -m pytest -q`）。
+
+关键测试：
 
 | 测试文件 | 覆盖模块 |
 |---------|----------|

@@ -25,14 +25,28 @@ from .common import (
     _retry_with_backoff,
     _common_headers,
 )
-from .registry import PROVIDER_ENV_VARS, build_default_adapters
-from .providers.akshare import AkshareAdapter
-from .providers.tencent import TencentFinanceAdapter
-from .providers.cninfo import CninfoAdapter
-from .providers.mootdx import MootdxAdapter
-from .providers.iwencai import IwencaiAdapter
-from .providers.qmt import QMTAdapter
-from .providers.baostock import BaoStockAdapter
+from .registry import LazyAdapterMapping, PROVIDER_ENV_VARS, build_default_adapters
+
+_LAZY_EXPORTS = {
+    "AkshareAdapter": ("tradingagents.astock.data_sources.adapters.providers.akshare", "AkshareAdapter"),
+    "TencentFinanceAdapter": ("tradingagents.astock.data_sources.adapters.providers.tencent", "TencentFinanceAdapter"),
+    "CninfoAdapter": ("tradingagents.astock.data_sources.adapters.providers.cninfo", "CninfoAdapter"),
+    "MootdxAdapter": ("tradingagents.astock.data_sources.adapters.providers.mootdx", "MootdxAdapter"),
+    "IwencaiAdapter": ("tradingagents.astock.data_sources.adapters.providers.iwencai", "IwencaiAdapter"),
+    "QMTAdapter": ("tradingagents.astock.data_sources.adapters.providers.qmt", "QMTAdapter"),
+    "BaoStockAdapter": ("tradingagents.astock.data_sources.adapters.providers.baostock", "BaoStockAdapter"),
+}
+
+
+def __getattr__(name: str):
+    if name not in _LAZY_EXPORTS:
+        raise AttributeError(name)
+    from importlib import import_module
+
+    module_name, attr_name = _LAZY_EXPORTS[name]
+    value = getattr(import_module(module_name), attr_name)
+    globals()[name] = value
+    return value
 
 __all__ = [
     "AStockAdapterBase",
@@ -44,6 +58,7 @@ __all__ = [
     "QMTAdapter",
     "BaoStockAdapter",
     "PROVIDER_ENV_VARS",
+    "LazyAdapterMapping",
     "build_default_adapters",
     "_env",
     "_coerce_float",

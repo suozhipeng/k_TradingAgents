@@ -72,14 +72,8 @@ class TestRiskReasonCode(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        import importlib.util, sys
-        spec = importlib.util.spec_from_file_location(
-            "risk_gate",
-            "tradingagents/astock/execution/risk_gate.py",
-        )
-        mod = importlib.util.module_from_spec(spec)
-        sys.modules["risk_gate"] = mod
-        spec.loader.exec_module(mod)
+        import importlib
+        mod = importlib.import_module("tradingagents.astock.execution.risk_gate")
         cls.RiskReasonCode = mod.RiskReasonCode
 
     def test_kill_switch_reason_code(self):
