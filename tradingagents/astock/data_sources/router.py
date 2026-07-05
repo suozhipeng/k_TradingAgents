@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Iterable, List, Mapping, MutableMapping, Optional, Sequence, Tuple
 
-from .adapters import DEFAULT_ADAPTER_FACTORIES, build_default_adapters
+from .adapters import build_default_adapters
 from .cache import FileAStockCache, InMemoryAStockCache
 from .errors import AStockDataError, AStockNoDataError, AStockSourceUnavailableError
 from .quality import DataQualityTag
