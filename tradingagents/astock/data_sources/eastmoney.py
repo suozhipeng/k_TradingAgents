@@ -19,6 +19,8 @@ from typing import Any
 
 import requests
 
+from .calendar import prev_trading_day
+
 UA = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
     "AppleWebKit/537.36 (KHTML, like Gecko) "
@@ -133,12 +135,35 @@ def daily_dragon_tiger(
         sort_types="-1",
     )
     if not data:
-        return {
-            "date": trade_date,
-            "total_records": 0,
-            "stocks": [],
-            "note": "无数据（非交易日或盘后未更新）",
-        }
+        # Non-trading day or data not yet published — fall back to previous trading day
+        from datetime import date as date_type
+        try:
+            today = date_type.fromisoformat(trade_date)
+            prev = prev_trading_day(today)
+            prev_date = prev.isoformat()
+            data = datacenter_query(
+                "RPT_DAILYBILLBOARD_DETAILSNEW",
+                filter_str=f"(TRADE_DATE>='{prev_date}')(TRADE_DATE<='{prev_date}')",
+                page_size=500,
+                sort_columns="BILLBOARD_NET_AMT",
+                sort_types="-1",
+            )
+            if data:
+                trade_date = prev_date
+            else:
+                return {
+                    "date": trade_date,
+                    "total_records": 0,
+                    "stocks": [],
+                    "note": "无数据（非交易日或盘后未更新）",
+                }
+        except Exception:
+            return {
+                "date": trade_date,
+                "total_records": 0,
+                "stocks": [],
+                "note": "无数据（非交易日或盘后未更新）",
+            }
 
     actual_date = str(data[0].get("TRADE_DATE", ""))[:10] if data else trade_date
     stocks = []

@@ -47,7 +47,7 @@ TradingAgents 是一个面向 A 股市场的 AI 驱动量化研究与交易系�
 | **模拟交易** | 完整模拟交易周期 + QMT 桥接 |
 | **数据质量门禁** | 内置校验规则 + 自定义规则引擎 + 数据隔离区 |
 | **Web UI** | 29 个模板文件 / 36 条 Web route，Tailwind 暗色主题 |
-| **REST API** | 117 条 `/api/v1` route（23 个 API 蓝图）；支持 Bearer Token + TokenBucket，PostgreSQL 写操作默认启用全局认证 gate |
+| **REST API** | 118 条 `/api/v1` route（23 个 API 蓝图）；支持 Bearer Token + TokenBucket，PostgreSQL 写操作默认启用全局认证 gate |
 | **CLI** | Typer + Rich TUI 交互式终端 |
 
 ---
@@ -661,7 +661,7 @@ class ReportGenerator:
 | | POST | `/backtest/analyze` | 详细绩效分析 |
 | | POST | `/backtest/optimize` | 参数网格搜索 + 遗传算法 |
 | `routes_market.py` | GET | `/market/summary`, `/market/strategies`, `/market/regime` | 市场综述/策略列表/制度分析 |
-| `routes_market_data.py` | GET | `/market/dragon-tiger`, `/market/sectors`, `/market/northbound`, `/market/blocks`, `/market/momentum`, `/market/calendar` | 龙虎榜/板块/北向/股票池/动量/日历 |
+| `routes_market_data.py` | GET | `/market/dragon-tiger`, `/market/sectors`, `/market/northbound`, `/market/blocks`, `/market/momentum`, `/market/overview`, `/market/calendar` | 龙虎榜/板块/北向/股票池/动量/市场概览/日历 |
 | | POST | `/market/momentum-rotation` | 动量轮动回测 |
 | `routes_data_health.py` | GET | `/data/health` | 数据源健康探测 |
 | `routes_paper.py` | POST/GET | `/paper/cycle`, `/paper/state`, `/paper/trades` | 模拟交易周期/状态/成交 |

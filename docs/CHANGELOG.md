@@ -2,6 +2,14 @@
 
 > 记录每个版本的架构变更、模块清单和关键决策。对应 `CHANGELOG.md`。
 
+## v2.2 — 2026-07-05
+
+**Bug 修复：路由冲突与策略映射**
+
+- 修复 `routes_market_data.py` 中 `/market/summary` 与 `routes_market.py` 的路由冲突（前者改为 `/market/overview`，提供独立于 symbol 的宽泛市场概览）
+- 修复 `backtest_engine.py` 中 `MomentumRotation` 误入单标的 `run()` 策略映射（移除映射，传入时给出清晰错误引导用户使用 `run_portfolio()`）
+- 其余 10 个单标的策略回归通过
+
 ## v2.1 — 2026-07-04
 
 **文档体系精简**

@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field
 
 from .fee_model import AStockFeeConfig, calculate_fees
 from .metrics import summarize_metrics
-from .strategy_base import MomentumRotationStrategy, StrategyBase
+from .strategy_base import StrategyBase
 
 EXECUTION_SIGNAL: str = "ResearchOnly"
 
@@ -463,7 +463,7 @@ class BacktestEngine:
         symbol: str,
         start_date: str,
         end_date: str,
-        strategy: StrategyBase,
+        strategy: "StrategyBase | str",
         rebalance_freq: str = "M",
         *,
         initial_cash: float = 100000.0,
@@ -480,8 +480,10 @@ class BacktestEngine:
             Start date (``"YYYY-MM-DD"``).
         end_date : str
             End date (``"YYYY-MM-DD"``).
-        strategy : StrategyBase
-            Strategy instance.
+        strategy : StrategyBase or str
+            Strategy instance, or a canonical name string (e.g.
+            ``"MovingAverageTrend"``) that will be resolved via the
+            strategy registry.
         rebalance_freq : str
             Pandas offset alias for rebalance periods (default ``"M"`` =
             monthly).
@@ -492,6 +494,46 @@ class BacktestEngine:
         -------
         BacktestResult
         """
+        # ── Resolve strategy name → instance ───────────────────────
+        if isinstance(strategy, str):
+            from .strategy_base import (
+                MovingAverageTrendStrategy,
+                BullTrendStrategy,
+                ValueAverageStrategy,
+                MeanReversionStrategy,
+                RSIRangeStrategy,
+                DefensiveMomentumStrategy,
+                PutWriteStrategy,
+                MACDTrendStrategy,
+                BollingerBandsReversionStrategy,
+                GridTradingStrategy,
+            )
+
+            _NAME_TO_CLASS: dict[str, type] = {
+                "MovingAverageTrend": MovingAverageTrendStrategy,
+                "BullTrend": BullTrendStrategy,
+                "ValueAverage": ValueAverageStrategy,
+                "MeanReversion": MeanReversionStrategy,
+                "RSIRange": RSIRangeStrategy,
+                "DefensiveMomentum": DefensiveMomentumStrategy,
+                "PutWrite": PutWriteStrategy,
+                "MACDTrend": MACDTrendStrategy,
+                "BollingerBandsReversion": BollingerBandsReversionStrategy,
+                "GridTrading": GridTradingStrategy,
+            }
+            cls = _NAME_TO_CLASS.get(strategy)
+            if cls is None:
+                if strategy == "MomentumRotation":
+                    raise ValueError(
+                        f"MomentumRotation is a portfolio-level strategy and cannot be used with BacktestEngine.run(). "
+                        f"Use BacktestEngine.run_portfolio(symbols=..., strategy=MomentumRotationStrategy(config)) instead."
+                    )
+                raise ValueError(
+                    f"Unknown strategy name {strategy!r}. "
+                    f"Available: {list(_NAME_TO_CLASS.keys())}"
+                )
+            strategy = cls({})
+
         df = self._fetch_data(symbol, start_date, end_date)
 
         # Build data assumption — reflects whether mock or real data was used

@@ -70,6 +70,9 @@ def calculate_max_drawdown(prices: pd.Series) -> float:
     """
     if len(prices) < 2:
         return 0.0
+    # Accept both pd.Series and np.ndarray
+    if not isinstance(prices, pd.Series):
+        prices = pd.Series(prices)
     cumulative_max = prices.cummax()
     drawdown = (prices - cumulative_max) / cumulative_max
     min_dd = float(drawdown.min())

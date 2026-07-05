@@ -93,7 +93,7 @@
 
 ### 4.1 关键 endpoint 能力等级（Phase 30 快照）
 
-> 以下为代表性端点（代码中共有 88 个端点，详见完整端点参考 §2）。
+> 以下为代表性端点（代码中共有 118 个端点，详见完整端点参考 §2）。
 
 | Endpoint | 当前能力 | 说明 |
 |----------|----------|------|
@@ -471,6 +471,7 @@ curl -X GET "http://localhost:5001/api/v1/kline?symbol="
 | API | Method | 功能 | 响应 keys | 能力 | 测试 |
 |---|---|---|---|---|---|
 | `/api/v1/market/summary` | GET | 市场摘要 | `symbol`, `latest_price`, `latest_date`, `source`, `pe`, `pb`, `market_cap`, `kline_bars[]`, `valuations[]`, `indicators[]` | research | `test_astock_api.py` |
+| `/api/v1/market/overview` | GET | 宽泛市场概览 | `indices[]`, `advance`, `decline`, `source` (real/mock) | research | — |
 | `/api/v1/market/sectors` | GET | 板块强弱 | `top[]`, `bottom[]`, `total` | research | 同上 |
 | `/api/v1/market/dragon-tiger` | GET | 龙虎榜 | `stocks[]`, `date`, `total_records` | research | 同上 |
 | `/api/v1/market/northbound` | GET | 北向资金 | `flow` | research | 同上 |
