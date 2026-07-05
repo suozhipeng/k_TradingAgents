@@ -407,7 +407,85 @@ def _evaluate_rule(rule: AlertRule, facade: Any) -> AlertEvent | None:
                     source=resp.source or "facade",
                 )
 
-        # TODO: strategy and risk rules — future enhancement
+        elif trigger_type == TriggerType.STRATEGY.value:
+            # Strategy-based alerts: check if any backtest result meets criteria
+            from flask import current_app
+            store = current_app.config.get("STORE") if current_app else None
+            if store:
+                try:
+                    bt_df = store.get_backtest_results()
+                    if bt_df is not None and not bt_df.empty:
+                        symbol_bts = bt_df[bt_df["symbol"] == symbol]
+                        if not symbol_bts.empty:
+                            latest_bt = symbol_bts.iloc[-1]
+                            total_ret = float(latest_bt.get("total_return", 0) or 0)
+                            max_dd = float(latest_bt.get("max_drawdown", 0) or 0)
+                            if direction == TriggerDirection.ABOVE.value:
+                                if total_ret >= threshold:
+                                    return AlertEvent(
+                                        rule_id=rule.rule_id,
+                                        symbol=symbol,
+                                        trigger_type=trigger_type,
+                                        severity=severity,
+                                        message=f"策略收益 {total_ret*100:.1f}% ≥ 阈值 {threshold}%",
+                                        current_value=round(total_ret * 100, 2),
+                                        threshold=threshold,
+                                        source="strategy_backtest",
+                                    )
+                            else:
+                                if total_ret <= threshold:
+                                    return AlertEvent(
+                                        rule_id=rule.rule_id,
+                                        symbol=symbol,
+                                        trigger_type=trigger_type,
+                                        severity=severity,
+                                        message=f"策略收益 {total_ret*100:.1f}% ≤ 阈值 {threshold}%",
+                                        current_value=round(total_ret * 100, 2),
+                                        threshold=threshold,
+                                        source="strategy_backtest",
+                                    )
+                except Exception:
+                    pass
+
+        elif trigger_type == TriggerType.RISK.value:
+            # Risk-based alerts: check portfolio risk metrics
+            from flask import current_app
+            store = current_app.config.get("STORE") if current_app else None
+            if store:
+                try:
+                    trades_df = store.get_paper_trades()
+                    if trades_df is not None and not trades_df.empty:
+                        symbol_trades = trades_df[trades_df["symbol"] == symbol]
+                        if not symbol_trades.empty:
+                            # Check if max drawdown exceeds threshold
+                            latest_trade = symbol_trades.iloc[-1]
+                            pnl = float(latest_trade.get("pnl", 0) or 0)
+                            if direction == TriggerDirection.ABOVE.value:
+                                if pnl >= threshold:
+                                    return AlertEvent(
+                                        rule_id=rule.rule_id,
+                                        symbol=symbol,
+                                        trigger_type=trigger_type,
+                                        severity=severity,
+                                        message=f"持仓盈亏 {pnl:.2f} ≥ 阈值 {threshold}",
+                                        current_value=round(pnl, 2),
+                                        threshold=threshold,
+                                        source="risk_monitor",
+                                    )
+                            else:
+                                if pnl <= threshold:
+                                    return AlertEvent(
+                                        rule_id=rule.rule_id,
+                                        symbol=symbol,
+                                        trigger_type=trigger_type,
+                                        severity=severity,
+                                        message=f"持仓盈亏 {pnl:.2f} ≤ 阈值 {threshold}",
+                                        current_value=round(pnl, 2),
+                                        threshold=threshold,
+                                        source="risk_monitor",
+                                    )
+                except Exception:
+                    pass
 
     except Exception:
         return None

@@ -2,7 +2,7 @@
 AStock Pro 工业级后端核心计算引擎
 ===================================
 
-推平重建 v2.0 — 2026-06-27
+推平重建 v2.1 — 2026-07-06
 
 功能覆盖:
   1. BaseStrategy 统一策略工厂（标准基类 + 3 种 A 股核心轮动算法）
@@ -13,10 +13,14 @@ AStock Pro 工业级后端核心计算引擎
      - 坏数据脱水拦截器（NaN / Inf / 极端离群值 → 0.0）
   4. 沪深300 业绩基准线（灰色虚线，1.0 起点时间序列）
   5. 参数 MD5 哈希持久化到本地 DuckDB（前端一键分享锚点）
+  6. 多策略矩阵并发计算（ThreadPoolExecutor）
+  7. 幸存者偏差 / 前瞻偏差检测
+  8. 深度风险归因（Sortino, Calmar, Beta, Drawdown Duration）
 
 依赖:
   - pandas, numpy, hashlib
   - duckdb (optional, fallback silent)
+  - concurrent.futures (stdlib)
   - 运行时项目: tradingagents.astock.data_sources (AStockDataFacade)
 """
 
@@ -28,6 +32,7 @@ import logging
 import math
 import os
 from abc import ABC, abstractmethod
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, timedelta
 from typing import Any, Optional
@@ -1347,11 +1352,22 @@ def run_multi_backtest(params_list: list[PipelineParams]) -> list[BacktestResult
     list of BacktestResult
         每个策略的回测结果。
     """
-    results: list[BacktestResult] = []
-    for p in params_list:
-        result = run_backtest_pipeline(p)
-        results.append(result)
-    return results
+    if len(params_list) <= 1:
+        return [run_backtest_pipeline(p) for p in params_list]
+
+    results: list[BacktestResult | None] = [None] * len(params_list)
+    max_workers = min(len(params_list), os.cpu_count() or 4)
+
+    def _run_one(idx: int, p: PipelineParams) -> tuple[int, BacktestResult]:
+        return idx, run_backtest_pipeline(p)
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {executor.submit(_run_one, i, p): i for i, p in enumerate(params_list)}
+        for future in as_completed(futures):
+            idx, result = future.result()
+            results[idx] = result
+
+    return [r for r in results if r is not None]
 
 
 # ---------------------------------------------------------------------------

@@ -2,14 +2,18 @@
 
 Provides a single ``GET /api/v1/dashboard/overview`` endpoint that returns
 all the data the dashboard page needs: statistics, paper trading state,
-recent backtests, recent trades, and a mini equity curve for the P&L chart.
+recent backtests, recent trades, equity curves, and a global decision
+summary (buy/hold/sell) from technical analysis of the watchlist.
 """
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from flask import Blueprint, Response, current_app, jsonify
+
+logger = logging.getLogger(__name__)
 
 bp = Blueprint("dashboard", __name__)
 
@@ -193,6 +197,9 @@ def dashboard_overview() -> tuple[Response, int]:
         # Paper equity curve from stored trades
         paper_equity_curve = _compute_paper_equity_curve(store)
 
+        # Global decision summary from watchlist technical analysis
+        decision_summary = _get_decision_summary()
+
         return jsonify(
             {
                 "statistics": {
@@ -207,6 +214,7 @@ def dashboard_overview() -> tuple[Response, int]:
                 "recent_trades": _sanitize(recent_trades),
                 "latest_equity_curve": latest_equity_curve,
                 "paper_equity_curve": paper_equity_curve,
+                "decision_summary": decision_summary,
             }
         ), 200
     except Exception as exc:
@@ -302,3 +310,52 @@ def _sanitize(rows: list[dict]) -> list[dict]:
                     safe[k] = str(v)
         clean.append(safe)
     return clean
+
+
+# ---------------------------------------------------------------------------
+# Decision summary helper
+# ---------------------------------------------------------------------------
+
+
+def _get_decision_summary() -> dict[str, Any]:
+    """Compute buy/hold/sell summary from watchlist technical analysis.
+
+    Reuses the same logic as routes_analysis but returns a lightweight
+    summary dict suitable for the dashboard overview.
+    """
+    counts = {"buy": 0, "hold": 0, "sell": 0}
+    top_picks: list[dict] = []
+
+    try:
+        from tradingagents.astock.api.routes_analysis import _load_watchlist, _analyze_stock_symbol
+
+        items = _load_watchlist()
+        if items:
+            for item in items:
+                symbol = item.get("symbol", "").strip()
+                name = item.get("name", symbol)
+                if not symbol:
+                    continue
+                result = _analyze_stock_symbol(symbol, name)
+                rating = result.get("rating", "hold")
+                if rating in counts:
+                    counts[rating] += 1
+                if rating == "buy" and len(top_picks) < 5:
+                    top_picks.append({
+                        "symbol": result["symbol"],
+                        "name": result["name"],
+                        "score": result["score"],
+                        "signal": result["signal"],
+                    })
+    except Exception as exc:
+        logger.warning("Failed to compute decision summary: %s", exc)
+
+    total = counts["buy"] + counts["hold"] + counts["sell"]
+    return {
+        "total": total,
+        "counts": counts,
+        "top_picks": top_picks,
+        "dominant": max(counts, key=counts.get) if total > 0 else "hold",
+        "research_only": True,
+        "actionable": False,
+    }

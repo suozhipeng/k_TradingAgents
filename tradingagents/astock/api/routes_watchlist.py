@@ -3,9 +3,9 @@
 GET    /api/v1/watchlist          → list of tracked symbols
 POST   /api/v1/watchlist/add      → {symbol, name}
 POST   /api/v1/watchlist/remove   → {symbol}
+POST   /api/v1/watchlist/batch-analyze → batch AI analysis for all watchlist symbols
 
-Uses a JSON file at ~/.tradingagents/watchlist.json as temporary storage.
-TODO: migrate to DuckDB persistence.
+Uses DuckDB ``watchlist`` table as primary storage with JSON file fallback.
 """
 
 from __future__ import annotations
@@ -23,14 +23,64 @@ logger = logging.getLogger(__name__)
 
 bp = Blueprint("watchlist", __name__)
 
-# Tuple type alias used by all endpoint functions
-WatchlistResponse = tuple[Response, int] | Response
-
 WATCHLIST_PATH = Path.home() / ".tradingagents" / "watchlist.json"
 
 
-def _load() -> list[dict[str, Any]]:
-    """Load watchlist from JSON file."""
+def _load_from_duckdb(store: Any) -> list[dict[str, Any]]:
+    """Load watchlist from DuckDB watchlist table."""
+    try:
+        if store is None:
+            return []
+        df = store.query_sql('SELECT symbol, name, added_at, source FROM watchlist ORDER BY added_at DESC')
+        if df is None or df.empty:
+            return []
+        return df.to_dict(orient="records")
+    except Exception as exc:
+        logger.debug("DuckDB watchlist unavailable: %s", exc)
+        return []
+
+
+def _save_to_duckdb(store: Any, items: list[dict[str, Any]]) -> None:
+    """Save watchlist to DuckDB watchlist table."""
+    try:
+        if store is None:
+            return
+        import duckdb
+        conn = duckdb.connect(store.db_path) if hasattr(store, "db_path") else None
+        if conn is None:
+            # Try using store's internal connection
+            conn = store._conn if hasattr(store, "_conn") else None
+        if conn is None:
+            return
+
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS watchlist (
+                symbol VARCHAR PRIMARY KEY,
+                name VARCHAR,
+                added_at TIMESTAMP,
+                source VARCHAR DEFAULT 'manual'
+            )
+        """)
+        conn.execute("DELETE FROM watchlist")
+        for item in items:
+            conn.execute(
+                "INSERT INTO watchlist (symbol, name, added_at, source) VALUES (?, ?, ?, ?)",
+                [
+                    item["symbol"],
+                    item.get("name", item["symbol"]),
+                    item.get("added_at", datetime.now().isoformat()),
+                    item.get("source", "manual"),
+                ],
+            )
+        conn.commit()
+        conn.close()
+    except Exception as exc:
+        logger.warning("DuckDB watchlist save failed, falling back to JSON: %s", exc)
+        _save_json(items)
+
+
+def _load_json() -> list[dict[str, Any]]:
+    """Load watchlist from JSON file (legacy fallback)."""
     if not WATCHLIST_PATH.exists():
         return []
     try:
@@ -38,15 +88,33 @@ def _load() -> list[dict[str, Any]]:
             data = json.load(f)
             return data if isinstance(data, list) else []
     except (json.JSONDecodeError, OSError) as exc:
-        logger.warning("Failed to load watchlist: %s", exc)
+        logger.warning("Failed to load watchlist JSON: %s", exc)
         return []
 
 
-def _save(items: list[dict[str, Any]]) -> None:
-    """Save watchlist to JSON file."""
+def _save_json(items: list[dict[str, Any]]) -> None:
+    """Save watchlist to JSON file (legacy fallback)."""
     WATCHLIST_PATH.parent.mkdir(parents=True, exist_ok=True)
     with open(WATCHLIST_PATH, "w", encoding="utf-8") as f:
         json.dump(items, f, ensure_ascii=False, indent=2)
+
+
+def _load() -> list[dict[str, Any]]:
+    """Load watchlist — tries DuckDB first, falls back to JSON."""
+    from flask import current_app
+    store = current_app.config.get("STORE") if current_app else None
+    items = _load_from_duckdb(store)
+    if not items:
+        items = _load_json()
+    return items
+
+
+def _save(items: list[dict[str, Any]]) -> None:
+    """Save watchlist — tries DuckDB first, falls back to JSON."""
+    from flask import current_app
+    store = current_app.config.get("STORE") if current_app else None
+    _save_to_duckdb(store, items)
+    _save_json(items)
 
 
 # ---------------------------------------------------------------------------
@@ -130,7 +198,11 @@ def remove_symbol() -> WatchlistResponse:
 
 @bp.route("/watchlist/batch-analyze", methods=["POST"])
 def batch_analyze() -> WatchlistResponse:
-    """Submit all watchlist symbols for batch analysis."""
+    """Submit all watchlist symbols for batch analysis.
+
+    Performs technical analysis on all watchlist symbols and optionally
+    triggers AI analysis if LLM is configured.
+    """
     items = _load()
     if not items:
         return jsonify({"error": "Watchlist is empty", "status": 400}), 400
@@ -142,9 +214,10 @@ def batch_analyze() -> WatchlistResponse:
     if not store:
         return jsonify({"error": "Store not available", "status": 503}), 503
 
-    # Run research data query for each symbol
     results: list[dict[str, Any]] = []
     errors: list[dict[str, Any]] = []
+    counts = {"buy": 0, "hold": 0, "sell": 0}
+
     for sym in symbols:
         try:
             # Query stored research reports
@@ -153,21 +226,45 @@ def batch_analyze() -> WatchlistResponse:
                 reports = df.tail(3).to_dict(orient="records")
             else:
                 reports = []
-            results.append({"symbol": sym, "reports_count": len(reports), "reports": reports})
+
+            # Run technical analysis
+            from tradingagents.astock.api.routes_analysis import _analyze_stock_symbol
+            tech = _analyze_stock_symbol(sym, sym)
+
+            rating = tech.get("rating", "hold")
+            if rating in counts:
+                counts[rating] += 1
+
+            results.append({
+                "symbol": sym,
+                "name": tech.get("name", sym),
+                "price": tech.get("price", 0),
+                "score": tech.get("score", 50),
+                "rating": rating,
+                "signal": tech.get("signal", ""),
+                "reasons": tech.get("reasons", []),
+                "reports_count": len(reports),
+                "reports": reports,
+            })
         except Exception as exc:
             errors.append({"symbol": sym, "error": str(exc)})
 
-    return jsonify(
-        {
-            "status": "complete",
-            "total": len(symbols),
-            "results_count": len(results),
-            "errors_count": len(errors),
-            "results": results[:10],
-            "errors": errors,
-            "message": f"完成 {len(results)}/{len(symbols)} 个标的的研究查询",
-        }
-    ), 200
+    # Sort: buy first, then hold, then sell
+    rating_order = {"buy": 0, "hold": 1, "sell": 2}
+    results.sort(key=lambda r: (rating_order.get(r.get("rating", "hold"), 9), -r.get("score", 0)))
+
+    return jsonify({
+        "status": "complete",
+        "total": len(symbols),
+        "results_count": len(results),
+        "errors_count": len(errors),
+        "summary": {"buy": counts["buy"], "hold": counts["hold"], "sell": counts["sell"]},
+        "results": results,
+        "errors": errors,
+        "message": f"完成 {len(results)}/{len(symbols)} 个标的的分析",
+        "research_only": True,
+        "actionable": False,
+    }), 200
 
 
 __all__ = ["bp"]

@@ -7,7 +7,8 @@ No heavy ``tradingagents.astock`` imports at module level.
 
 from __future__ import annotations
 
-from datetime import datetime
+import logging
+from datetime import date, datetime
 from typing import Any
 
 import pandas as pd
@@ -15,50 +16,7 @@ from flask import Blueprint, Response, current_app, jsonify, request
 
 from ._helpers import df_to_json, sanitise_records
 
-# ---------------------------------------------------------------------------
-# Source inference helpers
-# ---------------------------------------------------------------------------
-
-
-def _resolve_source(
-    store: Any,
-    symbol: str,
-    kline_bars: list[dict[str, Any]],
-    valuations: list[dict[str, Any]],
-) -> str:
-    """Try to determine the data source for *symbol*.
-
-    Priority:
-      1. ``source`` column from the latest kline bar (if present and non-null).
-      2. ``source`` column from the latest valuation row.
-      3. ``"store"`` as fallback.
-    """
-    if kline_bars:
-        src = kline_bars[-1].get("source") or ""
-        if src:
-            return str(src)
-    if valuations:
-        src = valuations[-1].get("source") or ""
-        if src:
-            return str(src)
-    return "store"
-
-
-def _resolve_updated_at(
-    kline_bars: list[dict[str, Any]],
-    valuations: list[dict[str, Any]],
-) -> str:
-    """Return the most recent ``created_at`` timestamp, or empty string."""
-    ts = ""
-    for src in (kline_bars, valuations):
-        if src:
-            ts = (src[-1].get("created_at") or "") or ts
-            if ts:
-                # Keep the first non-empty, most recent source
-                if isinstance(ts, datetime):
-                    ts = ts.isoformat()
-                break
-    return str(ts) if ts else ""
+logger = logging.getLogger(__name__)
 
 bp = Blueprint("market", __name__)
 
@@ -213,3 +171,117 @@ def market_regime() -> tuple[Response, int]:
 
     except Exception as exc:
         return jsonify({"error": str(exc), "verdict": "neutral", "composite_score": 0.0}), 200
+
+
+# ---------------------------------------------------------------------------
+# GET /api/v1/market/recap — Daily market recap report
+# ---------------------------------------------------------------------------
+
+MAJOR_INDICES = [
+    {"symbol": "000001.SH", "name": "上证指数"},
+    {"symbol": "399001.SZ", "name": "深证成指"},
+    {"symbol": "399006.SZ", "name": "创业板指"},
+    {"symbol": "000300.SH", "name": "沪深300"},
+    {"symbol": "000016.SH", "name": "上证50"},
+]
+
+
+@bp.route("/market/recap", methods=["GET", "POST"])
+def daily_market_recap() -> tuple[Response, int]:
+    """Generate a structured daily market recap report.
+
+    GET — returns recap for the most recent trading day.
+    POST — accepts a specific trade_date.
+
+    Query params:
+        trade_date (str, optional) — YYYY-MM-DD
+    """
+    try:
+        if request.method == "POST":
+            body = request.get_json(silent=True) or {}
+            trade_date = body.get("trade_date")
+        else:
+            trade_date = request.args.get("trade_date")
+
+        from tradingagents.astock.data_sources import AStockDataFacade
+
+        facade = AStockDataFacade()
+        indices_data = []
+        total_adv = {"up": 0, "down": 0, "flat": 0}
+        sector_strength = []
+        risk_flags = []
+
+        for idx in MAJOR_INDICES:
+            symbol = idx["symbol"]
+            name = idx["name"]
+            try:
+                resp = facade.get_kline(symbol=symbol, interval="1d", limit=5)
+                if resp.status == "ok" and resp.data and resp.data.get("bars"):
+                    bars = resp.data["bars"]
+                    latest = bars[-1]
+                    prev = bars[-2] if len(bars) >= 2 else latest
+                    close = float(latest.get("close", 0) or 0)
+                    prev_close = float(prev.get("close", 0) or 0)
+                    change_pct = ((close - prev_close) / prev_close * 100) if prev_close > 0 else 0
+                    volume = float(latest.get("volume", 0) or 0)
+
+                    indices_data.append({
+                        "symbol": symbol,
+                        "name": name,
+                        "close": round(close, 2),
+                        "change_pct": round(change_pct, 2),
+                        "volume": volume,
+                        "source": resp.source or "facade",
+                    })
+
+                    if change_pct > 0.1:
+                        total_adv["up"] += 1
+                    elif change_pct < -0.1:
+                        total_adv["down"] += 1
+                    else:
+                        total_adv["flat"] += 1
+            except Exception:
+                pass
+
+        # Sector strength
+        try:
+            sector_resp = facade.get_sector_ranking()
+            if sector_resp.status == "ok" and sector_resp.data:
+                sectors = sector_resp.data.get("sectors", [])
+                sorted_sectors = sorted(
+                    sectors,
+                    key=lambda s: float(s.get("change_pct", 0) or 0),
+                    reverse=True,
+                )
+                sector_strength = [
+                    {
+                        "name": s.get("name", ""),
+                        "change_pct": round(float(s.get("change_pct", 0) or 0), 2),
+                        "lead_stock": s.get("lead_stock", ""),
+                    }
+                    for s in sorted_sectors[:10]
+                ]
+        except Exception:
+            pass
+
+        # Risk flags
+        if indices_data:
+            sh = next((i for i in indices_data if i["symbol"] == "000001.SH"), None)
+            if sh and sh["change_pct"] < -1.5:
+                risk_flags.append("上证指数跌幅超过1.5%，注意风险控制")
+
+        recap_date = trade_date or date.today().isoformat()
+
+        return jsonify({
+            "trade_date": recap_date,
+            "generated_at": datetime.now().isoformat(),
+            "indices": indices_data,
+            "advance_decline": total_adv,
+            "sector_strength": sector_strength,
+            "risk_flags": risk_flags,
+            "status": "ok",
+            "research_only": True,
+        }), 200
+    except Exception as exc:
+        logger.exception("daily_market_recap failed")
+        return jsonify({"error": str(exc), "status": 500}), 500
