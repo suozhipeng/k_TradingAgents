@@ -60,6 +60,7 @@ from .governance import (
     ApiKey,
     DataQualityRule,
     DataQuarantine,
+    NotificationChannel,
 )
 
 __all__ = [
@@ -99,4 +100,5 @@ __all__ = [
     "ApiKey",
     "DataQualityRule",
     "DataQuarantine",
+    "NotificationChannel",
 ]

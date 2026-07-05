@@ -461,15 +461,17 @@ class PaperTradeScheduler:
         """Persist a single job to DuckDB."""
         if self._store is None:
             return
+        self._ensure_jobs_table()
         try:
             trigger_args_json = json.dumps(record.trigger_args, ensure_ascii=False)
+            now = datetime.utcnow().isoformat()
             self._store.conn.execute(
-                """INSERT INTO scheduled_jobs (job_id, job_type, func_name, trigger_type, trigger_args, enabled)
-                   VALUES (?, ?, ?, ?, ?, ?)
+                """INSERT INTO scheduled_jobs (job_id, job_type, func_name, trigger_type, trigger_args, enabled, updated_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)
                    ON CONFLICT(job_id) DO UPDATE SET
                        job_type=excluded.job_type, func_name=excluded.func_name,
                        trigger_type=excluded.trigger_type, trigger_args=excluded.trigger_args,
-                       enabled=excluded.enabled, updated_at=CURRENT_TIMESTAMP""",
+                       enabled=excluded.enabled, updated_at=excluded.updated_at""",
                 [
                     record.job_id,
                     record.job_type,
@@ -477,6 +479,7 @@ class PaperTradeScheduler:
                     record.trigger_type,
                     trigger_args_json,
                     record.enabled,
+                    now,
                 ],
             )
         except Exception as exc:
@@ -490,6 +493,7 @@ class PaperTradeScheduler:
     def _delete_job_from_db(self, job_id: str) -> None:
         if self._store is None:
             return
+        self._ensure_jobs_table()
         try:
             self._store.conn.execute("DELETE FROM scheduled_jobs WHERE job_id = ?", [job_id])
         except Exception as exc:

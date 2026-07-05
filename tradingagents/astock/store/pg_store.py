@@ -99,7 +99,7 @@ VALUATION_COLUMN_MAP: dict[str, str] = {
 
 from .models import Base
 
-# Import all 31 ORM model classes from the models package
+# Import all ORM model classes from the models package
 from .models import (
     DatabaseStorageProfile,
     SecurityMaster,
@@ -132,6 +132,7 @@ from .models import (
     ApiKey,
     DataQualityRule,
     DataQuarantine,
+    NotificationChannel,
 )
 
 # ---------------------------------------------------------------------------
@@ -170,6 +171,7 @@ ALL_MODEL_CLASSES: list[type[Base]] = [
     ApiKey,
     DataQualityRule,
     DataQuarantine,
+    NotificationChannel,
 ]
 
 ALL_TABLE_NAMES: list[str] = [cls.__tablename__ for cls in ALL_MODEL_CLASSES]

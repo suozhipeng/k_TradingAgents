@@ -660,6 +660,21 @@ _register(TableDef(
     primary_key=["quarantine_id"],
 ))
 
+# --- notification_channels ---
+_register(TableDef(
+    name="notification_channels",
+    columns=[
+        ColumnDef("name", "VARCHAR", "TEXT", nullable=False),
+        ColumnDef("kind", "VARCHAR", "TEXT", nullable=False, default="'generic'"),
+        ColumnDef("url", "VARCHAR", "TEXT", nullable=True),
+        ColumnDef("enabled", "BOOLEAN", "BOOLEAN", nullable=True, default="TRUE"),
+        ColumnDef("config_json", "VARCHAR", "TEXT", nullable=True),
+        ColumnDef("created_at", "TIMESTAMP", "TIMESTAMP", nullable=True, default="CURRENT_TIMESTAMP"),
+        ColumnDef("updated_at", "TIMESTAMP", "TIMESTAMP", nullable=True, default="CURRENT_TIMESTAMP"),
+    ],
+    primary_key=["name"],
+))
+
 # ---------------------------------------------------------------------------
 # Index definitions (derived from TABLE_DEFS + explicit definitions)
 # ---------------------------------------------------------------------------

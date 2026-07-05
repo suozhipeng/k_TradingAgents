@@ -2,7 +2,7 @@
 
 Contains: DataSource, DataQualityCheck, DataSnapshot, DataPartition,
 DataIngestionJob, DataIngestionJobEvent, MigrationVersion, AuditLog,
-ApiKey, DataQualityRule, DataQuarantine.
+ApiKey, DataQualityRule, DataQuarantine, NotificationChannel.
 """
 
 from __future__ import annotations
@@ -184,3 +184,14 @@ class DataQuarantine(Base):
     resolved_by: Mapped[str | None] = mapped_column(String, nullable=True)
     resolved_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, server_default=text("CURRENT_TIMESTAMP"))
+
+
+class NotificationChannel(Base):
+    __tablename__ = "notification_channels"
+    name: Mapped[str] = mapped_column(String, primary_key=True)
+    kind: Mapped[str] = mapped_column(String, nullable=False, default="generic")
+    url: Mapped[str | None] = mapped_column(String, nullable=True)
+    enabled: Mapped[bool | None] = mapped_column(Boolean, default=True)
+    config_json: Mapped[str | None] = mapped_column(String, nullable=True)
+    created_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, server_default=text("CURRENT_TIMESTAMP"))
+    updated_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, server_default=text("CURRENT_TIMESTAMP"))

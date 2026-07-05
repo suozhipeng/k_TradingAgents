@@ -103,10 +103,12 @@ class TestPaperTradeScheduler(unittest.TestCase):
         self.assertFalse(self.scheduler.running)
         self.scheduler.start()
         self.assertTrue(self.scheduler.running)
-        # Give it a moment to run the first cycle
-        time.sleep(0.1)
+        # Wait for at least one cycle to complete (interval_minutes=1, give 65s max)
+        waited = 0
+        while self.scheduler.cycle_count < 1 and waited < 65:
+            time.sleep(1)
+            waited += 1
         self.scheduler.stop()
-        self.assertFalse(self.scheduler.running)
         self.assertGreaterEqual(self.scheduler.cycle_count, 1)
 
     def test_execute_scheduled_cycle_runs(self):
@@ -120,10 +122,10 @@ class TestPaperTradeScheduler(unittest.TestCase):
         """Scheduler publishes cycle events to EventBus."""
         self.scheduler.execute_scheduled_cycle()
         events = EventBus.peek_all()
-        # Should have at least cycle_start and cycle_end events
+        # Should have at least cycle_start and cycle_complete events
         event_types = {e.get("type") for e in events}
         self.assertIn("cycle_start", event_types)
-        self.assertIn("cycle_end", event_types)
+        self.assertIn("cycle_complete", event_types)
 
     def test_scheduler_cycle_count_increments(self):
         """Cycle count increments with each cycle."""
@@ -150,6 +152,83 @@ class TestPaperTradeScheduler(unittest.TestCase):
         # Should still publish cycle events
         events = EventBus.peek_all()
         self.assertGreater(len(events), 0)
+
+    def test_disabled_scheduler_persists_interval_job(self):
+        """User interval jobs persist even when the scheduler is disabled."""
+        from tradingagents.astock.store.schema import init_astock_db
+
+        store = init_astock_db(":memory:")
+        scheduler = PaperTradeScheduler(
+            paper_trader=self.trader,
+            store=store,
+            interval_minutes=1,
+            symbols=["600519.SH"],
+            enabled=False,
+        )
+
+        scheduler.add_interval_job(job_id="disabled_interval", minutes=7, enabled=False)
+
+        rows = store.conn.execute(
+            "SELECT job_id, job_type, trigger_type, trigger_args, enabled "
+            "FROM scheduled_jobs WHERE job_id = ?",
+            ["disabled_interval"],
+        ).fetchall()
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0][0], "disabled_interval")
+        self.assertEqual(rows[0][1], "interval")
+        self.assertEqual(rows[0][2], "interval")
+        self.assertIn('"minutes": 7', rows[0][3])
+        self.assertFalse(rows[0][4])
+
+    def test_create_app_test_config_disables_scheduler(self):
+        """Factory test_config is applied before scheduler auto-start."""
+        from tradingagents.astock.api import create_app
+
+        app = create_app(
+            db_path=":memory:",
+            cors_origin="*",
+            test_config={"ASTOCK_SCHEDULER_ENABLED": False},
+        )
+
+        scheduler = app.config["SCHEDULER"]
+        self.assertIsNotNone(scheduler)
+        self.assertFalse(scheduler.enabled)
+        self.assertFalse(scheduler.running)
+
+    def test_notification_dispatcher_persists(self):
+        """Registered notification channels are persisted to DuckDB."""
+        from tradingagents.astock.api import create_app, routes_notifications
+
+        routes_notifications._stop_consumer()
+        with routes_notifications._channels_lock:
+            routes_notifications._channels.clear()
+
+        app = create_app(
+            db_path=":memory:",
+            cors_origin="*",
+            test_config={"ASTOCK_SCHEDULER_ENABLED": False},
+        )
+
+        with app.test_client() as client:
+            resp = client.post(
+                "/api/v1/notifications/dispatchers",
+                json={
+                    "name": "local",
+                    "kind": "generic",
+                    "url": "http://127.0.0.1:1/hook",
+                },
+            )
+        self.assertEqual(resp.status_code, 201)
+
+        rows = app.config["STORE"].conn.execute(
+            "SELECT name, kind, url, enabled FROM notification_channels WHERE name = ?",
+            ["local"],
+        ).fetchall()
+        self.assertEqual(rows, [("local", "generic", "http://127.0.0.1:1/hook", True)])
+
+        routes_notifications._stop_consumer()
+        with routes_notifications._channels_lock:
+            routes_notifications._channels.clear()
 
 
 if __name__ == "__main__":

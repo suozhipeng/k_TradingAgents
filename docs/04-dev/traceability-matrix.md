@@ -27,9 +27,9 @@
 | FR-08 | 本地存储与缓存 | Data & Ops | `store/`, cache, data refresh routes | `settings.html`, `data_health.html` | Phase 12/19/27 归档 | 12, 19, 27 | done |
 | FR-09 | WebUI 产品能力 | WebUI Shell | `tradingagents/astock/web/` | Dashboard / Research / Strategy / Leaders / Trading / Ops | WebUI/API slice tests | 13, 15-17, 22-29 | partial |
 | FR-10 | 测试与回归 | Test & Release | `tests/`, `tests/conftest.py` | N/A | Phase 21 归档、切片回归 | 21 | done |
-| FR-11 | Daily market review (DSA-01) — per trading day aggregated report | Data & Ops | `routes_daily.py` | `/daily` + `GET /api/v1/daily/review` | 185 WebUI+API passed | Web-P0 | ✅ done (2026-07-05) |
+| FR-11 | Daily market review (DSA-01) — per trading day aggregated report | Data & Ops | `routes_daily.py` | `/daily` + `GET /api/v1/daily/review` | full suite 1070 passed / 15 skipped (2026-07-05) | Web-P0 | ✅ done (2026-07-05) |
 | FR-12 | Watchlist batch analysis (DSA-02/DSA-04) — real research query | Watch Center / AI Research Center | `routes_watchlist.py` | Watch Center batch-analyze | DSA-02/04 归档 | Web-P4 | ✅ done (stub → real query) |
-| FR-13 | Task lifecycle (DSA-05) — queued/running/succeeded/failed/cancelled; scheduler status endpoint | Data & Ops | `audit_store.py`, `routes_ops.py` | Task Center / Ops | DSA-05 归档 | Web-P0 | ✅ done (scheduler_status + /ops/tasks + /ops/tasks/<task_id> + cancel + TaskStatus enum with valid transitions + SSE TaskRun wrapping + AuditStore) |
+| FR-13 | Task lifecycle (DSA-05) — TaskRun 使用 queued/running/success/failed/cancelled；DataJob 使用 queued/running/succeeded/failed/cancelled；scheduler status endpoint | Data & Ops | `audit_store.py`, `routes_ops.py` | Task Center / Ops | DSA-05 归档 | Web-P0 | ✅ done (scheduler_status + /ops/tasks + /ops/tasks/<task_id> + cancel + TaskStatus enum with valid transitions + SSE TaskRun wrapping + AuditStore) |
 | FR-14 | Push notification (DSA-06) — dingtalk + email + webhook + work_weixin channels; EventBus subscriber dispatch | Data & Ops | `routes_notifications.py`, `event_bus.py` | Notification Center | DSA-06 归档 | Web-P0 | ✅ done (webhook + dingtalk + feishu + work_weixin + email/SMTP + desktop + EventBus consumer dispatch; 持久化 + 前端配置) |
 | FR-15 | Scheduled tasks (DSA-07) — APScheduler + auto-start + pause/resume + cron jobs | Data & Ops | `scheduler.py` (APScheduler), `routes_ops.py` | Task Center / Ops | DSA-07 归档 | Web-P0 | ✅ done (APScheduler 替换 threading.Timer + create_app 自动启动 + pause/resume + add_cron_job) |
 | FR-16 | Daily dashboard (DSA-03) — homepage decision summary + AI dynamic status + alert integration + degraded banner + stale state | WebUI Shell | `dashboard.html` | Homepage | DSA-03 归档 | Web-P0 | ✅ done (global decision summary + loadAIStatus ops/audit + loadAlerts + degraded banner + stale data banner + auto-refresh 60s + 5-state coverage: loading/empty/error/degraded/stale) |
@@ -48,7 +48,7 @@
 | NFR-03 | 可维护性 | Docs / Governance | `README.md`, `phases/` | N/A | Phase 0-29 归档覆盖检查 | 0-29 | done |
 | NFR-04 | 可扩展性 | All Modules | provider/strategy/API registries | API/WebUI | strategy/provider tests | 1, 14, 18, 30+ | partial |
 | NFR-05 | 产品可观测性 | Data & Ops / Ops & Audit | current metrics: health/API/backtest pages; future metrics registry | Ops Dashboard / health pages / SSE | `03-ops/deployment.md` §8, SSE TaskRun events | 30-38 | partial |
-| NFR-06 | API 契约稳定性 | API Platform | 88 Flask routes + contract doc | all `/api/v1/*` endpoints | `01-arch/API.md` (含验收证据表 ✅) | 30-38 | done |
+| NFR-06 | API 契约稳定性 | API Platform | 117 条 `/api/v1` Flask route + contract doc | all `/api/v1/*` endpoints | `01-arch/API.md` (含验收证据表 ✅) | 30-38 | done |
 | NFR-07 | 数据字典与血缘 | Data & Ops / Strategy / AI / Trading | provider/store/schema docs + DataCleaner | Data Health / Strategy / AI / Trading pages | `03-ops/data-sources.md` | 31, 32, 33, 35, 37 | partial |
 | NFR-08 | 测试验收与发布门槛 | Test & Release | `tests/`, phase evidence, 1064 tests collected | N/A | `04-dev/test-plan.md` (含验收证据表 ✅) | 30-38 | done |
 | NFR-09 | 风险披露与合规边界 | Product Governance | page/report copy, AI/report/trading outputs, risk register | WebUI / CLI / reports | `03-ops/compliance.md` | 30-38 | partial |
@@ -66,15 +66,15 @@
 | PROD-02 | 数据质量与回测反偏差 | Data Quality & Bias Control | quality / calendar / constraints / adjustment modules | Data & Ops / Strategy Lab | `tests/test_astock_phase31.py`, backtest/data-source tests, 26 phase validation tests | 31 | done |
 | PROD-03 | Strategy Lab 模块整合 | Strategy Lab | strategy registry / backtest result schema | Strategy Lab tabs | strategy/backtest/optimizer tests | 32 | done |
 | PROD-04 | AI Research Center 模块整合 | AI Research Center | research task / audit schema | AI Research tabs | `tests/test_astock_phases_33_38.py`, research/runtime tests | 33 | done |
-| PROD-05 | Market Leaders 单入口 | Market Leaders | leader pool / market leaders page | Market Leaders tabs / legacy entries | `tests/test_astock_phases_33_38.py`, page routes, 162 WebUI+API passed | 34 | done |
+| PROD-05 | Market Leaders 单入口 | Market Leaders | leader pool / market leaders page | Market Leaders tabs / legacy entries | `tests/test_astock_phases_33_38.py`, page routes, full suite 1070 passed / 15 skipped (2026-07-05) | 34 | done |
 | PROD-06 | Trading & Execution 闭环 | Trading & Execution | order/fill/position/reconciliation schema, PaperTrader Order return, RiskGate wiring, TradingPage capability labels | Trading tabs, trading.html mode switcher | `tests/test_astock_phases_33_38.py`, `tests/test_astock_api.py`, paper_trader tests | 35 | done-with-exclusions (schema+接线完成，真实券商 reconciliation 明确 P3 暂不处理) |
-| PROD-07 | Portfolio Risk & Attribution | Portfolio Workbench | portfolio_risk.py (VaR/HHI/Brinson/stress), routes_portfolio.py, portfolio.html | Portfolio / Strategy / Trading | `tests/test_astock_phases_33_38.py`, API 162 passed | 36 | done |
-| PROD-08 | Ops & Audit Center | Data & Ops | audit_store.py (内存+DuckDB), routes_ops.py, ops_audit.html | Ops Dashboard | `tests/test_astock_phases_33_38.py`, `tests/test_astock_sse.py`, API 162 passed | 37 | done |
-| PROD-09 | Product Navigation Cleanup | WebUI Shell | route/nav/template cleanup, 7-module sidebar, deprecation banners | 全局导航 | web route inventory / docs sync, 162 API+WebUI passed | 38 | done |
+| PROD-07 | Portfolio Risk & Attribution | Portfolio Workbench | portfolio_risk.py (VaR/HHI/Brinson/stress), routes_portfolio.py, portfolio.html | Portfolio / Strategy / Trading | `tests/test_astock_phases_33_38.py`, full suite 1070 passed / 15 skipped (2026-07-05) | 36 | done |
+| PROD-08 | Ops & Audit Center | Data & Ops | audit_store.py (内存+DuckDB), routes_ops.py, ops_audit.html | Ops Dashboard | `tests/test_astock_phases_33_38.py`, `tests/test_astock_sse.py`, full suite 1070 passed / 15 skipped (2026-07-05) | 37 | done |
+| PROD-09 | Product Navigation Cleanup | WebUI Shell | route/nav/template cleanup, 7-module sidebar, deprecation banners | 全局导航 | web route inventory / docs sync, full suite 1070 passed / 15 skipped (2026-07-05) | 38 | done |
 
 ## 3. 当前缺口
 
-- `FR-07` 受控执行已有 trade/QMT/UI 接线，schema/PaperTrader Order 返回/RiskGate 均已落地，QMT mock 语义已澄清（API 返回 `status.mock/source/read_only/live_ready`，页面有醒目警告横幅）；当前 API 回归 162 passed 全绿；真实 QMT 订单/委托查询为已知问题，当前暂不接入，真实券商 reconciliation 明确 P3 暂不处理。
+- `FR-07` 受控执行已有 trade/QMT/UI 接线，schema/PaperTrader Order 返回/RiskGate 均已落地，QMT mock 语义已澄清（API 返回 `status.mock/source/read_only/live_ready`，页面有醒目警告横幅）；当前全量回归 1070 passed / 15 skipped（2026-07-05）；真实 QMT 订单/委托查询为已知问题，当前暂不接入，真实券商 reconciliation 明确 P3 暂不处理。
 - `FR-09` WebUI 顶层信息架构已基本收敛到 7 个模块，但旧入口兼容与文档口径仍在回补。
 - `NFR-02` 可审计性已有 `audit_store.py` (内存+DuckDB)、`TaskRun`/`AuditEvent` schema、Ops routes 和 SSE events，标记为 `done`（底层已落地）。
 - 安全与隐私、SLA 与故障分级、用户角色/RBAC 当前只登记在 `README.md`，不进入本矩阵需求行。

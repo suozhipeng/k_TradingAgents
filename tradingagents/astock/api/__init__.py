@@ -34,12 +34,39 @@ logger = logging.getLogger(__name__)
 DEFAULT_CORS_ORIGIN = "http://localhost:5173"
 
 
+def _as_bool(val: Any, default: bool = False) -> bool:
+    if val is None:
+        return default
+    if isinstance(val, bool):
+        return val
+    text = str(val).strip()
+    if not text:
+        return default
+    return text.lower() in ("true", "1", "yes", "on")
+
+
 def _bool_env(key: str, default: bool = False) -> bool:
     """Read a boolean env var."""
     val = os.environ.get(key, "")
+    return _as_bool(val, default)
+
+
+def _bool_config(app: Flask, key: str, default: bool = False) -> bool:
+    """Read a boolean from app config first, then env."""
+    if key in app.config:
+        return _as_bool(app.config.get(key), default)
+    return _bool_env(key, default)
+
+
+def _int_config(app: Flask, key: str, default: int) -> int:
+    """Read an integer from app config first, then env."""
+    val = app.config.get(key, os.environ.get(key, ""))
     if not val:
         return default
-    return val.strip().lower() in ("true", "1", "yes", "on")
+    try:
+        return int(str(val).strip())
+    except (TypeError, ValueError):
+        return default
 
 
 def create_app(
@@ -125,6 +152,10 @@ def create_app(
         os.environ.get("TRADINGAGENTS_DEEP_THINK_LLM", "agnes-2.0-flash"),
     )
 
+    # Override config for testing before components read app config.
+    if test_config:
+        app.config.update(test_config)
+
     # Auto-start PaperTradeScheduler with APScheduler (configurable)
     try:
         from tradingagents.astock.execution.scheduler import PaperTradeScheduler as PTS
@@ -132,18 +163,14 @@ def create_app(
         pts = PTS(
             paper_trader=app.config.get("PAPER_TRADER"),
             store=app.config.get("STORE"),
-            interval_minutes=int(os.environ.get("ASTOCK_SCHEDULER_INTERVAL_MIN", "30")),
-            enabled=_bool_env("ASTOCK_SCHEDULER_ENABLED", True),
+            interval_minutes=_int_config(app, "ASTOCK_SCHEDULER_INTERVAL_MIN", 30),
+            enabled=_bool_config(app, "ASTOCK_SCHEDULER_ENABLED", True),
         )
         pts.start()
         app.config["SCHEDULER"] = pts
     except Exception as exc:
         logger.warning("PaperTradeScheduler not started: %s", exc)
         app.config["SCHEDULER"] = None
-
-    # Override config for testing
-    if test_config:
-        app.config.update(test_config)
 
     # -- before_request: inject globals per request --------------------------
     @app.before_request

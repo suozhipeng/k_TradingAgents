@@ -416,7 +416,7 @@ curl -X GET "http://localhost:5001/api/v1/kline?symbol="
 | `/api/v1/fundamentals` | GET | 基本面 | `symbol`, `items[]` (period/ROE/净利润等财务指标), `count`, `meta` | research | `test_astock_interface_analyst.py` |
 | `/api/v1/f10` | GET | F10 | `symbol`, `f10` (code/total_shares/industry/province), `meta` (含 source) | research | 同上 |
 | `/api/v1/announcements` | GET | 公告 | `symbol`, `announcements[]` | research | `test_astock_data_sources.py` |
-| `/api/v1/store/stats` | GET | 表统计 | `stats` (31 张表 × `rows`/`latest_date`) | research | `test_astock_store.py` |
+| `/api/v1/store/stats` | GET | 表统计 | `stats` (32 张表 × `rows`/`latest_date`) | research | `test_astock_store.py` |
 | `/api/v1/data/refresh/kline` | POST | 刷新 K 线 | `symbol`, `rows_inserted`, `status` | research | 同上 |
 | `/api/v1/data/refresh/valuation` | POST | 刷新估值 | `symbol`, `rows_inserted`, `status` | research | 同上 |
 | `/api/v1/data/refresh/all` | POST | 刷新全部 | `results`, `status` | research | 同上 |

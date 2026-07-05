@@ -68,7 +68,7 @@ AStock Pro 数据库模块为 A 股量化交易数据管理平台提供商业级
 | CH Schema | `clickhouse_schema.py` | ClickHouse DDL 定义 |
 | Loaders | `loader.py` | 数据加载器 |
 | **SchemaDefs** | **`schema_defs.py`** | **SSOT: 统一表定义/列映射/索引定义** |
-| **ORM Models** | **`models/`** | **31 个 ORM 模型（分模块组织）** |
+| **ORM Models** | **`models/`** | **32 个 ORM 模型（分模块组织）** |
 
 ---
 
@@ -99,7 +99,7 @@ df = store.query_kline("000001.SZ", start="2024-01-01")
 
 **文件**: `tradingagents/astock/store/pg_store.py`
 
-基于 SQLAlchemy 2.0 + asyncpg 的异步优先设计，通过 `models/` 子目录使用 31 个 ORM 模型类。
+基于 SQLAlchemy 2.0 + asyncpg 的异步优先设计，通过 `models/` 子目录使用 32 个 ORM 模型类。
 
 ```python
 from tradingagents.astock.store import PGConfig, PGStore
@@ -158,7 +158,7 @@ store = backend_mgr.get_store()
 
 ### 4.1 表总览
 
-共 **31 张表**，分为六大类别：
+共 **32 张表**，分为六大类别：
 
 #### 市场数据核心（6 张）
 
@@ -205,7 +205,7 @@ store = backend_mgr.get_store()
 | `paper_trades` | trade_id | 模拟交易 |
 | `data_sources` | source_id | 数据源注册 |
 
-#### 运维管理（11 张）
+#### 运维管理（12 张）
 
 | 表名 | 主键 | 说明 |
 |------|------|------|
@@ -220,6 +220,7 @@ store = backend_mgr.get_store()
 | `audit_log` | event_id | 审计日志 |
 | `api_keys` | key_id | API 密钥管理 |
 | `data_quarantine` | quarantine_id | 数据隔离区 |
+| `notification_channels` | name | 通知渠道配置（webhook/dingtalk/email/work_weixin） |
 
 ### 4.2 索引策略
 
@@ -561,7 +562,7 @@ tradingagents/astock/
       reference.py             # SecurityMaster, TradingCalendar 等
       market_data.py           # KlineBar, Valuation, TechnicalIndicator 等
       events.py                # CorporateAction, BacktestResult 等
-      governance.py            # DataSource, AuditLog, ApiKey 等
+      governance.py            # DataSource, AuditLog, ApiKey, NotificationChannel 等
     jobs.py                    # 作业管理器
     loader.py                  # 数据加载器
   api/
@@ -665,13 +666,15 @@ store = backend_mgr.get_store()
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | GET | `/api/v1/health` | 健康检查 |
-| GET | `/api/v1/kline/<symbol>` | 查询 K 线 |
-| POST | `/api/v1/kline/<symbol>` | 写入 K 线 |
-| GET | `/api/v1/valuation/<symbol>` | 查询估值 |
-| GET | `/api/v1/admin/status` | 后端状态 |
-| POST | `/api/v1/admin/backend` | 切换后端 |
-| POST | `/api/v1/admin/quality/rules` | 注册质量规则 |
-| GET | `/api/v1/admin/audit` | 查询审计日志 |
+| GET | `/api/v1/kline?symbol=...` | 查询 K 线 |
+| GET | `/api/v1/valuation?symbol=...` | 查询估值 |
+| POST | `/api/v1/data/manual/<table_name>` | 手动写入受管表 |
+| GET/POST | `/api/v1/admin/backend` | 查看/切换后端 |
+| GET | `/api/v1/admin/backend/config` | 查看后端配置 |
+| POST | `/api/v1/admin/health/sync-ch` | 触发 ClickHouse 同步健康检查 |
+| GET | `/api/v1/ops/audit` | 查询审计日志 |
+| GET | `/api/v1/ops/tasks` | 查询运维任务列表 |
+| GET | `/api/v1/ops/scheduler/status` | 查询调度器状态 |
 
 ---
 
@@ -719,6 +722,7 @@ api_keys ──── 控制 API 访问权限
 | v1.0 | 2026-06-28 | 初始版本，三后端架构 + 迁移系统 + 质量门禁 |
 | v2.0 | 2026-06-29 | 10项重大改进（详见下方变更日志） |
 | v2.2 | 2026-06-30 | ORM 列顺序对齐 schema_defs SSOT，新增 `test_orm_column_order_matches_schema_defs` 回归测试 |
+| v2.3 | 2026-07-05 | 新增 `notification_channels` 表（通知渠道配置），ORM 模型数 31→32 |
 
 ---
 
@@ -736,7 +740,7 @@ api_keys ──── 控制 API 访问权限
 
 | # | 优化项 | 说明 | 新增/修改文件 |
 |---|--------|------|--------------|
-| 4 | ORM 模型拆分 | 31 个模型从 `pg_store.py` 拆至 `models/` 子包 | `models/base.py`, `reference.py`, `market_data.py`, `events.py`, `governance.py` |
+| 4 | ORM 模型拆分 | ORM 模型从 `pg_store.py` 拆至 `models/` 子包；当前为 32 个模型 | `models/base.py`, `reference.py`, `market_data.py`, `events.py`, `governance.py` |
 | 5 | 统一 Schema 定义 (SSOT) | 新建 `schema_defs.py` 作为 DDL/ORM/Index 唯一数据源 | `schema_defs.py` |
 | 6 | 迁移自动发现 | `discover_migrations()` 自动扫描 `migrations/` 目录 | `schema.py`, `pg_store.py` |
 
@@ -757,8 +761,8 @@ api_keys ──── 控制 API 访问权限
 
 ### 11.5 测试验证
 
-- **35 项测试全部通过**（`tests/test_astock_store.py`）
-- 3 项跳过（需要 pyarrow / BacktestResult 导入）
+- 当前回归基线：`tests/test_astock_store.py` 收集 39 项，36 passed / 3 skipped。
+- 跳过项需要 pyarrow/fastparquet 或 `TEST_PYDANTIC_BT=1`。
 
 ### 11.6 v2.1 代码清理
 

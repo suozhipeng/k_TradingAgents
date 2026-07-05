@@ -1,7 +1,7 @@
 """AStock schema definitions — structured data models for the system."""
 from __future__ import annotations
 
-from .ops_audit import AuditEvent, TaskRun, TaskType
+from .ops_audit import AuditEvent, TaskRun, TaskStatus, TaskType
 from .optimization import OptimizeResult
 from .portfolio import Attribution, Portfolio, RiskExposure
 from .report_archive import ReportArchive, ReportFormat, ReportItem, ResearchConclusionSummary
@@ -47,6 +47,7 @@ __all__ = [
     "Attribution",
     # Phase 37
     "TaskType",
+    "TaskStatus",
     "TaskRun",
     "AuditEvent",
 ]

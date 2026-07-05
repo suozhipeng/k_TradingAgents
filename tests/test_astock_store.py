@@ -120,7 +120,7 @@ def sample_trade_tape_df() -> pd.DataFrame:
 
 
 def test_init_schema(store: AStockStore) -> None:
-    """Verify all managed tables exist after init_schema (currently 31 tables)."""
+    """Verify all managed tables exist after init_schema (currently 32 tables)."""
     tables = store.list_tables()
     expected = [
         "database_storage_profiles",
@@ -152,9 +152,10 @@ def test_init_schema(store: AStockStore) -> None:
         "migration_versions",
         "audit_log",
         "api_keys",
-        "data_quality_rules",
-        "data_quarantine",
-    ]
+            "data_quality_rules",
+            "data_quarantine",
+            "notification_channels",
+        ]
     for t in expected:
         assert t in tables, f"Missing table: {t}"
     assert len(tables) == len(expected)
@@ -175,7 +176,7 @@ def test_orm_column_order_matches_schema_defs() -> None:
 
 def test_drop_all_tables(store: AStockStore) -> None:
     """drop_all_tables removes all managed tables."""
-    assert len(store.list_tables()) == 31
+    assert len(store.list_tables()) == 32
     store.drop_all_tables()
     assert store.list_tables() == []
 
@@ -674,7 +675,7 @@ def test_concurrent_writes(store: AStockStore) -> None:
 def test_init_astock_db_factory() -> None:
     store = init_astock_db(":memory:")
     assert store.db_path == ":memory:"
-    assert len(store.list_tables()) == 31
+    assert len(store.list_tables()) == 32
     store.close()
 
 

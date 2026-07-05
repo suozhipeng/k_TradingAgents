@@ -41,13 +41,13 @@ TradingAgents 是一个面向 A 股市场的 AI 驱动量化研究与交易系�
 |--------|------|
 | **多 LLM 支持** | OpenAI / Anthropic / Google / Azure / DeepSeek / Qwen 等 10+ 提供商 |
 | **多智能体研究** | 基本面、情绪、新闻、社交、市场分析师 + 多空研究员辩论 + 交易员 + 风险管理 + 组合经理 |
-| **A 股数据接入** | 8 大供应商适配器，自动降级路由，覆盖 K 线、估值、新闻、研报、公告等 22 数据能力 |
+| **A 股数据接入** | 8 个默认 provider 工厂（7 个 Adapter + TDX Provider），另有 EastMoney 独立数据模块；自动降级路由覆盖 K 线、估值、新闻、研报、公告等 22 数据能力 |
 | **三后端存储** | DuckDB (本地) / PostgreSQL (生产 OLTP) / ClickHouse (生产 OLAP) |
 | **策略回测** | 12 种策略 + 遗传算法优化 + 滚动窗口分析 + T+1 结算约束 |
 | **模拟交易** | 完整模拟交易周期 + QMT 桥接 |
 | **数据质量门禁** | 内置校验规则 + 自定义规则引擎 + 数据隔离区 |
-| **Web UI** | 27 页面（25 功能页 + 2 布局模板），Tailwind 暗色主题 |
-| **REST API** | 88 端点（21 蓝图模块），Bearer Token 认证 + 速率限制 |
+| **Web UI** | 29 个模板文件 / 36 条 Web route，Tailwind 暗色主题 |
+| **REST API** | 117 条 `/api/v1` route（23 个 API 蓝图）；支持 Bearer Token + TokenBucket，PostgreSQL 写操作默认启用全局认证 gate |
 | **CLI** | Typer + Rich TUI 交互式终端 |
 
 ---
@@ -307,8 +307,8 @@ def build_default_adapters(**configs) -> Dict[str, AStockAdapterBase]
 核心模块：
 
 | 文件 | 职责 |
-||------|------|
-| `adapters.py` | 8 大适配器实现 + 工具函数（类型转换、HTML 清理、反爬、重试） |
+|------|------|
+| `adapters.py` | 7 个 Adapter 实现 + 默认 provider 工厂；`TdxProvider` 位于 `tdx_provider.py` |
 | `router.py` | 统一路由器 `AStockDataRouter` + 便利包装 `AStockDataFacade` |
 
 公共工具文件：
@@ -379,8 +379,8 @@ DEFAULT_ROUTE_POLICY = {
 | 文件 | 职责 |
 |------|------|
 | `__init__.py` | 统一导出 |
-| `schema_defs.py` | **SSOT**: 31 张表统一列定义 / 索引 / DDL 生成 |
-| `models/` | 31 个 SQLAlchemy ORM 模型（分 reference / market_data / events / governance 子模块） |
+| `schema_defs.py` | **SSOT**: 32 张表统一列定义 / 索引 / DDL 生成 |
+| `models/` | 32 个 SQLAlchemy ORM 模型（分 reference / market_data / events / governance 子模块） |
 | `schema.py` | DuckDB 存储实现 `AStockStore` 类 |
 | `pg_store.py` | PostgreSQL 存储实现 `PGStore` 类（通过 `models/` 使用 ORM） |
 | `backend.py` | 运行时后端切换 `BackendManager` + `BackendConfig` |
@@ -639,7 +639,7 @@ class ReportGenerator:
 | 组件 | 文件 | 职责 |
 |------|------|------|
 | CORS | `__init__.py` | 跨域支持 |
-| 认证 | `auth.py` | Bearer Token 认证 + `TokenBucket` 速率限制 |
+| 认证 | `auth.py` / `__init__.py` | `require_auth` / `optional_auth` + `TokenBucket`；PostgreSQL 模式写操作启用全局 Bearer gate，DuckDB dev 模式默认不强制 |
 | 审计 | `audit.py` | `@audit_log` 装饰器，异步审计日志 |
 | 后端选择 | `__init__.py` | 根据 `BackendManager` 选择 DuckDB/PostgreSQL |
 | 质量门控 | `__init__.py` | `ValidatedStore` 包装原始 Store |
@@ -669,14 +669,15 @@ class ReportGenerator:
 | `routes_qmt.py` | GET | `/qmt/health`, `/qmt/positions`, `/qmt/orders` | QMT 健康/持仓/订单 |
 | `routes_tv.py` | GET | `/tv/history`, `/tv/symbols`, `/tv/stock-search`, `/tv/stock-info` | TradingView 图表数据 |
 | `routes_sse.py` | GET/DELETE | `/sse/paper-progress`, `/sse/events` | SSE 推送/事件轮询 |
-| `routes_reports.py` | GET/POST | `/reports/list`, `/reports/pptx`, `/reports/save` | 报告归档/PPTX 下载/保存 |
+| | GET/POST/DELETE | `/sse/scheduler/status`, `/sse/scheduler/start`, `/sse/scheduler/stop`, `/sse/scheduler/pause`, `/sse/scheduler/resume`, `/sse/scheduler/jobs`, `/sse/scheduler/jobs/<job_id>`, `/sse/scheduler/jobs/<job_id>/toggle` | APScheduler 生命周期与用户 cron/interval 任务管理 |
+| `routes_reports.py` | GET/POST/PATCH | `/reports/list`, `/reports/pptx`, `/reports/save`, `/reports/compare`, `/reports/<report_id>/audit` | 报告归档/PPTX 下载/保存/正文对比/AI 审计标注 |
 | `routes_dashboard.py` | GET | `/dashboard/overview` | 聚合仪表板数据 |
 | `routes_screener.py` | GET | `/market/screener` | 技术选股器 |
 | `routes_ai_agent.py` | POST | `/ai/analyze` | AI 代理分析 |
 | `routes_portfolio.py` | GET | `/portfolio/risk`, `/portfolio/attribution` | 组合风险/Brinson 归因 |
-| `routes_ops.py` | GET | `/ops/audit`, `/ops/tasks`, `/ops/stats` | 运维审计/任务/统计 |
+| `routes_ops.py` | GET/POST | `/ops/audit`, `/ops/tasks`, `/ops/tasks/<task_id>`, `/ops/tasks/<task_id>/cancel`, `/ops/stats`, `/ops/scheduler/status` | 运维审计/任务查询/取消/统计/调度器状态 |
 | `routes_watchlist.py` | GET/POST | `/watchlist`, `/watchlist/add`, `/watchlist/remove`, `/watchlist/batch-analyze` | 自选股 CRUD/批量分析 |
-| `routes_notifications.py` | POST | `/notifications/test-webhook` | Webhook 测试 |
+| `routes_notifications.py` | POST/GET/PUT/DELETE | `/notifications/test-webhook`, `/notifications/dingtalk`, `/notifications/email`, `/notifications/desktop`, `/notifications/dispatchers`, `/notifications/events`, `/notifications/consumer/start`, `/notifications/consumer/stop` | 通知渠道管理与推送 |
 | `routes_alerts.py` | CRUD | `/alerts/rules`, `/alerts`, `/alerts/<id>/ack`, `/alerts/check` | 预警规则/事件管理 |
 | `routes_analysis.py` | POST | `/analysis/watchlist` | 自选股技术分析 |
 | `routes_admin.py` | GET/POST | `/admin/backend`, `/admin/backend/config`, `/admin/health/sync-ch` | 后端切换/配置/CH 同步触发 |
@@ -800,7 +801,7 @@ services:
 
 **路径**: `tests/`
 
-60+ 测试文件，关键测试：
+63 个测试文件，关键测试：
 
 | 测试文件 | 覆盖模块 |
 |---------|----------|
@@ -892,12 +893,12 @@ tradingagents/graph/
 
 | 指标 | 数量 |
 |------|------|
-| 数据源适配器 | 8 |
+| 默认 provider 工厂 | 8（7 个 Adapter + `TdxProvider`；EastMoney 为独立数据模块） |
 | 策略数量 | 12 (10 单股 + 2 组合) |
-| 数据库表 | 31 (DuckDB/PG) + 12 (CH OLAP) |
-| Flask API 端点 | 88 |
-| Web UI 页面 | 27 |
-| 测试文件 | 62 |
+| 数据库表 | 32 (DuckDB/PG) + 12 (CH OLAP) |
+| Flask API route | 117 条 `/api/v1` route（23 个 API 蓝图） |
+| Web UI | 29 个模板文件 / 36 条 Web route |
+| 测试文件 | 63 |
 | 支持的 LLM 提供商 | 10+ |
 | 数据能力 | 22 |
 
@@ -906,3 +907,4 @@ tradingagents/graph/
 | 版本 | 日期 | 变更 |
 |------|------|------|
 | v1.0 | 2026-06-28 | 完整功能文档，三后端架构，12 策略，8 适配器，60+ API 端点 |
+| v1.1 | 2026-07-05 | 同步当前代码基线：32 张 DuckDB/PG 表、117 条 `/api/v1` route、29 个 Web 模板、63 个测试文件 |
