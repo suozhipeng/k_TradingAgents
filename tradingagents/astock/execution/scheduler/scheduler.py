@@ -23,7 +23,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 from datetime import datetime
 from typing import Any, Callable
 
@@ -31,46 +30,12 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from apscheduler.triggers.cron import CronTrigger
 
-from .event_bus import EventBus
-from .paper_trader import PaperTrader
-from .strategy_base import StrategyBase
+from ..event_bus import EventBus
+from ..paper_trader import PaperTrader
+from ..strategy_base import StrategyBase
+from .tasks import _bool_env, _int_env, _list_env, _scheduler_instance
 
 logger = logging.getLogger(__name__)
-
-# Singleton scheduler instance (set by create_app)
-_scheduler_instance: PaperTradeScheduler | None = None
-
-
-def get_scheduler() -> PaperTradeScheduler | None:
-    """Return the app-level PaperTradeScheduler singleton."""
-    return _scheduler_instance
-
-
-def _bool_env(key: str, default: bool = False) -> bool:
-    """Read a boolean env var."""
-    val = os.environ.get(key, "")
-    if not val:
-        return default
-    return val.strip().lower() in ("true", "1", "yes", "on")
-
-
-def _int_env(key: str, default: int) -> int:
-    """Read an integer env var."""
-    val = os.environ.get(key, "")
-    if not val:
-        return default
-    try:
-        return int(val.strip())
-    except (ValueError, TypeError):
-        return default
-
-
-def _list_env(key: str, default: list[str]) -> list[str]:
-    """Read a comma-separated env var as a list."""
-    val = os.environ.get(key, "")
-    if not val:
-        return default
-    return [s.strip() for s in val.split(",") if s.strip()]
 
 
 class JobRecord:
@@ -169,8 +134,10 @@ class PaperTradeScheduler:
         # Persistent jobs registry: job_id -> JobRecord
         self._persistent_jobs: dict[str, JobRecord] = {}
 
-        global _scheduler_instance
-        _scheduler_instance = self
+        from .tasks import _scheduler_instance, get_scheduler, set_scheduler
+
+        # Update the singleton
+        set_scheduler(self)
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -627,6 +594,7 @@ class PaperTradeScheduler:
     def _fetch_latest(self, symbol: str, lookback: int = 100) -> Any:
         """Fetch the most recent *lookback* kline bars from DuckDB."""
         import pandas as pd
+
         if not hasattr(self._store, "query_kline"):
             return pd.DataFrame()
         try:
@@ -646,11 +614,12 @@ class PaperTradeScheduler:
             return df
         except Exception:
             import pandas as pd
+
             return pd.DataFrame()
 
     @staticmethod
     def _default_strategies() -> list[StrategyBase]:
-        from .strategy_base import (
+        from ..strategy_base import (
             BullTrendStrategy,
             MeanReversionStrategy,
             MovingAverageTrendStrategy,

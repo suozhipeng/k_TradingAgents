@@ -16,52 +16,23 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
-from .fee_model import AStockFeeConfig, calculate_fees
-from .qmt_execution import QmtExecutionEngine
-from .risk_gate import RiskGate, RiskGateResult
-from ..schemas.trading_execution import (
+from ..fee_model import AStockFeeConfig, calculate_fees
+from ..qmt_execution import QmtExecutionEngine
+from ..risk_gate import RiskGate, RiskGateResult
+from ...schemas.trading_execution import (
     Fill,
     Order,
     OrderSide,
     OrderStatus,
     OrderTradeMode,
 )
+from .state import PaperTradeState
+from .qmt_integration import QmtIntegrationMixin
 
 _EXECUTION_SIGNAL: str = "ResearchOnly"
 
 
-class PaperTradeState(BaseModel):
-    """Current state of the paper trading portfolio.
-
-    Attributes
-    ----------
-    positions : dict[str, float]
-        Map of symbol → shares held.
-    cash : float
-        Remaining cash balance.
-    total_value : float
-        Total portfolio value (cash + positions at last mark).
-    trades : list[dict]
-        Historical trade records.
-    pnl : float
-        Realised P&L.
-    last_updated : str
-        ISO-formatted timestamp of last update.
-    execution_signal : str
-        Always ``"ResearchOnly"``.
-    """
-
-    positions: dict[str, float] = Field(default_factory=dict)
-    cash: float = 0.0
-    total_value: float = 0.0
-    trades: list[dict] = Field(default_factory=list)
-    pnl: float = 0.0
-    last_updated: str = ""
-    execution_signal: str = _EXECUTION_SIGNAL
-    decision_scope: str = "paper_trading_only"
-
-
-class PaperTrader:
+class PaperTrader(QmtIntegrationMixin):
     """Simulated paper trading executor.
 
     Parameters
@@ -98,71 +69,6 @@ class PaperTrader:
         self._t_plus_1 = t_plus_1
         # Phase 11: optional QMT execution engine
         self._qmt_engine: QmtExecutionEngine | None = qmt_execution_engine
-
-    # -- QMT execution integration (Phase 11) -------------------------------
-
-    @property
-    def qmt_execution_engine(self) -> QmtExecutionEngine | None:
-        """Return the injected QMT execution engine, if any."""
-        return self._qmt_engine
-
-    def set_qmt_engine(self, engine: QmtExecutionEngine) -> None:
-        """Inject a QMT execution engine at runtime.
-
-        Parameters
-        ----------
-        engine : QmtExecutionEngine
-            The controlled execution engine to use for order placement.
-        """
-        self._qmt_engine = engine
-
-    def execute_with_qmt(
-        self,
-        signal: dict[str, Any],
-        price: float,
-        volume: int,
-        *,
-        confirmed: bool = False,
-    ) -> dict[str, Any]:
-        """Execute a signal through the QMT execution engine if available.
-
-        Falls back to virtual (in-process) execution when no engine is
-        injected.
-
-        Parameters
-        ----------
-        signal : dict
-            Signal dict with ``"symbol"`` and ``"signal"``.
-        price : float
-            Execution price.
-        volume : int
-            Number of shares.
-        confirmed : bool
-            Human confirmation flag (required in SAFETY mode).
-
-        Returns
-        -------
-        dict
-            Execution result.
-        """
-        if self._qmt_engine is not None:
-            return self._qmt_engine.execute(signal, price, volume, confirmed=confirmed)
-
-        # Fallback: traditional virtual execution
-        symbol = signal.get("symbol", "")
-        signal_value = signal.get("signal", 0)
-
-        if signal_value == 1:
-            self._execute_buy(symbol, price)
-        elif signal_value == -1:
-            self._execute_sell(symbol, price)
-
-        return {
-            "filled": signal_value != 0,
-            "symbol": symbol,
-            "price": price,
-            "mode": "paper_fallback",
-        }
 
     # -- Standard paper trading (unchanged from Phase 10) -------------------
 
@@ -511,9 +417,3 @@ class PaperTrader:
             risk_status="allowed",
             created_at=datetime.utcnow().isoformat(),
         )
-
-
-__all__ = [
-    "PaperTradeState",
-    "PaperTrader",
-]

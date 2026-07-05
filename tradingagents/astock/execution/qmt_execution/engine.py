@@ -1,4 +1,4 @@
-"""Controlled execution layer for QMT bridge integration.
+"""Core execution engine for QMT bridge integration.
 
 Provides the ``QmtExecutionEngine`` which routes trade signals through
 risk-gate checks and then to the QMT bridge for actual order placement.
@@ -31,6 +31,7 @@ from tradingagents.astock.execution.qmt_bridge import QmtBridge
 from tradingagents.astock.execution.risk_gate import ATRStopLoss, RiskGate, RiskGateResult, TrailingStop, calculate_atr
 
 _logger = logging.getLogger(__name__)
+
 
 # ---------------------------------------------------------------------------
 # Execution mode
