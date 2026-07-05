@@ -17,6 +17,7 @@ ClickHouse sync automatically uses the currently active backend.
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any
 
 from flask import Flask, g, jsonify
@@ -31,6 +32,14 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 DEFAULT_CORS_ORIGIN = "http://localhost:5173"
+
+
+def _bool_env(key: str, default: bool = False) -> bool:
+    """Read a boolean env var."""
+    val = os.environ.get(key, "")
+    if not val:
+        return default
+    return val.strip().lower() in ("true", "1", "yes", "on")
 
 
 def create_app(
@@ -57,7 +66,6 @@ def create_app(
     app = Flask(__name__)
 
     # -- CORS -----------------------------------------------------------------
-    import os
     origin = cors_origin or os.environ.get("CORS_ORIGIN", DEFAULT_CORS_ORIGIN)
     CORS(app, origins=[origin])
 
@@ -116,6 +124,22 @@ def create_app(
         "RESEARCH_MODEL",
         os.environ.get("TRADINGAGENTS_DEEP_THINK_LLM", "agnes-2.0-flash"),
     )
+
+    # Auto-start PaperTradeScheduler with APScheduler (configurable)
+    try:
+        from tradingagents.astock.execution.scheduler import PaperTradeScheduler as PTS
+
+        pts = PTS(
+            paper_trader=app.config.get("PAPER_TRADER"),
+            store=app.config.get("STORE"),
+            interval_minutes=int(os.environ.get("ASTOCK_SCHEDULER_INTERVAL_MIN", "30")),
+            enabled=_bool_env("ASTOCK_SCHEDULER_ENABLED", True),
+        )
+        pts.start()
+        app.config["SCHEDULER"] = pts
+    except Exception as exc:
+        logger.warning("PaperTradeScheduler not started: %s", exc)
+        app.config["SCHEDULER"] = None
 
     # Override config for testing
     if test_config:
@@ -322,6 +346,19 @@ def create_app(
     app.register_blueprint(routes_trade.bp,            url_prefix="/api/v1")
     app.register_blueprint(routes_ai_agent.bp,         url_prefix="/api/v1")
     app.register_blueprint(routes_admin.bp,            url_prefix="/api/v1")
+
+    # -- Wire notification store & auto-start consumer ------------------------
+    try:
+        store = app.config.get("STORE")
+        if store is not None:
+            routes_notifications.set_notification_store(store)
+            # Auto-start consumer if any channels exist
+            with routes_notifications._channels_lock:
+                if routes_notifications._channels:
+                    routes_notifications._start_consumer()
+                    logger.info("Notification consumer started with %d channels", len(routes_notifications._channels))
+    except Exception as exc:
+        logger.warning("Failed to initialize notification consumer: %s", exc)
 
     # -- Phase 17: Web UI (Jinja2) blueprint ---------------------------------
     from tradingagents.astock.web import bp as web_bp

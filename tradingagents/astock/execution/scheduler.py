@@ -1,17 +1,35 @@
-"""Paper trade scheduler — periodic cycle executor using threading.Timer.
+"""Paper trade scheduler — APScheduler-based periodic cycle executor.
 
-Provides a lightweight timed loop that reads the latest data from DuckDB,
-scores it with strategies, generates signals, and executes them through
-the :class:`PaperTrader`.
+Replaces the earlier threading.Timer implementation with APScheduler
+for richer lifecycle management (pause/resume, cron expressions, misfire
+grace time).
+
+Public API
+----------
+- start() / stop() / pause() / resume()
+- running / paused / cycle_count properties
+- add_cron_job(hour, minute, ...) for user-configurable schedules
+- add_interval_job() / remove_job() / list_jobs() for full job CRUD
+
+Configuration (via environment variables or app config)
+-------------------------------------------------------
+- ASTOCK_SCHEDULER_ENABLED      — "true"/"false" (default: true)
+- ASTOCK_SCHEDULER_INTERVAL_MIN — interval in minutes (default: 30)
+- ASTOCK_SCHEDULER_SYMBOLS      — comma-separated symbols
+- ASTOCK_SCHEDULER_STRATEGIES   — comma-separated strategy names
 """
 
 from __future__ import annotations
 
+import json
 import logging
-import threading
-import time
+import os
 from datetime import datetime
-from typing import Any
+from typing import Any, Callable
+
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.interval import IntervalTrigger
+from apscheduler.triggers.cron import CronTrigger
 
 from .event_bus import EventBus
 from .paper_trader import PaperTrader
@@ -19,118 +37,492 @@ from .strategy_base import StrategyBase
 
 logger = logging.getLogger(__name__)
 
+# Singleton scheduler instance (set by create_app)
+_scheduler_instance: PaperTradeScheduler | None = None
+
+
+def get_scheduler() -> PaperTradeScheduler | None:
+    """Return the app-level PaperTradeScheduler singleton."""
+    return _scheduler_instance
+
+
+def _bool_env(key: str, default: bool = False) -> bool:
+    """Read a boolean env var."""
+    val = os.environ.get(key, "")
+    if not val:
+        return default
+    return val.strip().lower() in ("true", "1", "yes", "on")
+
+
+def _int_env(key: str, default: int) -> int:
+    """Read an integer env var."""
+    val = os.environ.get(key, "")
+    if not val:
+        return default
+    try:
+        return int(val.strip())
+    except (ValueError, TypeError):
+        return default
+
+
+def _list_env(key: str, default: list[str]) -> list[str]:
+    """Read a comma-separated env var as a list."""
+    val = os.environ.get(key, "")
+    if not val:
+        return default
+    return [s.strip() for s in val.split(",") if s.strip()]
+
+
+class JobRecord:
+    """Persistent record of a scheduled job."""
+
+    def __init__(
+        self,
+        job_id: str,
+        job_type: str,
+        func_name: str,
+        trigger_type: str,
+        trigger_args: dict[str, Any],
+        enabled: bool = True,
+    ) -> None:
+        self.job_id = job_id
+        self.job_type = job_type  # "main" | "cron" | "interval"
+        self.func_name = func_name
+        self.trigger_type = trigger_type
+        self.trigger_args = trigger_args
+        self.enabled = enabled
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "job_id": self.job_id,
+            "job_type": self.job_type,
+            "func_name": self.func_name,
+            "trigger_type": self.trigger_type,
+            "trigger_args": self.trigger_args,
+            "enabled": self.enabled,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "JobRecord":
+        return cls(
+            job_id=data["job_id"],
+            job_type=data.get("job_type", "cron"),
+            func_name=data.get("func_name", ""),
+            trigger_type=data.get("trigger_type", "cron"),
+            trigger_args=data.get("trigger_args", {}),
+            enabled=data.get("enabled", True),
+        )
+
 
 class PaperTradeScheduler:
-    """Timed paper trading scheduler.
+    """APScheduler-based paper trading scheduler.
 
     Parameters
     ----------
     paper_trader : PaperTrader
         The paper trading engine to execute signals through.
     store : AStockStore
-        DuckDB-backed store used to fetch kline data.
+        DuckDB-backed store used to fetch kline data and persist jobs.
     interval_minutes : int
-        Interval between scheduled cycles (default ``30``).
+        Interval between scheduled cycles (default ``30``, overridable via
+        ``ASTOCK_SCHEDULER_INTERVAL_MIN`` env var).
     strategies : list[StrategyBase] or None
         Strategies to evaluate each cycle.  If ``None``, uses a default
         set of all available strategies.
     symbols : list[str] or None
         Symbols to monitor.  If ``None``, uses a small default set.
+    enabled : bool
+        Whether to auto-start the scheduler.  Defaults to ``True`` but can
+        be disabled via ``ASTOCK_SCHEDULER_ENABLED=false``.
     """
 
     def __init__(
         self,
         paper_trader: PaperTrader,
         store: Any,
-        interval_minutes: int = 30,
+        interval_minutes: int | None = None,
         strategies: list[StrategyBase] | None = None,
         symbols: list[str] | None = None,
+        enabled: bool | None = None,
     ) -> None:
         self._trader = paper_trader
         self._store = store
-        self._interval = max(1, interval_minutes) * 60.0  # seconds
+
+        # Configuration with env-var overrides
+        self._enabled = enabled if enabled is not None else _bool_env("ASTOCK_SCHEDULER_ENABLED", True)
+        self._interval_minutes = max(
+            1,
+            interval_minutes
+            or _int_env("ASTOCK_SCHEDULER_INTERVAL_MIN", 30),
+        )
         self._strategies = strategies or self._default_strategies()
-        self._symbols = symbols or ["000300.SH", "000001.SH", "399001.SZ", "600519.SH", "000858.SZ"]
-        self._timer: threading.Timer | None = None
-        self._running = False
-        self._lock = threading.Lock()
+        self._symbols = symbols or _list_env(
+            "ASTOCK_SCHEDULER_SYMBOLS",
+            ["000300.SH", "000001.SH", "399001.SZ", "600519.SH", "000858.SZ"],
+        )
         self._cycle_count = 0
+
+        self._scheduler = BackgroundScheduler(daemon=True)
+        self._job_id = "paper_trade_cycle"
+        self._job: Any = None
+
+        # Persistent jobs registry: job_id -> JobRecord
+        self._persistent_jobs: dict[str, JobRecord] = {}
+
+        global _scheduler_instance
+        _scheduler_instance = self
 
     # ------------------------------------------------------------------
     # Lifecycle
     # ------------------------------------------------------------------
 
     def start(self) -> None:
-        """Start the scheduler loop.
+        """Start the scheduler loop."""
+        if not self._enabled:
+            logger.info("PaperTradeScheduler disabled via config")
+            return
+        if self._scheduler.running:
+            logger.warning("PaperTradeScheduler is already running")
+            return
 
-        The first cycle runs immediately; subsequent cycles fire at
-        *interval_minutes* intervals.
-        """
-        with self._lock:
-            if self._running:
-                logger.warning("PaperTradeScheduler is already running")
-                return
-            self._running = True
+        # Load persistent jobs from DB
+        self._load_jobs_from_db()
 
+        # Add the main interval job
+        self._job = self._scheduler.add_job(
+            self._execute_scheduled_cycle,
+            trigger=IntervalTrigger(minutes=self._interval_minutes),
+            id=self._job_id,
+            name="PaperTradeCycle",
+            replace_existing=True,
+            misfire_grace_time=60,
+        )
+
+        # Restore user cron jobs
+        for job_id, record in self._persistent_jobs.items():
+            if record.enabled and job_id != self._job_id:
+                self._restore_job(record)
+
+        self._scheduler.start()
         logger.info(
-            "PaperTradeScheduler started (interval=%ds, symbols=%s, strategies=%d)",
-            self._interval,
+            "PaperTradeScheduler started (interval=%dmin, symbols=%s, strategies=%d, enabled=%s)",
+            self._interval_minutes,
             self._symbols,
             len(self._strategies),
+            self._enabled,
         )
-        # Run first cycle immediately
-        self._schedule_next()
 
     def stop(self) -> None:
-        """Stop the scheduler loop."""
-        with self._lock:
-            self._running = False
-            if self._timer is not None:
-                self._timer.cancel()
-                self._timer = None
+        """Stop the scheduler loop and persist all jobs."""
+        self._persist_all_jobs()
+        if self._scheduler.running:
+            self._scheduler.shutdown(wait=False)
         logger.info("PaperTradeScheduler stopped (cycles=%d)", self._cycle_count)
+
+    def pause(self) -> None:
+        """Pause the scheduler (jobs remain registered)."""
+        if self._job:
+            self._job.pause()
+        logger.info("PaperTradeScheduler paused")
+
+    def resume(self) -> None:
+        """Resume the scheduler after pause."""
+        if self._job:
+            self._job.resume()
+        logger.info("PaperTradeScheduler resumed")
+
+    @property
+    def enabled(self) -> bool:
+        return self._enabled
 
     @property
     def running(self) -> bool:
-        return self._running
+        return self._scheduler.running and self._job is not None and self._job.next_run_time is not None
+
+    @property
+    def paused(self) -> bool:
+        return self._job is not None and self._job.next_run_time is None
 
     @property
     def cycle_count(self) -> int:
         return self._cycle_count
 
+    @property
+    def next_run_time(self) -> str | None:
+        if self._job and self._job.next_run_time:
+            return self._job.next_run_time.strftime("%Y-%m-%d %H:%M:%S")
+        return None
+
     # ------------------------------------------------------------------
-    # Scheduling
+    # Job management (CRUD + persistence)
     # ------------------------------------------------------------------
 
-    def _schedule_next(self) -> None:
-        """Kick off the next cycle."""
-        # Run the cycle synchronously (short-lived), then schedule next
-        try:
-            self.execute_scheduled_cycle()
-        except Exception as exc:
-            logger.error("Scheduled cycle failed: %s", exc, exc_info=True)
-            EventBus.publish({
-                "type": "error",
-                "message": str(exc),
-                "timestamp": datetime.utcnow().isoformat(),
-            })
+    def add_cron_job(
+        self,
+        func: Callable[[], None] | None = None,
+        *,
+        job_id: str = "user_cron",
+        hour: str = "*",
+        minute: str = "0",
+        day_of_week: str = "*",
+        enabled: bool = True,
+    ) -> None:
+        """Add a user-defined cron job.
 
-        with self._lock:
-            if self._running:
-                self._timer = threading.Timer(self._interval, self._schedule_next)
-                self._timer.daemon = True
-                self._timer.start()
-
-    def execute_scheduled_cycle(self) -> None:
-        """Execute one full scheduled cycle.
-
-        Steps:
-        1. Fetch latest kline data from DuckDB for each symbol.
-        2. Score each symbol using each strategy.
-        3. Aggregate signals (majority vote or first non-zero).
-        4. Execute through PaperTrader.
-        5. Publish progress events via EventBus.
+        Parameters
+        ----------
+        func : callable or None
+            Function to execute.  If None, runs the default cycle.
+        hour, minute, day_of_week : str
+            Cron expression fields (standard cron syntax).
+        enabled : bool
+            Whether the job is active immediately.
         """
+        target = func or self._execute_scheduled_cycle
+        aps_trigger = CronTrigger(hour=hour, minute=minute, day_of_week=day_of_week)
+        aps_job = self._scheduler.add_job(
+            target,
+            trigger=aps_trigger,
+            id=job_id,
+            name=f"Cron:{job_id}",
+            replace_existing=True,
+            misfire_grace_time=120,
+        )
+
+        record = JobRecord(
+            job_id=job_id,
+            job_type="cron",
+            func_name=getattr(func, "__name__", "<cycle>"),
+            trigger_type="cron",
+            trigger_args={"hour": hour, "minute": minute, "day_of_week": day_of_week},
+            enabled=enabled,
+        )
+        self._persistent_jobs[job_id] = record
+        self._persist_job(record)
+
+        if not enabled:
+            aps_job.pause()
+        logger.info("Cron job added: %s at %s:%s (enabled=%s)", job_id, hour, minute, enabled)
+
+    def add_interval_job(
+        self,
+        func: Callable[[], None] | None = None,
+        *,
+        job_id: str = "user_interval",
+        minutes: int = 5,
+        enabled: bool = True,
+    ) -> None:
+        """Add a user-defined interval job.
+
+        Parameters
+        ----------
+        func : callable or None
+            Function to execute.  If None, runs the default cycle.
+        minutes : int
+            Interval in minutes.
+        enabled : bool
+            Whether the job is active immediately.
+        """
+        target = func or self._execute_scheduled_cycle
+        aps_job = self._scheduler.add_job(
+            target,
+            trigger=IntervalTrigger(minutes=max(1, minutes)),
+            id=job_id,
+            name=f"Interval:{job_id}",
+            replace_existing=True,
+            misfire_grace_time=60,
+        )
+
+        record = JobRecord(
+            job_id=job_id,
+            job_type="interval",
+            func_name=getattr(func, "__name__", "<cycle>"),
+            trigger_type="interval",
+            trigger_args={"minutes": minutes},
+            enabled=enabled,
+        )
+        self._persistent_jobs[job_id] = record
+        self._persist_job(record)
+
+        if not enabled:
+            aps_job.pause()
+        logger.info("Interval job added: %s every %dmin (enabled=%s)", job_id, minutes, enabled)
+
+    def remove_job(self, job_id: str) -> bool:
+        """Remove a job by ID. Returns True if found and removed."""
+        # Remove from APScheduler
+        try:
+            aps_job = self._scheduler.get_job(job_id)
+            if aps_job:
+                aps_job.remove()
+        except Exception:
+            pass
+
+        # Remove from persistent registry
+        record = self._persistent_jobs.pop(job_id, None)
+        if record:
+            self._delete_job_from_db(job_id)
+            logger.info("Job removed: %s", job_id)
+            return True
+        return False
+
+    def list_jobs(self) -> list[dict[str, Any]]:
+        """List all jobs (registered + persistent)."""
+        jobs = []
+        # Active APScheduler jobs
+        for aps_job in self._scheduler.get_jobs():
+            jobs.append({
+                "job_id": aps_job.id,
+                "name": aps_job.name,
+                "next_run_time": aps_job.next_run_time.strftime("%Y-%m-%d %H:%M:%S") if aps_job.next_run_time else None,
+                "paused": aps_job.next_run_time is None,
+                "source": "apscheduler",
+            })
+        # Persistent jobs not in APScheduler (e.g., scheduler not started yet)
+        for job_id, record in self._persistent_jobs.items():
+            if not any(j["job_id"] == job_id for j in jobs):
+                jobs.append({
+                    "job_id": job_id,
+                    "job_type": record.job_type,
+                    "trigger_args": record.trigger_args,
+                    "enabled": record.enabled,
+                    "source": "persistent",
+                })
+        return jobs
+
+    def toggle_job(self, job_id: str, enabled: bool) -> bool:
+        """Enable or disable a job. Returns True if found."""
+        record = self._persistent_jobs.get(job_id)
+        if not record:
+            return False
+        record.enabled = enabled
+        self._persist_job(record)
+
+        try:
+            aps_job = self._scheduler.get_job(job_id)
+            if aps_job:
+                if enabled:
+                    aps_job.resume()
+                else:
+                    aps_job.pause()
+        except Exception:
+            pass
+        logger.info("Job toggled: %s -> enabled=%s", job_id, enabled)
+        return True
+
+    # ------------------------------------------------------------------
+    # Persistence (DuckDB)
+    # ------------------------------------------------------------------
+
+    def _ensure_jobs_table(self) -> None:
+        """Create the scheduled_jobs table if it doesn't exist."""
+        if self._store is None:
+            return
+        try:
+            self._store.conn.execute("""
+                CREATE TABLE IF NOT EXISTS scheduled_jobs (
+                    job_id VARCHAR PRIMARY KEY,
+                    job_type VARCHAR NOT NULL DEFAULT 'cron',
+                    func_name VARCHAR,
+                    trigger_type VARCHAR,
+                    trigger_args VARCHAR,
+                    enabled BOOLEAN DEFAULT TRUE,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+        except Exception as exc:
+            logger.warning("Failed to create scheduled_jobs table: %s", exc)
+
+    def _load_jobs_from_db(self) -> None:
+        """Load persistent jobs from DuckDB on startup."""
+        if self._store is None:
+            return
+        self._ensure_jobs_table()
+        try:
+            df = self._store.conn.execute(
+                "SELECT job_id, job_type, func_name, trigger_type, trigger_args, enabled FROM scheduled_jobs"
+            ).fetchdf()
+            for _, row in df.iterrows():
+                record = JobRecord(
+                    job_id=str(row["job_id"]),
+                    job_type=str(row.get("job_type", "cron")),
+                    func_name=str(row.get("func_name", "")),
+                    trigger_type=str(row.get("trigger_type", "cron")),
+                    trigger_args=json.loads(str(row.get("trigger_args", "{}"))) if row.get("trigger_args") else {},
+                    enabled=bool(row.get("enabled", True)),
+                )
+                self._persistent_jobs[record.job_id] = record
+            logger.info("Loaded %d persistent jobs from DB", len(self._persistent_jobs))
+        except Exception as exc:
+            logger.warning("Failed to load scheduled jobs from DB: %s", exc)
+
+    def _persist_job(self, record: JobRecord) -> None:
+        """Persist a single job to DuckDB."""
+        if self._store is None:
+            return
+        try:
+            trigger_args_json = json.dumps(record.trigger_args, ensure_ascii=False)
+            self._store.conn.execute(
+                """INSERT INTO scheduled_jobs (job_id, job_type, func_name, trigger_type, trigger_args, enabled)
+                   VALUES (?, ?, ?, ?, ?, ?)
+                   ON CONFLICT(job_id) DO UPDATE SET
+                       job_type=excluded.job_type, func_name=excluded.func_name,
+                       trigger_type=excluded.trigger_type, trigger_args=excluded.trigger_args,
+                       enabled=excluded.enabled, updated_at=CURRENT_TIMESTAMP""",
+                [
+                    record.job_id,
+                    record.job_type,
+                    record.func_name,
+                    record.trigger_type,
+                    trigger_args_json,
+                    record.enabled,
+                ],
+            )
+        except Exception as exc:
+            logger.warning("Failed to persist job %s: %s", record.job_id, exc)
+
+    def _persist_all_jobs(self) -> None:
+        """Persist all jobs to DB (called on shutdown)."""
+        for record in self._persistent_jobs.values():
+            self._persist_job(record)
+
+    def _delete_job_from_db(self, job_id: str) -> None:
+        if self._store is None:
+            return
+        try:
+            self._store.conn.execute("DELETE FROM scheduled_jobs WHERE job_id = ?", [job_id])
+        except Exception as exc:
+            logger.warning("Failed to delete job %s from DB: %s", job_id, exc)
+
+    def _restore_job(self, record: JobRecord) -> None:
+        """Re-create an APScheduler job from a persistent record."""
+        try:
+            args = record.trigger_args
+            if record.trigger_type == "cron":
+                trigger = CronTrigger(**args)
+            elif record.trigger_type == "interval":
+                trigger = IntervalTrigger(**args)
+            else:
+                trigger = CronTrigger(**args)
+
+            self._scheduler.add_job(
+                self._execute_scheduled_cycle,
+                trigger=trigger,
+                id=record.job_id,
+                name=f"Restored:{record.job_id}",
+                replace_existing=True,
+            )
+            logger.info("Restored job from persistence: %s", record.job_id)
+        except Exception as exc:
+            logger.warning("Failed to restore job %s: %s", record.job_id, exc)
+
+    # ------------------------------------------------------------------
+    # Cycle execution
+    # ------------------------------------------------------------------
+
+    def _execute_scheduled_cycle(self) -> None:
+        """Execute one full scheduled cycle."""
         self._cycle_count += 1
         cycle_id = self._cycle_count
         logger.info("Scheduled cycle #%d starting", cycle_id)
@@ -146,15 +538,13 @@ class PaperTradeScheduler:
 
         for symbol in self._symbols:
             try:
-                # Fetch data from DuckDB
                 df = self._fetch_latest(symbol)
-                if df.empty:
+                if df is None or df.empty:
                     continue
 
                 price = float(df["close"].iloc[-1])
                 prices[symbol] = price
 
-                # Score with all strategies → aggregate by majority
                 symbol_signals: list[int] = []
                 for strategy in self._strategies:
                     sig_series = strategy.generate_signals(df)
@@ -162,7 +552,6 @@ class PaperTradeScheduler:
                     sig = int(non_zero.iloc[-1]) if not non_zero.empty else 0
                     symbol_signals.append(sig)
 
-                # Majority vote: sum > 0 → buy, sum < 0 → sell
                 total_sig = sum(symbol_signals)
                 if total_sig > 0:
                     signals[symbol] = 1.0
@@ -173,50 +562,55 @@ class PaperTradeScheduler:
 
             except Exception as exc:
                 logger.warning("Error processing symbol %s: %s", symbol, exc)
-                continue
-
-        # Execute signals through paper trader
-        if signals:
-            state = self._trader.execute_cycle(signals, prices)
-            trade_count = len(state.trades)
-
-            # Track the last trades in the event bus
-            for trade in state.trades[-5:]:  # last 5 trades
                 EventBus.publish({
-                    "type": "trade",
+                    "type": "cycle_error",
                     "cycle": cycle_id,
-                    "symbol": trade.get("symbol", ""),
-                    "direction": trade.get("type", ""),
-                    "price": trade.get("price", 0.0),
-                    "volume": trade.get("shares", 0.0),
+                    "symbol": symbol,
+                    "message": str(exc),
                     "timestamp": datetime.utcnow().isoformat(),
                 })
+                continue
 
-            EventBus.publish({
-                "type": "cycle_end",
-                "cycle": cycle_id,
-                "total_value": state.total_value,
-                "cash": state.cash,
-                "trade_count": trade_count,
-                "symbol_count": len(signals),
-                "timestamp": datetime.utcnow().isoformat(),
-            })
-
-            logger.info(
-                "Cycle #%d done: %d symbols, %d trades, total_value=%.2f",
-                cycle_id,
-                len(signals),
-                trade_count,
-                state.total_value,
-            )
+        if signals:
+            try:
+                state = self._trader.execute_cycle(signals, prices)
+                trade_count = len(state.trades)
+                for trade in state.trades[-5:]:
+                    EventBus.publish({
+                        "type": "trade",
+                        "cycle": cycle_id,
+                        "symbol": trade.get("symbol", ""),
+                        "direction": trade.get("type", ""),
+                        "price": trade.get("price", 0.0),
+                        "volume": trade.get("shares", 0.0),
+                        "timestamp": datetime.utcnow().isoformat(),
+                    })
+                EventBus.publish({
+                    "type": "cycle_complete",
+                    "cycle": cycle_id,
+                    "total_value": state.total_value,
+                    "cash": state.cash,
+                    "trade_count": trade_count,
+                    "symbol_count": len(signals),
+                    "timestamp": datetime.utcnow().isoformat(),
+                })
+                logger.info(
+                    "Cycle #%d done: %d symbols, %d trades, total_value=%.2f",
+                    cycle_id, len(signals), trade_count, state.total_value,
+                )
+            except Exception as exc:
+                logger.error("Cycle #%d execution failed: %s", cycle_id, exc)
+                EventBus.publish({
+                    "type": "cycle_error",
+                    "cycle": cycle_id,
+                    "message": str(exc),
+                    "timestamp": datetime.utcnow().isoformat(),
+                })
         else:
             EventBus.publish({
-                "type": "cycle_end",
-                "cycle": cycle_id,
-                "total_value": 0.0,
-                "cash": 0.0,
-                "trade_count": 0,
-                "symbol_count": 0,
+                "type": "cycle_complete", "cycle": cycle_id,
+                "total_value": 0.0, "cash": 0.0,
+                "trade_count": 0, "symbol_count": 0,
                 "note": "no_signals",
                 "timestamp": datetime.utcnow().isoformat(),
             })
@@ -228,9 +622,9 @@ class PaperTradeScheduler:
 
     def _fetch_latest(self, symbol: str, lookback: int = 100) -> Any:
         """Fetch the most recent *lookback* kline bars from DuckDB."""
+        import pandas as pd
         if not hasattr(self._store, "query_kline"):
             return pd.DataFrame()
-
         try:
             df = self._store.query_kline(symbol=symbol)
             if not isinstance(df, pd.DataFrame) or df.empty:
@@ -247,18 +641,17 @@ class PaperTradeScheduler:
                 df = df.iloc[-lookback:]
             return df
         except Exception:
+            import pandas as pd
             return pd.DataFrame()
 
     @staticmethod
     def _default_strategies() -> list[StrategyBase]:
-        """Build a default set of strategy instances."""
         from .strategy_base import (
             BullTrendStrategy,
             MeanReversionStrategy,
             MovingAverageTrendStrategy,
             RSIRangeStrategy,
         )
-
         return [
             MovingAverageTrendStrategy(),
             BullTrendStrategy(),
@@ -267,5 +660,5 @@ class PaperTradeScheduler:
         ]
 
 
-# To avoid circular imports at top of file
-import pandas as pd  # noqa: E402
+# Public alias for backward compatibility with tests and external callers
+PaperTradeScheduler.execute_scheduled_cycle = PaperTradeScheduler._execute_scheduled_cycle

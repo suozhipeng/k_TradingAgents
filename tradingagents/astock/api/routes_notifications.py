@@ -100,12 +100,12 @@ def _persist_channel(channel: dict[str, Any]) -> None:
         config_json = json.dumps({k: v for k, v in channel.items() if k not in ("name", "kind", "url", "enabled")}, ensure_ascii=False)
 
         _store.conn.execute(
-            """INSERT INTO notification_channels (name, kind, url, enabled, config_json)
-               VALUES (?, ?, ?, ?, ?)
+            """INSERT INTO notification_channels (name, kind, url, enabled, config_json, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?)
                ON CONFLICT(name) DO UPDATE SET
                    kind=excluded.kind, url=excluded.url, enabled=excluded.enabled,
-                   config_json=excluded.config_json, updated_at=CURRENT_TIMESTAMP""",
-            [name, kind, url, enabled, config_json],
+                   config_json=excluded.config_json, updated_at=excluded.updated_at""",
+            [name, kind, url, enabled, config_json, datetime.utcnow().isoformat()],
         )
     except Exception as exc:
         logger.warning("Failed to persist channel %s: %s", channel.get("name"), exc)

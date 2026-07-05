@@ -183,8 +183,8 @@ def scheduler_status() -> tuple[Response, int]:
     try:
         # Query recent cycle events from audit store
         store = _get_audit_store()
-        events = store.get_events(limit=20) or []
-        tasks = store.get_tasks(limit=10) or []
+        events = store.list_events(limit=20) or []
+        tasks = store.list_tasks(limit=10) or []
 
         # Filter scheduler-related events
         cycle_events = [

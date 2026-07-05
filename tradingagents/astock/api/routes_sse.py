@@ -10,17 +10,20 @@ Events are wrapped with ``TaskRun``-shaped fields for standardization
 from __future__ import annotations
 
 import json
+import logging
 import time
 import uuid
 from datetime import datetime
 from typing import Any, Generator
 
-from flask import Blueprint, Response, current_app
+from flask import Blueprint, Response, current_app, jsonify, request
 
 from tradingagents.astock.execution.event_bus import EventBus
 from tradingagents.astock.schemas.ops_audit import TaskType
 
 bp = Blueprint("sse", __name__)
+
+logger = logging.getLogger(__name__)
 
 # Default SSE poll interval (seconds)
 _DEFAULT_POLL_INTERVAL: float = 1.0
@@ -182,3 +185,163 @@ def clear_events() -> tuple[Response, int]:
         ),
         200,
     )
+
+
+# ---------------------------------------------------------------------------
+# Scheduler control endpoints (FR-15)
+# ---------------------------------------------------------------------------
+
+
+@bp.route("/sse/scheduler/status")
+def scheduler_status() -> tuple[Response, int]:
+    """Return scheduler lifecycle status."""
+    from tradingagents.astock.execution.scheduler import get_scheduler
+
+    sched = get_scheduler()
+    if sched is None:
+        return Response(
+            json.dumps({"status": "not_configured"}),
+            mimetype="application/json",
+        ), 200
+
+    return jsonify({
+        "running": sched.running,
+        "paused": sched.paused,
+        "enabled": sched.enabled,
+        "cycle_count": sched.cycle_count,
+        "next_run_time": sched.next_run_time,
+        "interval_minutes": sched._interval_minutes,
+    }), 200
+
+
+@bp.route("/sse/scheduler/start", methods=["POST"])
+def scheduler_start() -> tuple[Response, int]:
+    """Start the scheduler."""
+    from tradingagents.astock.execution.scheduler import get_scheduler
+
+    sched = get_scheduler()
+    if sched is None:
+        return jsonify({"error": "scheduler not configured", "status": 500}), 500
+    sched.start()
+    return jsonify({"status": "started", "running": sched.running}), 200
+
+
+@bp.route("/sse/scheduler/stop", methods=["POST"])
+def scheduler_stop() -> tuple[Response, int]:
+    """Stop the scheduler."""
+    from tradingagents.astock.execution.scheduler import get_scheduler
+
+    sched = get_scheduler()
+    if sched is None:
+        return jsonify({"error": "scheduler not configured", "status": 500}), 500
+    sched.stop()
+    return jsonify({"status": "stopped", "running": sched.running}), 200
+
+
+@bp.route("/sse/scheduler/pause", methods=["POST"])
+def scheduler_pause() -> tuple[Response, int]:
+    """Pause the scheduler."""
+    from tradingagents.astock.execution.scheduler import get_scheduler
+
+    sched = get_scheduler()
+    if sched is None:
+        return jsonify({"error": "scheduler not configured", "status": 500}), 500
+    sched.pause()
+    return jsonify({"status": "paused", "paused": sched.paused}), 200
+
+
+@bp.route("/sse/scheduler/resume", methods=["POST"])
+def scheduler_resume() -> tuple[Response, int]:
+    """Resume the scheduler after pause."""
+    from tradingagents.astock.execution.scheduler import get_scheduler
+
+    sched = get_scheduler()
+    if sched is None:
+        return jsonify({"error": "scheduler not configured", "status": 500}), 500
+    sched.resume()
+    return jsonify({"status": "resumed", "paused": sched.paused}), 200
+
+
+@bp.route("/sse/scheduler/jobs", methods=["GET"])
+def list_scheduler_jobs() -> tuple[Response, int]:
+    """List all scheduled jobs."""
+    from tradingagents.astock.execution.scheduler import get_scheduler
+
+    sched = get_scheduler()
+    if sched is None:
+        return jsonify({"error": "scheduler not configured", "status": 500}), 500
+    return jsonify({"jobs": sched.list_jobs()}), 200
+
+
+@bp.route("/sse/scheduler/jobs", methods=["POST"])
+def add_scheduler_job() -> tuple[Response, int]:
+    """Add a new scheduled job.
+
+    Body (JSON):
+        job_id      — unique job ID (required)
+        job_type    — "cron" | "interval" (default: "cron")
+        trigger_type — "cron" | "interval"
+        trigger_args — dict of trigger params (required)
+        enabled     — bool (default: true)
+    """
+    from tradingagents.astock.execution.scheduler import get_scheduler
+
+    sched = get_scheduler()
+    if sched is None:
+        return jsonify({"error": "scheduler not configured", "status": 500}), 500
+
+    data = request.get_json(silent=True) or {}
+    job_id = data.get("job_id", "")
+    job_type = data.get("job_type", "cron")
+    trigger_type = data.get("trigger_type", "cron")
+    trigger_args = data.get("trigger_args", {})
+    enabled = data.get("enabled", True)
+
+    if not job_id:
+        return jsonify({"error": "job_id is required", "status": 400}), 400
+
+    try:
+        if job_type == "interval":
+            minutes = trigger_args.get("minutes", 5)
+            sched.add_interval_job(job_id=job_id, minutes=minutes, enabled=enabled)
+        else:
+            hour = trigger_args.get("hour", "*")
+            minute = trigger_args.get("minute", "0")
+            day_of_week = trigger_args.get("day_of_week", "*")
+            sched.add_cron_job(job_id=job_id, hour=hour, minute=minute, day_of_week=day_of_week, enabled=enabled)
+        return jsonify({"status": "ok", "job_id": job_id}), 201
+    except Exception as exc:
+        logger.warning("Failed to add scheduler job: %s", exc)
+        return jsonify({"error": str(exc), "status": 500}), 500
+
+
+@bp.route("/sse/scheduler/jobs/<job_id>", methods=["DELETE"])
+def remove_scheduler_job(job_id: str) -> tuple[Response, int]:
+    """Remove a scheduled job by ID."""
+    from tradingagents.astock.execution.scheduler import get_scheduler
+
+    sched = get_scheduler()
+    if sched is None:
+        return jsonify({"error": "scheduler not configured", "status": 500}), 500
+
+    removed = sched.remove_job(job_id)
+    if not removed:
+        return jsonify({"error": f"Job not found: {job_id}", "status": 404}), 404
+    return jsonify({"status": "removed", "job_id": job_id}), 200
+
+
+@bp.route("/sse/scheduler/jobs/<job_id>/toggle", methods=["POST"])
+def toggle_scheduler_job(job_id: str) -> tuple[Response, int]:
+    """Toggle a job enabled/disabled."""
+    from tradingagents.astock.execution.scheduler import get_scheduler
+
+    sched = get_scheduler()
+    if sched is None:
+        return jsonify({"error": "scheduler not configured", "status": 500}), 500
+
+    data = request.get_json(silent=True) or {}
+    enabled = data.get("enabled", True)
+    toggled = sched.toggle_job(job_id, enabled)
+    if not toggled:
+        return jsonify({"error": f"Job not found: {job_id}", "status": 404}), 404
+    return jsonify({"status": "ok", "job_id": job_id, "enabled": enabled}), 200
