@@ -44,6 +44,45 @@ def _store() -> Any:
 
 
 # ---------------------------------------------------------------------------
+# Source inference helpers
+# ---------------------------------------------------------------------------
+
+
+def _resolve_source(
+    store: Any,
+    symbol: str,
+    kline_bars: list[dict[str, Any]],
+    valuations: list[dict[str, Any]],
+) -> str:
+    """Try to determine the data source for *symbol*."""
+    if kline_bars:
+        src = kline_bars[-1].get("source") or ""
+        if src:
+            return str(src)
+    if valuations:
+        src = valuations[-1].get("source") or ""
+        if src:
+            return str(src)
+    return "store"
+
+
+def _resolve_updated_at(
+    kline_bars: list[dict[str, Any]],
+    valuations: list[dict[str, Any]],
+) -> str:
+    """Return the most recent ``created_at`` timestamp, or empty string."""
+    ts = ""
+    for src in (kline_bars, valuations):
+        if src:
+            ts = (src[-1].get("created_at") or "") or ts
+            if ts:
+                if isinstance(ts, datetime):
+                    ts = ts.isoformat()
+                break
+    return str(ts) if ts else ""
+
+
+# ---------------------------------------------------------------------------
 # GET /api/v1/market/summary
 # ---------------------------------------------------------------------------
 
