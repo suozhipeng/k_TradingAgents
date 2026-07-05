@@ -45,6 +45,54 @@ Breaking changes within the 0.x line are called out explicitly.
 
 ---
 
+## [0.3.0] — 2026-07-06
+
+### Status Snapshot
+
+This version captures the current state of the project after Phase 38 delivery and the first full end-to-end live data run.
+
+#### Real-data verification (2026-07-06)
+
+- First full end-to-end run with **real market data** (non-mock) completed successfully.
+- Ticker: `600519.SH` (贵州茅台), trade date: `2026-07-04` (most recent Friday).
+- LLM: DeepSeek V4 Flash (quick) + V4 Pro (deep), `live_research` profile.
+- Data sources: baostock (kline), tencent (valuation), akshare (news/fundamentals).
+- Result: `status = partial`, decision = `CONTINUE_RESEARCH`, exposure cap 5%.
+- Known issue: `tdx` provider fails due to socket compatibility (non-blocking).
+
+#### Phase status (0–39)
+
+| Phase | Status | Note |
+|-------|--------|------|
+| 0–29 | ✅ completed | Core research, WebUI, backtest, execution layers |
+| 30 | 🔶 planned | Live Trading Readiness — not yet started |
+| 31 | 🔶 partial | Bias detection fixed; page display pending |
+| 32–33 | ✅ completed | Strategy Lab, AI Research Center |
+| 34–38 | 🔶 partial | Market Leaders, Portfolio Risk, Ops Audit, Nav Cleanup |
+| 39 | 🔶 pass-with-gaps | E2E UAT — 2 minor gaps |
+
+#### Pending backlog (updated 2026-07-06)
+
+**P0:**
+- BL-000: Live Trading Readiness checklist
+- BL-001: Unify QMT capability boundaries
+- BL-002: Fix `/api/v1/qmt/orders` mock semantics
+- BL-200: Web-G0 requirement freeze
+
+**P1:**
+- BL-201: Dashboard as daily workstation (five-state cards)
+- BL-203: Daily market recap report
+- BL-204: Watchlist batch AI analysis
+- BL-205: Decision summary (buy/hold/sell) on dashboard
+
+**P2:**
+- Multi-strategy matrix concurrent backtest
+- Watchlist → DuckDB persistence
+- Alert strategy/risk rules enhancement
+- Deep risk attribution beyond VaR 95/HHI
+
+---
+
 ## [0.2.5] — 2026-05-11
 
 ### Added
