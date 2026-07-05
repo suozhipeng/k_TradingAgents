@@ -7,6 +7,7 @@ Provides:
 
 from __future__ import annotations
 
+import difflib
 import json
 import logging
 import tempfile
@@ -235,6 +236,178 @@ def report_pptx() -> Response:
     except Exception as exc:
         logger.exception("PPTX generation failed")
         return jsonify({"error": f"PPTX generation failed: {exc}"}), 500
+
+
+# ---------------------------------------------------------------------------
+# POST /reports/compare — compare two archived reports
+# ---------------------------------------------------------------------------
+
+
+@bp.route("/reports/compare", methods=["POST"])
+def report_compare() -> tuple[Response, int]:
+    """Compare two archived reports and return a structured diff.
+
+    Body (JSON):
+        symbol_a    — first stock symbol
+        symbol_b    — second stock symbol
+        trade_date  — optional trade date filter
+    """
+    data = request.get_json(silent=True) or {}
+    symbol_a = (data.get("symbol_a") or "").strip().upper()
+    symbol_b = (data.get("symbol_b") or "").strip().upper()
+    trade_date = (data.get("trade_date") or "").strip()
+
+    if not symbol_a or not symbol_b:
+        return jsonify({"error": "symbol_a and symbol_b are required", "status": 400}), 400
+
+    items = _load_report_index()
+
+    def _find_report(sym: str, date: str) -> dict | None:
+        candidates = [it for it in items if it.get("symbol", "").upper() == sym]
+        if date:
+            candidates = [it for it in candidates if it.get("trade_date", "") == date]
+        candidates.sort(key=lambda it: it.get("created_at", ""), reverse=True)
+        return candidates[0] if candidates else None
+
+    report_a = _find_report(symbol_a, trade_date)
+    report_b = _find_report(symbol_b, trade_date)
+
+    if not report_a and not report_b:
+        return jsonify({"error": "Neither report found", "status": 404}), 404
+
+    # Build comparison fields — metadata
+    meta_fields = ["symbol", "report_type", "source", "advisory_only", "trade_date"]
+    diff: list[dict] = []
+    for field in meta_fields:
+        val_a = report_a.get(field) if report_a else "--"
+        val_b = report_b.get(field) if report_b else "--"
+        diff.append({
+            "field": field,
+            "a": val_a,
+            "b": val_b,
+            "same": val_a == val_b,
+        })
+
+    # Body comparison — unified diff for text fields
+    summary_a_text = (report_a.get("summary") or "") if report_a else ""
+    summary_b_text = (report_b.get("summary") or "") if report_b else ""
+    if summary_a_text or summary_b_text:
+        summary_diff = list(difflib.unified_diff(
+            summary_a_text.splitlines(keepends=True),
+            summary_b_text.splitlines(keepends=True),
+            fromfile="A",
+            tofile="B",
+            n=3,
+        ))
+        diff.append({
+            "field": "summary",
+            "type": "unified_diff",
+            "diff_text": "".join(summary_diff),
+            "a_len": len(summary_a_text),
+            "b_len": len(summary_b_text),
+            "same": summary_a_text == summary_b_text,
+        })
+    else:
+        diff.append({"field": "summary", "type": "unified_diff", "diff_text": "", "a_len": 0, "b_len": 0, "same": True})
+
+    # Body comparison — investment_plan (unified diff)
+    ip_a_text = (report_a.get("investment_plan") or "") if report_a else ""
+    ip_b_text = (report_b.get("investment_plan") or "") if report_b else ""
+    if ip_a_text or ip_b_text:
+        ip_diff = list(difflib.unified_diff(
+            ip_a_text.splitlines(keepends=True),
+            ip_b_text.splitlines(keepends=True),
+            fromfile="A",
+            tofile="B",
+            n=3,
+        ))
+        diff.append({
+            "field": "investment_plan",
+            "type": "unified_diff",
+            "diff_text": "".join(ip_diff),
+            "a_len": len(ip_a_text),
+            "b_len": len(ip_b_text),
+            "same": ip_a_text == ip_b_text,
+        })
+    else:
+        diff.append({"field": "investment_plan", "type": "unified_diff", "diff_text": "", "a_len": 0, "b_len": 0, "same": True})
+
+    # Body comparison — research_conclusion (structured field diff)
+    rc_a = report_a.get("research_conclusion") or {} if report_a else {}
+    rc_b = report_b.get("research_conclusion") or {} if report_b else {}
+    rc_all_keys = sorted(set(list(rc_a.keys()) + list(rc_b.keys())))
+    rc_items = []
+    for key in rc_all_keys:
+        val_a = rc_a.get(key)
+        val_b = rc_b.get(key)
+        rc_items.append({
+            "key": key,
+            "a": val_a,
+            "b": val_b,
+            "same": val_a == val_b,
+        })
+    diff.append({
+        "field": "research_conclusion",
+        "type": "structured_diff",
+        "items": rc_items,
+        "same": all(it["same"] for it in rc_items),
+    })
+
+    return jsonify({
+        "report_a": report_a,
+        "report_b": report_b,
+        "diff": diff,
+        "status": "ok",
+    }), 200
+
+
+# ---------------------------------------------------------------------------
+# PATCH /reports/<report_id>/audit — AI audit annotation
+# ---------------------------------------------------------------------------
+
+
+@bp.route("/reports/<report_id>/audit", methods=["PATCH"])
+def report_audit(report_id: str) -> tuple[Response, int]:
+    """Add an AI audit result to an archived report.
+
+    Body (JSON):
+        audit_status  — passed / flagged / reviewed
+        audit_notes   — free-text audit notes
+        auditor       — model or human name
+    """
+    data = request.get_json(silent=True) or {}
+    audit_status = (data.get("audit_status") or "").strip().lower()
+    audit_notes = (data.get("audit_notes") or "").strip()
+    auditor = (data.get("auditor") or "ai").strip()
+
+    if audit_status not in ("passed", "flagged", "reviewed"):
+        return jsonify({"error": "audit_status must be passed/flagged/reviewed", "status": 400}), 400
+
+    items = _load_report_index()
+    # Find by created_at timestamp (used as report_id) or symbol match
+    target = None
+    for it in items:
+        if it.get("created_at") == report_id:
+            target = it
+            break
+    if target is None:
+        # Fallback: use symbol as report_id
+        candidates = [it for it in items if it.get("symbol", "").upper() == report_id.upper()]
+        candidates.sort(key=lambda it: it.get("created_at", ""), reverse=True)
+        target = candidates[0] if candidates else None
+
+    if target is None:
+        return jsonify({"error": f"Report not found: {report_id}", "status": 404}), 404
+
+    target["ai_audit"] = {
+        "status": audit_status,
+        "notes": audit_notes,
+        "auditor": auditor,
+        "audited_at": datetime.now().isoformat(),
+    }
+    _save_report_index(items)
+
+    return jsonify({"item": target, "status": "ok"}), 200
 
 
 __all__ = ["bp"]

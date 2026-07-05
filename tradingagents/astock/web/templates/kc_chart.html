@@ -1,13 +1,16 @@
-{% if standalone %}
-{% extends "base_standalone.html" %}
-{% else %}
 {% extends "base.html" %}
-{% endif %}
 {% block title %}KC Chart — {{ symbol }}{% endblock %}
+
+{% if standalone %}
+{% block sidebar %}{% endblock %}
+{% block topbar %}{% endblock %}
+{% block commandbar %}{% endblock %}
+{% endif %}
+
 {% block head_extra %}
 <script src="{{ url_for('web.static', filename='tv/klinecharts/klinecharts.min.js') }}"></script>
 <style>
-#kc-chart { width: 100%; height: calc(100vh - 160px); min-height: 500px; }
+#kc-chart { width: 100%; height: {% if standalone %}100vh{% else %}calc(100vh - 160px){% endif %}; min-height: 500px; }
 .kc-topbar { display: flex; flex-direction: column; gap: 5px; padding: 6px 14px; background: #1e222d; border-bottom: 1px solid #2a2e39; }
 .kc-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .kc-topbar input { background: #131722; border: 1px solid #2a2e39; border-radius: 4px; padding: 4px 10px; font-size: 12px; color: #d1d4dc; outline: none; width: 130px; }

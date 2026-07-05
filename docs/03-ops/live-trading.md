@@ -71,12 +71,13 @@
 - 已把 `research` / `paper` / `managed` / `live-ready` 的能力边界写清楚。
 - 已确认当前 `trade/order` 和 `trade/state` 仍属 `paper`。
 - 已确认 QMT 端点当前只能按 `managed` 的 mock/read-only 口径对外描述。
+- 已确认真实 QMT 订单/委托查询为已知问题，当前暂不接入。
 
 当前 Phase 30 不代表：
 
 - 交易 API 已全部升级到标准 envelope。
 - `/trade/order` 已支持真实 managed 或 live-ready 下单。
-- QMT 账户、委托、成交、回报对账已经闭环。
+- QMT 真实账户、委托查询、成交、回报对账已经闭环（当前未闭环，暂不接入）。
 
 ## 4. 日常运行流程
 

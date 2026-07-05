@@ -61,6 +61,7 @@ PAGE_ROUTES = [
     ("/risk", "risk"),
     ("/reports", "reports"),
     ("/screener", "screener"),
+    ("/daily", "daily"),
     ("/dragon_tiger", "dragon_tiger"),
     ("/sectors", "sectors"),
     ("/northbound", "northbound"),
@@ -75,6 +76,8 @@ PAGE_ROUTES = [
     ("/market_leaders", "market_leaders"),
     ("/portfolio", "portfolio"),
     ("/ops_audit", "ops_audit"),
+    ("/monitor", "monitor"),
+    ("/strategies/monitor", "strategy_monitor"),
 ]
 
 
@@ -102,6 +105,7 @@ class TestWebBlueprintRegistration:
             "web.risk",
             "web.reports",
             "web.screener",
+            "web.daily_review",
             "web.dragon_tiger",
             "web.sectors",
             "web.northbound",
@@ -116,10 +120,12 @@ class TestWebBlueprintRegistration:
             "web.market_leaders",
             "web.portfolio",
             "web.ops_audit",
+            "web.monitor",
+            "web.strategy_monitor",
         }
         missing = expected - endpoints
         assert not missing, f"Missing web endpoints: {missing}"
-        assert len(endpoints) >= 24
+        assert len(endpoints) >= 26
 
 
 class TestWebPageRendering:

@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}策略监控 — TradingAgents{% endblock %}
+{% block head_extra %}
+<meta name="page-name" content="strategy_monitor" />
+<style>
+.strategy-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; margin-top: 12px; }
+.strategy-card { background: var(--tv-card); border: 1px solid var(--tv-border); border-radius: 8px; padding: 14px; transition: border-color .2s; }
+.strategy-card:hover { border-color: var(--tv-blue); }
+.strategy-card .name { font-size: 14px; font-weight: 700; color: var(--tv-text); margin-bottom: 4px; }
+.strategy-card .desc { font-size: 11px; color: var(--tv-muted); margin-bottom: 8px; line-height: 1.4; }
+.strategy-card .meta { display: flex; gap: 12px; font-size: 11px; color: var(--tv-muted); }
+.strategy-card .meta span { display: flex; align-items: center; gap: 4px; }
+.strategy-card .tag { display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 4px; background: rgba(49,128,255,0.15); color: var(--tv-blue); }
+.loading-center { text-align: center; padding: 60px 20px; color: var(--tv-muted); font-size: 13px; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="page-content" style="max-width:1200px;margin:0 auto;padding:16px;">
+  <h2 style="font-size:16px;font-weight:700;margin-bottom:4px;color:var(--tv-text);">📊 策略监控</h2>
+  <p style="font-size:12px;color:var(--tv-muted);margin-bottom:12px;">已注册策略一览 — 点击卡片跳转策略回测</p>
+  <div id="strategy-grid" class="strategy-grid"><div class="loading-center">加载中...</div></div>
+</div>
+<script>
+async function loadStrategies() {
+  const grid = document.getElementById('strategy-grid');
+  try {
+    const res = await fetch('/api/v1/strategies/status');
+    const data = await res.json();
+    if (!data.strategies || data.strategies.length === 0) {
+      grid.innerHTML = '<div class="loading-center">暂未发现已注册策略</div>';
+      return;
+    }
+    let html = '';
+    const names = {
+      MovingAverageTrend: '均线趋势', BullTrend: '龙头股动量', ValueAverage: '价值平均',
+      MeanReversion: '均值回归', RSIRange: 'RSI 区间', DefensiveMomentum: '防御型动量',
+      PutWrite: '备兑开仓', MACDTrend: 'MACD 趋势', BollingerBands: '布林带回撤',
+      GridTrading: '网格交易', MomentumRotation: '动量轮动', StockFlow: '资金流',
+    };
+    data.strategies.forEach(function(s) {
+      const cn = names[s.name] || s.name;
+      const link = '/strategy_hub?strategy=' + encodeURIComponent(s.name);
+      html += '<a href="' + link + '" class="strategy-card" style="text-decoration:none;display:block;">' +
+        '<div class="name">' + cn + ' <span class="tag">' + s.name + '</span></div>' +
+        '<div class="desc">' + (s.doc_preview || 'A股交易策略') + '</div>' +
+        '<div class="meta"><span>📦 ' + s.module.split('.').pop() + '</span></div>' +
+        '</a>';
+    });
+    grid.innerHTML = html;
+  } catch(e) {
+    grid.innerHTML = '<div class="loading-center">加载失败: ' + e.message + '</div>';
+  }
+}
+loadStrategies();
+</script>
+{% endblock %}

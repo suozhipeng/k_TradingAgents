@@ -9,8 +9,12 @@ dependency chain at module load time.
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime
 from typing import Any
+
+# Module-level compiled regex for date validation
+_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 from flask import Blueprint, Response, current_app, jsonify, request
 
@@ -151,6 +155,17 @@ def run_backtest() -> tuple[Response, int]:
     if not start_date or not end_date:
         return jsonify({"error": "start and end dates are required", "status": 400}), 400
 
+    # Validate date format YYYY-MM-DD
+    for label, d in (("start", start_date), ("end", end_date)):
+        if not _DATE_RE.match(d):
+            return jsonify({"error": f"{label} date must be YYYY-MM-DD, got '{d}'", "status": 400}), 400
+        try:
+            datetime.strptime(d, "%Y-%m-%d")
+        except ValueError:
+            return jsonify({"error": f"{label} date is invalid: '{d}'", "status": 400}), 400
+    if start_date >= end_date:
+        return jsonify({"error": "start date must be before end date", "status": 400}), 400
+
     try:
         strategy_cls = registry[strategy_name]
         strategy = strategy_cls()
@@ -257,6 +272,10 @@ def get_backtest_results() -> tuple[Response, int]:
         return jsonify({"error": str(exc), "status": 500}), 500
 
 
+# Alias: GET /api/v1/backtest/history → same handler as /backtest/results
+bp.add_url_rule("/backtest/history", "get_backtest_history", get_backtest_results)
+
+
 # ---------------------------------------------------------------------------
 # GET /api/v1/backtest/compare
 # ---------------------------------------------------------------------------
@@ -284,6 +303,17 @@ def compare_backtests() -> tuple[Response, int]:
         return jsonify({"error": "symbol is required", "status": 400}), 400
     if not start_date or not end_date:
         return jsonify({"error": "start and end dates are required", "status": 400}), 400
+
+    # Validate date format YYYY-MM-DD
+    for label, d in (("start", start_date), ("end", end_date)):
+        if not _DATE_RE.match(d):
+            return jsonify({"error": f"{label} date must be YYYY-MM-DD, got '{d}'", "status": 400}), 400
+        try:
+            datetime.strptime(d, "%Y-%m-%d")
+        except ValueError:
+            return jsonify({"error": f"{label} date is invalid: '{d}'", "status": 400}), 400
+    if start_date >= end_date:
+        return jsonify({"error": "start date must be before end date", "status": 400}), 400
 
     registry = _get_strategy_registry()
     names = [s.strip() for s in strategies_param.split(",") if s.strip()]
@@ -383,6 +413,17 @@ def walkforward():
         if not symbol or not start_date or not end_date:
             return jsonify({"error": "symbol, start_date, end_date required", "status": 400}), 400
 
+        # Validate date format YYYY-MM-DD
+        for label, d in (("start_date", start_date), ("end_date", end_date)):
+            if not _DATE_RE.match(d):
+                return jsonify({"error": f"{label} date must be YYYY-MM-DD, got '{d}'", "status": 400}), 400
+            try:
+                datetime.strptime(d, "%Y-%m-%d")
+            except ValueError:
+                return jsonify({"error": f"{label} date is invalid: '{d}'", "status": 400}), 400
+        if start_date >= end_date:
+            return jsonify({"error": "start_date must be before end_date", "status": 400}), 400
+
         registry = _get_strategy_registry()
         strategy_cls = registry.get(strategy_name)
         if strategy_cls is None:
@@ -449,6 +490,17 @@ def analyze_backtest() -> tuple[Response, int]:
     end_date = body.get("end_date", "")
     if not start_date or not end_date:
         return jsonify({"error": "start_date and end_date are required", "status": 400}), 400
+
+    # Validate date format YYYY-MM-DD
+    for label, d in (("start_date", start_date), ("end_date", end_date)):
+        if not _DATE_RE.match(d):
+            return jsonify({"error": f"{label} date must be YYYY-MM-DD, got '{d}'", "status": 400}), 400
+        try:
+            datetime.strptime(d, "%Y-%m-%d")
+        except ValueError:
+            return jsonify({"error": f"{label} date is invalid: '{d}'", "status": 400}), 400
+    if start_date >= end_date:
+        return jsonify({"error": "start_date must be before end_date", "status": 400}), 400
 
     registry = _get_strategy_registry()
     if strategy_name not in registry:

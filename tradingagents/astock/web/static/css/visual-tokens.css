@@ -1,0 +1,213 @@
+/* ═══════════════════════════════════════════════════════════════════════════════
+   visual-tokens.css — 全局设计令牌 (CSS Custom Properties)
+   TV 风格深色主题 · AStock Pro Visual System
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+/* ── Root tokens ── */
+:root {
+  /* ── Color tokens ── */
+  --tv-bg:              #131722;
+  --tv-surface:         #1e222d;
+  --tv-card:            #2a2e39;
+  --tv-border:          #2a2e39;
+  --tv-hover:           #363a45;
+  --tv-blue:            #2962FF;
+  --tv-blue-hover:      #1a4fd0;
+  --tv-green:           #089981;
+  --tv-green-dim:       rgba(8,153,129,0.15);
+  --tv-red:             #f23645;
+  --tv-red-dim:         rgba(242,54,69,0.15);
+  --tv-orange:          #ff9800;
+  --tv-orange-dim:      rgba(255,152,0,0.15);
+  --tv-text:            #d1d4dc;
+  --tv-muted:           #787b86;
+  --tv-body-bg:         #0a0e17;
+  --tv-sidebar-bg:      #0d111c;
+
+  /* ── Typography tokens ── */
+  --tv-font-sans:       'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --tv-font-mono:       'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+  --tv-font-size-xs:    10px;
+  --tv-font-size-sm:    11px;
+  --tv-font-size-base:  12px;
+  --tv-font-size-md:    13px;
+  --tv-font-size-lg:    15px;
+  --tv-font-size-xl:    20px;
+  --tv-font-size-2xl:   22px;
+  --tv-font-weight-normal:  400;
+  --tv-font-weight-medium:  500;
+  --tv-font-weight-semibold: 600;
+  --tv-font-weight-bold:    700;
+  --tv-font-weight-extrabold: 800;
+
+  /* ── Spacing tokens ── */
+  --tv-gap-xs:          2px;
+  --tv-gap-sm:          4px;
+  --tv-gap-md:          8px;
+  --tv-gap-lg:          12px;
+  --tv-gap-xl:          16px;
+  --tv-gap-2xl:         20px;
+  --tv-padding-xs:      4px;
+  --tv-padding-sm:      6px;
+  --tv-padding-md:      10px;
+  --tv-padding-lg:      12px;
+  --tv-padding-xl:      14px;
+  --tv-padding-2xl:     16px;
+
+  /* ── Border radius tokens ── */
+  --tv-radius-sm:       2px;
+  --tv-radius-md:       4px;
+  --tv-radius-lg:       6px;
+  --tv-radius-xl:       8px;
+
+  /* ── Transition tokens ── */
+  --tv-transition-fast:  0.12s;
+  --tv-transition-base:  0.15s;
+  --tv-transition-slow:  0.25s;
+
+  /* ── Shadow tokens ── */
+  --tv-shadow-sm:        0 1px 4px rgba(0,0,0,0.3);
+  --tv-shadow-md:        0 4px 12px rgba(0,0,0,0.4);
+  --tv-shadow-lg:        0 8px 24px rgba(0,0,0,0.5);
+  --tv-shadow-xl:        0 16px 48px rgba(0,0,0,0.6);
+
+  /* ── Z-index tokens ── */
+  --tv-z-sidebar:        100;
+  --tv-z-dropdown:       1000;
+  --tv-z-tooltip:        2000;
+  --tv-z-modal:          9999;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   State tokens — visible feedback classes
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+/* ── State classes ── */
+.state-loading {
+  display: flex; align-items: center; justify-content: center;
+  gap: var(--tv-gap-md, 8px);
+  padding: var(--tv-padding-2xl, 16px);
+  color: var(--tv-muted, #787b86);
+  font-size: var(--tv-font-size-sm, 11px);
+  letter-spacing: 0.3px;
+}
+.state-loading::after {
+  content: '';
+  width: 14px; height: 14px;
+  border: 2px solid var(--tv-border, #2a2e39);
+  border-top-color: var(--tv-blue, #2962FF);
+  border-radius: 50%;
+  animation: tv-spin 0.6s linear infinite;
+}
+
+.state-empty {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--tv-muted, #787b86);
+}
+.state-empty .icon { font-size: 30px; margin-bottom: 8px; }
+.state-empty .text { font-size: var(--tv-font-size-md, 13px); }
+.state-empty .hint { font-size: var(--tv-font-size-sm, 11px); color: var(--tv-muted, #787b86); margin-top: 4px; }
+
+.state-error {
+  text-align: center;
+  padding: 24px 20px;
+  color: var(--tv-red, #f23645);
+  font-size: var(--tv-font-size-base, 12px);
+}
+.state-error .icon { font-size: 24px; margin-bottom: 6px; }
+.state-error .detail {
+  font-size: var(--tv-font-size-sm, 11px);
+  color: var(--tv-muted, #787b86);
+  margin-top: 4px;
+}
+
+.state-degraded {
+  text-align: center;
+  padding: 20px;
+  color: var(--tv-orange, #ff9800);
+  font-size: var(--tv-font-size-base, 12px);
+  border: 1px solid var(--tv-orange-dim, rgba(255,152,0,0.15));
+  border-radius: var(--tv-radius-lg, 6px);
+  background: rgba(255,152,0,0.03);
+}
+
+/* ── Card state classes ── */
+.card-loading {
+  position: relative;
+  min-height: 80px;
+  display: flex; align-items: center; justify-content: center;
+}
+.card-loading::before {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.02), transparent);
+  background-size: 200% 100%;
+  animation: tv-shimmer 1.5s ease-in-out infinite;
+  pointer-events: none;
+}
+.card-loading::after {
+  content: '加载中...';
+  color: var(--tv-muted, #787b86);
+  font-size: var(--tv-font-size-sm, 11px);
+  position: relative;
+  z-index: 1;
+}
+
+.card-empty {
+  min-height: 80px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--tv-muted, #787b86);
+  font-size: var(--tv-font-size-sm, 11px);
+  background: var(--tv-surface, #1e222d);
+  border: 1px dashed var(--tv-border, #2a2e39);
+  border-radius: var(--tv-radius-lg, 6px);
+}
+
+.card-error {
+  min-height: 60px;
+  display: flex; align-items: center; justify-content: center;
+  gap: var(--tv-gap-md, 8px);
+  color: var(--tv-red, #f23645);
+  font-size: var(--tv-font-size-sm, 11px);
+  background: var(--tv-red-dim, rgba(242,54,69,0.05));
+  border: 1px solid var(--tv-red-dim, rgba(242,54,69,0.2));
+  border-radius: var(--tv-radius-lg, 6px);
+  padding: var(--tv-padding-lg, 12px);
+}
+
+.card-degraded {
+  min-height: 60px;
+  display: flex; align-items: center; justify-content: center;
+  gap: var(--tv-gap-md, 8px);
+  color: var(--tv-orange, #ff9800);
+  font-size: var(--tv-font-size-sm, 11px);
+  background: rgba(255,152,0,0.03);
+  border: 1px solid var(--tv-orange-dim, rgba(255,152,0,0.15));
+  border-radius: var(--tv-radius-lg, 6px);
+  padding: var(--tv-padding-lg, 12px);
+}
+
+.card-loaded {
+  /* No extra decoration — inherits default card styling */
+  display: block;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   Keyframes
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+@keyframes tv-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes tv-shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes tv-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.4; }
+}

@@ -18,12 +18,31 @@ _qmt_bridge: Any = None
 
 
 def _get_bridge() -> Any:
+    """Return the shared QMT bridge instance (always mock by default).
+
+    To use real QMT, pass ``use_mock=False`` directly — do not rely on
+    a global toggle here.
+    """
     global _qmt_bridge
     if _qmt_bridge is None:
         from tradingagents.astock.execution.qmt_bridge import QmtBridge
 
         _qmt_bridge = QmtBridge(use_mock=True)
     return _qmt_bridge
+
+
+def _bridge_status(bridge: Any) -> dict[str, Any]:
+    """Build a common status dict injected into every QMT response.
+
+    Every QMT endpoint adds this dict so the caller can unambiguously
+    determine whether the data is mock / real / unavailable.
+    """
+    return {
+        "source": "mock" if bridge.is_mock else "live",
+        "mock": bridge.is_mock,
+        "read_only": True,  # All current QMT routes are read-only
+        "live_ready": False,  # Not connected to a real broker
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -63,6 +82,7 @@ def qmt_health() -> tuple[Response, int]:
                 "port": bridge.config.port,
                 "real_healthy": real_healthy,
                 "real_error": real_error,
+                "status": _bridge_status(bridge),
             }
         ), 200
     except Exception as exc:
@@ -76,11 +96,15 @@ def qmt_health() -> tuple[Response, int]:
 
 @bp.route("/qmt/positions")
 def qmt_positions() -> tuple[Response, int]:
-    """QMT current positions (read-only)."""
+    """QMT current positions (read-only, mock by default)."""
     try:
         bridge = _get_bridge()
         positions = bridge.get_positions()
-        return jsonify({"positions": positions, "mock_mode": bridge.is_mock}), 200
+        return jsonify({
+            "positions": positions,
+            "mock_mode": bridge.is_mock,
+            "status": _bridge_status(bridge),
+        }), 200
     except Exception as exc:
         return jsonify({"error": str(exc), "status": 500}), 500
 
@@ -92,24 +116,27 @@ def qmt_positions() -> tuple[Response, int]:
 
 @bp.route("/qmt/orders")
 def qmt_orders() -> tuple[Response, int]:
-    """QMT open / pending orders (read-only, mock)."""
+    """QMT account info (read-only, mock by default).
+
+    NOTE: This endpoint returns account snapshot data, not actual order
+    records.  Real QMT order/query is not yet implemented.
+    """
     try:
         bridge = _get_bridge()
         account_info = bridge.get_account_info()
-        return jsonify(
-            {
-                "orders": [
-                    {
-                        "account_id": account_info.get("account_id", ""),
-                        "total_asset": account_info.get("total_asset", 0),
-                        "cash": account_info.get("cash", 0),
-                        "market_value": account_info.get("market_value", 0),
-                        "frozen_cash": account_info.get("frozen_cash", 0),
-                        "available_cash": account_info.get("available_cash", 0),
-                    }
-                ],
-                "mock_mode": bridge.is_mock,
-            }
-        ), 200
+        return jsonify({
+            "orders": [
+                {
+                    "account_id": account_info.get("account_id", ""),
+                    "total_asset": account_info.get("total_asset", 0),
+                    "cash": account_info.get("cash", 0),
+                    "market_value": account_info.get("market_value", 0),
+                    "frozen_cash": account_info.get("frozen_cash", 0),
+                    "available_cash": account_info.get("available_cash", 0),
+                }
+            ],
+            "mock_mode": bridge.is_mock,
+            "status": _bridge_status(bridge),
+        }), 200
     except Exception as exc:
         return jsonify({"error": str(exc), "status": 500}), 500

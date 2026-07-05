@@ -165,13 +165,23 @@ class AuditStore:
             if result is not None:
                 task["result"] = result
 
-            if status in ("completed", "failed") and not task.get("finished_at"):
+            if status in ("completed", "failed", "cancelled") and not task.get("finished_at"):
                 task["finished_at"] = datetime.utcnow().isoformat()
-            if status == "running" and not task.get("started_at"):
+            if status in ("running", "queued") and not task.get("started_at"):
                 task["started_at"] = datetime.utcnow().isoformat()
 
         self._persist_task(task)
         return task
+
+    def cancel_task(self, task_id: str) -> dict[str, Any] | None:
+        """Cancel an existing task.  Sets status to 'cancelled'.
+
+        Returns
+        -------
+        dict or None
+            The updated task dict, or ``None`` if no task exists.
+        """
+        return self.update_task(task_id, status="cancelled")
 
     def get_task(self, task_id: str) -> dict[str, Any] | None:
         """Get a task by ID.  Returns ``None`` if not found."""

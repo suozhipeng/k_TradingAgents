@@ -54,12 +54,14 @@
 
 目标：
 
-- 接真实 QMT 订单/委托查询，或明确改名为 mock endpoint
+- 当前阶段不接入真实 QMT 订单/委托查询；该能力标注为已知问题/远期项
+- 保持 `/api/v1/qmt/orders` 为 mock/read-only 响应，并在 API/UI/docs 中明确标注
 
 完成标准：
 
 - endpoint 语义与返回内容一致
 - 文档不再误导为真实订单模块
+- 真实 QMT 订单/委托查询明确列为暂不接入
 
 ### BL-003 修正 trade quote / trade state 的能力口径
 
@@ -201,4 +203,4 @@
 - 不得直接标成可执行指令
 
 完成标准：
-- 摘要明确标注 `research_only` / `actionable=fals
+- 摘要明确标注 `research_only` / `actionable=false`

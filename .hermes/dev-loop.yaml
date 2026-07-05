@@ -1,46 +1,134 @@
-# .hermes/dev-loop.yaml
-project: 'Phase 36 — Portfolio Risk & Attribution 闭环'
-started_at: '2026-06-27T01:00:00+08:00'
-phase: done
-current_task_index: -1
+# TradingAgents — Feature Gap Closure Loop (FR-13→FR-14→FR-05→FR-16)
+# Updated: 2026-07-05
+project: 'TradingAgents Feature Gap Closure (审计修复)'
+started_at: '2026-07-05T12:00:00+08:00'
+loop_level: l2
+phase: test
+current_task_index: 7
+review_mode: gate-sequence
+paused: false
+blocked: false
+blocked_reason: ''
+metadata:
+  branch: xg_dev
+  head: HEAD (dirty, ~11 modified files)
+  tests: 'pytest'
+  codex_version: 'active'
+  audit_date: '2026-07-05'
 
+monitor:
+  enabled: true
+  dashboard_path: .hermes/loop-dashboard.html
+  last_rendered_at: ~
+
+gate_sequence:
+  manual: true
+  review_agent: opencode
+  acceptance_agent: codex
+  current_gate: none
+  review_status: pending
+  acceptance_status: pending
+
+execution_tracks:
+  a:
+    executor: direct-or-subagent
+    use_when: small scoped implementation (single-file edits, doc updates, test fixes)
+  b:
+    executor: openhands
+    use_when: multi-step shell/test/fix execution, cross-file changes, iterative repair
+    max_attempts: 3
+    owns_state: false
+    report_dir: .hermes/openhands-reports
+  c:
+    executor: codex-b
+    use_when: fallback implementation or acceptance-assisted repair when A/B tracks exhausted
+
+completed_phases:
+  - id: audit_1
+    title: '全功能点审计 (FR-13/14/15/05/16)'
+    status: done
+
+# ── Current Loop Tasks (2~5 min each) ──
 tasks:
   - id: 1
-    description: 'GA 遗传算法优化器 (StrategyOptimizer method="genetic")'
+    description: 'FR-13: 更新 traceability-matrix.md — partial→done, 删除 gap 说明'
     status: committed
-    commit_sha: a1d96ea
+    track: a
+    execution_agent: direct
+    commit_sha: ~
+    review_verdict: accepted
+    execution_report: ~
+    notes: 'doc-only; routes_ops.py:108 已存在 /ops/tasks/<task_id>; TaskStatus 枚举已验证'
 
   - id: 2
-    description: 'PortfolioStrategyBase + MomentumRotationStrategy'
+    description: 'FR-14: 添加企业微信通知通道 (routes_notifications.py)'
     status: committed
-    commit_sha: a1d96ea
+    track: a
+    execution_agent: direct
+    commit_sha: ~
+    review_verdict: pending
+    execution_report: ~
+    notes: 'Added _build_work_weixin_payload() + dispatch branch; SSE+Scheduler tests 18/18 passed'
 
   - id: 3
-    description: 'StockFlow 图执行链 (and/or/majority/cascade)'
-    status: committed
-    commit_sha: a1d96ea
+    description: 'FR-14: 更新 traceability-matrix.md — 改进状态说明'
+    status: pending
+    track: a
+    execution_agent: direct
+    commit_sha: ~
+    review_verdict: ~
+    execution_report: ~
+    notes: '企业微信通道就位后更新矩阵'
 
   - id: 4
-    description: 'MarketAnalyzer 无 Store 依赖 + BacktestEngine auto_regime'
-    status: committed
-    commit_sha: a1d96ea
+    description: 'FR-05: backend — report_compare 升级为行级 diff'
+    status: pending
+    track: a
+    execution_agent: direct
+    commit_sha: ~
+    review_verdict: ~
+    execution_report: ~
+    notes: 'summary/investment_plan 做 unified diff (difflib); research_conclusion 做结构化字段 diff; 返回 side-by-side 或 unified 格式'
 
   - id: 5
-    description: 'WalkForwardAnalyzer + WebUI Tab5'
-    status: committed
-    commit_sha: a1d96ea
+    description: 'FR-05: frontend — reports.html 对比视图改为 inline/unified diff'
+    status: pending
+    track: a
+    execution_agent: direct
+    commit_sha: ~
+    review_verdict: ~
+    execution_report: ~
+    notes: 'renderCompareDiff() 显示 unified diff 而非字段相等表'
 
   - id: 6
-    description: 'Metrics 内建清洗 + 10 策略 Inf 消杀 + 涨跌停精度修正'
-    status: committed
-    commit_sha: a1d96ea
+    description: 'FR-16: Dashboard — 所有卡片加 stale 数据指示器'
+    status: pending
+    track: a
+    execution_agent: direct
+    commit_sha: ~
+    review_verdict: ~
+    execution_report: ~
+    notes: '跟踪每块最后刷新时间; >5min 显示 "N 分钟前"; 全局 stale 提示'
 
   - id: 7
-    description: 'P0 Bias frontend — API data_assumption 修复'
-    status: committed
-    commit_sha: 518a3b4
+    description: '文档同步：更新 traceability-matrix.md FR-05/FR-16 状态'
+    status: pending
+    track: a
+    execution_agent: direct
+    commit_sha: ~
+    review_verdict: ~
+    execution_report: ~
+    notes: 'FR-05 partial→done, FR-16 partial→done, 更新缺口章节'
 
   - id: 8
-    description: 'Phase 36 Portfolio Risk & Attribution — VaR/风险敞口/归因'
-    status: committed
-    commit_sha: 854d25a
+    description: '全量测试 + git commit 批次提交'
+    status: pending
+    track: a
+    execution_agent: direct
+    commit_sha: ~
+    review_verdict: ~
+    execution_report: ~
+    notes: 'pytest 全量跑; 全部通过后 git add -A + commit'
+
+next_actions:
+  - 'Task 1: FR-13 traceability-matrix.md 状态修正'

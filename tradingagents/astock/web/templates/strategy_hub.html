@@ -215,6 +215,23 @@
 .sh-cap-row { display: flex; gap: 6px; align-items: center; margin-bottom: 8px; }
 .sh-cap-row label { font-size: 10px; color: #787b86; text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap; }
 .sh-cap-row input { width: 80px; }
+
+/* ── Capability labels ── */
+.cap-label {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px; border-radius: 3px;
+  font-size: 10px; font-weight: 600;
+  letter-spacing: 0.3px;
+}
+.cap-live {
+  background: rgba(242,54,69,0.15); color: #f23645;
+}
+.cap-paper {
+  background: rgba(255,152,0,0.15); color: #ff9800;
+}
+.cap-backtest {
+  background: rgba(41,98,255,0.15); color: #2962FF;
+}
 </style>
 {% endblock %}
 
@@ -829,6 +846,18 @@ async function shRunSingle(symbol, start, end, statusEl) {
     lastSingleAnalyze = analyzeData.error ? btData : analyzeData;
     shRenderSingleResults(btData, analyzeData.error ? btData : analyzeData);
     statusEl.textContent = '✅ ' + strategy + ' · ' + symbol + ' 完成';
+    // Strategy→alert hook: fire a strategy signal alert on successful backtest
+    fetch('/api/v1/alerts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        symbol: symbol,
+        trigger_type: 'strategy',
+        severity: 'info',
+        message: strategy + ' 策略回测完成 · ' + symbol + ' · ' + start + ' ~ ' + end,
+        source: 'strategy_hub'
+      })
+    }).catch(function(){}); // fire-and-forget
     shLoadHistory();
     if (shActiveTab !== 'single') shSwitchTab('single');
   } catch (e) {
@@ -911,6 +940,15 @@ function shRenderSingleResults(btData, ad) {
   if (da.st_stock) biasFlags.push('📉 ST/*ST');
   if (da.price_limit_check === false) biasFlags.push('🎯 涨跌停约束关闭');
   if (da.suspension_check === false) biasFlags.push('⏸️ 停牌约束关闭');
+  if (da.volume_cap_pct > 0) biasFlags.push('📊 成交量约束: ' + da.volume_cap_pct + '%');
+  if (da.settlement) biasFlags.push('⚡ 成交约束: ' + da.settlement.toUpperCase());
+  // Show remaining notes (strip regime/rec patterns already extracted)
+  var remainingNotes = (da.notes || []).filter(function(n) {
+    return !n.startsWith('regime_') && !n.startsWith('recommended_');
+  });
+  if (remainingNotes.length > 0) {
+    remainingNotes.forEach(function(n) { biasFlags.push('ℹ️ ' + n); });
+  }
   if (biasFlags.length > 0 || regimeVerdict) {
     var biasEl = document.getElementById('sh-bias-flags');
     if (!biasEl) {

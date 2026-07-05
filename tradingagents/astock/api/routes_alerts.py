@@ -82,9 +82,54 @@ def list_alerts() -> tuple[Response, int]:
 
 
 # ---------------------------------------------------------------------------
-# GET /api/v1/alerts/rules
+# POST /api/v1/alerts  — create a direct alert event (e.g. from strategy hook)
 # ---------------------------------------------------------------------------
 
+
+@bp.route("/alerts", methods=["POST"])
+def create_alert() -> tuple[Response, int]:
+    """Create a direct alert event (not rule-triggered).
+
+    JSON body::
+        {
+            "symbol": "000001.SH",
+            "trigger_type": "strategy|risk",
+            "severity": "info|warn|critical",
+            "message": "...",
+            "current_value": 123.45
+        }
+    """
+    try:
+        body: dict[str, Any] = request.get_json(force=True, silent=True) or {}
+        if not body.get("symbol"):
+            return jsonify({"error": "symbol is required", "status": 400}), 400
+        trigger_type = body.get("trigger_type", TriggerType.STRATEGY.value)
+        if trigger_type not in {t.value for t in TriggerType}:
+            return jsonify({"error": f"invalid trigger_type: {trigger_type}", "status": 400}), 400
+        severity = body.get("severity", "info")
+        if severity not in ("info", "warn", "critical"):
+            return jsonify({"error": f"invalid severity: {severity}", "status": 400}), 400
+        from tradingagents.astock.alert.alert_store import AlertEvent
+
+        event = AlertEvent(
+            rule_id=body.get("rule_id", "direct"),
+            symbol=body["symbol"],
+            trigger_type=trigger_type,
+            severity=severity,
+            message=str(body.get("message", "")),
+            current_value=float(body.get("current_value", 0.0)),
+            threshold=float(body.get("threshold", 0.0)),
+            source=body.get("source", "strategy_hook"),
+        )
+        store = _alert_store()
+        created = store.create_event(event)
+        return jsonify({"alert": asdict_safe(created), "status": "created"}), 201
+    except Exception as exc:
+        return jsonify({"error": str(exc), "status": 500}), 500
+
+
+# ---------------------------------------------------------------------------
+# GET /api/v1/alerts/rules
 
 @bp.route("/alerts/rules")
 def list_rules() -> tuple[Response, int]:

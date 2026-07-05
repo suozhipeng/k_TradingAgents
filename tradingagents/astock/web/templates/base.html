@@ -374,12 +374,14 @@
     .btn-secondary:hover { background: #363a45; }
 
   </style>
+  <link rel="stylesheet" href="{{ url_for('web.static', filename='css/visual-tokens.css') }}">
     {% block head_extra %}{% endblock %}
 </head>
 <body>
 
 <div class="as-layout">
   <!-- ── Left Sidebar (icon nav, TradingView style) ── -->
+  {% block sidebar %}
   <aside class="as-sidebar" id="as-sidebar">
     <!-- Section: 市场 -->
     <div class="as-sidebar-section">
@@ -466,11 +468,13 @@
       <div id="server-status-dot" class="dot" style="width:6px;height:6px;border-radius:50%;background:#787b86;display:inline-block;"></div>
     </div>
   </aside>
+  {% endblock %}
 
   <!-- ── Content Area ── -->
   <div class="as-content">
 
     <!-- ── Top Navigation Bar (Choice/Wind style) ── -->
+    {% block topbar %}
     <div class="as-topbar">
       <div class="as-topbar-logo" onclick="window.location.href='/dashboard'">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="2" y="2" width="20" height="20" rx="4" fill="#2962FF"/><text x="7" y="17" fill="#fff" font-size="14" font-weight="800" font-family="Inter">A</text></svg>
@@ -507,6 +511,7 @@
       ⚠️ 此页面已整合到 <a href="{{ legacy_redirect }}" style="color:#2962FF;text-decoration:underline;">新入口</a>，请使用新版访问。
     </div>
     {% endif %}
+    {% endblock %}
 
     <!-- Main content -->
     <main class="as-main">
@@ -514,6 +519,7 @@
     </main>
 
     <!-- ── Bottom Command Bar (Wind/Choice style) ── -->
+    {% block commandbar %}
     <div class="as-commandbar">
       <span class="as-commandbar-prompt">▸</span>
       <input type="text" class="as-commandbar-input" id="cmd-input"
@@ -522,6 +528,7 @@
         <span><kbd>Ctrl+K</kbd> 命令面板</span>
       </div>
     </div>
+    {% endblock %}
 
     <!-- ── Status Bar ── -->
     <div class="as-statusbar">

@@ -279,6 +279,7 @@
   <button onclick="refreshBaoStockAll()" class="tb-btn">🌿 拉取历史</button>
   <button onclick="refreshValuationForResearch()" class="tb-btn">💰 估值刷新</button>
   <div class="sep"></div>
+  <span class="tb-btn outline" style="pointer-events:none;" title="当前研究模型">🤖 <span id="res-model-name">{{ current_model }}</span></span>
   <a href="/kc_chart?symbol=600519.SH" class="tb-btn outline" id="kc-link" target="_blank">📊 KC Chart</a>
   <a href="/tv_chart?symbol=600519.SH" class="tb-btn outline" id="tv-link" target="_blank">📈 TV Pro</a>
   <span class="status" id="refresh-msg"></span>
@@ -790,6 +791,8 @@ async function generateTrendSummary(symbol) {
     }
 
     lines.push(`<br><span style="color:#787b86;font-size:9px;">以上为基于历史价格的规则化统计，仅供参考，不构成投资建议。</span>`);
+    const modelName = document.getElementById('res-model-name')?.textContent || 'N/A';
+    lines.push(`<br><span style="color:#787b86;font-size:9px;">模型: ${modelName} · 数据来源: 腾讯/新浪/东财/同花顺等 · ${new Date().toISOString().slice(0,10)}</span>`);
     el.innerHTML = lines.join('');
 
   } catch (e) {

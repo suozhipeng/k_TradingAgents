@@ -131,7 +131,10 @@ def dashboard() -> str:
 
 @bp.route("/research")
 def research() -> str:
-    return render_template("research.html")
+    from flask import current_app
+
+    current_model = current_app.config.get("RESEARCH_MODEL", "agnes-2.0-flash")
+    return render_template("research.html", current_model=current_model)
 
 
 @bp.route("/strategy_hub")
@@ -143,6 +146,12 @@ def strategy_hub() -> str:
 @bp.route("/strategies")
 def strategies() -> str:
     return render_template("strategies.html")
+
+
+@bp.route("/strategies/monitor")
+def strategy_monitor() -> str:
+    """Strategy monitor overview page."""
+    return render_template("strategy_monitor.html")
 
 
 @bp.route("/paper")
@@ -184,13 +193,26 @@ def settings() -> str:
 
 @bp.route("/settings/notifications")
 def settings_notifications() -> str:
-    """通知设置专用页面"""
+    """Notification settings sub-page."""
     return render_template("settings.html", section="notifications")
+
+
+@bp.route("/monitor")
+def monitor() -> str:
+    """Alert monitor center page."""
+    return render_template("monitor.html")
 
 
 @bp.route("/screener")
 def screener() -> str:
     return render_template("screener.html")
+
+
+@bp.route("/daily")
+def daily_review() -> str:
+    """每日市场复盘页面"""
+    from datetime import datetime
+    return render_template("daily_review.html", today=datetime.now().strftime("%Y-%m-%d"))
 
 
 @bp.route("/dragon_tiger")

@@ -136,32 +136,38 @@ def batch_analyze() -> WatchlistResponse:
         return jsonify({"error": "Watchlist is empty", "status": 400}), 400
 
     symbols = [it["symbol"] for it in items if it.get("symbol")]
-
-    # Placeholder: creates a task record via the ops API pattern
-    # In real implementation, this would enqueue the batch analysis job
     from flask import current_app
 
     store = current_app.config.get("STORE")
-    task_id = None
-    if store and hasattr(store, "create_task"):
+    if not store:
+        return jsonify({"error": "Store not available", "status": 503}), 503
+
+    # Run research data query for each symbol
+    results: list[dict[str, Any]] = []
+    errors: list[dict[str, Any]] = []
+    for sym in symbols:
         try:
-            task_id = store.create_task(
-                name=f"batch-analyze-{datetime.now().strftime('%Y%m%d-%H%M%S')}",
-                type="batch_analysis",
-                params={"symbols": symbols, "count": len(symbols)},
-            )
+            # Query stored research reports
+            df = store.query_research_reports(sym)
+            if df is not None and not df.empty:
+                reports = df.tail(3).to_dict(orient="records")
+            else:
+                reports = []
+            results.append({"symbol": sym, "reports_count": len(reports), "reports": reports})
         except Exception as exc:
-            logger.warning("Could not persist batch task: %s", exc)
+            errors.append({"symbol": sym, "error": str(exc)})
 
     return jsonify(
         {
-            "status": "queued",
-            "symbols_count": len(symbols),
-            "symbols": symbols,
-            "task_id": task_id,
-            "message": f"已提交 {len(symbols)} 个标的的批量分析任务",
+            "status": "complete",
+            "total": len(symbols),
+            "results_count": len(results),
+            "errors_count": len(errors),
+            "results": results[:10],
+            "errors": errors,
+            "message": f"完成 {len(results)}/{len(symbols)} 个标的的研究查询",
         }
-    ), 202
+    ), 200
 
 
 __all__ = ["bp"]

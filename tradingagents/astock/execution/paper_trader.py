@@ -79,6 +79,7 @@ class PaperTrader:
         initial_cash: float = 100000.0,
         fee_config: AStockFeeConfig | None = None,
         qmt_execution_engine: QmtExecutionEngine | None = None,
+        t_plus_1: bool = False,
     ) -> None:
         self._state = PaperTradeState(
             positions={},
@@ -92,6 +93,9 @@ class PaperTrader:
         self._risk_gate = RiskGate()
         # Track cost basis per symbol for P&L computation
         self._cost_basis: dict[str, float] = {}
+        # T+1 settlement: purchase date per symbol (YYYY-MM-DD)
+        self._purchase_dates: dict[str, str] = {}
+        self._t_plus_1 = t_plus_1
         # Phase 11: optional QMT execution engine
         self._qmt_engine: QmtExecutionEngine | None = qmt_execution_engine
 
@@ -268,6 +272,10 @@ class PaperTrader:
         else:
             self._cost_basis[symbol] = total_cost
 
+        # Record purchase date for T+1 settlement check
+        if self._t_plus_1:
+            self._purchase_dates[symbol] = datetime.utcnow().strftime("%Y-%m-%d")
+
         self._state.trades.append({
             "symbol": symbol,
             "type": "buy",
@@ -279,8 +287,24 @@ class PaperTrader:
             "timestamp": datetime.utcnow().isoformat(),
         })
 
+    def _check_t_plus_1(self, symbol: str) -> bool:
+        """Check T+1 settlement: return True if sell is allowed (not same day).
+
+        Only enforced when ``t_plus_1=True`` was passed at construction.
+        """
+        if not self._t_plus_1:
+            return True
+        today = datetime.utcnow().strftime("%Y-%m-%d")
+        purchase_date = self._purchase_dates.get(symbol)
+        return purchase_date is None or purchase_date != today
+
     def _execute_sell(self, symbol: str, price: float) -> None:
-        """Execute a sell trade (liquidate entire position)."""
+        """Execute a sell trade (liquidate entire position).
+
+        Blocked if T+1 settlement constraint is active (same-day sell).
+        """
+        if not self._check_t_plus_1(symbol):
+            return
         shares = self._state.positions.get(symbol, 0.0)
         if shares <= 0:
             return
@@ -392,6 +416,10 @@ class PaperTrader:
         else:
             self._cost_basis[symbol] = total_cost
 
+        # Record purchase date for T+1 settlement check
+        if self._t_plus_1:
+            self._purchase_dates[symbol] = datetime.utcnow().strftime("%Y-%m-%d")
+
         trade = {
             "symbol": symbol,
             "type": "buy",
@@ -430,6 +458,8 @@ class PaperTrader:
         )
 
     def _place_sell_order(self, symbol: str, price: float, quantity: int) -> Order:
+        # T+1 settlement check: block same-day sell (automated cycle only;
+        # manual place_order is exempt so users can override via WebUI)
         current_shares = self._state.positions.get(symbol, 0.0)
         if current_shares < quantity:
             raise ValueError(

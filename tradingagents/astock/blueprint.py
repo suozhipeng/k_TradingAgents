@@ -134,13 +134,23 @@ class AStockBlueprint:
                         "notes": ["Live verification requires ASTOCK_IWENCAI_COOKIE; credentials are never logged or stored in fixtures."],
                     },
                     "qmt": {
-                        "implemented": ["read_only_placeholder"],
+                        "implemented": [
+                            "bridge_status",
+                            "position_query",
+                            "account_info",
+                            "mock_semantics",
+                            "mock_warning_banner",
+                        ],
                         "live_verified": [],
                         "live_verification": load_verification_provenance("qmt").to_dict(),
-                        "fixture_verified": [],
+                        "fixture_verified": ["bridge_status", "mock_semantics"],
                         "optional_dependency": "QMT local client",
                         "requires_credentials": True,
-                        "notes": ["No order placement or execution logic is implemented in this data-source phase."],
+                        "notes": [
+                            "Mock-first: all endpoints inject {source, mock, read_only, live_ready} status; never places real orders without live_ready=True",
+                            "UI warning banner shown when status.mock is true (templates/qmt.html)",
+                            "Position/account queries return mock data by default; switch to live via environment config",
+                        ],
                     },
                 },
                 "implemented": [

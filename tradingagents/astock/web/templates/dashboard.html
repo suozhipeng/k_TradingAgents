@@ -27,6 +27,7 @@
 .dash-glow-blue::after { content: ''; position: absolute; top: -40px; right: -40px; width: 80px; height: 80px; background: radial-gradient(circle, rgba(41,98,255,0.08), transparent); border-radius: 50%; }
 .dash-glow-red::after { content: ''; position: absolute; top: -40px; right: -40px; width: 80px; height: 80px; background: radial-gradient(circle, rgba(242,54,69,0.08), transparent); border-radius: 50%; }
 .dash-empty { color: #3a4a5a; font-size: 12px; text-align: center; padding: 20px 0; }
+.dash-degraded { color: #ff9800; font-size: 11px; text-align: center; padding: 8px 0; border-top: 1px solid rgba(255,152,0,0.15); margin-top: 6px; display: none; }
 .dash-section-title { font-size: 13px; font-weight: 600; color: #d1d4dc; margin-bottom: 10px; letter-spacing: 0.3px; }
 .dash-section-break { height: 1px; background: linear-gradient(90deg, #1e2a3a, transparent); margin: 16px 0; }
 /* Mini sparkline SVG */
@@ -51,6 +52,21 @@
 .idx-price { font-size: 15px; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
 .idx-chg { font-size: 11px; font-weight: 600; font-family: 'JetBrains Mono', monospace; }
 </style>
+
+<!-- ── Degraded State Banner ── -->
+<div id="degraded-banner" style="display:none;background:rgba(255,152,0,0.1);border:1px solid rgba(255,152,0,0.3);border-radius:8px;padding:8px 14px;margin-bottom:12px;">
+  <div style="display:flex;align-items:center;gap:8px;">
+    <span style="font-size:12px;color:#ff9800;font-weight:600;">⚠️ 部分服务降级</span>
+    <span id="degraded-reasons" style="font-size:11px;color:#787b86;"></span>
+  </div>
+</div>
+<!-- ── Stale Data Banner ── -->
+<div id="stale-banner" style="display:none;background:rgba(41,98,255,0.08);border:1px solid rgba(41,98,255,0.25);border-radius:8px;padding:8px 14px;margin-bottom:12px;">
+  <div style="display:flex;align-items:center;gap:8px;">
+    <span style="font-size:12px;color:#2962FF;font-weight:600;">⏳ 数据过时</span>
+    <span class="stale-text" style="font-size:11px;color:#4a5a6a;"></span>
+  </div>
+</div>
 
 <!-- ── Section Title ── -->
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
@@ -85,6 +101,17 @@
   </div>
   <div id="market-summary-content" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
     <div class="dash-empty" style="grid-column:1/-1;">加载中...</div>
+  </div>
+</div>
+
+<!-- ── 全局决策摘要 (Global Decision Summary) ── -->
+<div class="dash-card" style="margin-bottom:12px;">
+  <div class="dash-card-title" style="display:flex;align-items:center;gap:8px;">
+    📋 全局决策摘要
+    <span id="global-decision-tag" style="font-weight:400;color:#4a5a6a;font-size:10px;"></span>
+  </div>
+  <div id="global-decision-content" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
+    <div class="dash-empty">加载中...</div>
   </div>
 </div>
 
@@ -364,9 +391,18 @@ async function loadAll() {
     // === Data Health ===
     loadDataHealth();
 
+    // Track core components
+    _dashTrack('key_metrics', true);
+    _dashStaleMark('metrics');
+    _dashTrack('equity_curve', equityCurve && equityCurve.length >= 2);
+    _dashTrack('recent_trades', true);
+    _dashTrack('heatmap', true);
+    _dashTrack('recent_backtests', (overview.recent_backtests || []).length > 0);
+
   } catch(e) {
     console.error('Dashboard load error:', e);
     document.querySelectorAll('.dash-empty').forEach(el => { if (el.textContent === '加载中...') el.textContent = '⚠️ 加载失败'; });
+    _dashTrack('key_metrics', false);
   }
 }
 
@@ -642,6 +678,7 @@ async function loadMarketSummary() {
   } catch(e) {
     console.error('Market summary error:', e);
     el.innerHTML = '<div class="dash-empty" style="grid-column:1/-1;">⚠️ 市场摘要加载失败</div>';
+    _dashTrack('market_summary', false);
   }
 }
 
@@ -707,6 +744,7 @@ async function loadLatestReports() {
 
   } catch(e) {
     el.innerHTML = '<div class="dash-empty">⚠️ 报告接口不可用</div>';
+    _dashTrack('reports', false);
   }
 }
 
@@ -774,6 +812,7 @@ async function loadAITasks() {
   } catch(e) {
     console.error('AI tasks error:', e);
     el.innerHTML = '<div class="dash-empty">⚠️ 任务接口不可用</div>';
+    _dashTrack('ai_tasks', false);
   }
 }
 
@@ -853,6 +892,7 @@ async function loadAlertsSummary() {
 
   } catch(e) {
     el.innerHTML = '<div class="dash-empty">⚠️ 告警接口不可用</div>';
+    _dashTrack('alerts', false);
   }
 }
 
@@ -948,6 +988,198 @@ async function loadSectorLeaders() {
     console.error('Sector/leader error:', e);
     sectorsEl.innerHTML = '<div class="dash-empty">⚠️ 板块接口不可用</div>';
     leadersEl.innerHTML = '<div class="dash-empty">⚠️ 龙头接口不可用</div>';
+    _dashTrack('sector_leaders', false);
+  }
+}
+
+// ── Degraded State Management ──
+const _dashDegraded = { reasons: [], ok: 0, fail: 0 };
+
+function _dashTrack(name, ok) {
+  if (ok) _dashDegraded.ok++; else { _dashDegraded.fail++; _dashDegraded.reasons.push(name); }
+}
+
+function _dashShowDegradedBanner() {
+  if (_dashDegraded.fail > 0) {
+    const banner = document.getElementById('degraded-banner');
+    const reasons = document.getElementById('degraded-reasons');
+    if (banner) {
+      banner.style.display = 'block';
+      if (reasons) reasons.textContent = _dashDegraded.reasons.join(' · ');
+    }
+  }
+}
+
+// ── Per-card degraded state badge ──
+
+// ── Stale State Management ──
+const _dashStale = { lastRefresh: {}, thresholdMin: 5 };
+
+function _dashStaleMark(name) {
+  _dashStale.lastRefresh[name] = Date.now();
+}
+
+function _dashStaleShowAll() {
+  const now = Date.now();
+  let oldest = Infinity;
+  for (const [name, ts] of Object.entries(_dashStale.lastRefresh)) {
+    const ageMin = (now - ts) / 60000;
+    if (ageMin < oldest) oldest = ageMin;
+  }
+  // Show stale banner if any section > threshold
+  const banner = document.getElementById('stale-banner');
+  if (banner && oldest < Infinity) {
+    const oldestMin = Math.round(oldest);
+    if (oldestMin > _dashStale.thresholdMin) {
+      banner.style.display = 'flex';
+      banner.querySelector('.stale-text').textContent = '部分数据已 ' + oldestMin + ' 分钟未刷新，点击「刷新」更新';
+    } else {
+      banner.style.display = 'none';
+    }
+  }
+  // Update refresh tag
+  const tag = document.getElementById('refresh-tag');
+  if (tag) {
+    const nowStr = new Date().toLocaleTimeString('zh-CN', {hour12:false});
+    tag.textContent = '⟳ ' + nowStr;
+  }
+}
+
+function _dashStaleReset() {
+  _dashStale.lastRefresh = {};
+}
+
+function _dashSetDegraded(cardId, degraded, reason) {
+  const card = document.getElementById(cardId);
+  if (!card) return;
+  let badge = card.querySelector('.dash-degraded');
+  if (degraded && reason) {
+    if (!badge) {
+      badge = document.createElement('div');
+      badge.className = 'dash-degraded';
+      card.appendChild(badge);
+    }
+    badge.style.display = 'block';
+    badge.textContent = '⚠️ ' + reason;
+  } else if (badge) {
+    badge.style.display = 'none';
+  }
+}
+
+// ── Global Decision Summary (auto-load on init) ──
+async function loadGlobalDecisionSummary() {
+  const el = document.getElementById('global-decision-content');
+  const tag = document.getElementById('global-decision-tag');
+  try {
+    const res = await fetch('/api/v1/analysis/watchlist', {method: 'POST'});
+    if (!res.ok) throw new Error('status ' + res.status);
+    const data = await res.json();
+    const s = data.summary || {total:0,buy:0,hold:0,sell:0};
+    const total = s.total || 0;
+
+    if (total === 0) {
+      el.innerHTML = '<div class="dash-empty">暂无自选股数据</div>';
+      tag.textContent = '';
+      _dashTrack('analysis', true); // empty is OK
+      return;
+    }
+
+    const researchOnly = total - s.buy - s.hold - s.sell;
+    const items = [
+      { label: '买入', count: s.buy, color: '#dc2626', bg: 'rgba(220,38,38,0.12)' },
+      { label: '观望', count: s.hold, color: '#eab308', bg: 'rgba(234,179,8,0.12)' },
+      { label: '卖出', count: s.sell, color: '#16a34a', bg: 'rgba(22,163,74,0.12)' },
+      ...(researchOnly > 0 ? [{ label: '仅研究', count: researchOnly, color: '#9ca3af', bg: 'rgba(156,163,175,0.10)' }] : []),
+      { label: '总计', count: total, color: '#d1d4dc', bg: 'rgba(209,212,220,0.08)' },
+    ];
+
+    el.innerHTML = items.map(it => `
+      <div style="text-align:center;padding:10px 6px;background:${it.bg};border-radius:6px;">
+        <div style="font-size:22px;font-weight:700;font-family:JetBrains Mono,monospace;color:${it.color};">${it.count}</div>
+        <div style="font-size:10px;color:#787b86;margin-top:2px;">${it.label}</div>
+      </div>
+    `).join('');
+
+    tag.textContent = `共${total}只 · 更新于 ${new Date().toLocaleTimeString('zh-CN',{hour12:false})}`;
+    _dashTrack('analysis', true);
+  } catch(e) {
+    el.innerHTML = '<div class="dash-empty">⚠️ 分析接口不可用</div>';
+    tag.textContent = '加载失败';
+    _dashTrack('analysis', false);
+  }
+}
+
+// ── AI Agent Status (dynamic) ──
+async function loadAIStatus() {
+  const el = document.getElementById('ai-status-content');
+  try {
+    // Check ops/audit for recent AI agent activity
+    const res = await fetch('/api/v1/ops/audit?limit=5');
+    if (!res.ok) throw new Error('audit failed');
+    const events = await res.json();
+
+    // Look for AI-related events
+    const aiEvents = events.filter(e => {
+      const action = (e.action || '').toLowerCase();
+      return action.includes('ai') || action.includes('agent') || action.includes('analysis') || action.includes('llm');
+    });
+
+    const now = Date.now();
+    let statusText = '✅ 就绪';
+    let statusColor = '#089981';
+    let detail = '';
+
+    if (aiEvents.length > 0) {
+      const latest = aiEvents[0];
+      const ts = new Date(latest.timestamp || latest.created_at || now).getTime();
+      const ageMin = (now - ts) / 60000;
+      if (ageMin < 30) {
+        statusText = '✅ 活跃';
+        statusColor = '#089981';
+        detail = `最近活动: ${Math.round(ageMin)}分钟前`;
+      } else {
+        statusText = '⏸ 空闲';
+        statusColor = '#ff9800';
+        detail = `最后活动: ${Math.round(ageMin)}分钟前`;
+      }
+    }
+
+    el.innerHTML = `
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #1e2a3a;">
+          <span style="font-size:12px;color:#787b86;">研究链路</span>
+          <span style="font-size:12px;color:${statusColor};">${statusText}</span>
+        </div>
+        ${detail ? `<div style="font-size:10px;color:#4a5a6a;padding:0 8px;">${detail}</div>` : ''}
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #1e2a3a;">
+          <span style="font-size:12px;color:#787b86;">AI Agent 页面</span>
+          <a href="/ai_agent" style="font-size:12px;color:#2962FF;text-decoration:none;">进入 →</a>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;">
+          <span style="font-size:12px;color:#787b86;">AI 研究中心</span>
+          <a href="/research" style="font-size:12px;color:#2962FF;text-decoration:none;">进入 →</a>
+        </div>
+      </div>
+    `;
+    _dashTrack('ai_status', true);
+  } catch(e) {
+    el.innerHTML = `
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #1e2a3a;">
+          <span style="font-size:12px;color:#787b86;">研究链路</span>
+          <span style="font-size:12px;color:#ff9800;">⚠️ 检测中</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #1e2a3a;">
+          <span style="font-size:12px;color:#787b86;">AI Agent 页面</span>
+          <a href="/ai_agent" style="font-size:12px;color:#2962FF;text-decoration:none;">进入 →</a>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;">
+          <span style="font-size:12px;color:#787b86;">AI 研究中心</span>
+          <a href="/research" style="font-size:12px;color:#2962FF;text-decoration:none;">进入 →</a>
+        </div>
+      </div>
+    `;
+    _dashTrack('ai_status', false);
   }
 }
 
@@ -992,22 +1224,40 @@ async function runWatchlistAnalysis() {
     }).join('');
   } catch(e) {
     container.innerHTML = `<div class="dash-empty">⚠️ 分析失败: ${e.message}</div>`;
+    _dashTrack('decision_cards', false);
   }
 }
 
 // ── Init ──
 async function loadAllWithExtras() {
+  // Reset degraded tracker
+  _dashDegraded.reasons = [];
+  _dashDegraded.ok = 0;
+  _dashDegraded.fail = 0;
+
   // Load core dashboard data
   await loadAll();
 
-  // Load new sections (fire-and-forget on error)
+  // Load all sections (fire-and-forget on error)
   Promise.all([
     loadMarketSummary().catch(e => console.error('Market summary err:', e)),
+    loadGlobalDecisionSummary().catch(e => console.error('Global decision err:', e)),
     loadLatestReports().catch(e => console.error('Reports err:', e)),
+    loadAIStatus().catch(e => console.error('AI status err:', e)),
     loadAITasks().catch(e => console.error('AI tasks err:', e)),
     loadAlertsSummary().catch(e => console.error('Alerts err:', e)),
     loadSectorLeaders().catch(e => console.error('Sectors err:', e)),
-  ]);
+  ]).finally(() => {
+    _dashShowDegradedBanner();
+    _dashStaleMark('market_summary');
+    _dashStaleMark('global_decision');
+    _dashStaleMark('reports');
+    _dashStaleMark('ai_status');
+    _dashStaleMark('ai_tasks');
+    _dashStaleMark('alerts');
+    _dashStaleMark('leaders');
+    _dashStaleShowAll();
+  });
 }
 
 // Override the page onload to use the extended loader

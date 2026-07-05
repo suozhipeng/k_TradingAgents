@@ -68,6 +68,7 @@ calculate_sharpe = _me.calculate_sharpe
 calculate_max_drawdown = _me.calculate_max_drawdown
 calculate_win_rate = _me.calculate_win_rate
 summarize_metrics = _me.summarize_metrics
+_sanitize_metric_value = _me._sanitize_metric_value
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -226,6 +227,56 @@ class TestMetrics(unittest.TestCase):
         summary = summarize_metrics(prices, trades)
         expected_keys = {"total_return", "annualized_return", "sharpe_ratio", "max_drawdown", "win_rate", "total_trades"}
         self.assertEqual(set(summary.keys()), expected_keys)
+
+    def test_sanitize_none_to_zero(self) -> None:
+        """None values should be converted to 0.0."""
+        self.assertEqual(_sanitize_metric_value(None, "sharpe_ratio"), 0.0)
+        self.assertEqual(_sanitize_metric_value(None, "total_return"), 0.0)
+
+    def test_sanitize_nan_to_zero(self) -> None:
+        """NaN should be converted to 0.0."""
+        import math
+        self.assertEqual(_sanitize_metric_value(float('nan'), "sharpe_ratio"), 0.0)
+        self.assertEqual(_sanitize_metric_value(float('nan'), "total_return"), 0.0)
+
+    def test_sanitize_inf_to_zero(self) -> None:
+        """Inf should be converted to 0.0."""
+        self.assertEqual(_sanitize_metric_value(float('inf'), "sharpe_ratio"), 0.0)
+        self.assertEqual(_sanitize_metric_value(float('-inf'), "max_drawdown"), 0.0)
+
+    def test_sanitize_non_numeric_to_zero(self) -> None:
+        """Non-numeric types should be converted to 0.0."""
+        self.assertEqual(_sanitize_metric_value("abc", "sharpe_ratio"), 0.0)
+        self.assertEqual(_sanitize_metric_value([], "total_return"), 0.0)
+        self.assertEqual(_sanitize_metric_value({}, "win_rate"), 0.0)
+
+    def test_sanitize_sharpe_clamp(self) -> None:
+        """Sharpe ratio should be clamped to [-20, 20]."""
+        self.assertEqual(_sanitize_metric_value(50.0, "sharpe_ratio"), 20.0)
+        self.assertEqual(_sanitize_metric_value(-100.0, "sharpe_ratio"), -20.0)
+        self.assertEqual(_sanitize_metric_value(5.0, "sharpe_ratio"), 5.0)
+
+    def test_sanitize_return_clamp(self) -> None:
+        """Return/drawdown should be clamped to [-10, 10]."""
+        self.assertEqual(_sanitize_metric_value(100.0, "total_return"), 10.0)
+        self.assertEqual(_sanitize_metric_value(-50.0, "annualized_return"), -10.0)
+        self.assertEqual(_sanitize_metric_value(0.5, "max_drawdown"), 0.5)
+
+    def test_sanitize_win_rate_clamp(self) -> None:
+        """Win rate should be clamped to [0, 1]."""
+        self.assertEqual(_sanitize_metric_value(2.0, "win_rate"), 1.0)
+        self.assertEqual(_sanitize_metric_value(-0.5, "win_rate"), 0.0)
+        self.assertEqual(_sanitize_metric_value(0.75, "win_rate"), 0.75)
+
+    def test_sanitize_normal_float_passthrough(self) -> None:
+        """Normal values should be returned as float."""
+        self.assertEqual(_sanitize_metric_value(1.5, "sharpe_ratio"), 1.5)
+        self.assertEqual(_sanitize_metric_value(0.05, "total_return"), 0.05)
+
+    def test_sanitize_int_passthrough(self) -> None:
+        """Integer values should be converted to float."""
+        self.assertEqual(_sanitize_metric_value(42, "total_trades"), 42.0)
+        self.assertEqual(_sanitize_metric_value(0, "total_trades"), 0.0)
 
 
 # ===================================================================

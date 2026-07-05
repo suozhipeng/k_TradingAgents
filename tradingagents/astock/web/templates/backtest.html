@@ -505,6 +505,12 @@ async function runBacktest() {
 
   if (!symbol || !start || !end) { statusEl.textContent = '⚠️ 请填写完整参数'; return; }
 
+  // Validate date format YYYY-MM-DD
+  const dateRe = /^\d{4}-\d{2}-\d{2}$/;
+  if (!dateRe.test(start)) { statusEl.textContent = '⚠️ 开始日期格式应为 YYYY-MM-DD'; return; }
+  if (!dateRe.test(end)) { statusEl.textContent = '⚠️ 结束日期格式应为 YYYY-MM-DD'; return; }
+  if (start >= end) { statusEl.textContent = '⚠️ 开始日期必须早于结束日期'; return; }
+
   // If multi-strategy mode or compare tab, run comparison
   if (!btSingleMode || btActiveTab === 'compare') {
     await runMultiBacktest();
@@ -561,6 +567,12 @@ async function runMultiBacktest() {
   const statusEl = document.getElementById('bt-status');
 
   if (!symbol || !start || !end) { statusEl.textContent = '⚠️ 请填写完整参数'; return; }
+
+  // Validate date format YYYY-MM-DD
+  const dateRe = /^\d{4}-\d{2}-\d{2}$/;
+  if (!dateRe.test(start)) { statusEl.textContent = '⚠️ 开始日期格式应为 YYYY-MM-DD'; return; }
+  if (!dateRe.test(end)) { statusEl.textContent = '⚠️ 结束日期格式应为 YYYY-MM-DD'; return; }
+  if (start >= end) { statusEl.textContent = '⚠️ 开始日期必须早于结束日期'; return; }
 
   const selected = [];
   document.querySelectorAll('.bt-strat-cb:checked').forEach(cb => selected.push(cb.value));

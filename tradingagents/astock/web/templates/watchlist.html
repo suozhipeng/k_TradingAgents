@@ -199,8 +199,15 @@ async function batchAnalyze() {
       headers: {'Content-Type': 'application/json'},
     });
     const data = await res.json();
-    if (data.status === 'queued') {
-      status.textContent = '✅ ' + data.message;
+    if (data.status === 'complete') {
+      const err = data.errors_count > 0 ? ` (${data.errors_count} errors)` : '';
+      status.textContent = `✅ ${data.message}${err}`;
+      if (data.results && data.results.length > 0) {
+        const first = data.results[0];
+        if (first.reports_count > 0) {
+          status.textContent += ` · ${first.symbol}: ${first.reports_count} reports`;
+        }
+      }
     } else {
       status.textContent = '❌ 提交失败: ' + (data.error || 'unknown');
     }

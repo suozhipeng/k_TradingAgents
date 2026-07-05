@@ -111,6 +111,12 @@ def create_app(
     except Exception:
         app.config["DATA_FACADE"] = None
 
+    # AI model info for template injection
+    app.config["RESEARCH_MODEL"] = os.environ.get(
+        "RESEARCH_MODEL",
+        os.environ.get("TRADINGAGENTS_DEEP_THINK_LLM", "agnes-2.0-flash"),
+    )
+
     # Override config for testing
     if test_config:
         app.config.update(test_config)
@@ -277,6 +283,8 @@ def create_app(
     from . import routes_alerts
     from . import routes_analysis
     from . import routes_admin
+    from . import routes_daily
+    from . import routes_strategy_monitor
 
     # -- 使用模式分组（仅标注，不拆分文件） --
     #   [summary] 轻量聚合，用于 dashboard 首屏
@@ -301,8 +309,10 @@ def create_app(
     app.register_blueprint(routes_analysis.bp,         url_prefix="/api/v1")
     app.register_blueprint(routes_notifications.bp,    url_prefix="/api/v1")
     app.register_blueprint(routes_alerts.bp,           url_prefix="/api/v1")
+    app.register_blueprint(routes_daily.bp,            url_prefix="/api/v1")
     app.register_blueprint(routes_qmt.bp,              url_prefix="/api/v1")
     app.register_blueprint(routes_tv.bp,               url_prefix="/api/v1")
+    app.register_blueprint(routes_strategy_monitor.bp, url_prefix="/api/v1")
 
     # [stream]
     app.register_blueprint(routes_sse.bp,              url_prefix="/api/v1")

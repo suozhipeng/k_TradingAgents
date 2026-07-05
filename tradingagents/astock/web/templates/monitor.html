@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% block title %}监控中心 — TradingAgents{% endblock %}
+{% block head_extra %}
+<meta name="page-name" content="monitor" />
+<style>
+:root { --content-max: 1400px; }
+.monitor-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+.monitor-grid .stat-card { background: var(--tv-card); border: 1px solid var(--tv-border); border-radius: 8px; padding: 16px; }
+.stat-card .label { font-size: 12px; color: var(--tv-muted); margin-bottom: 4px; }
+.stat-card .value { font-size: 28px; font-weight: 700; color: var(--tv-text); }
+.stat-card .value.open { color: var(--tv-blue); }
+.stat-card .value.critical { color: var(--tv-red); }
+.alert-list { background: var(--tv-card); border: 1px solid var(--tv-border); border-radius: 8px; }
+.alert-list h3 { padding: 12px 16px; font-size: 13px; font-weight: 600; color: var(--tv-text); border-bottom: 1px solid var(--tv-border); }
+.alert-item { display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--tv-border); }
+.alert-item:last-child { border-bottom: none; }
+.alert-item .sev { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.alert-item .sev.info { background: var(--tv-blue); }
+.alert-item .sev.warn { background: var(--tv-orange); }
+.alert-item .sev.critical { background: var(--tv-red); }
+.alert-item .symbol { font-weight: 600; font-size: 13px; color: var(--tv-text); min-width: 80px; }
+.alert-item .msg { font-size: 12px; color: var(--tv-text); flex: 1; }
+.alert-item .time { font-size: 11px; color: var(--tv-muted); white-space: nowrap; }
+.alert-item .ack-btn { font-size: 11px; padding: 2px 10px; border: 1px solid var(--tv-border); border-radius: 4px; background: transparent; color: var(--tv-muted); cursor: pointer; }
+.alert-item .ack-btn:hover { background: var(--tv-hover); color: var(--tv-text); }
+.no-alerts { padding: 40px 16px; text-align: center; color: var(--tv-muted); font-size: 13px; }
+.history-link { display: block; text-align: center; padding: 8px; font-size: 11px; color: var(--tv-blue); border-top: 1px solid var(--tv-border); }
+.history-link:hover { background: var(--tv-hover); }
+.rules-list { margin-top: 16px; background: var(--tv-card); border: 1px solid var(--tv-border); border-radius: 8px; }
+.rules-list h3 { padding: 12px 16px; font-size: 13px; font-weight: 600; color: var(--tv-text); border-bottom: 1px solid var(--tv-border); }
+.rule-item { display: flex; align-items: center; gap: 12px; padding: 8px 16px; border-bottom: 1px solid var(--tv-border); font-size: 12px; }
+.rule-item:last-child { border-bottom: none; }
+.rule-item .enabled-dot { width: 6px; height: 6px; border-radius: 50%; }
+.rule-item .enabled-dot.on { background: #16a34a; }
+.rule-item .enabled-dot.off { background: var(--tv-muted); }
+@media (max-width: 768px) { .monitor-grid { grid-template-columns: 1fr; } }
+</style>
+{% endblock %}
+{% block content %}
+<div class="page-content" style="max-width:var(--content-max);margin:0 auto;padding:16px;">
+  <h2 style="font-size:16px;font-weight:700;margin-bottom:16px;color:var(--tv-text);">
+    ⚡ 监控中心
+    <span id="alert-count-badge" style="font-size:11px;font-weight:400;color:var(--tv-muted);margin-left:8px;"></span>
+  </h2>
+
+  <div class="monitor-grid" id="stat-grid">
+    <div class="stat-card"><div class="label">开放告警</div><div class="value open" id="stat-open">--</div></div>
+    <div class="stat-card"><div class="label">严重告警</div><div class="value critical" id="stat-critical">--</div></div>
+  </div>
+
+  <div id="alert-container" class="alert-list"><h3>📋 开放告警</h3><div class="no-alerts">加载中...</div></div>
+  <div id="rules-container" class="rules-list"><h3>🔔 告警规则</h3><div class="no-alerts">加载中...</div></div>
+</div>
+
+<script>
+async function loadAlerts() {
+  const cont = document.getElementById('alert-container');
+  try {
+    const res = await fetch('/api/v1/alerts');
+    const data = await res.json();
+    if (!data.alerts || data.alerts.length === 0) {
+      cont.innerHTML = '<h3>📋 开放告警</h3><div class="no-alerts">暂无开放告警 ✅</div>';
+      document.getElementById('stat-open').textContent = '0';
+      document.getElementById('stat-critical').textContent = '0';
+      document.getElementById('alert-count-badge').textContent = '';
+      return;
+    }
+    const crit = data.alerts.filter(a => a.severity === 'critical').length;
+    document.getElementById('stat-open').textContent = data.alerts.length;
+    document.getElementById('stat-critical').textContent = crit;
+    document.getElementById('alert-count-badge').textContent = `(${data.alerts.length} 条)`;
+
+    let html = '<h3>📋 开放告警</h3>';
+    data.alerts.forEach(a => {
+      const sev = a.severity || 'info';
+      const symbol = a.symbol || '--';
+      const msg = a.message || a.label || '--';
+      const time = a.created_at ? a.created_at.slice(11, 19) : '--';
+      html += `<div class="alert-item" data-id="${a.event_id || a.alert_id || ''}">
+        <span class="sev ${sev}"></span>
+        <span class="symbol">${symbol}</span>
+        <span class="msg">${msg}</span>
+        <span class="time">${time}</span>
+        <button class="ack-btn" onclick="ackAlert('${a.event_id || a.alert_id || ''}')">确认</button>
+      </div>`;
+    });
+    html += '<a href="/reports" class="history-link">查看历史 →</a>';
+    cont.innerHTML = html;
+  } catch(e) {
+    cont.innerHTML = '<h3>📋 开放告警</h3><div class="no-alerts">加载失败: ' + e.message + '</div>';
+  }
+}
+
+async function loadRules() {
+  const cont = document.getElementById('rules-container');
+  try {
+    const res = await fetch('/api/v1/alerts/rules');
+    const data = await res.json();
+    if (!data.rules || data.rules.length === 0) {
+      cont.innerHTML = '<h3>🔔 告警规则</h3><div class="no-alerts">暂未设置规则</div>';
+      return;
+    }
+    let html = '<h3>🔔 告警规则 <span style="font-weight:400;font-size:11px;color:var(--tv-muted);">(' + data.rules.length + ' 条)</span></h3>';
+    data.rules.forEach(r => {
+      html += `<div class="rule-item">
+        <span class="enabled-dot ${r.enabled ? 'on' : 'off'}"></span>
+        <span style="min-width:80px;font-weight:600;">${r.symbol}</span>
+        <span style="color:var(--tv-muted);">${r.label || r.trigger_type}</span>
+        <span style="color:var(--tv-muted);">阈值: ${r.threshold}</span>
+        <span style="color:var(--tv-muted);">${r.direction}</span>
+      </div>`;
+    });
+    cont.innerHTML = html;
+  } catch(e) {
+    cont.innerHTML = '<h3>🔔 告警规则</h3><div class="no-alerts">加载失败</div>';
+  }
+}
+
+async function ackAlert(id) {
+  if (!id) return;
+  try {
+    await fetch('/api/v1/alerts/' + id + '/ack', { method: 'POST' });
+    loadAlerts();
+  } catch(e) {
+    console.error('ack failed', e);
+  }
+}
+
+loadAlerts();
+loadRules();
+// Auto-refresh every 30s
+setInterval(loadAlerts, 30000);
+</script>
+{% endblock %}

@@ -233,6 +233,9 @@ function renderArchive(items) {
       : '';
     const dateStr = (r.created_at || '').slice(0, 10);
     const timeStr = (r.created_at || '').slice(11, 19);
+    const auditInfo = r.ai_audit
+      ? `<div class="mt-1"><span class="tv-badge ${r.ai_audit.status === 'passed' ? 'tv-badge-green' : r.ai_audit.status === 'flagged' ? 'tv-badge-red' : 'tv-badge-blue'}" style="font-size:9px;">🔍 ${r.ai_audit.status}</span> <span class="text-xs text-gray-500">${(r.ai_audit.auditor || '')}</span></div>`
+      : '';
     return `<div class="py-3 px-3 bg-dark-bg rounded-lg mb-2 transition-colors hover:bg-dark-hover">
       <div class="flex justify-between items-start">
         <div class="flex-1 min-w-0">
@@ -242,11 +245,13 @@ function renderArchive(items) {
             ${srcBadge}
           </div>
           <p class="text-xs text-gray-500 truncate mt-0.5">${r.summary || '暂无摘要'}</p>
+          ${auditInfo}
           ${r.data_snapshot ? `<p class="text-xs text-gray-500 mt-0.5" title="数据快照引用">📎 ${r.data_snapshot}</p>` : ''}
         </div>
-        <div class="text-right flex-shrink-0 ml-2">
+        <div class="text-right flex-shrink-0 ml-2 flex flex-col items-end gap-1">
           <p class="text-xs text-gray-500">${dateStr}</p>
           <p class="text-xs text-gray-600">${timeStr}</p>
+          <button onclick="compareReport('${r.created_at}')" class="tv-btn tv-btn-outline tv-btn-sm" style="font-size:9px;">🔍 对比</button>
         </div>
       </div>
     </div>`;
@@ -448,6 +453,134 @@ function exportJson() {
 
 function closeCompare() {
   document.getElementById('compare-view').classList.add('hidden');
+}
+
+// ── Compare two reports ──
+async function compareReport(created_at) {
+  // Find the report by created_at to get its symbol
+  const report = archiveReports.find(r => r.created_at === created_at);
+  if (!report) {
+    alert('未找到报告: ' + created_at);
+    return;
+  }
+
+  // Find another report for comparison
+  const others = archiveReports.filter(r => r.created_at !== created_at);
+  if (others.length === 0) {
+    alert('至少需要两份报告才能对比。');
+    return;
+  }
+  // Pick the most recent other report
+  const other = others[0];
+
+  try {
+    const res = await fetch('/api/v1/reports/compare', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        symbol_a: report.symbol,
+        symbol_b: other.symbol,
+        trade_date: '',
+      }),
+    });
+    const data = await res.json();
+    if (data.status === 'ok') {
+      renderCompareDiff(data);
+    } else {
+      alert('对比失败: ' + (data.error || 'unknown'));
+    }
+  } catch (e) {
+    alert('对比请求失败: ' + e.message);
+  }
+}
+
+function renderCompareDiff(data) {
+  const view = document.getElementById('compare-view');
+  const content = document.getElementById('compare-content');
+  view.classList.remove('hidden');
+
+  let html = '<div class="space-y-4">';
+
+  // Show report info
+  html += '<div class="grid grid-cols-2 gap-4">';
+  html += `<div><p class="text-xs text-gray-400 mb-1">报告 A</p>`;
+  html += `<p class="text-sm text-gray-200">${data.report_a?.symbol || '--'} (${data.report_a?.created_at || ''})</p>`;
+  html += `<p class="text-xs text-gray-500">${data.report_a?.summary || ''}</p></div>`;
+  html += `<div><p class="text-xs text-gray-400 mb-1">报告 B</p>`;
+  html += `<p class="text-sm text-gray-200">${data.report_b?.symbol || '--'} (${data.report_b?.created_at || ''})</p>`;
+  html += `<p class="text-xs text-gray-500">${data.report_b?.summary || ''}</p></div>`;
+  html += '</div>';
+
+  // Show diff results — handle multiple diff types
+  html += '<div class="space-y-3">';
+
+  for (const d of data.diff) {
+    const sameIcon = d.same ? '✅' : '❌';
+    const sameClass = d.same ? 'text-emerald-400' : 'text-red-400';
+
+    // Unified diff (summary, investment_plan)
+    if (d.type === 'unified_diff') {
+      const diffLines = (d.diff_text || '').split('\n');
+      const coloredLines = diffLines.map(line => {
+        if (line.startsWith('+')) return '<span style="color:#089981">' + line.replace(/</g,'&lt;') + '</span>';
+        if (line.startsWith('-')) return '<span style="color:#f23645">' + line.replace(/</g,'&lt;') + '</span>';
+        if (line.startsWith('@@')) return '<span style="color:#2962FF">' + line.replace(/</g,'&lt;') + '</span>';
+        return line.replace(/</g,'&lt;');
+      }).filter(l => l.trim()).join('\n');
+
+      html += '<div class="bg-dark-bg rounded-lg p-3">' +
+        '<div class="flex items-center gap-2 mb-2">' +
+        '<span class="text-xs font-medium text-gray-300">' + d.field + '</span>' +
+        '<span class="' + sameClass + ' text-xs">' + sameIcon + ' ' + (d.same ? '一致' : '有差异') + '</span>' +
+        '<span class="text-xs text-gray-500">(A:' + (d.a_len || 0) + '字符 B:' + (d.b_len || 0) + '字符)</span>' +
+        '</div>' +
+        (d.diff_text ? '<pre style="background:#0d111c;border:1px solid #1e2a3a;border-radius:4px;padding:8px;font-size:11px;line-height:1.5;overflow-x:auto;white-space:pre-wrap;word-break:break-word;color:#787b86;">' + coloredLines + '</pre>' : '<div class="text-xs text-gray-500">(空)</div>') +
+        '</div>';
+      continue;
+    }
+
+    // Structured diff (research_conclusion)
+    if (d.type === 'structured_diff' && d.items) {
+      let subHtml = '<table class="w-full text-xs"><thead><tr class="text-gray-500">' +
+        '<th class="py-1 px-2 text-left">键</th><th class="py-1 px-2 text-left">A</th><th class="py-1 px-2 text-left">B</th><th class="py-1 px-2 text-center">一致</th>' +
+        '</tr></thead><tbody>';
+      for (const item of d.items) {
+        const valA = item.a !== undefined ? String(item.a) : '--';
+        const valB = item.b !== undefined ? String(item.b) : '--';
+        subHtml += '<tr class="border-b border-dark-border/50">' +
+          '<td class="py-1 px-2 font-medium text-gray-300">' + item.key + '</td>' +
+          '<td class="py-1 px-2 text-gray-400">' + valA + '</td>' +
+          '<td class="py-1 px-2 text-gray-400">' + valB + '</td>' +
+          '<td class="py-1 px-2 text-center ' + (item.same ? 'text-emerald-400' : 'text-red-400') + '">' + (item.same ? '✅' : '❌') + '</td>' +
+          '</tr>';
+      }
+      subHtml += '</tbody></table>';
+
+      html += '<div class="bg-dark-bg rounded-lg p-3">' +
+        '<div class="flex items-center gap-2 mb-2">' +
+        '<span class="text-xs font-medium text-gray-300">' + d.field + '</span>' +
+        '<span class="' + sameClass + ' text-xs">' + sameIcon + ' ' + (d.same ? '一致' : '有差异') + '</span>' +
+        '</div>' +
+        subHtml +
+        '</div>';
+      continue;
+    }
+
+    // Default: meta field row
+    const aVal = typeof d.a === 'object' ? JSON.stringify(d.a) : String(d.a || '');
+    const bVal = typeof d.b === 'object' ? JSON.stringify(d.b) : String(d.b || '');
+    html += '<div class="flex items-center justify-between py-2 px-3 bg-dark-bg/50 rounded-lg">' +
+      '<span class="text-xs font-medium text-gray-300 w-24">' + d.field + '</span>' +
+      '<span class="text-xs text-gray-400 flex-1 truncate px-2" title="' + aVal.replace(/"/g, '&quot;') + '">' + aVal + '</span>' +
+      '<span class="text-xs text-gray-500 px-1">→</span>' +
+      '<span class="text-xs text-gray-400 flex-1 truncate px-2" title="' + bVal.replace(/"/g, '&quot;') + '">' + bVal + '</span>' +
+      '<span class="' + sameClass + ' text-xs w-8 text-center">' + sameIcon + '</span>' +
+      '</div>';
+  }
+
+  html += '</div>';
+  html += '</div>';
+
 }
 
 // ── Init ──

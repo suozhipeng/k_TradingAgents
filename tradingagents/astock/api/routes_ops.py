@@ -101,6 +101,52 @@ def list_tasks() -> tuple[Response, int]:
 
 
 # ---------------------------------------------------------------------------
+# GET /api/v1/ops/tasks/<task_id> — Single task query
+# ---------------------------------------------------------------------------
+
+
+@bp.route("/ops/tasks/<task_id>")
+def get_task(task_id: str) -> tuple[Response, int]:
+    """Get a single task by ID.
+
+    Returns
+    -------
+    JSON dict with the task record, or 404 if not found.
+    """
+    try:
+        store = _get_audit_store()
+        task = store.get_task(task_id)
+        if task is None:
+            return jsonify({"error": f"Task not found: {task_id}", "status": 404}), 404
+        return jsonify(task), 200
+    except Exception as exc:
+        return jsonify({"error": str(exc), "status": 500}), 500
+
+
+# ---------------------------------------------------------------------------
+# POST /api/v1/ops/tasks/<task_id>/cancel — Cancel a task
+# ---------------------------------------------------------------------------
+
+
+@bp.route("/ops/tasks/<task_id>/cancel", methods=["POST"])
+def cancel_task_endpoint(task_id: str) -> tuple[Response, int]:
+    """Cancel an existing task.
+
+    Returns
+    -------
+    JSON dict with the updated task record, or 404 if not found.
+    """
+    try:
+        store = _get_audit_store()
+        task = store.cancel_task(task_id)
+        if task is None:
+            return jsonify({"error": f"Task not found: {task_id}", "status": 404}), 404
+        return jsonify(task), 200
+    except Exception as exc:
+        return jsonify({"error": str(exc), "status": 500}), 500
+
+
+# ---------------------------------------------------------------------------
 # GET /api/v1/ops/stats — Ops dashboard statistics
 # ---------------------------------------------------------------------------
 
@@ -118,6 +164,58 @@ def ops_stats() -> tuple[Response, int]:
         store = _get_audit_store()
         stats = store.get_stats()
         return jsonify(stats), 200
+    except Exception as exc:
+        return jsonify({"error": str(exc), "status": 500}), 500
+
+
+# ---------------------------------------------------------------------------
+# GET /api/v1/ops/scheduler/status — PaperTradeScheduler lifecycle status
+# ---------------------------------------------------------------------------
+
+
+@bp.route("/ops/scheduler/status")
+def scheduler_status() -> tuple[Response, int]:
+    """Return scheduler lifecycle status from EventBus and AuditStore.
+
+    Returns scheduler state: running/paused/stopped, cycle count,
+    last activity, and recent task lifecycle events.
+    """
+    try:
+        # Query recent cycle events from audit store
+        store = _get_audit_store()
+        events = store.get_events(limit=20) or []
+        tasks = store.get_tasks(limit=10) or []
+
+        # Filter scheduler-related events
+        cycle_events = [
+            e for e in events
+            if (e.get("action") or "").startswith("scheduler.")
+            or (e.get("action") or "") in ("cycle_start", "cycle_complete", "cycle_error")
+        ]
+
+        # Count recent cycle events
+        cycle_count = sum(
+            1 for e in events
+            if (e.get("action") or "") == "cycle_complete"
+        )
+
+        # Determine scheduler state from recent events
+        latest_cycle = None
+        for e in reversed(events):
+            if (e.get("action") or "") in ("cycle_start", "cycle_complete", "cycle_error"):
+                latest_cycle = e
+                break
+
+        return jsonify({
+            "running": bool(latest_cycle and latest_cycle.get("action") != "cycle_error"),
+            "cycle_count": cycle_count,
+            "last_activity": latest_cycle.get("timestamp") if latest_cycle else None,
+            "recent_cycles": cycle_events[:5],
+            "active_tasks": [
+                t for t in tasks if t.get("status") in ("queued", "running")
+            ][:5],
+            "status": "ok",
+        }), 200
     except Exception as exc:
         return jsonify({"error": str(exc), "status": 500}), 500
 

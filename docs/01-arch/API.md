@@ -105,7 +105,7 @@
 | `GET /api/v1/paper/trades` | `paper` | 虚拟成交记录 |
 | `GET /api/v1/qmt/health` | `managed` (mock) | Mock QMT 健康检查 |
 | `GET /api/v1/qmt/positions` | `managed` (mock) | Mock QMT 持仓 |
-| `GET /api/v1/qmt/orders` | `managed` (mock) | Mock QMT 订单 |
+| `GET /api/v1/qmt/orders` | `managed` (mock) | Mock/read-only QMT 响应；真实订单/委托查询暂不接入 |
 | `GET /api/v1/kline` | `research` | 历史 K 线数据 |
 | `GET /api/v1/data/health` | `research` | 数据源健康状态 |
 
@@ -502,7 +502,7 @@ curl -X GET "http://localhost:5001/api/v1/kline?symbol="
 | `/api/v1/trade/state` | GET | 交易状态 | `positions[]`, `cash`, `total_value`, `pnl`, `trade_count` | paper | 同上 |
 | `/api/v1/qmt/health` | GET | QMT 健康 | `healthy`, `connected`, `mode` | managed | `test_astock_qmt_bridge.py` |
 | `/api/v1/qmt/positions` | GET | QMT 持仓 | `positions[]`, `mode` | managed | 同上 |
-| `/api/v1/qmt/orders` | GET | QMT 订单 | `orders[]`, `mode` | managed | 同上 |
+| `/api/v1/qmt/orders` | GET | Mock/read-only QMT 响应；真实订单/委托查询暂不接入 | `orders[]`, `mode`, `status` | managed | 同上 |
 
 ## 10. SSE / Ops API
 
@@ -531,4 +531,3 @@ curl -X GET "http://localhost:5001/api/v1/kline?symbol="
 - schema 变化必须同步 `04-dev/PRD.md`。
 - 页面依赖 API 变化必须同步 `README.md`。
 - Hermes 执行任务时必须把 API 变化写入对应 phase 文档。
-
