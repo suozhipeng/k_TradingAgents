@@ -23,7 +23,15 @@ logger = logging.getLogger(__name__)
 
 bp = Blueprint("watchlist", __name__)
 
-WATCHLIST_PATH = Path.home() / ".tradingagents" / "watchlist.json"
+# ---------------------------------------------------------------------------
+# Watchlist storage — fallback path lives under the project data dir,
+# NOT under the user's HOME, to avoid environment-dependent permissions.
+# ---------------------------------------------------------------------------
+_WATCHLIST_FALLBACK_DIR = Path(os.environ.get(
+    "ASTOCK_WATCHLIST_DIR",
+    Path.home() / ".tradingagents",
+))
+WATCHLIST_PATH = _WATCHLIST_FALLBACK_DIR / "watchlist.json"
 
 
 def _load_from_duckdb(store: Any) -> list[dict[str, Any]]:
@@ -92,11 +100,26 @@ def _load_json() -> list[dict[str, Any]]:
         return []
 
 
+def _json_serializable(obj: Any) -> Any:
+    """Recursively convert non-JSON-serializable types to serializable ones."""
+    if isinstance(obj, dict):
+        return {k: _json_serializable(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_json_serializable(v) for v in obj]
+    # Handle datetime-like objects (DuckDB Timestamp, pandas Timestamp, etc.)
+    if hasattr(obj, 'isoformat'):
+        return obj.isoformat()
+    if isinstance(obj, (int, float, str, bool)) or obj is None:
+        return obj
+    return str(obj)
+
+
 def _save_json(items: list[dict[str, Any]]) -> None:
     """Save watchlist to JSON file (legacy fallback)."""
     WATCHLIST_PATH.parent.mkdir(parents=True, exist_ok=True)
+    serializable_items = _json_serializable(items)
     with open(WATCHLIST_PATH, "w", encoding="utf-8") as f:
-        json.dump(items, f, ensure_ascii=False, indent=2)
+        json.dump(serializable_items, f, ensure_ascii=False, indent=2)
 
 
 def _load() -> list[dict[str, Any]]:

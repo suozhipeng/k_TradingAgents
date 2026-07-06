@@ -11,6 +11,10 @@
 from __future__ import annotations
 
 import os
+
+# Prevent Hermes Agent venv pydantic from polluting this project's imports.
+os.environ["PYTHONPATH"] = ""
+
 import random
 from datetime import datetime
 

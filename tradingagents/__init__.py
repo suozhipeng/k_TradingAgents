@@ -1,3 +1,18 @@
+import sys
+import os
+
+# ── Pydantic isolation ──────────────────────────────────────────────────
+# Prevent Hermes Agent venv's pydantic from polluting this project's imports.
+# When running inside Hermes, the agent's venv may inject its own pydantic
+# into sys.path, which leads to ModuleNotFoundError:
+#   pydantic_core._pydantic_core (ABI mismatch between Python 3.11/3.12).
+# Clear PYTHONPATH and remove any hermes-related entries from sys.path
+# before any downstream import (e.g. pywencai → pydantic) can pick it up.
+_hermes_paths = [p for p in sys.path if 'hermes' in p.lower()]
+if _hermes_paths:
+    sys.path = [p for p in sys.path if 'hermes' not in p.lower()]
+    os.environ.setdefault("PYTHONPATH", "")
+
 import warnings
 
 # Load .env files at package import so DEFAULT_CONFIG's env-var overlay

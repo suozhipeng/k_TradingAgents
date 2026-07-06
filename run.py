@@ -12,6 +12,10 @@
 from __future__ import annotations
 
 import os
+
+# Prevent Hermes Agent venv pydantic from polluting this project's imports.
+# Clear PYTHONPATH so the project venv's pydantic is used, not Hermes'.
+os.environ["PYTHONPATH"] = ""
 import signal
 import subprocess
 import sys
