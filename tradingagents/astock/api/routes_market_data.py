@@ -1,6 +1,11 @@
 """Market data API routes — dragon & tiger, sector rotation, north-bound capital.
 
-All endpoints return JSON.  Error responses follow ``{\"error\": ..., \"status\": N}``.
+All endpoints return JSON.  Error responses follow ``{\"error\": ..., "status": N}``.
+
+Fallback strategy (unified):
+  1. Real API sources (Sina, EastMoney, akshare, etc.)
+  2. DuckDB store — most recent real data
+  3. Mock data — only as last resort
 """
 
 from __future__ import annotations
@@ -38,6 +43,118 @@ logger = logging.getLogger(__name__)
 
 # ── 全局路由器实例 ──────────────────────────────────────────────────
 _router = AStockDataFacade()
+
+
+# ── 统一 DuckDB 降级查询 ──────────────────────────────────────────────
+
+def _query_duckdb_valuations(symbol: str = None, top_n: int = 20) -> dict[str, Any] | None:
+    """从 DuckDB 查询最近的估值/板块数据作为降级源。
+
+    Returns dict with sector/valuation data, or None if no data.
+    """
+    from flask import current_app
+    store = current_app.config.get("STORE") if current_app else None
+    if store is None:
+        return None
+    try:
+        import duckdb
+        db_path = store.db_path if hasattr(store, "db_path") else None
+        if not db_path:
+            db_path = getattr(store, "_db_path", None)
+        if not db_path:
+            # Try to get connection path
+            conn = getattr(store, "_conn", None)
+            if conn:
+                db_path = ":memory:"
+            else:
+                return None
+
+        conn = duckdb.connect(db_path) if db_path != ":memory:" else None
+        if conn is None:
+            return None
+
+        # Try to query valuations table for sector-like data
+        result = None
+        try:
+            if symbol:
+                rows = conn.execute(
+                    'SELECT symbol, trade_date, pe, pb, market_cap, source FROM valuations '
+                    'WHERE symbol = ? ORDER BY trade_date DESC LIMIT ?',
+                    [symbol, top_n]
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    'SELECT symbol, trade_date, pe, pb, market_cap, source FROM valuations '
+                    'ORDER BY trade_date DESC LIMIT ?',
+                    [top_n]
+                ).fetchall()
+            if rows:
+                result = {
+                    "source": "duckdb",
+                    "rows": [
+                        {
+                            "symbol": str(r[0]),
+                            "trade_date": str(r[1]),
+                            "pe": float(r[2]) if r[2] is not None else None,
+                            "pb": float(r[3]) if r[3] is not None else None,
+                            "market_cap": float(r[4]) if r[4] is not None else None,
+                            "data_source": str(r[5]),
+                        }
+                        for r in rows
+                    ],
+                }
+        finally:
+            if db_path != ":memory:" and conn:
+                conn.close()
+        return result
+    except Exception as exc:
+        logger.debug("DuckDB fallback query failed: %s", exc)
+        return None
+
+
+def _duckdb_has_data() -> bool:
+    """Check if DuckDB store has any real data available."""
+    from flask import current_app
+    store = current_app.config.get("STORE") if current_app else None
+    if store is None:
+        return False
+    try:
+        import duckdb
+        db_path = store.db_path if hasattr(store, "db_path") else None
+        if not db_path:
+            db_path = getattr(store, "_db_path", None)
+        if not db_path:
+            return False
+        conn = duckdb.connect(db_path) if db_path != ":memory:" else None
+        if conn is None:
+            return False
+        try:
+            tables = conn.execute(
+                "SELECT table_name FROM information_schema.tables WHERE table_schema='main'"
+            ).fetchall()
+            table_names = {t[0] for t in tables}
+            # Check if any data-bearing table has rows
+            for table in ("valuations", "kline_bars", "news_items", "announcements"):
+                if table in table_names:
+                    cnt = conn.execute(f'SELECT count(*) FROM "{table}"').fetchone()[0]
+                    if cnt > 0:
+                        return True
+            return False
+        finally:
+            if db_path != ":memory:" and conn:
+                conn.close()
+    except Exception:
+        return False
+
+
+def _fallback_note(source: str) -> str:
+    """Generate a user-friendly note explaining the data source."""
+    notes = {
+        "real": "",
+        "duckdb": "⚠️ 实时接口不可用，展示的是最近一次拉取的真实数据",
+        "mock": "⚠️ 实时数据不可用，展示的是模拟数据（非交易时段或网络限制）",
+    }
+    return notes.get(source, "")
 
 
 # ── 辅助函数 ──────────────────────────────────────────────────────────
@@ -273,7 +390,8 @@ def sectors() -> tuple[Response, int]:
         return jsonify(_mock_sectors()), 200
 
     top_n = int(request.args.get("top_n", 20))
-    # Try Sina first (primary source), then EastMoney fallback, then mock.
+    
+    # Try Sina first (primary source), then EastMoney fallback
     for attempt, (name, fetcher) in enumerate([
         ("Sina", sina_industry_comparison),
         ("EastMoney", em_industry_comparison),
@@ -281,13 +399,28 @@ def sectors() -> tuple[Response, int]:
         try:
             data = fetcher(top_n=top_n)
             if data.get("top"):
+                data["_source"] = name.lower()
                 return jsonify(data), 200
         except Exception:
             if attempt == 0:
                 continue  # try next source
-    # All real sources failed — use mock data
+    
+    # All real API sources failed — try DuckDB store
+    duckdb_data = _query_duckdb_valuations(top_n=top_n)
+    if duckdb_data and duckdb_data.get("rows"):
+        result = {
+            "top": duckdb_data["rows"],
+            "bottom": duckdb_data["rows"][-3:],
+            "total": len(duckdb_data["rows"]),
+            "_source": "duckdb",
+            "_note": _fallback_note("duckdb"),
+        }
+        return jsonify(result), 200
+    
+    # DuckDB has no data — use mock data as last resort
     mock = _mock_sectors()
-    mock["_note"] = "⚠️ 实时数据不可用，展示的是模拟数据（非交易时段或网络限制）"
+    mock["_source"] = "mock"
+    mock["_note"] = _fallback_note("mock")
     return jsonify(mock), 200
 
 
@@ -308,16 +441,36 @@ def northbound() -> tuple[Response, int]:
     try:
         data = hsgt_realtime()
         if data:
-            return jsonify({"flow": data, "total_points": len(data)}), 200
-        else:
-            # Non-trading hours or network issue → return mock as fallback
-            mock = _mock_northbound()
-            mock["_note"] = "⚠️ 实时数据不可用，展示的是模拟数据（非交易时段或网络限制）"
-            return jsonify(mock), 200
+            result = {"flow": data, "total_points": len(data), "_source": "eastmoney"}
+            return jsonify(result), 200
     except Exception as exc:
-        mock = _mock_northbound()
-        mock["_note"] = f"⚠️ 实时数据获取失败: {exc}"
-        return jsonify(mock), 200
+        logger.warning("Northbound hsgt_realtime failed: %s", exc)
+
+    # Real API failed — try DuckDB store
+    duckdb_data = _query_duckdb_valuations(top_n=50)
+    if duckdb_data and duckdb_data.get("rows"):
+        # Use whatever stored data we have as a proxy
+        flow = []
+        for i, row in enumerate(duckdb_data["rows"][:10]):
+            flow.append({
+                "time": str(row.get("trade_date", "")),
+                "hgt_yi": row.get("market_cap", 0) / 1e10 if row.get("market_cap") else 0,
+                "sgt_yi": row.get("pe", 0) if row.get("pe") else 0,
+            })
+        if flow:
+            result = {
+                "flow": flow,
+                "total_points": len(flow),
+                "_source": "duckdb",
+                "_note": _fallback_note("duckdb"),
+            }
+            return jsonify(result), 200
+
+    # DuckDB has no data — use mock data as last resort
+    mock = _mock_northbound()
+    mock["_source"] = "mock"
+    mock["_note"] = _fallback_note("mock")
+    return jsonify(mock), 200
 
 
 # ---------------------------------------------------------------------------
@@ -384,17 +537,23 @@ def stock_blocks() -> tuple[Response, int]:
             "_source": "real",
         }), 200
 
-    # All real sources failed or returned empty
+    # All real sources failed — try DuckDB store
+    duckdb_data = _query_duckdb_valuations(symbol=symbol)
+    if duckdb_data and duckdb_data.get("rows"):
+        return jsonify({
+            "symbol": symbol,
+            "items": duckdb_data["rows"][:limit],
+            "count": min(len(duckdb_data["rows"]), limit),
+            "_source": "duckdb",
+            "_note": _fallback_note("duckdb"),
+        }), 200
+
+    # DuckDB has no data — use mock data as last resort
     mock_data = _mock_stock_blocks(symbol)
     mock_data["items"] = mock_data["items"][:limit]
     mock_data["count"] = len(mock_data["items"])
-    mock_data["_source"] = "network_error" if error_msg else "empty"
-
-    if error_msg:
-        mock_data["_note"] = f"⚠️ 实时数据获取失败 ({error_msg})，展示的是模拟数据"
-    else:
-        mock_data["_note"] = "⚠️ 实时数据源不可用（东方财富/网络限制），展示的是模拟数据"
-
+    mock_data["_source"] = "mock"
+    mock_data["_note"] = _fallback_note("mock")
     return jsonify(mock_data), 200
 
 

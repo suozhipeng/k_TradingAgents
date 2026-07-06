@@ -122,13 +122,43 @@ def _fetch_quote_sina(symbol: str) -> dict[str, Any] | None:
 
 
 def _fetch_realtime_quote(symbol: str) -> dict[str, Any] | None:
-    """双源降级：新浪（格式标准）→ 东方财富 → None"""
+    """双源降级：新浪（格式标准）→ 东方财富 → DuckDB store → deterministic fallback"""
     result = _fetch_quote_sina(symbol)
     if result and result.get("last_price", 0) > 0:
         return result
     result = _fetch_quote_eastmoney(symbol)
     if result and result.get("last_price", 0) > 0:
         return result
+    # All live APIs failed — try DuckDB store for last known price
+    return _fetch_quote_from_store(symbol)
+
+
+def _fetch_quote_from_store(symbol: str) -> dict[str, Any] | None:
+    """从 DuckDB store 查询最近一次真实报价作为降级源。"""
+    from flask import current_app
+    store = current_app.config.get("STORE") if current_app else None
+    if store is None:
+        return None
+    try:
+        kline_df = store.query_kline(symbol, limit=1)
+        if kline_df is not None and not kline_df.empty:
+            row = kline_df.iloc[-1]
+            close = float(row.get("close", 0) or 0)
+            if close > 0:
+                return {
+                    "symbol": symbol,
+                    "last_price": close,
+                    "open": float(row.get("open", close)),
+                    "high": float(row.get("high", close)),
+                    "low": float(row.get("low", close)),
+                    "volume": float(row.get("volume", 0)),
+                    "change": 0.0,
+                    "change_pct": 0.0,
+                    "timestamp": str(row.get("trade_date", "")),
+                    "source": "store",
+                }
+    except Exception as exc:
+        logger.debug("DuckDB quote fallback failed for %s: %s", symbol, exc)
     return None
 
 
