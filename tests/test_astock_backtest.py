@@ -30,9 +30,9 @@ def _load_submodule(rel_name: str):
 
 
 _sb = _load_submodule("strategy_base")
-_fm = _load_submodule("fee_model")
+_fm = _load_submodule("backtest.fee_model")
 _be = _load_submodule("backtest_engine")
-_me = _load_submodule("metrics")
+_me = _load_submodule("backtest.metrics")
 
 StrategyBase = _sb.StrategyBase
 MovingAverageTrendStrategy = _sb.MovingAverageTrendStrategy

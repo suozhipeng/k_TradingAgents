@@ -31,24 +31,15 @@ const KCDataLoader = {
     // ── Stale-while-revalidate: return cached, refresh in background ──
     async function refreshInBackground(cacheKey, symbol, period) {
       const tvPeriod = String(period);
-      const now = Math.floor(Date.now() / 1000);
       const gen = state.loadGeneration;
       try {
-        const res = await fetch(
-          `${apiBase}/history?symbol=${symbol.symbol}&resolution=${tvPeriod}&from=0&to=${now}`
+        const { data } = await window.APIClient.getJson(
+          `${apiBase}/history`,
+          { symbol: symbol.symbol, resolution: tvPeriod, from: 0, to: Math.floor(Date.now() / 1000) }
         );
-        const data = await res.json();
         if (gen !== state.loadGeneration) return;
-        if (data.s !== 'ok' || !data.t) return;
-
-        const newBars = [];
-        for (let i = 0; i < data.t.length; i++) {
-          newBars.push({
-            timestamp: data.t[i] * 1000,
-            open: data.o[i], high: data.h[i], low: data.l[i],
-            close: data.c[i], volume: data.v[i],
-          });
-        }
+        const newBars = window.ChartUtils.historyPayloadToBars(data);
+        if (newBars.length === 0) return;
         state.barDataCache[cacheKey] = { bars: newBars, fetchedAt: Date.now() };
 
         // Notify the page so it can update the chart
@@ -110,24 +101,23 @@ const KCDataLoader = {
         const signal = controller.signal;
 
         try {
-          const url = `${apiBase}/history?symbol=${symbol.symbol}&resolution=${tvPeriod}&from=${from}&to=${to}`;
-          const res = await fetch(url, { signal });
-          const data = await res.json();
+          const { data } = await window.APIClient.getJson(
+            `${apiBase}/history`,
+            { symbol: symbol.symbol, resolution: tvPeriod, from, to },
+            { signal }
+          );
           if (requestGeneration !== state.loadGeneration || signal.aborted) return;
 
-          if (data.s === 'ok' && data.t) {
+          const historyBars = window.ChartUtils.historyPayloadToBars(data);
+          if (historyBars.length > 0) {
             // ── Deduplicate against timestamp cache ──
             const seen = new Set(state.barCache[cacheKey] || []);
             const newBars = [];
-            for (let i = 0; i < data.t.length; i++) {
-              const ts = data.t[i] * 1000;
+            for (const bar of historyBars) {
+              const ts = bar.timestamp;
               if (!seen.has(ts)) {
                 seen.add(ts);
-                newBars.push({
-                  timestamp: ts,
-                  open: data.o[i], high: data.h[i], low: data.l[i],
-                  close: data.c[i], volume: data.v[i],
-                });
+                newBars.push(bar);
               }
             }
             // Update timestamp cache
@@ -138,10 +128,13 @@ const KCDataLoader = {
 
             // Store init data in bar cache with timestamp
             if (type === 'init' && newBars.length > 0) {
-              state.barDataCache[cacheKey] = { bars: newBars, fetchedAt: Date.now() };
+              state.barDataCache[cacheKey] = {
+                bars: window.ChartUtils.sortBars(newBars),
+                fetchedAt: Date.now(),
+              };
             }
 
-            callback(newBars, data.t.length > 0);
+            callback(newBars, historyBars.length > 0);
           } else {
             callback([], false);
           }
@@ -165,17 +158,13 @@ const KCDataLoader = {
           const now = Math.floor(Date.now() / 1000);
           const resolution = String(params.period || 1);
           try {
-            const res = await fetch(
-              `${apiBase}/history?symbol=${params.symbol.symbol}&resolution=${resolution}&from=${now - 7200}&to=${now}`
+            const { data } = await window.APIClient.getJson(
+              `${apiBase}/history`,
+              { symbol: params.symbol.symbol, resolution, from: now - 7200, to: now }
             );
-            const data = await res.json();
-            if (data.s === 'ok' && data.t && data.t.length > 0) {
-              const i = data.t.length - 1;
-              const newBar = {
-                timestamp: data.t[i] * 1000,
-                open: data.o[i], high: data.h[i], low: data.l[i],
-                close: data.c[i], volume: data.v[i],
-              };
+            const bars = window.ChartUtils.historyPayloadToBars(data);
+            if (bars.length > 0) {
+              const newBar = bars[bars.length - 1];
               params.callback(newBar);
               // Update bar data cache
               const cacheKey = `${params.symbol.symbol}_${resolution}`;
@@ -229,8 +218,7 @@ const KCDataLoader = {
       if (q.length < 1) { dropdown.style.display = 'none'; return; }
       timer = setTimeout(async () => {
         try {
-          const res = await fetch(`/api/v1/tv/stock-search?q=${encodeURIComponent(q)}&limit=8`);
-          const data = await res.json();
+          const { data } = await window.APIClient.getJson('/api/v1/tv/stock-search', { q, limit: 8 });
           const items = data.items || [];
           if (items.length === 0) { dropdown.style.display = 'none'; return; }
           dropdown.innerHTML = items.map((item, i) =>

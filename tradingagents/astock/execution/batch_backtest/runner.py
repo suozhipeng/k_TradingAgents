@@ -12,7 +12,7 @@ from typing import Any
 import pandas as pd
 
 from ..backtest_engine import BacktestEngine, BacktestResult
-from ..fee_model import AStockFeeConfig
+from ..backtest.fee_model import AStockFeeConfig
 from ..strategy_base import StrategyBase
 from .ranking import rank_strategies as _rank_strategies
 from .selection import best_performing as _best_performing

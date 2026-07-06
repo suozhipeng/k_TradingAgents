@@ -313,12 +313,16 @@ def create_app(
         return jsonify({"error": "Internal server error", "status": 500}), 500
 
     # -- Register blueprints --------------------------------------------------
-    from . import routes_data
+    from . import routes_data_query
+    from . import routes_data_ingest
+    from . import routes_data_jobs
+    from . import routes_data_cache
     from . import routes_backtest
     from . import routes_paper
     from . import routes_market
     from . import routes_qmt
     from . import routes_sse
+    from . import routes_scheduler
     from . import routes_reports
     from . import routes_dashboard
     from . import routes_screener
@@ -352,7 +356,10 @@ def create_app(
     app.register_blueprint(routes_ops.bp,              url_prefix="/api/v1")
 
     # [detail]
-    app.register_blueprint(routes_data.bp,             url_prefix="/api/v1")
+    app.register_blueprint(routes_data_query.bp,       url_prefix="/api/v1")
+    app.register_blueprint(routes_data_ingest.bp,      url_prefix="/api/v1")
+    app.register_blueprint(routes_data_jobs.bp,        url_prefix="/api/v1")
+    app.register_blueprint(routes_data_cache.bp,       url_prefix="/api/v1")
     app.register_blueprint(routes_backtest.bp,         url_prefix="/api/v1")
     app.register_blueprint(routes_market_data.bp,      url_prefix="/api/v1")
     app.register_blueprint(routes_screener.bp,         url_prefix="/api/v1")
@@ -367,6 +374,7 @@ def create_app(
 
     # [stream]
     app.register_blueprint(routes_sse.bp,              url_prefix="/api/v1")
+    app.register_blueprint(routes_scheduler.bp,        url_prefix="/api/v1")
 
     # [direct]
     app.register_blueprint(routes_paper.bp,            url_prefix="/api/v1")

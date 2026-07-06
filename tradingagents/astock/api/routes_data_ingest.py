@@ -1,0 +1,201 @@
+"""Data ingestion API routes — write operations (refresh, manual insert).
+
+Routes: /data/refresh/*, /data/manual/<table>
+"""
+
+from __future__ import annotations
+
+import logging
+from typing import Any
+
+from flask import Blueprint, Response, current_app, jsonify, request
+
+bp = Blueprint("data_ingest", __name__)
+logger = logging.getLogger(__name__)
+
+
+def _store() -> Any:
+    return current_app.config["STORE"]
+
+
+# ---------------------------------------------------------------------------
+# Data refresh
+# ---------------------------------------------------------------------------
+
+
+@bp.route("/data/refresh/kline", methods=["POST"])
+def refresh_kline() -> tuple[Response, int]:
+    body = request.get_json(force=True, silent=True) or {}
+    symbol = body.get("symbol", "")
+    if not symbol:
+        return jsonify({"error": "symbol is required", "status": 400}), 400
+    start = body.get("start")
+    end = body.get("end")
+    interval = body.get("interval", "1d")
+    try:
+        from tradingagents.astock.store.loader import KlineLoader
+        store = _store()
+        router = current_app.config.get("DATA_FACADE")
+        loader = KlineLoader(store, router)
+        count = loader.load(symbol, start=start, end=end, interval=interval)
+        return jsonify({"symbol": symbol, "rows_inserted": count, "status": "ok"}), 200
+    except Exception as exc:
+        logger.warning("Refresh kline failed for %s: %s", symbol, exc)
+        return jsonify({"error": str(exc), "status": 500}), 500
+
+
+@bp.route("/data/refresh/valuation", methods=["POST"])
+def refresh_valuation() -> tuple[Response, int]:
+    body = request.get_json(force=True, silent=True) or {}
+    symbol = body.get("symbol", "")
+    if not symbol:
+        return jsonify({"error": "symbol is required", "status": 400}), 400
+    try:
+        from tradingagents.astock.store.loader import ValuationLoader
+        store = _store()
+        router = current_app.config.get("DATA_FACADE")
+        loader = ValuationLoader(store, router)
+        count = loader.load(symbol)
+        return jsonify({"symbol": symbol, "rows_inserted": count, "status": "ok"}), 200
+    except Exception as exc:
+        logger.warning("Refresh valuation failed for %s: %s", symbol, exc)
+        return jsonify({"error": str(exc), "status": 500}), 500
+
+
+@bp.route("/data/refresh/all", methods=["POST"])
+def refresh_all() -> tuple[Response, int]:
+    body = request.get_json(force=True, silent=True) or {}
+    symbols = body.get("symbols", [])
+    if not symbols:
+        return jsonify({"error": "symbols list is required", "status": 400}), 400
+    start = body.get("start")
+    end = body.get("end")
+    interval = body.get("interval", "1d")
+    try:
+        from tradingagents.astock.store.loader import BatchLoader
+        store = _store()
+        router = current_app.config.get("DATA_FACADE")
+        loader = BatchLoader(store, router)
+        results = loader.load_all(symbols, kline_start=start, kline_end=end, interval=interval)
+        return jsonify({"results": results, "status": "ok"}), 200
+    except Exception as exc:
+        logger.warning("Refresh all failed: %s", exc)
+        return jsonify({"error": str(exc), "status": 500}), 500
+
+
+# ---------------------------------------------------------------------------
+# Manual insert
+# ---------------------------------------------------------------------------
+
+
+def _raw_store() -> Any:
+    store = _store()
+    return getattr(store, "_store", store)
+
+
+def _table_columns(table_name: str) -> set[str]:
+    raw = _raw_store()
+    if hasattr(raw, "_table_columns"):
+        return set(raw._table_columns(table_name))
+    if hasattr(raw, "table_columns"):
+        return set(raw.table_columns(table_name))
+    return set()
+
+
+def _validate_manual_rows(table_name: str, rows: list[dict[str, Any]]) -> None:
+    raw = _raw_store()
+    if hasattr(raw, "table_exists") and not raw.table_exists(table_name):
+        raise ValueError(f"Unknown table: {table_name}")
+
+    allowed = _table_columns(table_name)
+    if allowed:
+        aliases = set()
+        if table_name == "kline_bars":
+            aliases.update({"date", "datetime", "time", "turnover"})
+        if table_name == "valuations":
+            aliases.update({"date", "pe_ttm", "market_value"})
+        unknown = sorted(
+            {key for row in rows for key in row} - allowed - aliases
+        )
+        if unknown:
+            raise ValueError(f"Unknown field(s) for {table_name}: {', '.join(unknown)}")
+
+    if table_name == "kline_bars":
+        date_fields = {"bar_time", "trade_date", "date", "datetime", "time"}
+        for idx, row in enumerate(rows):
+            if not row.get("symbol"):
+                raise ValueError(f"records[{idx}].symbol is required")
+            if not any(row.get(field) for field in date_fields):
+                raise ValueError(
+                    f"records[{idx}] requires one of: bar_time, trade_date, date, datetime, time"
+                )
+            if row.get("interval"):
+                normalise = getattr(raw, "_normalise_interval", None)
+                if normalise is not None:
+                    normalise(str(row["interval"]))
+
+    if table_name == "valuations":
+        for idx, row in enumerate(rows):
+            if not row.get("symbol"):
+                raise ValueError(f"records[{idx}].symbol is required")
+            if not (row.get("trade_date") or row.get("date")):
+                raise ValueError(f"records[{idx}].trade_date is required")
+
+
+def _insert_error_response(exc: Exception) -> tuple[Response, int]:
+    from tradingagents.astock.quality import BlockedImportError
+    if isinstance(exc, BlockedImportError):
+        return jsonify({
+            "error": "data_quality_blocked", "message": str(exc),
+            "violations": getattr(exc, "violations", []), "status": 422,
+        }), 422
+    if isinstance(exc, ValueError):
+        return jsonify({"error": "invalid_input", "message": str(exc), "status": 400}), 400
+    return jsonify({"error": "insert_failed", "message": str(exc), "status": 500}), 500
+
+
+def _records_from_body(body: dict[str, Any]) -> list[dict[str, Any]]:
+    records = body.get("records")
+    if records is None and "record" in body:
+        records = [body["record"]]
+    if records is None:
+        records = []
+    if isinstance(records, dict):
+        records = [records]
+    if not isinstance(records, list):
+        raise ValueError("records must be a list or object")
+    if any(not isinstance(item, dict) for item in records):
+        raise ValueError("each record must be an object")
+    return [dict(item) for item in records]
+
+
+@bp.route("/data/manual/<table_name>", methods=["POST"])
+def manual_insert_rows(table_name: str) -> tuple[Response, int]:
+    body = request.get_json(force=True, silent=True) or {}
+    try:
+        records = _records_from_body(body)
+    except ValueError as exc:
+        return jsonify({"error": str(exc), "status": 400}), 400
+    if not records:
+        return jsonify({"error": "record or records is required", "status": 400}), 400
+
+    symbol = body.get("symbol")
+    trade_date = body.get("trade_date") or body.get("date")
+    interval = body.get("interval")
+    source = body.get("source")
+    for row in records:
+        if symbol and "symbol" not in row:
+            row["symbol"] = symbol
+        if trade_date and "trade_date" not in row and "date" not in row:
+            row["trade_date"] = trade_date
+        if interval and "interval" not in row:
+            row["interval"] = interval
+        if source and "source" not in row:
+            row["source"] = source
+    try:
+        _validate_manual_rows(table_name, records)
+        count = _store().insert_table_rows(table_name, records)
+        return jsonify({"table": table_name, "rows_inserted": count, "status": "ok"}), 200
+    except Exception as exc:
+        logger.warning("Manual insert failed for %s: %s", table_name, exc)
+        return _insert_error_response(exc)

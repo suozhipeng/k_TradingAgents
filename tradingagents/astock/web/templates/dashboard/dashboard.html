@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_components/macros.html" import page_header %}
 {% block title %}总览 Dashboard — AStock Pro 量化交易终端{% endblock %}
 {% block content %}
 <style>
@@ -69,19 +70,13 @@
 </div>
 
 <!-- ── Section Title ── -->
-<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-  <div>
-    <h1 style="font-size:22px;font-weight:700;color:#d1d4dc;margin:0;display:flex;align-items:center;gap:8px;">
-      📊 量化控制中心
-      <span id="refresh-tag" style="font-size:10px;color:#4a5a6a;font-weight:400;font-family:'JetBrains Mono',monospace;"></span>
-    </h1>
-    <div style="font-size:11px;color:#4a5a6a;margin-top:4px;">AStock Pro 交易终端 · 每日工作台</div>
-  </div>
-  <div style="display:flex;gap:8px;">
-    <button class="tv-btn tv-btn-secondary tv-btn-sm" onclick="loadAll();this.innerHTML='⟳ 刷新中...';setTimeout(()=>this.innerHTML='⟳ 刷新',800)">⟳ 刷新</button>
-    <a href="/strategy_hub" class="tv-btn tv-btn-primary tv-btn-sm">🧪 策略研究 →</a>
-  </div>
-</div>
+{{ page_header(
+  "📊 量化控制中心",
+  "AStock Pro 交易终端 · 每日工作台",
+  "dashboard",
+  "<button class=\"tv-btn tv-btn-secondary tv-btn-sm\" onclick=\"loadAll();this.innerHTML='⟳ 刷新中...';setTimeout(()=>this.innerHTML='⟳ 刷新',800)\">⟳ 刷新</button><a href=\"/strategy_hub\" class=\"tv-btn tv-btn-primary tv-btn-sm\">🧪 策略研究 →</a>"
+) }}
+<div id="refresh-tag" style="font-size:10px;color:#4a5a6a;font-weight:400;font-family:'JetBrains Mono',monospace;margin-top:-10px;margin-bottom:10px;"></div>
 
 <!-- ── 下一步操作区 (Next Actions) ── -->
 <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;padding:10px 14px;background:linear-gradient(145deg, #1c2538 0%, #141d2e 100%);border:1px solid #1e2a3a;border-radius:8px;align-items:center;">

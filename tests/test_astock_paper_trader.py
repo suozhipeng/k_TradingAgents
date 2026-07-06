@@ -28,7 +28,7 @@ def _load_submodule(rel_name: str):
 
 
 # fee_model must be loaded before paper_trader (paper_trader imports from it)
-_fm = _load_submodule("fee_model")
+_fm = _load_submodule("backtest.fee_model")
 _pt = _load_submodule("paper_trader")
 
 PaperTradeState = _pt.PaperTradeState

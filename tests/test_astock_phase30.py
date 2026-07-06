@@ -101,7 +101,7 @@ class TestKillSwitch(unittest.TestCase):
         import importlib.util, sys
         spec = importlib.util.spec_from_file_location(
             "kill_switch",
-            "tradingagents/astock/execution/kill_switch.py",
+            "tradingagents/astock/execution/infrastructure/kill_switch.py",
         )
         mod = importlib.util.module_from_spec(spec)
         sys.modules["kill_switch"] = mod

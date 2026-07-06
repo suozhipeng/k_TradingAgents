@@ -12,7 +12,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from ..fee_model import AStockFeeConfig, calculate_fees
+from ..backtest.fee_model import AStockFeeConfig, calculate_fees
 from ..qmt_execution import QmtExecutionEngine
 from ..risk_gate import RiskGate
 from ...schemas.trading_execution import (

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_components/macros.html" import page_header %}
 {% block title %}市场龙头 — AStock Pro{% endblock %}
 {% block head_extra %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
@@ -78,10 +79,7 @@
 {% endblock %}
 {% block content %}
 <div class="ml-wrap">
-  <div class="ml-header">
-    <h1>🐉 市场龙头 Market Leaders</h1>
-    <p>龙头决策 · 板块强弱 · 资金线索 · 动量轮动 · 龙虎榜</p>
-  </div>
+  {{ page_header("🐉 市场龙头 Market Leaders", "龙头决策 · 板块强弱 · 资金线索 · 动量轮动 · 龙虎榜", "watch-center") }}
 
   <div class="ml-tabs" id="ml-tabs">
     <div class="ml-tab active" data-tab="momentum">🥇 龙头决策</div>

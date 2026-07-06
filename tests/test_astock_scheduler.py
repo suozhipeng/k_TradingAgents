@@ -30,9 +30,9 @@ def _load_submodule(rel_name: str):
 
 # Load dependencies
 _sb = _load_submodule("strategy_base")
-_fm = _load_submodule("fee_model")
+_fm = _load_submodule("backtest.fee_model")
 _pt = _load_submodule("paper_trader")
-_eb = _load_submodule("event_bus")
+_eb = _load_submodule("infrastructure.event_bus")
 _sc = _load_submodule("scheduler")
 
 StrategyBase = _sb.StrategyBase

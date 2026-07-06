@@ -88,7 +88,7 @@ def list_strategies(*, category: str | None = None) -> list[StrategyRegistryEntr
 
 import logging
 
-from .optimizer import DEFAULT_SEARCH_SPACES
+from ..optimizer import DEFAULT_SEARCH_SPACES
 
 _log = logging.getLogger(__name__)
 

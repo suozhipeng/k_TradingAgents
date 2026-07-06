@@ -16,7 +16,7 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
-from ..fee_model import AStockFeeConfig, calculate_fees
+from ..backtest.fee_model import AStockFeeConfig, calculate_fees
 from ..qmt_execution import QmtExecutionEngine
 from ..risk_gate import RiskGate, RiskGateResult
 from ...schemas.trading_execution import (

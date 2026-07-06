@@ -11,19 +11,9 @@ from typing import Any
 
 from flask import Blueprint, Response, jsonify, request
 
+from ._paper_service import get_paper_trader
+
 bp = Blueprint("paper", __name__)
-
-# Global paper trader instance (lazily initialised)
-_paper_trader: Any = None
-
-
-def _get_trader() -> Any:
-    global _paper_trader
-    if _paper_trader is None:
-        from tradingagents.astock.execution.paper_trader import PaperTrader
-
-        _paper_trader = PaperTrader()
-    return _paper_trader
 
 
 # ---------------------------------------------------------------------------
@@ -33,12 +23,6 @@ def _get_trader() -> Any:
 
 @bp.route("/paper/cycle", methods=["POST"])
 def paper_cycle() -> tuple[Response, int]:
-    """Trigger one paper trading cycle.
-
-    JSON body:
-        signals (dict[str, float]) — symbol → signal (1, -1, 0)
-        prices (dict[str, float])  — symbol → last price
-    """
     data = request.get_json(silent=True) or {}
     signals = data.get("signals", {})
     prices = data.get("prices", {})
@@ -49,18 +33,13 @@ def paper_cycle() -> tuple[Response, int]:
         return jsonify({"error": "prices dict is required", "status": 400}), 400
 
     try:
-        trader = _get_trader()
+        trader = get_paper_trader()
         state = trader.execute_cycle(signals, prices)
-        return jsonify(
-            {
-                "positions": state.positions,
-                "cash": state.cash,
-                "total_value": state.total_value,
-                "pnl": state.pnl,
-                "trade_count": len(state.trades),
-                "last_updated": state.last_updated,
-            }
-        ), 200
+        return jsonify({
+            "positions": state.positions, "cash": state.cash,
+            "total_value": state.total_value, "pnl": state.pnl,
+            "trade_count": len(state.trades), "last_updated": state.last_updated,
+        }), 200
     except Exception as exc:
         return jsonify({"error": str(exc), "status": 500}), 500
 
@@ -72,22 +51,16 @@ def paper_cycle() -> tuple[Response, int]:
 
 @bp.route("/paper/state")
 def paper_state() -> tuple[Response, int]:
-    """Return current paper trading state."""
     try:
-        trader = _get_trader()
+        trader = get_paper_trader()
         state = trader.get_state()
-        return jsonify(
-            {
-                "positions": state.positions,
-                "cash": state.cash,
-                "total_value": state.total_value,
-                "pnl": state.pnl,
-                "trade_count": len(state.trades),
-                "last_updated": state.last_updated,
-                "execution_signal": state.execution_signal,
-                "decision_scope": state.decision_scope,
-            }
-        ), 200
+        return jsonify({
+            "positions": state.positions, "cash": state.cash,
+            "total_value": state.total_value, "pnl": state.pnl,
+            "trade_count": len(state.trades), "last_updated": state.last_updated,
+            "execution_signal": state.execution_signal,
+            "decision_scope": state.decision_scope,
+        }), 200
     except Exception as exc:
         return jsonify({"error": str(exc), "status": 500}), 500
 
@@ -99,23 +72,16 @@ def paper_state() -> tuple[Response, int]:
 
 @bp.route("/paper/trades")
 def paper_trades() -> tuple[Response, int]:
-    """Return paper trade history with optional limit.
-
-    Query params:
-        limit (int, optional) — max trades to return (default 0 = all).
-    """
     try:
         limit = int(request.args.get("limit", "0"))
-        trader = _get_trader()
+        trader = get_paper_trader()
         state = trader.get_state()
         trades = state.trades
         count = len(trades)
         if limit > 0:
             trades = trades[-limit:]
         return jsonify({
-            "trades": trades,
-            "count": count,
-            "limit": limit or count,
+            "trades": trades, "count": count, "limit": limit or count,
         }), 200
     except Exception as exc:
         return jsonify({"error": str(exc), "status": 500}), 500

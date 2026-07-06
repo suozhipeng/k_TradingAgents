@@ -8,106 +8,25 @@ dependency chain at module load time.
 
 from __future__ import annotations
 
-import json
-import re
 from datetime import datetime
 from typing import Any
 
-# Module-level compiled regex for date validation
-_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
-
 from flask import Blueprint, Response, current_app, jsonify, request
 
+from ._backtest_helpers import (
+    build_equity_curve,
+    build_period_returns,
+    create_backtest_engine,
+    expand_params_json_rows,
+    extract_signal_trades,
+    get_optimizer_cls,
+    get_strategy_registry,
+    sanitize_metrics,
+    sanitize_nan,
+    validate_date_range,
+)
+
 bp = Blueprint("backtest", __name__)
-
-# Strategy registry: built lazily inside route functions to avoid triggering
-# the full tradingagents.astock import chain at module load time.
-_STRATEGY_REGISTRY: dict[str, type] | None = None
-
-
-def _get_strategy_registry() -> dict[str, type]:
-    """Lazy-build strategy registry on first call."""
-    global _STRATEGY_REGISTRY
-    if _STRATEGY_REGISTRY is not None:
-        return _STRATEGY_REGISTRY
-
-    # Lazy import — only triggered when a backtest endpoint is actually called
-    from tradingagents.astock.execution.strategy_base import (
-        BollingerBandsReversionStrategy,
-        BullTrendStrategy,
-        DefensiveMomentumStrategy,
-        GridTradingStrategy,
-        MACDTrendStrategy,
-        MeanReversionStrategy,
-        MomentumRotationStrategy,
-        MovingAverageTrendStrategy,
-        PutWriteStrategy,
-        RSIRangeStrategy,
-        StockFlow,
-        ValueAverageStrategy,
-    )
-
-    _STRATEGY_REGISTRY = {
-        "MovingAverageTrend": MovingAverageTrendStrategy,
-        "BullTrend": BullTrendStrategy,
-        "ValueAverage": ValueAverageStrategy,
-        "MeanReversion": MeanReversionStrategy,
-        "RSIRange": RSIRangeStrategy,
-        "DefensiveMomentum": DefensiveMomentumStrategy,
-        "PutWrite": PutWriteStrategy,
-        "MACDTrend": MACDTrendStrategy,
-        "BollingerBands": BollingerBandsReversionStrategy,
-        "GridTrading": GridTradingStrategy,
-        "MomentumRotation": MomentumRotationStrategy,
-        "StockFlow": StockFlow,
-    }
-    return _STRATEGY_REGISTRY
-
-
-def _get_optimizer() -> Any:
-    """Lazy import + instantiate StrategyOptimizer."""
-    from tradingagents.astock.execution.optimizer import StrategyOptimizer
-
-    return StrategyOptimizer
-
-
-def _get_backtest_engine(use_mock_data: bool = False) -> Any:
-    """Lazy import + instantiate BacktestEngine."""
-    from tradingagents.astock.execution.backtest_engine import BacktestEngine
-
-    return BacktestEngine(use_mock_data=use_mock_data)
-
-
-def _sanitize_nan(records: list[dict]) -> None:
-    """Replace NaN/Inf with None in-place for valid JSON."""
-    import math
-    from datetime import datetime
-
-    for record in records:
-        for k, v in record.items():
-            if isinstance(v, float) and (math.isnan(v) or math.isinf(v)):
-                record[k] = None
-            elif isinstance(v, datetime):
-                record[k] = v.strftime("%Y-%m-%d")
-            elif hasattr(v, "isoformat"):
-                record[k] = v.isoformat()
-
-
-def _sanitize_metrics(record: dict) -> dict:
-    """Deep-clean a single backtest result dict.
-
-    Note: as of Step 5 cleanup, ``summarize_metrics`` in
-    ``metrics.py`` already sanitises every metric before returning,
-    so this function is now a no-op safety net.
-    """
-    import math
-
-    for key in ("total_return", "annualized_return", "sharpe_ratio",
-                 "max_drawdown", "win_rate", "total_trades"):
-        v = record.get(key)
-        if isinstance(v, float) and (math.isnan(v) or math.isinf(v)):
-            record[key] = None
-    return record
 
 
 def _store() -> Any:
@@ -144,7 +63,7 @@ def run_backtest() -> tuple[Response, int]:
     if not strategy_name:
         return jsonify({"error": "strategy is required", "status": 400}), 400
 
-    registry = _get_strategy_registry()
+    registry = get_strategy_registry()
     if strategy_name not in registry:
         return jsonify(
             {
@@ -155,21 +74,15 @@ def run_backtest() -> tuple[Response, int]:
     if not start_date or not end_date:
         return jsonify({"error": "start and end dates are required", "status": 400}), 400
 
-    # Validate date format YYYY-MM-DD
-    for label, d in (("start", start_date), ("end", end_date)):
-        if not _DATE_RE.match(d):
-            return jsonify({"error": f"{label} date must be YYYY-MM-DD, got '{d}'", "status": 400}), 400
-        try:
-            datetime.strptime(d, "%Y-%m-%d")
-        except ValueError:
-            return jsonify({"error": f"{label} date is invalid: '{d}'", "status": 400}), 400
-    if start_date >= end_date:
-        return jsonify({"error": "start date must be before end date", "status": 400}), 400
+    try:
+        validate_date_range("start date", start_date, "end date", end_date)
+    except ValueError as exc:
+        return jsonify({"error": str(exc), "status": 400}), 400
 
     try:
         strategy_cls = registry[strategy_name]
         strategy = strategy_cls()
-        engine = _get_backtest_engine(use_mock_data=use_mock)
+        engine = create_backtest_engine(use_mock_data=use_mock)
         result = engine.run(symbol, start_date, end_date, strategy, rebalance_freq)
         result.strategy_name = strategy_name
 
@@ -255,18 +168,9 @@ def get_backtest_results() -> tuple[Response, int]:
     try:
         df = _store().get_backtest_results(strategy_name=strategy_name)
         if df is not None and not df.empty and "params_json" in df.columns:
-            results = df.to_dict(orient="records")
-            _sanitize_nan(results)
-            for r in results:
-                if isinstance(r.get("params_json"), str):
-                    try:
-                        r["params"] = json.loads(r["params_json"])
-                    except (json.JSONDecodeError, TypeError):
-                        r["params"] = {}
-                    del r["params_json"]
-            return jsonify({"results": results}), 200
+            return jsonify({"results": expand_params_json_rows(df)}), 200
         rows = df.to_dict(orient="records") if df is not None and not df.empty else []
-        _sanitize_nan(rows)
+        sanitize_nan(rows)
         return jsonify({"results": rows}), 200
     except Exception as exc:
         return jsonify({"error": str(exc), "status": 500}), 500
@@ -304,18 +208,12 @@ def compare_backtests() -> tuple[Response, int]:
     if not start_date or not end_date:
         return jsonify({"error": "start and end dates are required", "status": 400}), 400
 
-    # Validate date format YYYY-MM-DD
-    for label, d in (("start", start_date), ("end", end_date)):
-        if not _DATE_RE.match(d):
-            return jsonify({"error": f"{label} date must be YYYY-MM-DD, got '{d}'", "status": 400}), 400
-        try:
-            datetime.strptime(d, "%Y-%m-%d")
-        except ValueError:
-            return jsonify({"error": f"{label} date is invalid: '{d}'", "status": 400}), 400
-    if start_date >= end_date:
-        return jsonify({"error": "start date must be before end date", "status": 400}), 400
+    try:
+        validate_date_range("start date", start_date, "end date", end_date)
+    except ValueError as exc:
+        return jsonify({"error": str(exc), "status": 400}), 400
 
-    registry = _get_strategy_registry()
+    registry = get_strategy_registry()
     names = [s.strip() for s in strategies_param.split(",") if s.strip()]
     if not names:
         return jsonify({"error": "No valid strategy names provided", "status": 400}), 400
@@ -330,27 +228,13 @@ def compare_backtests() -> tuple[Response, int]:
         ), 400
 
     try:
-        engine = _get_backtest_engine(use_mock_data=use_mock)
+        engine = create_backtest_engine(use_mock_data=use_mock)
         results = []
         for name in names:
             strategy = registry[name]()
             result = engine.run(symbol, start_date, end_date, strategy)
 
-            # Extract equity curve and returns from periods (same as analyze)
             periods = result.periods or []
-            equity_curve = [
-                {"period": p["period"], "value": p["end_value"]}
-                for p in periods
-            ]
-            returns = []
-            prev_val = None
-            for p in periods:
-                val = p["end_value"]
-                if prev_val is not None and prev_val > 0:
-                    ret = (val - prev_val) / prev_val
-                    returns.append({"period": p["period"], "return": round(ret, 6)})
-                prev_val = val
-
             results.append(
                 {
                     "strategy_name": name,
@@ -361,8 +245,8 @@ def compare_backtests() -> tuple[Response, int]:
                     "win_rate": result.win_rate,
                     "total_trades": result.total_trades,
                     "periods": result.periods,
-                    "equity_curve": equity_curve,
-                    "returns": returns,
+                    "equity_curve": build_equity_curve(periods),
+                    "returns": build_period_returns(periods),
                     "benchmark_symbol": result.benchmark_symbol,
                     "benchmark_return": result.benchmark_return,
                     "benchmark_max_drawdown": result.benchmark_max_drawdown,
@@ -385,7 +269,7 @@ def compare_backtests() -> tuple[Response, int]:
 
         # Sanitize all metrics before emitting
         for r in results:
-            _sanitize_metrics(r)
+            sanitize_metrics(r)
 
         return jsonify({"comparison": results}), 200
     except Exception as exc:
@@ -413,23 +297,17 @@ def walkforward():
         if not symbol or not start_date or not end_date:
             return jsonify({"error": "symbol, start_date, end_date required", "status": 400}), 400
 
-        # Validate date format YYYY-MM-DD
-        for label, d in (("start_date", start_date), ("end_date", end_date)):
-            if not _DATE_RE.match(d):
-                return jsonify({"error": f"{label} date must be YYYY-MM-DD, got '{d}'", "status": 400}), 400
-            try:
-                datetime.strptime(d, "%Y-%m-%d")
-            except ValueError:
-                return jsonify({"error": f"{label} date is invalid: '{d}'", "status": 400}), 400
-        if start_date >= end_date:
-            return jsonify({"error": "start_date must be before end_date", "status": 400}), 400
+        try:
+            validate_date_range("start_date", start_date, "end_date", end_date)
+        except ValueError as exc:
+            return jsonify({"error": str(exc), "status": 400}), 400
 
-        registry = _get_strategy_registry()
+        registry = get_strategy_registry()
         strategy_cls = registry.get(strategy_name)
         if strategy_cls is None:
             return jsonify({"error": f"Unknown strategy: {strategy_name}", "status": 400}), 400
 
-        engine = _get_backtest_engine(use_mock_data=True)
+        engine = create_backtest_engine(use_mock_data=True)
         from tradingagents.astock.execution.optimizer import WalkForwardAnalyzer
 
         wfa = WalkForwardAnalyzer(strategy_cls, engine=engine)
@@ -491,18 +369,12 @@ def analyze_backtest() -> tuple[Response, int]:
     if not start_date or not end_date:
         return jsonify({"error": "start_date and end_date are required", "status": 400}), 400
 
-    # Validate date format YYYY-MM-DD
-    for label, d in (("start_date", start_date), ("end_date", end_date)):
-        if not _DATE_RE.match(d):
-            return jsonify({"error": f"{label} date must be YYYY-MM-DD, got '{d}'", "status": 400}), 400
-        try:
-            datetime.strptime(d, "%Y-%m-%d")
-        except ValueError:
-            return jsonify({"error": f"{label} date is invalid: '{d}'", "status": 400}), 400
-    if start_date >= end_date:
-        return jsonify({"error": "start_date must be before end_date", "status": 400}), 400
+    try:
+        validate_date_range("start_date", start_date, "end_date", end_date)
+    except ValueError as exc:
+        return jsonify({"error": str(exc), "status": 400}), 400
 
-    registry = _get_strategy_registry()
+    registry = get_strategy_registry()
     if strategy_name not in registry:
         return jsonify({
             "error": f"Unknown strategy {strategy_name!r}. Available: {list(registry)}",
@@ -511,35 +383,10 @@ def analyze_backtest() -> tuple[Response, int]:
 
     try:
         strategy = registry[strategy_name]()
-        engine = _get_backtest_engine(use_mock_data=bool(body.get("mock_data", False)))
+        engine = create_backtest_engine(use_mock_data=bool(body.get("mock_data", False)))
         result = engine.run(symbol, start_date, end_date, strategy)
 
-        # Extract equity curve from periods
         periods = result.periods or []
-        equity_curve = [
-            {"period": p["period"], "value": p["end_value"]}
-            for p in periods
-        ]
-        # Compute returns for each period
-        returns = []
-        prev_val = None
-        for p in periods:
-            val = p["end_value"]
-            if prev_val is not None and prev_val > 0:
-                ret = (val - prev_val) / prev_val
-                returns.append({"period": p["period"], "return": round(ret, 6)})
-            prev_val = val
-
-        # Trade P&L extraction
-        trades = []
-        for p in periods:
-            if p.get("signal", 0) != 0:
-                trades.append({
-                    "period": p["period"],
-                    "signal": p["signal"],
-                    "value": p["end_value"],
-                })
-
         payload = {
             "strategy": strategy_name,
             "symbol": symbol,
@@ -553,9 +400,9 @@ def analyze_backtest() -> tuple[Response, int]:
                 "win_rate": result.win_rate,
                 "total_trades": result.total_trades,
             },
-            "equity_curve": equity_curve,
-            "returns": returns,
-            "trades": trades,
+            "equity_curve": build_equity_curve(periods),
+            "returns": build_period_returns(periods),
+            "trades": extract_signal_trades(periods),
         }
         return jsonify(payload), 200
     except Exception as exc:
@@ -594,7 +441,7 @@ def optimize_strategy_api() -> tuple[Response, int]:
     param_grid = body.get("param_grid")
     top_n = int(body.get("top_n", 5))
 
-    registry = _get_strategy_registry()
+    registry = get_strategy_registry()
     if strategy_name not in registry:
         return jsonify({
             "error": f"Unknown strategy {strategy_name!r}. Available: {list(registry)}",
@@ -602,7 +449,7 @@ def optimize_strategy_api() -> tuple[Response, int]:
         }), 400
 
     try:
-        OptimizerCls = _get_optimizer()
+        OptimizerCls = get_optimizer_cls()
         optimizer = OptimizerCls(strategy_name)
         raw_results = optimizer.optimize(
             symbol=symbol,

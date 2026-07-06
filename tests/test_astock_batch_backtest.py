@@ -32,7 +32,7 @@ def _load_submodule(rel_name: str):
     return load_astock_submodule(rel_name, _PKG_PARENT, _EXEC)
 
 # Load dependencies
-_fm = _load_submodule("fee_model")
+_fm = _load_submodule("backtest.fee_model")
 _sb = _load_submodule("strategy_base")
 _be = _load_submodule("backtest_engine")
 _bb = _load_submodule("batch_backtest")

@@ -30,7 +30,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from apscheduler.triggers.cron import CronTrigger
 
-from ..event_bus import EventBus
+from ..infrastructure.event_bus import EventBus
 from ..paper_trader import PaperTrader
 from ..strategy_base import StrategyBase
 from .tasks import _bool_env, _int_env, _list_env, _scheduler_instance

@@ -19,9 +19,17 @@ from typing import Any
 
 from flask import Blueprint, Response, jsonify, request
 
+from ._analysis_engine import analyze_stock_symbol, load_watchlist
+
 logger = logging.getLogger(__name__)
 
 bp = Blueprint("watchlist", __name__)
+
+_WATCHLIST_FALLBACK_DIR = Path(os.environ.get(
+    "ASTOCK_WATCHLIST_DIR",
+    Path.home() / ".tradingagents",
+))
+WATCHLIST_PATH = _WATCHLIST_FALLBACK_DIR / "watchlist.json"
 
 # ---------------------------------------------------------------------------
 # Watchlist storage — fallback path lives under the project data dir,
@@ -243,16 +251,13 @@ def batch_analyze() -> WatchlistResponse:
 
     for sym in symbols:
         try:
-            # Query stored research reports
             df = store.query_research_reports(sym)
             if df is not None and not df.empty:
                 reports = df.tail(3).to_dict(orient="records")
             else:
                 reports = []
 
-            # Run technical analysis
-            from tradingagents.astock.api.routes_analysis import _analyze_stock_symbol
-            tech = _analyze_stock_symbol(sym, sym)
+            tech = analyze_stock_symbol(sym, sym)
 
             rating = tech.get("rating", "hold")
             if rating in counts:

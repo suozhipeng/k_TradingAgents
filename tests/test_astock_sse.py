@@ -53,7 +53,9 @@ def _load_submodule(rel_name: str, path_root: Path, pkg_parent: str):
 
 
 # Load modules
-_eb = _load_submodule("event_bus", _EXEC, _PKG_PARENT_EXEC)
+# Use importlib for package submodules (infrastructure.event_bus)
+import importlib
+_eb = importlib.import_module("tradingagents.astock.execution.infrastructure.event_bus")
 _sse = _load_submodule("routes_sse", _API, _PKG_PARENT_API)
 
 EventBus = _eb.EventBus

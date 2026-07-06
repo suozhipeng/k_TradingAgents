@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+{% from "_components/macros.html" import legacy_banner %}
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,6 +8,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="{{ url_for('web.static', filename='js/api-client.js') }}"></script>
+  <script src="{{ url_for('web.static', filename='js/chart-utils.js') }}"></script>
   <script src="{{ url_for('web.static', filename='js/kc-data-loader.js') }}"></script>
   <script>
     tailwind.config = {
@@ -507,9 +510,7 @@
 
     <!-- Deprecation banner (for legacy entry points) -->
     {% if legacy_redirect %}
-    <div style="background:#1a1a2e;border-bottom:1px solid #ff9800;padding:6px 16px;font-size:12px;color:#ff9800;display:flex;align-items:center;gap:8px;">
-      ⚠️ 此页面已整合到 <a href="{{ legacy_redirect }}" style="color:#2962FF;text-decoration:underline;">新入口</a>，请使用新版访问。
-    </div>
+    {{ legacy_banner(legacy_redirect) }}
     {% endif %}
     {% endblock %}
 
