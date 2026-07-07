@@ -51,3 +51,10 @@ warnings.filterwarnings(
     message=r"The default value of `allowed_objects`.*",
     category=PendingDeprecationWarning,
 )
+
+try:
+    from importlib.metadata import version as _version
+
+    __version__ = _version("tradingagents")
+except Exception:
+    __version__ = "0.3.0"

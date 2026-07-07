@@ -36,7 +36,7 @@ class AnalystExecutionPlanTests(unittest.TestCase):
 
     def test_social_key_displays_as_sentiment_analyst(self):
         # The wire key stays "social" for saved-config back-compat, but the
-        # user-visible agent_node label must match the v0.2.5 rename so the
+        # user-visible agent_node label must match the rename so the
         # wall-time summary and any future consumer of agent_node says
         # "Sentiment Analyst" rather than the legacy "Social Analyst".
         plan = build_analyst_execution_plan(["social"])

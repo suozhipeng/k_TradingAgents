@@ -1,8 +1,6 @@
 # TradingAgents 全功能文档
 
-**版本**: v1.1
-**日期**: 2026-07-06
-**仓库**: /Users/szp/Desktop/Code/k-code/ai-lab/TradingAgents
+> 版本以 [../CHANGELOG.md](../CHANGELOG.md) 最新条目为准。
 
 ---
 
@@ -46,8 +44,8 @@ TradingAgents 是一个面向 A 股市场的 AI 驱动量化研究与交易系�
 | **策略回测** | 12 种策略 + 遗传算法优化 + 滚动窗口分析 + T+1 结算约束 |
 | **模拟交易** | 完整模拟交易周期 + QMT 桥接 |
 | **数据质量门禁** | 内置校验规则 + 自定义规则引擎 + 数据隔离区 |
-| **Web UI** | 29 个模板文件 / 36 条 Web route，Tailwind 暗色主题 |
-| **REST API** | 118 条 `/api/v1` route（23 个 API 蓝图）；支持 Bearer Token + TokenBucket，PostgreSQL 写操作默认启用全局认证 gate |
+| **Web UI** | 30 个模板文件 / 36+ 条 Web route，Tailwind 暗色主题 |
+| **REST API** | 118 条 `/api/v1` route decorators（27 个 API 蓝图，109 个唯一路径）；支持 Bearer Token + TokenBucket，PostgreSQL 写操作默认启用全局认证 gate |
 | **CLI** | Typer + Rich TUI 交互式终端 |
 
 ---
@@ -278,7 +276,7 @@ class AStockSectionBundle:
 | **Akshare** | `AkshareAdapter` | K线、估值、新闻、研报、财务、预期、公告、价格限制 | 主免费源；熔断器、日调用限制、反爬延迟 |
 | **Tencent** | `TencentFinanceAdapter` | 盘口快照、逐笔、估值 | 解析 `qt.gtimg.cn` 的 `~` 分隔响应 |
 | **TDX** | `TdxProvider` | K线、盘口、逐笔、估值、F10、财务、公告、市场总结、板块 | 在线 TDX 服务器 + 本地 VIPDOC + SQLite 缓存 |
-| **Mootdx** | `MootdxAdapter` | K线、盘口、逐笔、F10 | Mootdx 协议封装 |
+| **Mootdx** | `MootdxAdapter` | K线、盘口、逐笔、F10 | MooTDX 协议封装 |
 | **EastMoney** | (独立模块) | 龙虎榜、板块、北向资金、概念板块 | 限频数据中心 API |
 | **Iwencai** | `IwencaiAdapter` | 研报列表、PDF下载、机构预期、搜索 | 需要 Cookie，封装 pywencai |
 | **Cninfo** | `CninfoAdapter` | 公告全文、摘要 | POST cninfo.com.cn，管理 orgId 缓存 |
@@ -304,6 +302,8 @@ def build_default_adapters(**configs) -> Mapping[str, AStockAdapterBase]
 
 `build_default_adapters()` 返回懒加载映射，路由器按实际命中的 provider 初始化适配器，避免导入数据源时一次性加载所有第三方 SDK。
 
+TDX Provider (`tdx_provider.py`) 为独立 provider，不在 DEFAULT_ADAPTER_FACTORIES 中，通过 `data_sources/` 顶层模块直接导入。
+
 #### 7.2.3 核心模块与工具
 
 核心模块：
@@ -312,11 +312,11 @@ def build_default_adapters(**configs) -> Mapping[str, AStockAdapterBase]
 |------|------|
 | `adapters/` | Adapter 包入口，兼容导出 `AkshareAdapter` 等 provider 类 |
 | `adapters/registry.py` | 默认 provider 工厂 + 懒加载映射 `LazyAdapterMapping` |
-| `adapters/providers/` | 按供应商拆分的实现：akshare/tencent/mootdx/cninfo/iwencai/qmt/baostock |
-| `tdx_provider.py` | 在线 TDX + 本地 VIPDOC Provider |
+| `adapters/providers/` | 按供应商拆分的实现：akshare/tencent/mootdx/cninfo/iwencai/qmt/baostock (7 个) |
+| `tdx_provider.py` | 在线 TDX + 本地 VIPDOC Provider（独立 provider，不在 adapters/providers/ 下） |
 | `router.py` | 统一路由器 `AStockDataRouter` + 便利包装 `AStockDataFacade` |
 
-公共工具文件：
+公共工具文件（10+ 个）：
 
 | 文件 | 职责 |
 |------|------|
@@ -330,6 +330,10 @@ def build_default_adapters(**configs) -> Mapping[str, AStockAdapterBase]
 | `adjustment.py` | 复权因子 `fetch_adjust_factors()`, `adjust_series()`, `adjust_bars()` |
 | `suspension/` | 停牌/涨跌停 facade；子模块拆分 suspension / price_limit / common |
 | `sina_sectors.py` | 新浪板块数据 |
+| `eastmoney.py` | EastMoney 独立数据模块 |
+| `tdx_cache.py` | TDX 缓存 |
+| `tdx_vipdoc.py` | TDX VIPDOC 本地缓存 |
+| `leading_pool.py` | 龙头池管理 |
 
 ### 7.3 路由系统
 
@@ -384,7 +388,7 @@ DEFAULT_ROUTE_POLICY = {
 | 文件 | 职责 |
 |------|------|
 | `__init__.py` | 统一导出 |
-| `schema_defs.py` | **SSOT**: 32 张表统一列定义 / 索引 / DDL 生成 |
+| `schema_defs.py` | **SSOT**: 32 张表统一列定义 / 索引 / DDL 生成（28 个索引定义） |
 | `models/` | 32 个 SQLAlchemy ORM 模型（分 reference / market_data / events / governance 子模块） |
 | `schema.py` | DuckDB 存储实现 `AStockStore` 类 |
 | `pg_store.py` | PostgreSQL public entrypoint，组合各 `pg_*` mixin 并导出 `PGStore` / `init_pg_store` |
@@ -407,7 +411,7 @@ DEFAULT_ROUTE_POLICY = {
 
 #### 7.5.1 策略体系
 
-**单股策略 (10 种)**:
+**单股策略 (13 种)**:
 
 | 策略 | 类型 | 信号逻辑 |
 |------|------|----------|
@@ -428,6 +432,13 @@ DEFAULT_ROUTE_POLICY = {
 |------|------|
 | `MomentumRotationStrategy` | 风险调整动量轮动，选择 Top-L 股票 |
 | `StockFlow` | 多策略级联（and/or/majority/cascade 模式） |
+
+**策略组合器**:
+
+| 文件 | 描述 |
+|------|------|
+| `combiners.py` | 策略组合器（and/or/majority/cascade 模式） |
+| `portfolio.py` | 组合策略基类 |
 
 #### 7.5.2 回测引擎
 
@@ -598,7 +609,18 @@ class ReportGenerator:
 
 **路径**: `tradingagents/astock/web/`
 
-20+ 页面，Tailwind 暗色主题，消费 Flask REST API (`/api/v1/`)。
+30 个模板文件，6 个 blueprint 模块，Tailwind 暗色主题，消费 Flask REST API (`/api/v1/`)。
+
+**Blueprint 模块**:
+
+| 模块 | 文件 | 页面数 |
+|------|------|--------|
+| dashboard | `dashboard_bp.py` | 3 (dashboard, daily_review, momentum_dashboard) |
+| ops | `ops_bp.py` | 3 (settings, ops_audit, data_health) |
+| portfolio | `portfolio_bp.py` | 5 (portfolio, trading, paper, risk, qmt) |
+| research | `research_bp.py` | 2 (ai_agent, research) |
+| strategy | `strategy_bp.py` | 4 (strategies, strategy_hub, strategy_monitor, backtest) |
+| watch_center | `watch_center_bp.py` | 13 (watchlist, screener, tv_chart, kc_chart, sectors, dragon_tiger, northbound, market_leaders, momentum_rotation, monitor, base, macros, templates) |
 
 | 路由 | 模板 | 描述 |
 |------|------|------|
@@ -659,12 +681,13 @@ class ReportGenerator:
 
 | 路由文件 | 方法 | 端点 | 描述 |
 |---------|------|------|------|
-| `routes_data.py` | GET/POST | `/kline`, `/valuation`, `/orderbook`, `/news`, `/trade_tape`, `/research`, `/fundamentals`, `/f10`, `/announcements` | 核心数据查询 |
+| `routes_data_query.py` | GET/POST | `/kline`, `/valuation`, `/orderbook`, `/news`, `/trade_tape`, `/research`, `/fundamentals`, `/f10`, `/announcements` | 核心数据查询 |
 | | POST | `/data/refresh/kline`, `/data/refresh/valuation`, `/data/refresh/all` | 手动数据刷新 |
-| | GET/POST | `/data/jobs`, `/data/jobs/refresh`, `/data/jobs/import-database` | 异步数据作业管理 |
-| | POST | `/data/manual/<table>` | 手动行插入 |
-| | GET/POST | `/cache/status`, `/cache/clear` | 缓存管理 |
-| | GET | `/store/stats` | 存储统计 |
+| `routes_data_jobs.py` | GET/POST | `/data/jobs`, `/data/jobs/refresh`, `/data/jobs/import-database` | 异步数据作业管理 |
+| `routes_data_ingest.py` | POST | `/data/manual/<table>` | 手动行插入 |
+| `routes_data_cache.py` | GET/POST | `/cache/status`, `/cache/clear` | 缓存管理 |
+| `routes_daily.py` | GET | `/daily` | 每日数据 |
+| | GET/POST | `/store/stats` | 存储统计 |
 | `routes_backtest.py` | POST | `/backtest/run` | 单次回测 |
 | | GET/DELETE | `/backtest/results` | 查询/清空回测结果 |
 | | GET | `/backtest/compare` | 多策略对比 |
@@ -681,6 +704,7 @@ class ReportGenerator:
 | `routes_tv.py` | GET | `/tv/history`, `/tv/symbols`, `/tv/stock-search`, `/tv/stock-info` | TradingView 图表数据 |
 | `routes_sse.py` | GET/DELETE | `/sse/paper-progress`, `/sse/events` | SSE 推送/事件轮询 |
 | | GET/POST/DELETE | `/sse/scheduler/status`, `/sse/scheduler/start`, `/sse/scheduler/stop`, `/sse/scheduler/pause`, `/sse/scheduler/resume`, `/sse/scheduler/jobs`, `/sse/scheduler/jobs/<job_id>`, `/sse/scheduler/jobs/<job_id>/toggle` | APScheduler 生命周期与用户 cron/interval 任务管理 |
+| `routes_scheduler.py` | (included in sse scheduler routes above) | | 调度器路由 |
 | `routes_reports.py` | GET/POST/PATCH | `/reports/list`, `/reports/pptx`, `/reports/save`, `/reports/compare`, `/reports/<report_id>/audit` | 报告归档/PPTX 下载/保存/正文对比/AI 审计标注 |
 | `routes_dashboard.py` | GET | `/dashboard/overview` | 聚合仪表板数据 |
 | `routes_screener.py` | GET | `/market/screener` | 技术选股器 |
@@ -692,6 +716,7 @@ class ReportGenerator:
 | `routes_alerts.py` | CRUD | `/alerts/rules`, `/alerts`, `/alerts/<id>/ack`, `/alerts/check` | 预警规则/事件管理 |
 | `routes_analysis.py` | POST | `/analysis/watchlist` | 自选股技术分析 |
 | `routes_admin.py` | GET/POST | `/admin/backend`, `/admin/backend/config`, `/admin/health/sync-ch` | 后端切换/配置/CH 同步触发 |
+| `routes_strategy_monitor.py` | (included) | | 策略监控路由 |
 | `__init__.py` | GET | `/api/v1/health` | 健康检查 |
 
 ---
@@ -812,9 +837,9 @@ services:
 
 **路径**: `tests/`
 
-当前全量回归基线：`1070 passed, 15 skipped, 9 warnings, 120 subtests passed`（2026-07-06，`.venv/bin/python -m pytest -q`）。
+当前全量回归基线：`1074 passed, 15 skipped, 7 warnings, 120 subtests passed`（2026-07-07，`.venv/bin/python -m pytest -q`）。
 
-关键测试：
+64 个测试文件，关键测试：
 
 | 测试文件 | 覆盖模块 |
 |---------|----------|
@@ -906,18 +931,22 @@ tradingagents/graph/
 
 | 指标 | 数量 |
 |------|------|
-| 默认 provider 工厂 | 8（7 个 Adapter + `TdxProvider`；EastMoney 为独立数据模块） |
-| 策略数量 | 12 (10 单股 + 2 组合) |
+| 默认 provider 工厂 | 7（Akshare/Tencent/Mootdx/Cninfo/Iwencai/QMT/BaoStock + TDX Provider 独立） |
+| 策略数量 | 15 (13 单股 + 2 组合，含 combiners/portfolio) |
 | 数据库表 | 32 (DuckDB/PG) + 12 (CH OLAP) |
-| Flask API route | 117 条 `/api/v1` route（23 个 API 蓝图） |
-| Web UI | 29 个模板文件 / 36 条 Web route |
-| 测试文件 | 63 |
+| 索引 | 28 |
+| Flask API route decorators | 118（27 个 API 蓝图，109 个唯一路径） |
+| Web UI | 30 个模板文件 |
+| 测试文件 | 64 |
 | 支持的 LLM 提供商 | 10+ |
 | 数据能力 | 22 |
 
 ## 附录 B: 版本历史
 
-| 版本 | 日期 | 变更 |
-|------|------|------|
-| v1.0 | 2026-06-28 | 完整功能文档，三后端架构，12 策略，8 适配器，60+ API 端点 |
-| v1.1 | 2026-07-05 | 同步当前代码基线：32 张 DuckDB/PG 表、117 条 `/api/v1` route、29 个 Web 模板、63 个测试文件 |
+详细版本历史见 [../CHANGELOG.md](../CHANGELOG.md)。
+
+| 变更 | 说明 |
+|------|------|
+| 2026-07-07 | 校准全量数字：118 route decorators (27 蓝图/109 唯一路径)、30 模板、15 策略、64 测试文件、回归基线 1074 passed |
+| 2026-07-05 | 同步当前代码基线：32 张 DuckDB/PG 表、117 条 `/api/v1` route、29 个 Web 模板、63 个测试文件 |
+| 2026-06-28 | 完整功能文档，三后端架构，12 策略，8 适配器，60+ API 端点 |

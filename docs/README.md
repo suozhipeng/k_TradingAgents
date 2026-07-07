@@ -1,13 +1,13 @@
 # TradingAgents — AStock Pro 文档体系
 
-> 每个主题**只有一个权威文档**。版本历史见 [CHANGELOG.md](CHANGELOG.md)。
+> 每个主题**只有一个权威文档**。版本历史见 [../CHANGELOG.md](../CHANGELOG.md)（已合并 AStock Pro 变更）。
 
 ## 📂 文档结构
 
 ```
 docs/
 ├── README.md              ← 你在这里
-├── CHANGELOG.md           ← 版本白皮书（变更记录 + 架构快照）
+├── CHANGELOG.md           ← 版本白皮书（已归档至 _archived/，合并入根 CHANGELOG.md）
 ├── BACKLOG.md             ← 待完成任务清单
 │
 ├── 01-arch/               ← 架构设计
@@ -50,7 +50,7 @@ docs/
 | 启动服务 | `02-guide/QUICK_START.md` |
 | 查看 API | `01-arch/API.md` |
 | 了解产品功能 | `04-dev/PRD.md` |
-| 查版本变更 | `CHANGELOG.md` |
+| 查版本变更 | `../CHANGELOG.md` |
 | 看当前计划 | `BACKLOG.md` |
 | 部署上线 | `03-ops/deployment.md` |
 | 实盘交易 | `03-ops/live-trading.md` |

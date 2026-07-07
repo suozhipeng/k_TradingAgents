@@ -14,8 +14,8 @@ class QMTAdapter(AStockAdapterBase):
     """QMT bridge adapter with real HTTP bridge calls and mock fallback.
 
     Handles all read-only data operations (kline, order book, trade tape,
-    valuation) through the ``QmtBridge`` HTTP client.  When the bridge is
-    unreachable or ``QmtBridge`` is not importable, falls back to
+    valuation) through the QMT bridge protocol client.  When the bridge is
+    unreachable or the protocol module is not importable, falls back to
     raising ``AStockNoDataError``.
 
     Fundamentals are not available through QMT; ``get_fundamentals``
@@ -29,17 +29,18 @@ class QMTAdapter(AStockAdapterBase):
         self._bridge = None
         self._bridge_import_error: Optional[str] = None
         try:
-            # Late import to avoid circular dependency and to handle
-            # environments where the execution subpackage is not installed.
-            from tradingagents.astock.execution.qmt_bridge import QmtBridge as _QmtBridge
+            # Import from neutral protocol module — no dependency on execution layer.
+            from tradingagents.astock.execution.qmt_protocol import (
+                QmtBridgeClient as _BridgeClient,
+            )
 
-            self._bridge_class = _QmtBridge
+            self._bridge_class = _BridgeClient
         except ImportError as exc:
             self._bridge_import_error = str(exc)
             self._bridge_class = None
 
     def _get_bridge(self, request: AStockRequest):
-        """Lazy-init and return the QmtBridge instance.
+        """Lazy-init and return the QMT protocol client.
 
         Returns ``None`` when the bridge cannot be loaded, which triggers
         the ``_no_data`` fallback.

@@ -26,8 +26,8 @@ class ConditionalLogic:
 
         Method name keeps the legacy ``social`` suffix to match the
         ``AnalystType.SOCIAL = "social"`` wire value (saved-config
-        back-compat); the returned ``clear_node`` label uses the v0.2.5
-        rename so it matches the node registered by the execution plan.
+        back-compat); the returned ``clear_node`` label uses the renamed
+        value so it matches the node registered by the execution plan.
         """
         messages = state["messages"]
         last_message = messages[-1]
