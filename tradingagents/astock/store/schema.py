@@ -113,6 +113,8 @@ class AStockStore:
         """Open (or reuse) the DuckDB connection."""
         if self._conn is not None:
             return
+        if self._db_path != ":memory:":
+            Path(self._db_path).parent.mkdir(parents=True, exist_ok=True)
         self._conn = duckdb.connect(self._db_path)
         self._owns_conn = True
 

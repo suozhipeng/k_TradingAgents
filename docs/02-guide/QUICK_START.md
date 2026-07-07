@@ -81,11 +81,11 @@ python3 -m pytest -q
 ## 5b. 启动 Flask REST API
 
 ```bash
-# 默认端口 5001
+# 默认端口 5860
 python scripts/run_astock_api.py
 
-# 带定时调度
-python scripts/run_astock_api.py --scheduler --interval 30
+# 禁用 WebUI
+python scripts/run_astock_api.py --no-web
 
 # 自定义端口
 python scripts/run_astock_api.py --port 5002

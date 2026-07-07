@@ -2,6 +2,22 @@
 
 > 记录每个版本的架构变更、模块清单和关键决策。对应 `CHANGELOG.md`。
 
+## v2.3 — 2026-07-07
+
+**回测统一与入口修复**
+
+- `tradingagents/astock/execution/backtest_engine/facade.py` — 统一回测入口，优先 execution 引擎，modules-only 策略 fallback legacy；顶层 `modules` 导入延迟到运行时（`_legacy_backtest_exports()`），避免非仓库根场景导入失败
+- `facade.py` 移除了 `try/except Exception` 静默 fallback，execution 异常直接传播
+- `modules/backtest_engine.py` 的 `run_backtest_pipeline()` 保持 facade 优先 / ImportError fallback
+- `scripts/run_astock_api.py` — 添加 `sys.path` 注入、`--no-web` 生效、`--scheduler` 帮助文案修正
+- `AStockStore.connect()` — 自动创建 DuckDB 父目录
+- `create_app()` — 新增 `ASTOCK_ENABLE_WEB_UI` 配置项控制 WebUI blueprint 注册
+- `/api/v1/health` 版本号从 `pyproject.toml` 动态读取（fallback 0.3.0），消除硬编码漂移
+- `run_webui.py` 默认端口改为 5001（与 cli/main.py / run.py 一致）
+- `streamlit_app.py` 端口和 API base URL 从环境变量读取（`MOMENTUM_PORT` / `PORT` / `ASTOCK_API_BASE_URL`）
+- `tests/test_astock_backtest_facade.py` — 4 个 facade 专项测试
+- 全量回归：`1074 passed, 15 skipped, 7 warnings, 120 subtests passed`
+
 ## v2.3 — 2026-07-06
 
 **架构优化：入口收敛与职责拆分**

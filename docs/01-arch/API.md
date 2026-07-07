@@ -241,7 +241,7 @@ Phase 30 约束：
 
 **请求：**
 ```bash
-curl -X GET "http://localhost:5001/api/v1/kline?symbol=600519.SH&limit=2"
+curl -X GET "http://localhost:5860/api/v1/kline?symbol=600519.SH&limit=2"
 ```
 
 **响应：**
@@ -276,7 +276,7 @@ curl -X GET "http://localhost:5001/api/v1/kline?symbol=600519.SH&limit=2"
 
 **请求：**
 ```bash
-curl -X GET "http://localhost:5001/api/v1/trade/quote?symbol=600519.SH"
+curl -X GET "http://localhost:5860/api/v1/trade/quote?symbol=600519.SH"
 ```
 
 **响应：**
@@ -302,7 +302,7 @@ curl -X GET "http://localhost:5001/api/v1/trade/quote?symbol=600519.SH"
 
 **请求：**
 ```bash
-curl -X POST "http://localhost:5001/api/v1/backtest/run" \
+curl -X POST "http://localhost:5860/api/v1/backtest/run" \
   -H "Content-Type: application/json" \
   -d '{"symbol": "600519.SH", "strategy": "MovingAverageTrend", "start": "2024-01-01", "end": "2024-06-01", "mock_data": true}'
 ```
@@ -355,7 +355,7 @@ curl -X POST "http://localhost:5001/api/v1/backtest/run" \
 
 **请求：**
 ```bash
-curl -X GET "http://localhost:5001/api/v1/market/summary?symbol=600519.SH"
+curl -X GET "http://localhost:5860/api/v1/market/summary?symbol=600519.SH"
 ```
 
 **响应：**
@@ -379,7 +379,7 @@ curl -X GET "http://localhost:5001/api/v1/market/summary?symbol=600519.SH"
 
 **请求：**
 ```bash
-curl -X GET "http://localhost:5001/api/v1/kline?symbol="
+curl -X GET "http://localhost:5860/api/v1/kline?symbol="
 ```
 
 **响应：**

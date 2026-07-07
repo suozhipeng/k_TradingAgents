@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import logging
 import os
+from importlib.metadata import PackageNotFoundError, version as package_version
 from typing import Any
 
 from flask import Flask, g, jsonify
@@ -32,6 +33,18 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 DEFAULT_CORS_ORIGIN = "http://localhost:5173"
+
+# Read version from pyproject.toml (works even when not installed as package)
+try:
+    import tomllib
+    _pyproject_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), "pyproject.toml")
+    if os.path.exists(_pyproject_path):
+        with open(_pyproject_path, "rb") as _f:
+            APP_VERSION = tomllib.load(_f)["project"]["version"]
+    else:
+        APP_VERSION = package_version("tradingagents")
+except (PackageNotFoundError, KeyError, OSError, ImportError):
+    APP_VERSION = "0.3.0"
 
 
 def _as_bool(val: Any, default: bool = False) -> bool:
@@ -91,6 +104,7 @@ def create_app(
         Configured Flask application instance.
     """
     app = Flask(__name__)
+    app.config.setdefault("ASTOCK_ENABLE_WEB_UI", True)
 
     # -- CORS -----------------------------------------------------------------
     origin = cors_origin or os.environ.get("CORS_ORIGIN", DEFAULT_CORS_ORIGIN)
@@ -396,8 +410,10 @@ def create_app(
         logger.warning("Failed to initialize notification consumer: %s", exc)
 
     # -- Phase 17: Web UI (Jinja2) blueprint ---------------------------------
-    from tradingagents.astock.web import bp as web_bp
-    app.register_blueprint(web_bp)
+    if _bool_config(app, "ASTOCK_ENABLE_WEB_UI", True):
+        from tradingagents.astock.web import bp as web_bp
+
+        app.register_blueprint(web_bp)
 
     # -- Health check ---------------------------------------------------------
     @app.route("/api/v1/health")
@@ -405,7 +421,7 @@ def create_app(
         status = backend_mgr.status()
         return jsonify({
             "status": "ok",
-            "version": "0.2.5",
+            "version": APP_VERSION,
             "backend": status["backend"],
             "store_connected": status["duckdb_connected"] or status["postgresql_connected"],
         }), 200
@@ -413,4 +429,4 @@ def create_app(
     return app
 
 
-__all__ = ["create_app", "DEFAULT_CORS_ORIGIN"]
+__all__ = ["create_app", "DEFAULT_CORS_ORIGIN", "APP_VERSION"]

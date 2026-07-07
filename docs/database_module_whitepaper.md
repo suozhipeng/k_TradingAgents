@@ -1,9 +1,8 @@
 # AStock Pro 数据库模块开发白皮书
 
-**版本**: v2.1  
-**日期**: 2026-06-29  
-**项目**: TradingAgents / AStock Pro  
-**模块路径**: `tradingagents/astock/store/`
+> 版本以 [../CHANGELOG.md](../CHANGELOG.md) 最新条目为准。
+> **项目**: TradingAgents / AStock Pro
+> **模块路径**: `tradingagents/astock/store/`
 
 ---
 
@@ -546,7 +545,7 @@ docker compose up -d
 **健康检查**:
 - PostgreSQL: `pg_isready -U astock -d astock`
 - ClickHouse: `clickhouse-client --query "SELECT 1"`
-- Flask API: `curl -f http://localhost:5001/api/v1/health`
+- Flask API: `curl -f http://localhost:5860/api/v1/health`
 
 ### 9.3 目录结构
 

@@ -4,13 +4,20 @@
 Usage:
     python scripts/run_astock_api.py
     python scripts/run_astock_api.py --scheduler --interval 30
+    python scripts/run_astock_api.py --no-web
 """
 
 from __future__ import annotations
 
 import argparse
 import logging
+import os
 import sys
+
+# Ensure repo root is on sys.path for non-installed scenarios
+_repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _repo_root not in sys.path:
+    sys.path.insert(0, _repo_root)
 
 from tradingagents.astock.api import create_app
 
@@ -19,11 +26,23 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 
+# Respect --no-web flag before app creation
+_parser = argparse.ArgumentParser(add_help=False)
+_parser.add_argument("--no-web", action="store_true")
+_parsed, remaining = _parser.parse_known_args()
+if _parsed.no_web:
+    os.environ.setdefault("ASTOCK_ENABLE_WEB_UI", "false")
+
 app = create_app()
 
 
 def _start_scheduler(interval_minutes: int) -> None:
-    """Initialise and start the paper trade scheduler."""
+    """Initialise and start the paper trade scheduler.
+
+    NOTE: create_app() already starts the scheduler automatically (via
+    APScheduler).  Calling this function again would duplicate it.
+    Only use when ASTOCK_SCHEDULER_ENABLED=false and you want manual start.
+    """
     from tradingagents.astock.execution.paper_trader import PaperTrader
     from tradingagents.astock.execution.scheduler import PaperTradeScheduler
     from tradingagents.astock.store.schema import AStockStore
@@ -51,7 +70,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--scheduler",
         action="store_true",
-        help="Enable the paper trade scheduler",
+        help="Manually start the paper trade scheduler (only if disabled in create_app)",
     )
     parser.add_argument(
         "--interval",

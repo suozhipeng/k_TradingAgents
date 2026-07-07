@@ -1299,18 +1299,11 @@ def _persist_to_duckdb(result: BacktestResult) -> None:
         logger.debug("DuckDB persistence skipped: %s", exc)
 
 
-def run_backtest_pipeline(params: PipelineParams) -> BacktestResult:
-    """统一回测执行入口 — 支持单策略与多策略矩阵。
+def _run_backtest_pipeline_legacy(params: PipelineParams) -> BacktestResult:
+    """旧版回测执行入口实现。
 
-    Parameters
-    ----------
-    params : PipelineParams
-        完整的回测参数封装。
-
-    Returns
-    -------
-    BacktestResult
-        包含净值曲线、基准线、全部绩效指标、MD5 哈希。
+    保留 modules 版完整执行链，供 facade fallback 和极少数
+    execution 层暂未覆盖的策略继续复用。
     """
     engine = BacktestCoreEngine()
     multi_configs = _build_multi_config(params)
@@ -1337,6 +1330,30 @@ def run_backtest_pipeline(params: PipelineParams) -> BacktestResult:
     _persist_to_duckdb(result)
 
     return result
+
+
+def run_backtest_pipeline(params: PipelineParams) -> BacktestResult:
+    """统一回测执行入口 — 优先走 execution facade，必要时 fallback legacy。
+
+    Parameters
+    ----------
+    params : PipelineParams
+        完整的回测参数封装。
+
+    Returns
+    -------
+    BacktestResult
+        包含净值曲线、基准线、全部绩效指标、MD5 哈希。
+    """
+    try:
+        from tradingagents.astock.execution.backtest_engine.facade import (
+            run_backtest_via_facade,
+        )
+    except ImportError as exc:
+        logger.info("Backtest facade unavailable, fallback to legacy modules engine: %s", exc)
+        return _run_backtest_pipeline_legacy(params)
+
+    return run_backtest_via_facade(params)
 
 
 def run_multi_backtest(params_list: list[PipelineParams]) -> list[BacktestResult]:

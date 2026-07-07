@@ -56,7 +56,9 @@ if EMBED:
 
 # ── 数据获取 ──────────────────────────────────────────────────────────────
 
-FLASK_API = "http://127.0.0.1:5001/api/v1/market/momentum"
+FLASK_PORT = int(os.environ.get("MOMENTUM_PORT", os.environ.get("PORT", 5001)))
+FLASK_API_BASE = os.environ.get("ASTOCK_API_BASE_URL", f"http://127.0.0.1:{FLASK_PORT}/api/v1")
+FLASK_API = f"{FLASK_API_BASE.rstrip('/')}/market/momentum"
 
 
 @st.cache_data(ttl=60, show_spinner="从 Flask API 获取动量数据...")

@@ -10,15 +10,16 @@ Breaking changes within the 0.x line are called out explicitly.
 
 > 以下 A 股定制模块的交付记录按 phase 归档，详细变更见各 phase 文档。当前版本 HEAD 为 `xg_dev` 分支。
 
-- **Phase 38** — Product Navigation Cleanup：7 模块 Sidebar 精简、旧入口 redirect、文档口径回补（partial）
-- **Phase 37** — Ops & Audit Center：SSE TaskRun 标准化、Ops Audit 页面、统一审计持久化（partial）
+- **Phase 39** — E2E UAT：端到端用户工作流验收（pass-with-gaps）
+- **Phase 38** — Product Navigation Cleanup：7 模块 Sidebar 精简、旧入口 redirect、文档口径回补（completed）
+- **Phase 37** — Ops & Audit Center：SSE TaskRun 标准化、Ops Audit 页面、统一审计持久化（completed）
 - **Phase 36** — Portfolio Risk & Attribution：Portfolio 页与 schema 落地、深层风险/归因能力未闭环（partial）
 - **Phase 35** — Trading Execution Control：schema + trade/QMT/UI 接线已落地、API 契约与真实回报闭环未完成（partial）
-- **Phase 34** — Market Leaders Entry：`/market_leaders` 单入口已落地、旧页面兼容访问保留（partial）
+- **Phase 34** — Market Leaders Entry：`/market_leaders` 单入口已落地、旧页面兼容访问保留（completed）
 - **Phase 33** — AI Research Center：ResearchTask + Audit schema、AI 页面、多标的支持、降级标识、报告对比、advisory-only（completed）
 - **Phase 32** — Strategy Lab Consolidation：策略实验室整合 + 参数优化 tab（completed）
 - **Phase 31** — Data Quality & Bias Control：幸存者偏差/前瞻偏差检测已修复、页面展示待补齐（partial）
-- **Phase 30** — Live Trading Readiness：实盘准入清单与证据（planned）
+- **Phase 30** — Live Trading Readiness：实盘准入清单与证据（completed）
 - **Phase 29** — 专业交易页：TradingView 风格交易控制台、实时报价、订单面板、KLineChart、仓位管理、PaperTrader 桥接（completed）
 - **Phase 28** — 动量决策终端 / 动量轮动独立看板 / 龙虎榜 / 北向资金 / 数据健康页面（completed）
 - **Phase 27** — 统一数据清洗层 DataCleaner：全路径 NaN→None 清理（completed）
@@ -41,55 +42,141 @@ Breaking changes within the 0.x line are called out explicitly.
 - **Phase 10** — 回测与模拟盘（completed）
 - **Phase 0–9** — 只读研究与展示链路（completed）
 
-当前代码规模：25 个 WebUI 模板 / 28 个 Jinja2 页面、62 个 Flask REST API handler、16 个 routes 模块。
+当前代码规模：30 个 WebUI 模板、27 个 API 蓝图、118 条 route decorators（109 唯一路径）、64 个测试文件。
+
+## A Stock Pro 详细变更
+
+> A Stock Pro 模块的细粒度变更按 SemVer 记录，与核心包版本对齐。
+
+## [0.3.0] — 2026-07-07
+
+**文档口径同步**
+
+- 全功能文档数字校准：API route decorators 118（27 个蓝图，109 个唯一路径）、Web UI 模板 30 个、策略实现 15 个（13 单股 + 2 组合，含 combiners/portfolio）、数据库表 32、索引 28、测试文件 64、LLM 客户端 10、DataFlows 17、Agents 24、Graph 8
+- 策略模块拆分：`strategy_base/` 下 14 个文件（base + 10 单股策略 + combiners + portfolio），`execution/` 下另有 momentum_rotation.py
+- Web UI 模板从 29 增至 30（新增 strategy_monitor.html）
+- API 蓝图从 23 增至 27（新增 routes_daily.py、routes_data_ingest.py、routes_data_cache.py、routes_scheduler.py、routes_strategy_monitor.py 等）
+
+**模块快照**
+
+| 模块 | 文件数 | 说明 |
+|------|--------|------|
+| llm_clients/ | 10 (核心) | OpenAI/Anthropic/Google/Azure 客户端 |
+| dataflows/ | 17 | 全球市场数据管道（Yahoo/AV/Reddit/StockTwits） |
+| agents/ | 24 | 多智能体研究系统 |
+| graph/ | 8 (核心) | LangGraph 交易图 |
+| astock/data_sources/ | 20 (核心) | 7 个 provider adapter + registry + router + 10+ 工具文件 |
+| astock/store/ | 8 + models/6 | DuckDB/PG/ClickHouse 三后端 |
+| astock/execution/ | 25+ (核心) | 14 strategy_base + momentum_rotation + 回测/模拟/QMT/风控 |
+| astock/api/ | 27 蓝图 | 118 route decorators (109 unique paths) |
+| astock/web/ | 30 模板 | Flask Jinja2 WebUI |
+| astock/schemas/ | 7 | Pydantic 数据模型（API.md §5 已覆盖） |
+| astock/quality/ | 3 | 数据质量门控 |
+| astock/alert/ | 2 | 预警系统 |
+| astock/analysis/ | 2 | 市场分析 |
+| astock/reporting/ | 2 | PPT 报告生成 |
+
+**关键数字**
+
+| 指标 | 数量 |
+|------|------|
+| 数据源 provider | 7 |
+| 数据能力 | 22 |
+| 策略 | 15 (13 单股 + 2 组合) |
+| 数据库表 | 32 (DuckDB/PG) + 12 (CH OLAP) |
+| 索引 | 28 |
+| ORM 模型 | 32 |
+| API route decorators | 118 (27 蓝图, 109 唯一路径) |
+| Web 模板 | 30 |
+| 测试文件 | 64 |
+
+---
+
+## [0.2.5] — 2026-07-05
+
+**Bug 修复：路由冲突与策略映射**
+
+- 修复 `routes_market_data.py` 中 `/market/summary` 与 `routes_market.py` 的路由冲突（前者改为 `/market/overview`，提供独立于 symbol 的宽泛市场概览）
+- 修复 `backtest_engine.py` 中 `MomentumRotation` 误入单标的 `run()` 策略映射（移除映射，传入时给出清晰错误引导用户使用 `run_portfolio()`）
+- 其余 10 个单标的策略回归通过
+
+## [0.2.4] — 2026-07-04
+
+**文档体系精简**
+
+- 移除 Hermes 协作文件（hermes-skills.md, hermes-workflow.md, hermes/）
+- 移除 verification_provenance/（JSON 验证记录已随代码管理）
+- 合并 privacy.md → compliance.md §11
+- 合并 ops-metrics.md → deployment.md §8
+- 精简 PRD.md：移除重复的 ASTOCK_REQUIREMENTS 合并残留（1075 → 266 行）
+- 修正全功能文档数字：数据能力 22、API 端点 88、Web UI 27 页、索引 27、测试 62
+- 补充 sina_sectors.py 到数据源工具表
+- 归档 phase-web-* 合规验收文件至 _archived/web-evidence/
+- 清理 _archived/ 中已合并的 ASTOCK_*.md 旧文件（19 个）
+
+## [0.2.3] — 2026-06-28
+
+**数据库模块 v1.0 — 三后端架构**
+
+- DuckDB (本地 OLAP) / PostgreSQL (生产 OLTP) / ClickHouse (生产 OLAP)
+- 32 表完整 schema，含迁移版本管理、审计日志、API 密钥、数据质量规则和隔离区
+- 迁移引擎：DuckDB 内联迁移 + PostgreSQL `MigrationRunner`
+- DataJobManager：异步作业管理，支持重试/优先级/持久化
+- 部署脚本：`scripts/astock_pg_tool.py` + `scripts/astock_sync_ch.py`
+
+**文档体系重建**
+
+- 新增 `full_function_documentation.md`（全功能文档）
+- 新增 `database_module_whitepaper.md`（数据库白皮书）
+- 新增 `04-dev/PRD.md`（合并 PRD + 需求 + 技术需求）
+- 旧 `ASTOCK_*.md` 归档至 `_archived/`
+- Docker Compose 部署支持（app + postgres + clickhouse + pgadmin）
+
+## [0.1.0] — 2026-06-27 及之前
+
+**Phase 0-29 交付**
+
+- Phase 0-28：Provider 路由、研究链、回测、模拟盘、QMT 桥接、DuckDB、WebUI
+- Phase 29：专业交易页（TradingView 风格控制台）
+- 12 种策略实现
+- Flask REST API 基础框架
+- KLineChart 集成
+- 动量轮动、筛选器、板块热力图
+
+**Phase 30-39 启动**
+
+- Phase 30：Live Trading Readiness 准入清单
+- Phase 31-38：数据质量、策略实验室、AI 研究中心、市场龙头、交易执行、组合风控、运维审计、导航清理
+- Phase 39：E2E UAT（planned）
+- Web-G0 ~ Web-P7：Web 页面合规验收（已完成，归档至 `_archived/web-evidence/`）
 
 ---
 
 ## [0.3.0] — 2026-07-06
 
-### Status Snapshot
+### Added
 
-This version captures the current state of the project after Phase 38 delivery and the first full end-to-end live data run.
+- **Backtest unification (facade)** — `tradingagents/astock/execution/backtest_engine/facade.py` bridges modules-style `PipelineParams` to the execution engine. Supported strategies run via the execution engine; modules-only strategies fall back to the legacy modules engine. CLI `backtest` command delegates to the facade.
+- **Version from pyproject.toml** — `/api/v1/health` now reads version from `pyproject.toml` (falls back to `package_version`), eliminating the hardcoded `0.2.5` drift.
 
-#### Real-data verification (2026-07-06)
+### Changed
 
-- First full end-to-end run with **real market data** (non-mock) completed successfully.
-- Ticker: `600519.SH` (贵州茅台), trade date: `2026-07-04` (most recent Friday).
-- LLM: DeepSeek V4 Flash (quick) + V4 Pro (deep), `live_research` profile.
-- Data sources: baostock (kline), tencent (valuation), akshare (news/fundamentals).
-- Result: `status = partial`, decision = `CONTINUE_RESEARCH`, exposure cap 5%.
-- Known issue: `tdx` provider fails due to socket compatibility (non-blocking).
+- **Entrance convergence** — `scripts/run_astock_api.py` now adds repo root to `sys.path` and respects `--no-web` via `ASTOCK_ENABLE_WEB_UI` env var. `--scheduler` help text updated to clarify that `create_app()` auto-starts the scheduler.
+- **DuckDB auto-create directory** — `AStockStore.connect()` now creates the parent directory if it doesn't exist, preventing `Cannot open file` errors on first run.
+- **Port defaults unified** — `run_webui.py` and `streamlit_app.py` now default to port 5001 (matching `cli/main.py` and `run.py`). `streamlit_app.py` reads `ASTOCK_API_BASE_URL` env var instead of hardcoding the Flask API address.
+- **WebUI blueprint gated** — `create_app()` respects `ASTOCK_ENABLE_WEB_UI` config to conditionally register the web blueprint.
 
-#### Phase status (0–39)
+### Fixed
 
-| Phase | Status | Note |
-|-------|--------|------|
-| 0–29 | ✅ completed | Core research, WebUI, backtest, execution layers |
-| 30 | 🔶 planned | Live Trading Readiness — not yet started |
-| 31 | 🔶 partial | Bias detection fixed; page display pending |
-| 32–33 | ✅ completed | Strategy Lab, AI Research Center |
-| 34–38 | 🔶 partial | Market Leaders, Portfolio Risk, Ops Audit, Nav Cleanup |
-| 39 | 🔶 pass-with-gaps | E2E UAT — 2 minor gaps |
+- **Facade no longer silently swallows execution errors** — removed the `try/except Exception` fallback that masked real execution engine failures.
+- **Facade `modules` import decoupled from top-level** — `from modules.backtest_engine import ...` moved to lazy `_legacy_backtest_exports()` so importing `tradingagents.astock.execution` no longer requires `modules` to be importable.
+- **Health endpoint version drift** — `/api/v1/health` now returns `0.3.0` (from `pyproject.toml`) instead of stale `0.2.5`.
+- **Streamlit hardcoded Flask URL** — `streamlit_app.py` now reads port and API base from environment variables (`MOMENTUM_PORT`, `PORT`, `ASTOCK_API_BASE_URL`).
 
-#### Pending backlog (updated 2026-07-06)
+### Testing
 
-**P0:**
-- BL-000: Live Trading Readiness checklist
-- BL-001: Unify QMT capability boundaries
-- BL-002: Fix `/api/v1/qmt/orders` mock semantics
-- BL-200: Web-G0 requirement freeze
-
-**P1:**
-- BL-201: Dashboard as daily workstation (five-state cards)
-- BL-203: Daily market recap report
-- BL-204: Watchlist batch AI analysis
-- BL-205: Decision summary (buy/hold/sell) on dashboard
-
-**P2:**
-- Multi-strategy matrix concurrent backtest
-- Watchlist → DuckDB persistence
-- Alert strategy/risk rules enhancement
-- Deep risk attribution beyond VaR 95/HHI
+- Full regression: `1074 passed, 15 skipped, 7 warnings, 120 subtests passed` (`.venv/bin/python -m pytest -q`)
+- Facade-specific tests: `tests/test_astock_backtest_facade.py` — 4 tests covering execution path, modules fallback, CLI delegation, and modules public entry.
 
 ---
 
