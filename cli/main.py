@@ -127,8 +127,9 @@ def backtest(
     import json as json_lib
 
     try:
-        from modules.backtest_engine import (
-            create_strategy, run_backtest_pipeline, PipelineParams,
+        from tradingagents.astock.execution.backtest_engine import (
+            PipelineParams,
+            run_backtest_pipeline,
         )
     except ImportError:
         console.print("[red]✗ backtest_engine module not found. Run from project root.[/red]")

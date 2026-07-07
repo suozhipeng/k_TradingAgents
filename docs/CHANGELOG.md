@@ -2,6 +2,16 @@
 
 > 记录每个版本的架构变更、模块清单和关键决策。对应 `CHANGELOG.md`。
 
+## v2.3 — 2026-07-08
+
+**回测入口最小收敛**
+
+- `cli/main.py` — `backtest` 命令改为优先使用 `tradingagents.astock.execution.backtest_engine`，不再直接依赖 `modules.backtest_engine`
+- `tradingagents/astock/execution/backtest_engine/__init__.py` — 新增兼容导出：`run_backtest_pipeline`、`PipelineParams`、`create_strategy`、`BacktestMetrics`
+- 保持 `modules/backtest_engine.py` 兼容入口不变，避免影响现有 CLI/API/测试行为
+- `tests/test_astock_backtest_facade.py` — 新增执行包兼容导出验证，并同步 CLI patch 点
+- 定向验证：`pytest -q tests/test_astock_backtest_facade.py` → `5 passed`
+
 ## v2.3 — 2026-07-07
 
 **回测统一与入口修复**

@@ -120,7 +120,7 @@ class TestCliBacktestCommand(unittest.TestCase):
         )
         capture = Console(record=True, width=120)
 
-        with mock.patch("tradingagents.astock.execution.backtest_engine.run_backtest_via_facade", return_value=fake_result) as facade_mock, \
+        with mock.patch("tradingagents.astock.execution.backtest_engine.run_backtest_pipeline", return_value=fake_result) as facade_mock, \
              mock.patch.object(m, "console", capture):
             m.backtest("MOCK.SH", strategy="MovingAverageTrend", start="2024-01-02", end="2024-02-29", json_output=True)
 
@@ -129,6 +129,15 @@ class TestCliBacktestCommand(unittest.TestCase):
         self.assertIn('"symbol": "MOCK.SH"', text)
         self.assertIn('"strategy": "MovingAverageTrend"', text)
         self.assertIn('"total_trades": 1', text)
+
+
+class TestExecutionPackageCompatExports(unittest.TestCase):
+    def test_execution_package_exposes_legacy_compat_symbols(self) -> None:
+        import tradingagents.astock.execution.backtest_engine as pkg
+
+        self.assertIsNotNone(pkg.PipelineParams)
+        self.assertIsNotNone(pkg.create_strategy)
+        self.assertIsNotNone(pkg.BacktestMetrics)
 
 
 class TestLegacyModulesEntry(unittest.TestCase):
