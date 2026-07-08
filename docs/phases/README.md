@@ -52,15 +52,15 @@
 | 28 | 新增 5 个 WebUI 页面：momentum dashboard、momentum rotation、dragon_tiger、northbound、data_health | 完成 | [归档](../_archived/phases/phase-28-new-webui-pages.md) |
 | 29 | 专业交易页：TradingView 风格交易控制台、实时报价、订单面板、KLineChart、持仓 | 完成 | [归档](../_archived/phase-29-trading-page.md) |
 | 30 | Live Trading Readiness — 实盘准入清单与证据 | 完成 | [归档](../_archived/phase-30-live-trading-readiness.md) [证据](../_archived/phase-30-evidence-acceptance-checklist.md) |
-| 31 | Data Quality & Bias Control：数据质量、数据假设、回测反偏差 + 停复牌/涨跌停数据源稳定 | 完成 | [Phase 31](phase-31-data-quality-bias-control.md) [证据](../_archived/phase-31-evidence-data-constraints.md) [验收](../_archived/phase-31-evidence-acceptance-checklist.md) |
-| 32 | Strategy Lab：策略、回测、优化、绩效、对比、动量轮动统一 + BacktestResult 费用分项 | 完成 | [Phase 32](phase-32-strategy-lab-consolidation.md) [证据](../_archived/phase-32-evidence-strategy-lab.md) |
-| 33 | AI Research Center：AI Agent、研究、报告、模型审计统一 + 多标的支持 | 完成 | [Phase 33](phase-33-ai-research-center.md) [证据](../_archived/phase-33-evidence-ai-research.md) |
-| 34 | Market Leaders：龙头、板块、资金、候选池单入口 + 旧入口重定向 | 完成 | [Phase 34](phase-34-market-leaders-entry.md) [证据](../_archived/phase-34-evidence-market-leaders.md) |
-| 35 | Trading & Execution：订单、成交、持仓、风控和 reconciliation | 完成（含 exclusion：schema + trade/QMT/UI 已落地，真实券商 reconciliation 明确 P3 暂不处理，标记为 done-with-exclusions） | [Phase 35](phase-35-trading-execution-control.md) [证据](../_archived/phase-35-evidence-trading-execution.md) |
-| 36 | Portfolio Risk & Attribution：组合风险和绩效归因 | 完成（VaR 95/HHI 集中度/Brinson 归因/压力测试/前端展示） | [Phase 36](phase-36-portfolio-risk-attribution.md) [证据](../_archived/phase-36-evidence-portfolio-risk.md) |
-| 37 | Ops & Audit Center：任务、错误、provider、模型和审计 | 完成（AuditStore 内存+DuckDB 持久化/API/前端事件日志） | [Phase 37](phase-37-ops-audit-center.md) [证据](../_archived/phase-37-evidence-ops-audit.md) |
-| 38 | Product Navigation Cleanup：WebUI 顶层导航和旧入口收敛 | 完成（7 模块 sidebar + 旧入口 redirect + 文档口径同步 + 数字漂移已消除） | [Phase 38](phase-38-product-navigation-cleanup.md) [证据](../_archived/phase-38-evidence-navigation-cleanup.md) |
-| 39 | End-to-End UAT：端到端用户工作流验收 | 完成（历史 2 个 minor gaps 已在后续提交中修复；2026-07-08 当前本地离线全量回归为 1082 passed / 10 skipped；真实 live 验收已补跑：DeepSeek `1 passed`、provider `7 passed, 1 skipped`、pipeline `VERIFICATION PASSED`） | [Phase 39](phase-39-e2e-uat.md) |
+| 31 | Data Quality & Bias Control：数据质量、数据假设、回测反偏差 + 停复牌/涨跌停数据源稳定 | 完成 | [Phase 31](phase-summary.md) [证据](../_archived/phase-31-evidence-data-constraints.md) [验收](../_archived/phase-31-evidence-acceptance-checklist.md) |
+| 32 | Strategy Lab：策略、回测、优化、绩效、对比、动量轮动统一 + BacktestResult 费用分项 | 完成 | [Phase 32](phase-summary.md) [证据](../_archived/phase-32-evidence-strategy-lab.md) |
+| 33 | AI Research Center：AI Agent、研究、报告、模型审计统一 + 多标的支持 | 完成 | [Phase 33](phase-summary.md) [证据](../_archived/phase-33-evidence-ai-research.md) |
+| 34 | Market Leaders：龙头、板块、资金、候选池单入口 + 旧入口重定向 | 完成 | [Phase 34](phase-summary.md) [证据](../_archived/phase-34-evidence-market-leaders.md) |
+| 35 | Trading & Execution：订单、成交、持仓、风控和 reconciliation | 完成（含 exclusion：schema + trade/QMT/UI 已落地，真实券商 reconciliation 明确 P3 暂不处理，标记为 done-with-exclusions） | [Phase 35](phase-summary.md) [证据](../_archived/phase-35-evidence-trading-execution.md) |
+| 36 | Portfolio Risk & Attribution：组合风险和绩效归因 | 完成（VaR 95/HHI 集中度/Brinson 归因/压力测试/前端展示） | [Phase 36](phase-summary.md) [证据](../_archived/phase-36-evidence-portfolio-risk.md) |
+| 37 | Ops & Audit Center：任务、错误、provider、模型和审计 | 完成（AuditStore 内存+DuckDB 持久化/API/前端事件日志） | [Phase 37](phase-summary.md) [证据](../_archived/phase-37-evidence-ops-audit.md) |
+| 38 | Product Navigation Cleanup：WebUI 顶层导航和旧入口收敛 | 完成（7 模块 sidebar + 旧入口 redirect + 文档口径同步 + 数字漂移已消除） | [Phase 38](phase-summary.md) [证据](../_archived/phase-38-evidence-navigation-cleanup.md) |
+| 39 | End-to-End UAT：端到端用户工作流验收 | 完成（历史 2 个 minor gaps 已在后续提交中修复；2026-07-08 当前本地离线全量回归为 1082 passed / 10 skipped；真实 live 验收已补跑：DeepSeek `1 passed`、provider `7 passed, 1 skipped`、pipeline `VERIFICATION PASSED`） | [Phase 39](phase-summary.md) |
 | — | 2026-07-08 回测入口兼容收敛 hotfix | 完成：CLI `backtest` 主入口切到 `tradingagents.astock.execution.backtest_engine`；新包补齐 `run_backtest_pipeline`、`PipelineParams`、`create_strategy`、`BacktestMetrics` 兼容导出；legacy `modules.backtest_engine` 保留 | 见 `docs/CHANGELOG.md` v2.3（2026-07-08） |
 | Web-G0 | 需求冻结与追踪矩阵落地：backlog/traceability/spec/checklist + / → /dashboard 重定向 | 完成 | [归档](../_archived/web-evidence/phase-web-g0-requirements-freeze.md) |
 | Web-P0 | 今日工作台首页重构：market/watchlist/tasks/reports/alerts/sectors/next-actions | 完成（主工作台已落地；backlog 中仍保留首页深化项） | [Web-P0] |
@@ -88,4 +88,4 @@ phase-12-duckdb-local-database.md
 
 phase 归档由以下文档补充：
 
-- [A 股策略开发规范](../02-guide/strategy-dev.md)
+- [A 股策略开发规范](../02-user-guide.md#4-策略开发指南)

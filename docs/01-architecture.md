@@ -1,10 +1,138 @@
+# 架构文档
+
+> 架构决策记录 (ADR) 与 API 契约规范的整合文档。
+
+## 目录
+
+- [1. ADR 状态](#1-adr-状态)
+- [2. 决策记录](#2-决策记录)
+- [3. 新 ADR 规则](#3-新-adr-规则)
+---
+
+- [4. API 契约规范](#4-api-契约规范)
+- [5. 标准响应信封](#5-标准响应信封)
+- [6. 错误码分类](#6-错误码分类)
+- [7. 认证与权限](#7-认证与权限)
+- [8. 速率限制](#8-速率限制)
+- [9. 版本管理](#9-版本管理)
+- [10. 端点清单](#10-端点清单)
+- [11. 代表性端点](#11-代表性端点)
+
+---
+
+
+| 更新时间：2026-07-08 |
+
+本文记录 TradingAgents-Astock 后续开发中的关键架构和产品决策，避免在 Phase 30-39 中反复争议。本文只记录当前核心功能范围内的决策，不展开安全与隐私、SLA 与故障分级、用户角色/RBAC。
+
+## 1. ADR 状态
+
+| 状态 | 含义 |
+|---|---|
+| `accepted` | 已采纳，后续开发默认遵守 |
+| `proposed` | 已提出，尚未执行 |
+| `superseded` | 已被新 ADR 替代 |
+| `rejected` | 明确不采用 |
+
+## 2. 决策记录
+
+### ADR-001 保留原 TradingAgents core
+
+| 字段 | 内容 |
+|---|---|
+| 状态 | `accepted` |
+| 背景 | 原项目底层 AI 多 Agent 分析能力是项目核心资产 |
+| 决策 | 保留原 TradingAgents core，A 股能力优先在新增 astock/provider/WebUI/strategy/execution 模块扩展 |
+| 影响 | 后续改动必须先判断是否触及 core；触及时只做兼容性修复并补测试 |
+| 关联文档 | `03-ops/deployment.md`, `03-ops/compliance.md` |
+
+### ADR-002 Flask WebUI 和 Streamlit viewer 不强行合并
+
+| 字段 | 内容 |
+|---|---|
+| 状态 | `accepted` |
+| 背景 | Flask WebUI 承载产品页面，Streamlit viewer 承载只读运行时查看 |
+| 决策 | 保持两者职责分离，不在当前核心功能阶段强行合并成单前端 |
+| 影响 | 后续 WebUI 重构优先收敛 Flask 产品导航；Streamlit 继续作为只读 viewer |
+| 关联文档 | `02-guide/USER_MANUAL.md`, `03-ops/compliance.md` |
+
+### ADR-003 所有交易能力必须标注 capability
+
+| 字段 | 内容 |
+|---|---|
+| 状态 | `accepted` |
+| 背景 | 当前系统具备 research、paper、managed 和 live-ready 雏形，容易被误解为自动实盘 |
+| 决策 | API、页面、报告和 phase 证据必须标注 `research` / `paper` / `managed` / `live-ready` |
+| 影响 | live-ready 声明必须通过准入 checklist；mock/paper 不得被描述为真实账户或真实订单 |
+| 关联文档 | `01-arch/API.md`, `03-ops/live-trading.md`, `03-ops/compliance.md` |
+
+### ADR-004 Strategy Lab 收敛策略、回测、优化、绩效和对比
+
+| 字段 | 内容 |
+|---|---|
+| 状态 | `accepted` |
+| 背景 | 策略、回测、优化、绩效、对比、动量轮动已存在但入口分散 |
+| 决策 | 后续统一为 Strategy Lab，使用统一 strategy registry、参数 schema、回测结果 schema 和优化结果 schema |
+| 影响 | 新增策略必须遵守策略开发规范；动量轮动可保留 standalone 组合策略模式 |
+| 关联文档 | `BACKLOG.md`, `02-guide/strategy-dev.md` |
+
+### ADR-005 AI Research Center 保持 advisory-only
+
+| 字段 | 内容 |
+|---|---|
+| 状态 | `accepted` |
+| 背景 | AI Agent、research 页面和报告中心需要收敛，但 AI 输出存在幻觉和解释风险 |
+| 决策 | AI Research Center 输出默认 advisory-only，不直接触发真实订单 |
+| 影响 | 必须记录模型、prompt、输入快照和引用；LLM 不可用时 fail closed 或 degraded |
+| 关联文档 | `03-ops/compliance.md` |
+
+### ADR-006 Market Leaders 顶层最多一个入口
+
+| 字段 | 内容 |
+|---|---|
+| 状态 | `accepted` |
+| 背景 | 龙头、板块、资金、动量轮动、龙虎榜、北向页面分散 |
+| 决策 | 顶层最多保留一个 Market Leaders / 龙头决策入口，内部用顶部 tab 切换 |
+| 影响 | 旧入口需要迁移、跳转或降级提示；候选池必须展示来源、刷新时间和入池/出池理由 |
+| 关联文档 | `02-guide/USER_MANUAL.md` |
+
+### ADR-007 数据 schema 变化必须先有迁移策略
+
+| 字段 | 内容 |
+|---|---|
+| 状态 | `accepted` |
+| 背景 | DuckDB、cache、回测结果、报告归档、AI audit 和交易状态都会影响历史可复查性 |
+| 决策 | schema 变化必须先更新数据迁移与升级手册，并说明校验和回滚 |
+| 影响 | 不能只改代码或页面；必须补迁移前后 schema、cache 重建、API/WebUI 回归 |
+| 关联文档 | `04-dev/PRD.md`, `BACKLOG.md`, `database_module_whitepaper.md` |
+
+### ADR-008 Phase 证据是交付事实来源
+
+| 字段 | 内容 |
+|---|---|
+| 状态 | `accepted` |
+| 背景 | 项目经历多个 phase，需求、状态和实现容易漂移 |
+| 决策 | 每个 phase 的真实交付证据以 `phases/phase-XX-*.md` 为准，当前状态集中写入 `phases/README.md` |
+| 影响 | 后续开发必须补需求 ID、scope、测试、风险、下一入口条件和 commit SHA |
+| 关联文档 | `phases/README.md`, `04-dev/traceability-matrix.md` |
+
+## 3. 新 ADR 规则
+
+- 涉及 core、API 契约、数据 schema、交易能力等级、WebUI 顶层导航、AI 输出边界的重大变更必须新增 ADR。
+- ADR 不替代需求文档；需求仍进入 `04-dev/PRD.md`、`BACKLOG.md` 和追踪矩阵。
+- 如果新决策推翻旧决策，旧 ADR 状态改为 `superseded`，并引用新的 ADR 编号。
+- ADR 不能隐式引入安全与隐私、SLA 与故障分级、用户角色/RBAC。
+
+
+---
+
 # API 参考
 
 > 合并自 `ASTOCK_API_CONTRACTS.md` + `ASTOCK_BACKEND_API_REFERENCE.md`
 
 ---
 
-## 1. 契约规范
+## 契约规范
 
 
 | 更新时间：2026-07-08 |
@@ -17,7 +145,7 @@
 - 真实 live provider 验收已补跑：`tests/test_astock_live_providers.py -m integration` → `7 passed, 1 skipped`
 - 当前未闭环项仅为 `ASTOCK_IWENCAI_COOKIE` 缺失时 Iwencai live 用例跳过
 
-## 1. API 总原则
+## API 总原则
 
 - 所有 API 必须标注能力等级：`research`、`paper`、`managed`、`live-ready`。
 - `mock` 不是顶层能力等级；它只用于描述 `source`、`mock_mode` 或降级实现状态。
@@ -26,14 +154,14 @@
 - 交易相关 API 必须返回风控状态、确认状态和审计引用。
 - 回测、AI、数据刷新等长任务必须返回 task id，并进入 Ops/Audit 追踪。
 
-## 1.1 Phase 30 口径结论
+## 1 Phase 30 口径结论
 
 - `research`：只读研究、行情查询、报告与页面展示，不产生真实下单能力。
 - `paper`：虚拟资金、虚拟成交、虚拟持仓；当前 `/api/v1/trade/order`、`/api/v1/trade/state`、`/api/v1/paper/*` 均属于此类。
 - `managed`：受控执行口径，要求风控门、人工确认、QMT 桥接和可追溯审计；当前仓库只具备雏形和 mock/read-only 入口。
 - `live-ready`：准入状态，不是默认运行模式；只有 checklist、审计、回报对账和回滚链路全部闭合后才允许声明。
 
-## 2. 标准响应 envelope
+## 标准响应 envelope
 
 ```json
 {
@@ -72,7 +200,7 @@
 }
 ```
 
-## 3. 错误码分类
+## 错误码分类
 
 | 分类 | 示例错误码 | 处理要求 |
 |---|---|---|
@@ -84,7 +212,7 @@
 | `execution` | `BROKER_UNAVAILABLE`, `ORDER_REJECTED`, `RECONCILIATION_MISMATCH` | 不得静默重试真实订单 |
 | `system` | `TASK_FAILED`, `STORE_UNAVAILABLE`, `INTERNAL_ERROR` | 进入 Ops 错误中心 |
 
-## 4. API 能力矩阵
+## API 能力矩阵
 
 | 模块 | API 范围 | 能力等级 | 生产级要求 |
 |------|----------|----------|-----------|
@@ -118,7 +246,7 @@
 | `GET /api/v1/kline` | `research` | 历史 K 线数据 |
 | `GET /api/v1/data/health` | `research` | 数据源健康状态 |
 
-## 5. 关键 schema
+## 关键 schema
 
 ### 5.1 CapabilityMeta
 
@@ -194,14 +322,14 @@ Phase 30 约束：
 | `confirmation_status` | enum | 是 | `not_required` / `pending` / `confirmed` / `rejected` |
 | `audit_event_id` | string | 是 | 审计事件 |
 
-## 6. 版本与兼容
+## 版本与兼容
 
 - 破坏性字段变更必须提升 API version 或提供兼容字段。
 - 新增字段必须保持向后兼容。
 - 删除 endpoint 前必须在 phase 文档中写迁移策略。
 - 页面不能直接依赖未版本化的内部字段。
 
-## 7. 验收要求
+## 验收要求
 
 - Phase 30 必须为交易相关 API 增加能力等级标记。
 - Phase 31 必须为数据 API 增加质量和 freshness 标记。
@@ -229,20 +357,20 @@ Phase 30 约束：
 
 ---
 
-## 2. 完整端点参考
+## 完整端点参考
 
 
 | 更新时间：2026-07-08 |
 
 本文梳理 TradingAgents-Astock 当前后台 API、所属模块、数据源、能力等级、真实/模拟边界和测试验收。`01-arch/API.md` 定义 API 规范；本文列出现有与 Phase 30-39 目标 API 清单。
 
-## 1. API 通用约定
+## API 通用约定
 
 - 基础前缀：`/api/v1`
 - 能力等级：`research` / `paper` / `managed` / `live-ready`
 - `mock` 只作为 `source`、`mock_mode` 或降级标签，不单独作为顶层 capability。
 
-## 2. 请求/响应示例
+## 请求/响应示例
 
 > 以下示例均取自运行中 DuckDB 后端的真实响应。部分字段（如 `bars`）因数据量较大仅展示片断。
 
@@ -399,7 +527,7 @@ curl -X GET "http://localhost:5860/api/v1/kline?symbol="
 }
 ```
 
-## 3. Health / Dashboard
+## Health / Dashboard
 
 | API | Method | 功能 | 响应 keys | 能力 | 测试 |
 |---|---|---|---|---|---|
@@ -407,7 +535,7 @@ curl -X GET "http://localhost:5860/api/v1/kline?symbol="
 | `/api/v1/dashboard/overview` | GET | 首页概览 | `statistics`, `recent_backtests`, `recent_trades`, `paper_positions`, `paper_equity_curve`, `latest_equity_curve` | research/paper | `test_astock_api.py`, `test_astock_web.py` |
 | `/api/v1/admin/backend` | GET | 后端状态 | `backend`, `duckdb_connected`, `postgresql`, `postgresql_connected` | admin | — |
 
-## 4. Data & Ops API
+## Data & Ops API
 
 | API | Method | 功能 | 响应 keys | 能力 | 测试 |
 |---|---|---|---|---|---|
@@ -444,7 +572,7 @@ curl -X GET "http://localhost:5860/api/v1/kline?symbol="
 - Phase 31：统一返回 `DataQualityTag` 和 `BacktestDataAssumption`。
 - Phase 37：刷新任务返回 `TaskRun`。
 
-## 5. TradingView / KLine API
+## TradingView / KLine API
 
 | API | Method | 功能 | 响应 keys | 能力 | 测试 |
 |---|---|---|---|---|---|
@@ -458,7 +586,7 @@ curl -X GET "http://localhost:5860/api/v1/kline?symbol="
 - 返回数据延迟、fallback、复权口径。
 - KLine 页面显示 data quality 标签。
 
-## 6. Strategy Lab API
+## Strategy Lab API
 
 | API | Method | 功能 | 响应 keys | 能力 | 测试 |
 |---|---|---|---|---|---|
@@ -475,7 +603,7 @@ curl -X GET "http://localhost:5860/api/v1/kline?symbol="
 - Phase 32：统一 `StrategyRegistry`、`BacktestResult`、`OptimizeResult` schema。
 - 回测结果必须包含 benchmark、成本模型、数据假设和反偏差状态。已达成（data_assumption 已返回）。
 
-## 7. Market Leaders API
+## Market Leaders API
 
 | API | Method | 功能 | 响应 keys | 能力 | 测试 |
 |---|---|---|---|---|---|
@@ -492,7 +620,7 @@ curl -X GET "http://localhost:5860/api/v1/kline?symbol="
 - Phase 34：统一 `LeaderPool` schema。
 - mock fallback 必须进入 `meta.source=mock` 或页面显著标签。
 
-## 8. AI Research API
+## AI Research API
 
 | API | Method | 功能 | 响应 keys | 能力 | 测试 |
 |---|---|---|---|---|---|
@@ -500,7 +628,7 @@ curl -X GET "http://localhost:5860/api/v1/kline?symbol="
 | `/api/v1/research/tasks` | POST | 创建研究任务 | — (目标 Phase 33) | research | — |
 | `/api/v1/reports/list` | GET | 报告列表 | `items[]` (含 title/date/status) | research | — |
 
-## 9. Paper / Trading / QMT API
+## Paper / Trading / QMT API
 
 | API | Method | 功能 | 响应 keys | 能力 | 测试 |
 |---|---|---|---|---|---|
@@ -517,7 +645,7 @@ curl -X GET "http://localhost:5860/api/v1/kline?symbol="
 | `/api/v1/qmt/positions` | GET | QMT 持仓 | `positions[]`, `mock_mode`, `status` | managed | 同上 |
 | `/api/v1/qmt/orders` | GET | Mock/read-only 账户快照；真实订单/委托查询暂不接入 | `account_snapshot`, `orders[]` (固定空列表), `mock_mode`, `status` | managed | 同上 |
 
-## 10. SSE / Ops API
+## SSE / Ops API
 
 | API | Method | 功能 | 响应 keys | 能力 |
 |---|---|---|---|---|
@@ -526,7 +654,7 @@ curl -X GET "http://localhost:5860/api/v1/kline?symbol="
 | `/api/v1/ops/tasks` | GET | 任务列表 | `tasks[]` | research |
 | `/api/v1/alerts` | GET | 告警列表 | `alerts[]` (含 severity/rule/message/time) | research |
 
-## 11. 验收矩阵
+## 验收矩阵
 
 | API 类别 | 必跑测试 | Phase |
 |---|---|---|
@@ -537,7 +665,7 @@ curl -X GET "http://localhost:5860/api/v1/kline?symbol="
 | Trading & Execution | `tests/test_astock_paper_trader.py`, `tests/test_astock_execution_risk_gate.py`, `tests/test_astock_qmt_execution.py` | 30/35 |
 | Ops & Audit | `tests/test_astock_sse.py`, `tests/test_astock_api.py`, `tests/test_astock_web.py` | 37 |
 
-## 12. 更新规则
+## 更新规则
 
 - 新增 endpoint 必须同步本文和 `01-arch/API.md`。
 - 数据源变化必须同步 `03-ops/data-sources.md`。
