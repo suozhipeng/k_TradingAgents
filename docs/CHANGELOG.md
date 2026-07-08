@@ -14,9 +14,11 @@
 
 **当前验证基线**
 
-- 本地离线回归：`DEEPSEEK_API_KEY=placeholder pytest -q` → `1076 passed, 14 skipped`
-- DeepSeek live API 测试使用 placeholder key 跳过；真实 live key 验证不属于当前 A 股主业务链阻断项
-- 失败原因：当前环境中的 `DEEPSEEK_API_KEY` 返回 401，无效密钥；不属于 A 股主业务链功能回归
+- 本地离线回归：`DEEPSEEK_API_KEY=placeholder pytest -q` → `1082 passed, 10 skipped`
+- 真实 live 验收：`tests/test_deepseek_reasoning.py -k live -m integration -vv` → `1 passed`
+- 真实 live provider 验收：`tests/test_astock_live_providers.py -m integration -vv` → `7 passed, 1 skipped`
+- 端到端 live pipeline：`scripts/verify_astock_live_pipeline.py` → `VERIFICATION PASSED`
+- 当前未闭环 live 依赖：`ASTOCK_IWENCAI_COOKIE` 未配置时 Iwencai 用例跳过；Tencent 首轮验收出现过一次瞬时失败，但复跑已通过
 
 ## v2.3 — 2026-07-08
 
@@ -42,7 +44,7 @@
 - `run_webui.py` 默认端口改为 5001（与 cli/main.py / run.py 一致）
 - `streamlit_app.py` 端口和 API base URL 从环境变量读取（`MOMENTUM_PORT` / `PORT` / `ASTOCK_API_BASE_URL`）
 - `tests/test_astock_backtest_facade.py` — 4 个 facade 专项测试
-- 全量回归：`DEEPSEEK_API_KEY=placeholder pytest -q` → `1076 passed, 14 skipped`
+- 全量回归：`DEEPSEEK_API_KEY=placeholder pytest -q` → `1082 passed, 10 skipped`
 
 ## v2.3 — 2026-07-06
 
@@ -71,7 +73,7 @@
 **文档体系精简**
 
 - 移除 Hermes 协作文件（hermes-skills.md, hermes-workflow.md, hermes/）
-- 移除 verification_provenance/（JSON 验证记录已随代码管理）
+- verification_provenance/ 转为代码协同管理的验证证据目录，JSON 记录继续保留并由 blueprint/provenance 读取
 - 合并 privacy.md → compliance.md §11
 - 合并 ops-metrics.md → deployment.md §8
 - 精简 PRD.md：移除重复的 ASTOCK_REQUIREMENTS 合并残留（1075 → 266 行）

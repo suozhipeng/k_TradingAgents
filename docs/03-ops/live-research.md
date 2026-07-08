@@ -101,3 +101,16 @@ ASTOCK_IWENCAI_COOKIE=your_cookie_value_here
 当前仓库已经把 `live_research` 路径接入 config、CLI 和 Streamlit。真实运行仍要求当前 shell 或 app 进程环境中存在匹配 provider 的有效 key。
 
 live provider 的历史验证证据由 `tradingagents/astock/verification_provenance.py` 管理。这些记录是 provider 可用性溯源，不等同于当前网络环境仍可用；重新验证需要运行 live provider 测试并追加新的 dated provenance。
+
+### 2026-07-08 实测结果
+
+- 使用显式环境变量 `TRADINGAGENTS_LLM_PROVIDER=deepseek`、`TRADINGAGENTS_QUICK_THINK_LLM=deepseek-v4-flash`、`TRADINGAGENTS_DEEP_THINK_LLM=deepseek-v4-pro`、`TRADINGAGENTS_ASTOCK_RUNTIME_PROFILE=live_research`、`DEEPSEEK_API_KEY=<real key>` 后，`python3 scripts/check_astock_live_research_env.py` 校验通过
+- `pytest -q tests/test_deepseek_reasoning.py -k live -m integration -vv` → `1 passed`
+- `pytest -q tests/test_astock_live_providers.py -m integration -vv` → `7 passed, 1 skipped`
+- `python3 scripts/verify_astock_live_pipeline.py` → `VERIFICATION PASSED`
+
+### 当前已知约束
+
+- 默认仓库配置仍是 `llm_provider=openai`；若只设置 `DEEPSEEK_API_KEY` 而未切换 provider/model，`live_research` 会按设计 fail-closed
+- Iwencai live 用例仍依赖 `ASTOCK_IWENCAI_COOKIE`；未配置时会跳过，不应记为失败
+- Tencent live 路径在首次验收中出现过一次 `600519.SH` 瞬时失败，但单点复跑与全量复跑均已通过；当前更像上游波动而非稳定代码缺陷

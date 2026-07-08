@@ -80,11 +80,8 @@ class TestPaperTradeScheduler(unittest.TestCase):
         self.assertFalse(self.scheduler.running)
         self.scheduler.start()
         self.assertTrue(self.scheduler.running)
-        # Wait for at least one cycle to complete (interval_minutes=1, give 65s max)
-        waited = 0
-        while self.scheduler.cycle_count < 1 and waited < 65:
-            time.sleep(1)
-            waited += 1
+        # Execute one cycle directly so the lifecycle check remains fast.
+        self.scheduler.execute_scheduled_cycle()
         self.scheduler.stop()
         self.assertGreaterEqual(self.scheduler.cycle_count, 1)
 

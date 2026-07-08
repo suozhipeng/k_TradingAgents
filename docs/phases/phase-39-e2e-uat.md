@@ -7,8 +7,8 @@
 - ✅ Phase 30-38 全部完成（模块级文档/schema/测试均已就绪）
 - ✅ Phase 38 导航收敛已落地（顶层 7 模块 sidebar + 旧入口 redirect + deprecation banner）
 - ✅ 历史 UAT 执行时的模块级前置条件已满足
-- ℹ️ 2026-07-08 当前本地离线全量回归：`1076 passed, 14 skipped`
-- ℹ️ DeepSeek live API 测试使用 placeholder key 跳过；真实 live key 验证不属于 A 股主业务链阻断项
+- ℹ️ 2026-07-08 当前本地离线全量回归：`1082 passed, 10 skipped`
+- ℹ️ 2026-07-08 已补跑真实 live 验收：DeepSeek live API `1 passed`，live provider `7 passed, 1 skipped`，端到端 `live_research` pipeline `VERIFICATION PASSED`
 
 ## 1. Phase 目标
 
@@ -86,6 +86,20 @@ Phase 30-38 每个 phase 的任务均为模块级文档/schema/测试任务，�
 - ✅ 所有 6 个 UAT 场景至少执行一次并记录结果
 - ✅ 历史 2 个 minor gaps 已在后续提交中修复
 - ✅ 2026-07-08 已同步 `docs/phases/README.md` 与当前状态口径
+
+## 5. 2026-07-08 Live 补充验收
+
+| 场景 | 命令/入口 | 结果 | 备注 |
+|------|-----------|------|------|
+| live_research 环境校验 | `scripts/check_astock_live_research_env.py` | ✅ PASS | 显式切换 `TRADINGAGENTS_LLM_PROVIDER=deepseek`、`quick_think=deepseek-v4-flash`、`deep_think=deepseek-v4-pro` 后通过 |
+| DeepSeek live 结构化输出 | `tests/test_deepseek_reasoning.py -k live -m integration -vv` | ✅ PASS | `1 passed` |
+| live provider 全量 | `tests/test_astock_live_providers.py -m integration -vv` | ✅ PASS | `7 passed, 1 skipped` |
+| live pipeline 端到端 | `scripts/verify_astock_live_pipeline.py` | ✅ PASS | 返回 `VERIFICATION PASSED`，`runtime_profile=live_research`，`decision_scope=research_only`，`actionable=False` |
+
+### 5.1 约束与说明
+
+- `ASTOCK_IWENCAI_COOKIE` 未配置时，Iwencai live 用例按设计 `SKIPPED`，当前不记为失败
+- 腾讯 `600519.SH` 在首次 provider live 全量验收中出现过一次瞬时失败，但单点复跑和全量复跑均通过；当前判定为上游波动风险，不是稳定代码缺陷
 
 ---
 

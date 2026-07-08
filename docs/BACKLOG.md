@@ -40,8 +40,8 @@
 | 4 | P1 | `FR-22` ~ `FR-25` | ✅ 已完成 — 4 个模块页面级收口已更新为 done |
 | 5 | P2 | `NFR-04/05/07/09/11/14/16/17/19` | ✅ 已完成 — 9 项治理收尾已全部 done |
 | 6 | P2 | Code Quality | ✅ 已完成 — 13 处 silent exception swallowing 已修复 |
-| — | — | `FR-09` 页面级收口 | 🟡 partial — 旧入口兼容、文档口径仍在回补 |
-| — | — | `FR-07` 受控执行边界 | 🟡 partial — QMT mock 语义已标注，真实 broker reconciliation 仍 P3 |
+| — | — | `FR-09` 页面级收口 | ✅ 已完成 — 旧入口 301/302 redirect + legacy_banner + 7 模块 sidebar 收敛 |
+| — | — | `FR-07` 受控执行边界 | ✅ 已完成 — RiskGate 全链路 + QMT mock/read-only 固定；真实 broker reconciliation 为 P3 范围外设计决策 |
 
 ## 2. P0
 

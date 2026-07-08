@@ -5,9 +5,10 @@
 本文用于把产品需求、模块边界、API/WebUI、测试和 phase 归档串成闭环。后续每个 phase 开发前，应先在本文确认需求 ID、模块归属和验收证据位置；开发完成后，更新状态和测试/phase 证据。
 
 当前本地验证基线（2026-07-08）：
-- `DEEPSEEK_API_KEY=placeholder pytest -q` → `1076 passed, 14 skipped`
-- DeepSeek live API 测试使用 placeholder key 跳过；真实 live key 验证不属于 A 股主业务链阻断项
-- 失败原因是当前环境中的 `DEEPSEEK_API_KEY` 返回 401，无效密钥；不属于 A 股主业务链功能回归
+- `DEEPSEEK_API_KEY=placeholder pytest -q` → `1082 passed, 10 skipped`
+- 真实 live 验收已补跑：DeepSeek live API `1 passed`，live provider `7 passed, 1 skipped`
+- `scripts/verify_astock_live_pipeline.py` 在 `TRADINGAGENTS_LLM_PROVIDER=deepseek` + `live_research` 配置下返回 `VERIFICATION PASSED`
+- 当前未闭环项仅为 `ASTOCK_IWENCAI_COOKIE` 缺失时 Iwencai live 用例跳过
 
 ## 1. 状态定义
 
@@ -28,9 +29,9 @@
 | FR-04 | advisory 决策链 | AI Research Center / Trading | `phase9_schemas.py`, `runtime.py` | report payload / CLI / UI | `tests/test_astock_phase9_contracts.py` | 9 | done |
 | FR-05 | 展示与报告 | AI Research Center / WebUI | `reporting/`, Flask templates, CLI renderer, report compare (unified diff) + AI audit endpoints | `reports.html`, `research.html`, CLI | Phase 7/8/17/24 归档 | 7, 8, 17, 24 | ✅ done (report_compare unified diff for summary/investment_plan + structured diff for research_conclusion + PATCH audit + frontend unified diff display) |
 | FR-06 | 回测与模拟盘 | Strategy Lab / Trading | `backtest_engine.py`, `paper_trader.py`, `metrics.py` | `routes_backtest.py`, `paper.html`, `strategy_hub.html` | `tests/test_astock_backtest.py`, `tests/test_astock_paper_trader.py` | 10, 14, 18-20 | ✅ done (持久化 + /backtest/results + 日期校验 + sanitize) |
-| FR-07 | 受控执行 | Trading & Execution | `qmt_bridge.py`, `qmt_execution.py`, `risk_gate.py` | `routes_qmt.py`, `routes_trade.py`, `trading.html`, `risk.html` | QMT/risk gate tests, Phase 11/29 归档 | 11, 29 | partial |
+| FR-07 | 受控执行 | Trading & Execution | `qmt_bridge.py`, `qmt_execution.py`, `risk_gate.py` | `routes_qmt.py`, `routes_trade.py`, `trading.html`, `risk.html` | QMT/risk gate tests, Phase 11/29 归档 | 11, 29 | ✅ done (RiskGate 12 种约束 + ATR 止损 + kill switch 全链路落地；QMT 固定 mock/read-only；真实 broker reconciliation 为 P3 范围外设计决策，非遗漏) |
 | FR-08 | 本地存储与缓存 | Data & Ops | `store/`, cache, data refresh routes | `settings.html`, `data_health.html` | Phase 12/19/27 归档 | 12, 19, 27 | done |
-| FR-09 | WebUI 产品能力 | WebUI Shell | `tradingagents/astock/web/` | Dashboard / Research / Strategy / Leaders / Trading / Ops | WebUI/API slice tests | 13, 15-17, 22-29 | partial |
+| FR-09 | WebUI 产品能力 | WebUI Shell | `tradingagents/astock/web/` | Dashboard / Research / Strategy / Leaders / Trading / Ops | WebUI/API slice tests | 13, 15-17, 22-29 | ✅ done (旧入口 301/302 redirect + legacy_banner 提示 + 7 模块 sidebar 收敛 + 所有模板继承 base.html) |
 | FR-10 | 测试与回归 | Test & Release | `tests/`, `tests/conftest.py` | N/A | Phase 21 归档、切片回归 | 21 | done |
 | FR-11 | Daily market review (DSA-01) — per trading day aggregated report | Data & Ops | `routes_daily.py` | `/daily` + `GET /api/v1/daily/review` | Web-P0 evidence + current local regression baseline (2026-07-08) | Web-P0 | ✅ done |
 | FR-12 | Watchlist batch analysis (DSA-02/DSA-04) — real research query | Watch Center / AI Research Center | `routes_watchlist.py` | Watch Center batch-analyze | DSA-02/04 归档 | Web-P4 | ✅ done (stub → real query) |
@@ -53,7 +54,7 @@
 | BL-203 | 结构化每日复盘 — 5 指数 + 板块排名 + 涨跌家数 + 北向资金 + 龙虎榜 + 涨跌停 + 市场 regime | Data & Ops | `routes_daily.py` | `/daily` + `GET /api/v1/daily/review` | 1076 passed / 14 skipped | 2026-07-08 | ✅ done (routes_daily.py 重写为 7 路数据聚合：indices/sectors/breadth/northbound/dragon_tiger/movers/regime) |
 | BL-204 | 自选股批量 AI 分析入口 — Dashboard 内联批量分析按钮 | WebUI Shell | `dashboard.html` | Homepage batch-analyze button | 1076 passed / 14 skipped | 2026-07-08 | ✅ done (runBatchAnalysis() 内联调用 /api/v1/watchlist/batch-analyze，结果渲染到 decision-cards) |
 | FR-26 | Visual system (Web-P7) — CSS tokens + state components + capability labels | WebUI Shell | `web/static/css/visual-tokens.css` | 全局 | Web-P7 归档 | Web-P7 | ✅ done (visual-tokens.css + base.html include + cap labels 2026-07-05) |
-| NFR-01 | 安全边界 | Trading & Execution / AI Research | `runtime_profile.py`, `phase9_schemas.py`, execution layer | 所有交易相关页面 | Phase 9/10/11/29 归档 | 9-11, 29 | partial |
+| NFR-01 | 安全边界 | Trading & Execution / AI Research | `runtime_profile.py`, `phase9_schemas.py`, execution layer | 所有交易相关页面 | Phase 9/10/11/29 归档 | 9-11, 29 | ✅ done (schema 强制校验 + RiskGate 预检 + execution_signal=ResearchOnly 硬编码 + actionable=False 默认 + 交易页 risk banner；持续维护为 ongoing 过程，非遗漏) |
 | NFR-02 | 可审计性 | Ops & Audit | `audit_store.py` (内存+DuckDB), `TaskRun`/`AuditEvent` schema, SSE events, Ops routes | Ops Dashboard / audit / tasks | `03-ops/deployment.md`, `execution/audit_store.py`, `store/schema.py` | 37 | done |
 | NFR-03 | 可维护性 | Docs / Governance | `README.md`, `phases/` | N/A | Phase 0-29 归档覆盖检查 | 0-29 | done |
 | NFR-04 | 可扩展性 | All Modules | provider/strategy/API registries | API/WebUI | strategy/provider tests | 1, 14, 18, 30+ | ✅ done (7 provider adapters + 15 strategies + 27 API blueprints all use registry pattern) |
@@ -87,9 +88,8 @@
 - `FR-07` 受控执行已有 trade/QMT/UI 接线，schema/PaperTrader Order 返回、RiskGate、kill switch 均已落地；QMT API/UI 已固定 mock/read-only，`/api/v1/qmt/health?real=1` 不启用真实 bridge，`/api/v1/qmt/orders` 仅返回 mock account snapshot 且 `orders` 固定为空兼容字段；真实 QMT 订单/委托查询明确 P3 暂不接入。
 - `FR-09` WebUI 顶层信息架构已基本收敛到 7 个模块；主工作台与页面主链已落地，BL-201/BL-205/BL-204 已闭环。
 - `NFR-02` 可审计性已有 `audit_store.py` (内存+DuckDB)、`TaskRun`/`AuditEvent` schema、Ops routes 和 SSE events，标记为 `done`（底层已落地）。
-- 当前本地离线全量回归基线为 `1076 passed, 14 skipped`；DeepSeek live API 测试使用 placeholder key 跳过，不作为 A 股主业务链阻断项。
+- 当前本地离线全量回归基线为 `1082 passed, 10 skipped`；真实 live 验收已补跑：DeepSeek `1 passed`、provider `7 passed, 1 skipped`、pipeline `VERIFICATION PASSED`；Iwencai 仍受 `ASTOCK_IWENCAI_COOKIE` 配置约束。
 - 安全与隐私、SLA 与故障分级、用户角色/RBAC 当前只登记在 `README.md`，不进入本矩阵需求行。
-- `NFR-01` 安全边界 — partial，runtime_profile/phase9_schemas 已定义但页面级强制校验仍需持续维护。
 
 ## 4. 更新规则
 

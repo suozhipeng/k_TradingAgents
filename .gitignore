@@ -221,8 +221,15 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
+# OS artifacts
+.DS_Store
+
 # Cache
 **/data_cache/
+
+# Live test verification provenance (generated data snapshots)
+docs/verification_provenance/
+kline/
 
 # Enterprise env file (secrets) and generated run reports
 .env.enterprise
@@ -238,6 +245,7 @@ webui/dist/
 
 # Hermes/local archives and runtime dumps
 hermes-*-profile-*.tar.gz
-.hermes/
+/.hermes/*
+!/.hermes/dev-loop.yaml
 
 /webui/dist/

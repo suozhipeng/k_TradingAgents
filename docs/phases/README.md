@@ -60,7 +60,7 @@
 | 36 | Portfolio Risk & Attribution：组合风险和绩效归因 | 完成（VaR 95/HHI 集中度/Brinson 归因/压力测试/前端展示） | [Phase 36](phase-36-portfolio-risk-attribution.md) [证据](../_archived/phase-36-evidence-portfolio-risk.md) |
 | 37 | Ops & Audit Center：任务、错误、provider、模型和审计 | 完成（AuditStore 内存+DuckDB 持久化/API/前端事件日志） | [Phase 37](phase-37-ops-audit-center.md) [证据](../_archived/phase-37-evidence-ops-audit.md) |
 | 38 | Product Navigation Cleanup：WebUI 顶层导航和旧入口收敛 | 完成（7 模块 sidebar + 旧入口 redirect + 文档口径同步 + 数字漂移已消除） | [Phase 38](phase-38-product-navigation-cleanup.md) [证据](../_archived/phase-38-evidence-navigation-cleanup.md) |
-| 39 | End-to-End UAT：端到端用户工作流验收 | 完成（历史 2 个 minor gaps 已在后续提交中修复；2026-07-08 当前本地离线全量回归为 1076 passed / 14 skipped；DeepSeek live API 测试使用 placeholder key 跳过） | [Phase 39](phase-39-e2e-uat.md) |
+| 39 | End-to-End UAT：端到端用户工作流验收 | 完成（历史 2 个 minor gaps 已在后续提交中修复；2026-07-08 当前本地离线全量回归为 1082 passed / 10 skipped；真实 live 验收已补跑：DeepSeek `1 passed`、provider `7 passed, 1 skipped`、pipeline `VERIFICATION PASSED`） | [Phase 39](phase-39-e2e-uat.md) |
 | — | 2026-07-08 回测入口兼容收敛 hotfix | 完成：CLI `backtest` 主入口切到 `tradingagents.astock.execution.backtest_engine`；新包补齐 `run_backtest_pipeline`、`PipelineParams`、`create_strategy`、`BacktestMetrics` 兼容导出；legacy `modules.backtest_engine` 保留 | 见 `docs/CHANGELOG.md` v2.3（2026-07-08） |
 | Web-G0 | 需求冻结与追踪矩阵落地：backlog/traceability/spec/checklist + / → /dashboard 重定向 | 完成 | [归档](../_archived/web-evidence/phase-web-g0-requirements-freeze.md) |
 | Web-P0 | 今日工作台首页重构：market/watchlist/tasks/reports/alerts/sectors/next-actions | 完成（主工作台已落地；backlog 中仍保留首页深化项） | [Web-P0] |

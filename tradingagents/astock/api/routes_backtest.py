@@ -436,6 +436,7 @@ def optimize_strategy_api() -> tuple[Response, int]:
     symbol = body.get("symbol", "600519.SH")
     start_date = body.get("start_date", "")
     end_date = body.get("end_date", "")
+    use_mock = bool(body.get("mock_data", False))
     if not start_date or not end_date:
         return jsonify({"error": "start_date and end_date are required", "status": 400}), 400
     param_grid = body.get("param_grid")
@@ -450,7 +451,10 @@ def optimize_strategy_api() -> tuple[Response, int]:
 
     try:
         OptimizerCls = get_optimizer_cls()
-        optimizer = OptimizerCls(strategy_name)
+        optimizer = OptimizerCls(
+            strategy_name,
+            engine=create_backtest_engine(use_mock_data=use_mock),
+        )
         raw_results = optimizer.optimize(
             symbol=symbol,
             start_date=start_date,

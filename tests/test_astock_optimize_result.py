@@ -65,6 +65,7 @@ class TestOptimizeApiSchema(unittest.TestCase):
                     "symbol": "600519.SH",
                     "start_date": "2024-01-01",
                     "end_date": "2024-01-10",
+                    "mock_data": True,
                     "param_grid": {"fast_period": [8, 12], "slow_period": [20, 26]},
                     "top_n": 2,
                 }),

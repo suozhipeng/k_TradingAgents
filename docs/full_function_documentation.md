@@ -837,7 +837,7 @@ services:
 
 **路径**: `tests/`
 
-当前本地离线全量回归基线：`1076 passed, 14 skipped`（2026-07-08，`DEEPSEEK_API_KEY=placeholder pytest -q`）。
+当前本地离线全量回归基线：`1082 passed, 10 skipped`（2026-07-08，`DEEPSEEK_API_KEY=placeholder pytest -q`）。
 
 64 个测试文件，关键测试：
 
@@ -947,7 +947,7 @@ tradingagents/graph/
 
 | 变更 | 说明 |
 |------|------|
-| 2026-07-08 | 校准当前离线回归基线：`1076 passed, 14 skipped`；DeepSeek live API 测试使用 placeholder key 跳过 |
+| 2026-07-08 | 校准当前离线回归基线：`1082 passed, 10 skipped`；真实 live 验收补跑通过：DeepSeek `1 passed`、provider `7 passed, 1 skipped`、pipeline `VERIFICATION PASSED` |
 | 2026-07-07 | 校准全量数字：118 route decorators (27 蓝图/109 唯一路径)、30 模板、15 策略、64 测试文件、回归基线 1074 passed |
 | 2026-07-05 | 同步当前代码基线：32 张 DuckDB/PG 表、117 条 `/api/v1` route、29 个 Web 模板、63 个测试文件 |
 | 2026-06-28 | 完整功能文档，三后端架构，12 策略，8 适配器，60+ API 端点 |
