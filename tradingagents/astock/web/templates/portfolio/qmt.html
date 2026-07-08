@@ -32,19 +32,6 @@
   </div>
 </div>
 
-<!-- Deferred Real Connectivity Diagnostic -->
-<div class="card mb-6">
-  <h3 class="text-lg font-semibold text-white mb-4">🔍 桥接诊断 Bridge Diagnostic (P3 Deferred)</h3>
-  <p class="text-xs text-gray-400 mb-4">该诊断仅用于未来真实 QMT 接入前的端口可达性排查；即使端口可达，当前系统仍按模拟/只读模式处理，不会启用真实委托或真实账户查询。</p>
-
-  <div class="flex items-center gap-4 mb-4">
-    <button onclick="testRealConnection()" class="btn btn-primary">🔗 诊断桥接端口 Diagnose Bridge</button>
-    <span id="qmt-real-status" class="text-xs text-gray-400"></span>
-  </div>
-
-  <div id="qmt-real-detail" class="hidden bg-dark-bg rounded-lg p-4 text-sm"></div>
-</div>
-
 <!-- Setup Guide -->
 <div class="card">
   <h3 class="text-lg font-semibold text-white mb-4">📖 QMT 未来接入说明</h3>
@@ -56,7 +43,7 @@
       <li>启动 QMT 客户端，开启 HTTP 桥接服务（默认端口 <code class="text-indigo-400">58609</code>）</li>
       <li>完成权限、风控、审计、回滚与人工确认验收后，才允许接入真实账户</li>
     </ol>
-    <p class="mt-2 text-gray-500">当前环境 <code class="text-indigo-400">xtquant</code> 模块：<span id="xtquant-status" class="text-amber-400">检查中...</span></p>
+    <p class="mt-2 text-gray-500">当前 WebUI 不探测本机 QMT/xtquant，不发起真实券商连接检查。</p>
   </div>
 </div>
 {% endblock %}
@@ -77,8 +64,6 @@ async function loadQmt() {
     // Connection Status
     const qs = document.getElementById('qmt-status');
     const status = health?.status ?? { source: 'mock', mock: true, read_only: true, live_ready: false };
-    const mockMode = status.mock ?? true;
-    const liveReady = status.live_ready ?? false;
     const healthy = health?.healthy ?? false;
 
     qs.innerHTML = `<div class="flex items-center gap-2 mb-3">
@@ -86,11 +71,11 @@ async function loadQmt() {
       <span class="text-lg font-semibold ${healthy ? 'text-emerald-400' : 'text-red-400'}">${healthy ? '已就绪' : '未连接'}</span>
     </div>
     <div class="space-y-1 text-xs">
-      <div class="flex justify-between"><span class="text-gray-500">模式:</span><span class="${mockMode ? 'text-amber-400' : 'text-emerald-400'}">${mockMode ? '🟡 模拟 Mock' : '🟢 实盘 Live'}</span></div>
-      <div class="flex justify-between"><span class="text-gray-500">数据源:</span><span class="text-gray-300">${status.source === 'mock' ? '模拟数据 (Mock)' : '真实连接 (Live)'}</span></div>
+      <div class="flex justify-between"><span class="text-gray-500">模式:</span><span class="text-amber-400">🟡 模拟/只读 Mock</span></div>
+      <div class="flex justify-between"><span class="text-gray-500">数据源:</span><span class="text-gray-300">模拟数据 (Mock)</span></div>
       <div class="flex justify-between"><span class="text-gray-500">能力:</span><span class="text-gray-300">${status.capability || 'managed'}</span></div>
-      <div class="flex justify-between"><span class="text-gray-500">只读:</span><span class="text-gray-300">${status.read_only ? '是 (Read-only)' : '否'}</span></div>
-      <div class="flex justify-between"><span class="text-gray-500">实盘就绪:</span><span class="${liveReady ? 'text-emerald-400' : 'text-red-400'}">${liveReady ? '是 ✅' : '否 ❌'}</span></div>
+      <div class="flex justify-between"><span class="text-gray-500">只读:</span><span class="text-gray-300">是 (Read-only)</span></div>
+      <div class="flex justify-between"><span class="text-gray-500">真实连接检查:</span><span class="text-red-400">禁用 / P3 延后</span></div>
       <div class="flex justify-between"><span class="text-gray-500">主机:</span><span class="text-gray-300">${health?.host || '--'}</span></div>
       <div class="flex justify-between"><span class="text-gray-500">端口:</span><span class="text-gray-300">${health?.port || '--'}</span></div>
       <div class="pt-2 text-amber-400/80">${status.note || 'mock/read-only — real QMT order/query is P3 deferred'}</div>
@@ -119,9 +104,8 @@ async function loadQmt() {
     // Account (Orders endpoint returns account info)
     const qo = document.getElementById('qmt-orders');
     const ordStatus = orders?.status;
-    const ordList = orders?.orders || [];
-    if (ordList.length > 0) {
-      const acct = ordList[0];
+    const acct = orders?.account_snapshot || null;
+    if (acct) {
       qo.innerHTML = `<div class="space-y-2 text-sm">
         <div class="flex justify-between py-1 border-b border-dark-border">
           <span class="text-gray-500">总资产</span><span class="text-white font-medium">¥${(acct.total_asset || 0).toLocaleString()}</span>
@@ -140,6 +124,7 @@ async function loadQmt() {
         </div>
         <div class="mt-2 text-xs text-gray-500">账户: ${acct.account_id || '--'}</div>
         ${(ordStatus && ordStatus.mock) ? '<p class="text-xs text-amber-400 mt-2">⚠️ 模拟账户数据</p>' : ''}
+        <p class="text-xs text-gray-500 mt-2">真实 QMT 委托列表未接入；orders 兼容字段固定为空。</p>
       </div>`;
     } else {
       qo.innerHTML = '<p class="text-gray-500">No account data.</p>';
@@ -148,57 +133,6 @@ async function loadQmt() {
     document.getElementById('qmt-status').innerHTML = '<p class="text-red-400">Failed to load.</p>';
     document.getElementById('qmt-positions').innerHTML = '<p class="text-red-400">Failed to load.</p>';
     document.getElementById('qmt-orders').innerHTML = '<p class="text-red-400">Failed to load.</p>';
-  }
-
-  // Check xtquant
-  document.getElementById('xtquant-status').textContent = '---';
-}
-
-async function testRealConnection() {
-  const status = document.getElementById('qmt-real-status');
-  const detail = document.getElementById('qmt-real-detail');
-  status.textContent = '⏳ 正在诊断桥接端口...';
-  detail.classList.add('hidden');
-
-  try {
-    const res = await fetch('/api/v1/qmt/health?real=1');
-    const data = await res.json();
-
-    const isConnected = data.real_healthy === true;
-    detail.classList.remove('hidden');
-
-    if (isConnected) {
-      detail.innerHTML = `<div class="flex items-center gap-2 text-emerald-400 font-medium mb-2">
-        <span>✅ QMT 桥接端口可达</span>
-      </div>
-      <div class="text-xs text-gray-400 space-y-1">
-        <div>主机: ${data.host}:${data.port}</div>
-        <div>当前能力: managed mock/read-only</div>
-        <div class="text-amber-400">端口可达不代表已启用真实券商；真实 QMT 委托查询仍为 P3 延后项。</div>
-      </div>`;
-      status.textContent = '✅ 桥接端口可达（仍为只读范围）';
-    } else {
-      const errorMsg = data.real_error || '无响应（QMT 客户端可能未运行）';
-      detail.innerHTML = `<div class="flex items-center gap-2 text-red-400 font-medium mb-2">
-        <span>❌ QMT 桥接端口不可用</span>
-      </div>
-      <div class="text-xs text-gray-400 space-y-1">
-        <div>错误: ${errorMsg}</div>
-        <div>主机: ${data.host}:${data.port}</div>
-        <div>当前运行在 <strong class="text-amber-400">模拟模式 (Mock)</strong> — 所有 QMT 功能使用模拟数据</div>
-      </div>
-      <div class="mt-3 p-3 bg-dark-bg rounded-lg text-xs text-gray-500">
-        未来进入 P3 真实接入前需完成：<br>
-        1. 启动 QMT 客户端并开启 HTTP 桥接<br>
-        2. 安装 xtquant 模块<br>
-        3. 补齐真实账户权限、风控、审计与回滚验收
-      </div>`;
-      status.textContent = '❌ 桥接端口不可用（模拟模式运行中）';
-    }
-  } catch (e) {
-    status.textContent = '❌ 请求失败';
-    detail.classList.remove('hidden');
-    detail.innerHTML = `<div class="text-red-400">${e.message}</div>`;
   }
 }
 

@@ -84,7 +84,7 @@
 
 ## 3. 当前缺口
 
-- `FR-07` 受控执行已有 trade/QMT/UI 接线，schema/PaperTrader Order 返回、RiskGate、kill switch 均已落地；`/api/v1/qmt/orders` 已标注 mock/read-only（BL-001/BL-002 完成）；真实 QMT 订单/委托查询明确 P3 暂不接入。
+- `FR-07` 受控执行已有 trade/QMT/UI 接线，schema/PaperTrader Order 返回、RiskGate、kill switch 均已落地；QMT API/UI 已固定 mock/read-only，`/api/v1/qmt/health?real=1` 不启用真实 bridge，`/api/v1/qmt/orders` 仅返回 mock account snapshot 且 `orders` 固定为空兼容字段；真实 QMT 订单/委托查询明确 P3 暂不接入。
 - `FR-09` WebUI 顶层信息架构已基本收敛到 7 个模块；主工作台与页面主链已落地，BL-201/BL-205/BL-204 已闭环。
 - `NFR-02` 可审计性已有 `audit_store.py` (内存+DuckDB)、`TaskRun`/`AuditEvent` schema、Ops routes 和 SSE events，标记为 `done`（底层已落地）。
 - 当前本地离线全量回归基线为 `1076 passed, 14 skipped`；DeepSeek live API 测试使用 placeholder key 跳过，不作为 A 股主业务链阻断项。

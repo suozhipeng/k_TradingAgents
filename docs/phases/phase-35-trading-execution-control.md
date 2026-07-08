@@ -150,7 +150,7 @@ pytest tests/test_astock_qmt_execution.py -q
 - 被阻塞时返回 403 + `blocked_by` 列表
 
 ### 35-04 Trading 页面 capability 标注
-- `trading.html`: 已有 mode 切换器 (paper/live/research)
+- `trading.html`: 已有 mode 切换器 (paper/managed/research)，managed 当前阻断真实券商下单
 - 状态标签显式标注 mode 和能力
 
 ### 35-05 测试

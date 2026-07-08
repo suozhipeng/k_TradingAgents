@@ -581,10 +581,23 @@ class TestQmtEndpoints:
         data = resp.get_json()
         assert "healthy" in data
         assert data["mock_mode"] is True
+        assert data["real_healthy"] is False
+        assert data["real_connection_check"]["enabled"] is False
         assert data["status"]["read_only"] is True
         assert data["status"]["live_ready"] is False
         assert data["status"]["capability"] == "managed"
+        assert data["status"]["allows_real_broker_order"] is False
+        assert data["status"]["allows_real_order_query"] is False
         assert "P3 deferred" in data["status"]["note"]
+
+    def test_qmt_health_real_param_does_not_enable_real_bridge(self, app):
+        resp = app.get("/api/v1/qmt/health?real=1")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["mock_mode"] is True
+        assert data["real_healthy"] is False
+        assert data["real_connection_check"]["enabled"] is False
+        assert data["status"]["source"] == "mock"
 
     def test_qmt_positions(self, app):
         resp = app.get("/api/v1/qmt/positions")
@@ -599,6 +612,8 @@ class TestQmtEndpoints:
         assert resp.status_code == 200
         data = resp.get_json()
         assert "orders" in data
+        assert data["orders"] == []
+        assert "account_snapshot" in data
         assert data["status"]["mock"] is True
         assert data["status"]["read_only"] is True
 

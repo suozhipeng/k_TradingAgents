@@ -42,7 +42,7 @@ TradingAgents 是一个面向 A 股市场的 AI 驱动量化研究与交易系�
 | **A 股数据接入** | 8 个默认 provider 工厂（7 个 Adapter + TDX Provider），另有 EastMoney 独立数据模块；自动降级路由覆盖 K 线、估值、新闻、研报、公告等 22 数据能力 |
 | **三后端存储** | DuckDB (本地) / PostgreSQL (生产 OLTP) / ClickHouse (生产 OLAP) |
 | **策略回测** | 12 种策略 + 遗传算法优化 + 滚动窗口分析 + T+1 结算约束 |
-| **模拟交易** | 完整模拟交易周期 + QMT 桥接 |
+| **模拟交易** | 完整模拟交易周期 + QMT managed mock/read-only 边界 |
 | **数据质量门禁** | 内置校验规则 + 自定义规则引擎 + 数据隔离区 |
 | **Web UI** | 30 个模板文件 / 36+ 条 Web route，Tailwind 暗色主题 |
 | **REST API** | 118 条 `/api/v1` route decorators（27 个 API 蓝图，109 个唯一路径）；支持 Bearer Token + TokenBucket，PostgreSQL 写操作默认启用全局认证 gate |
@@ -470,7 +470,7 @@ class BacktestEngine:
 | `paper_trader/` | 模拟交易 `PaperTrader` + `PaperTradeState` |
 | `risk_gate/` | 交易前风控 `RiskGate` + ATR 止损 + 跟踪止损 |
 | `qmt_bridge/` | QMT HTTP 桥接客户端；`client.py` 为主入口，`operations.py` 负责协议发送 |
-| `qmt_execution/` | QMT 受控执行层（SAFETY/AUTO 模式） |
+| `qmt_execution/` | QMT 受控执行接口占位；当前 API/UI 仅开放 managed mock/read-only 边界 |
 | `momentum_rotation.py` | 龙头股动量轮动回测 |
 | `kill_switch.py` | 全局紧急停止（单例） |
 | `scheduler/` | 周期性模拟交易调度 |
@@ -700,7 +700,7 @@ class ReportGenerator:
 | `routes_data_health.py` | GET | `/data/health` | 数据源健康探测 |
 | `routes_paper.py` | POST/GET | `/paper/cycle`, `/paper/state`, `/paper/trades` | 模拟交易周期/状态/成交 |
 | `routes_trade.py` | POST/GET | `/trade/order`, `/trade/quote`, `/trade/state` | 下单/实时报价/交易状态 |
-| `routes_qmt.py` | GET | `/qmt/health`, `/qmt/positions`, `/qmt/orders` | QMT mock/read-only 健康、模拟持仓、模拟账户快照；真实委托查询为 P3 延后 |
+| `routes_qmt.py` | GET | `/qmt/health`, `/qmt/positions`, `/qmt/orders` | QMT mock/read-only 健康、模拟持仓、模拟账户快照；`orders` 固定为空兼容字段，真实委托查询为 P3 延后 |
 | `routes_tv.py` | GET | `/tv/history`, `/tv/symbols`, `/tv/stock-search`, `/tv/stock-info` | TradingView 图表数据 |
 | `routes_sse.py` | GET/DELETE | `/sse/paper-progress`, `/sse/events` | SSE 推送/事件轮询 |
 | | GET/POST/DELETE | `/sse/scheduler/status`, `/sse/scheduler/start`, `/sse/scheduler/stop`, `/sse/scheduler/pause`, `/sse/scheduler/resume`, `/sse/scheduler/jobs`, `/sse/scheduler/jobs/<job_id>`, `/sse/scheduler/jobs/<job_id>/toggle` | APScheduler 生命周期与用户 cron/interval 任务管理 |

@@ -68,7 +68,7 @@ TradingAgents is a multi-agent trading framework that mirrors the dynamics of re
 
 ## A 股定制模块
 
-本项目包含一个面向 A 股的定制模块 `TradingAgents-Astock`，在保留原 TradingAgents 底层 AI 分析能力的基础上，扩展了 A 股专属的数据源、研究链、回测引擎、模拟盘、QMT 受控执行和 WebUI。
+本项目包含一个面向 A 股的定制模块 `TradingAgents-Astock`，在保留原 TradingAgents 底层 AI 分析能力的基础上，扩展了 A 股专属的数据源、研究链、回测引擎、模拟盘、QMT managed mock/read-only 边界和 WebUI。
 
 - **A 股文档入口**：详见 [`docs/README.md`](docs/README.md)，包含产品需求、技术架构、API 契约、数据字典、测试验收、风险披露等完整文档体系。
 - **快速上手**：参见 [`docs/02-guide/QUICK_START.md`](docs/02-guide/QUICK_START.md)。

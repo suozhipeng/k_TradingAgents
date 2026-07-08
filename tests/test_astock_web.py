@@ -206,15 +206,23 @@ class TestWebSpecificPages:
         assert "card-recent-trades" in html
         assert "trades-table-wrap" in html
 
+    def test_trading_managed_mode_is_mock_read_only(self, client):
+        resp = client.get("/trading")
+        html = resp.data.decode("utf-8")
+        assert 'data-mode="managed"' in html
+        assert 'data-mode="live"' not in html
+        assert "QMT mock/read-only" in html
+        assert "真实券商下单未接入" in html
+
     def test_qmt_has_health_status(self, client):
         resp = client.get("/qmt")
         html = resp.data.decode("utf-8")
         assert "qmt-status" in html
         assert "qmt-positions" in html
         assert "qmt-orders" in html
-        assert "testRealConnection" in html
         assert "模拟/只读模式" in html
-        assert "桥接诊断" in html
+        assert "不探测本机 QMT/xtquant" in html
+        assert "testRealConnection" not in html
 
     def test_risk_has_rules_and_alerts(self, client):
         resp = client.get("/risk")

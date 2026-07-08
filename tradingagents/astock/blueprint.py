@@ -384,13 +384,13 @@ ASTOCK_BLUEPRINT = AStockBlueprint(
             ),
         ),
         AStockPhase(
-            name="实盘出击",
-            objective="通过 QMT 桥接到真实交易，但默认保持人工确认。",
+            name="QMT 受控边界",
+            objective="展示 QMT managed mock/read-only 状态；真实券商接入为 P3 延后项。",
             highlights=(
                 "安全模式默认开启",
-                "人工确认后下单",
-                "QMT 桥接执行",
-                "ATR 动态止损 + 跟踪止盈",
+                "真实下单阻断",
+                "QMT mock/read-only",
+                "ATR/风控为接入前置约束",
             ),
         ),
     ),

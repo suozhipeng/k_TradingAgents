@@ -91,7 +91,7 @@
 | Strategy Lab | `/api/v1/backtest/*`, `/api/v1/market/strategies` | `research` / `paper` | 返回数据假设、成本模型、benchmark、样本外状态 |
 | Market Leaders | `/api/v1/market-data/*`, screener/sector endpoints | `research` | 返回候选池来源、入池/出池理由、刷新时间 |
 | **Paper Trading** | `/api/v1/paper/*` | `paper` | 明确虚拟成交、虚拟资金、虚拟持仓 |
-| **QMT Managed** | `/api/v1/qmt/*` | `managed` (mock) | 未接真实环境时必须标注 mock/read-only |
+| **QMT Managed** | `/api/v1/qmt/*` | `managed` (mock) | 固定 mock/read-only；API 不探测真实 QMT，不查询真实委托 |
 | **Trading** | `/api/v1/trade/*` | `paper` / `managed` / `live-ready` | 返回模式、风控、确认、订单状态和审计 |
 | SSE / Tasks | `/api/v1/sse/*` | `research` / `paper` | 返回 task lifecycle、错误和进度 |
 
@@ -110,9 +110,9 @@
 | `POST /api/v1/paper/cycle` | `paper` | 虚拟策略周期执行 |
 | `GET /api/v1/paper/state` | `paper` | 虚拟账户状态 |
 | `GET /api/v1/paper/trades` | `paper` | 虚拟成交记录 |
-| `GET /api/v1/qmt/health` | `managed` (mock) | Mock QMT 健康检查 |
+| `GET /api/v1/qmt/health` | `managed` (mock) | Mock QMT 健康检查；`real=1` 不会启用真实 bridge |
 | `GET /api/v1/qmt/positions` | `managed` (mock) | Mock QMT 持仓 |
-| `GET /api/v1/qmt/orders` | `managed` (mock) | Mock/read-only QMT 响应；真实订单/委托查询暂不接入 |
+| `GET /api/v1/qmt/orders` | `managed` (mock) | Mock account snapshot；`orders` 固定为空兼容字段，真实订单/委托查询暂不接入 |
 | `GET /api/v1/kline` | `research` | 历史 K 线数据 |
 | `GET /api/v1/data/health` | `research` | 数据源健康状态 |
 
@@ -511,9 +511,9 @@ curl -X GET "http://localhost:5860/api/v1/kline?symbol="
 | `/api/v1/trade/order` | POST | 下单 | `order` (含 order_id/symbol/side/quantity/price/status) | paper | `test_astock_api.py` |
 | `/api/v1/trade/quote` | GET | 实时报价 | `symbol`, `name`, `last_price`, `open`, `high`, `low`, `change`, `change_pct`, `volume`, `bid`, `ask`, `source`, `timestamp` | research | 同上 |
 | `/api/v1/trade/state` | GET | 交易状态 | `positions[]`, `cash`, `total_value`, `pnl`, `trade_count` | paper | 同上 |
-| `/api/v1/qmt/health` | GET | QMT 健康 | `healthy`, `mock_mode`, `host`, `port`, `real_healthy`, `real_error`, `status` | managed | `test_astock_qmt_bridge.py` |
+| `/api/v1/qmt/health` | GET | QMT mock 健康 | `healthy`, `mock_mode`, `host`, `port`, `real_connection_check`, `status` | managed | `test_astock_qmt_bridge.py` |
 | `/api/v1/qmt/positions` | GET | QMT 持仓 | `positions[]`, `mock_mode`, `status` | managed | 同上 |
-| `/api/v1/qmt/orders` | GET | Mock/read-only QMT 响应；真实订单/委托查询暂不接入 | `orders[]`, `mock_mode`, `status` | managed | 同上 |
+| `/api/v1/qmt/orders` | GET | Mock/read-only 账户快照；真实订单/委托查询暂不接入 | `account_snapshot`, `orders[]` (固定空列表), `mock_mode`, `status` | managed | 同上 |
 
 ## 10. SSE / Ops API
 

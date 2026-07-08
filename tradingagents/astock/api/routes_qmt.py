@@ -1,14 +1,15 @@
-"""QMT status API routes — read-only bridge health, positions, and orders.
+"""QMT status API routes — mock/read-only bridge health and account snapshots.
 
 **Capability level: ``managed`` (mock/read-only)**
 
-All QMT endpoints return mock data by default.  Real QMT order/query is
-deferred to P3 and is not part of the current product scope.
+All QMT endpoints return mock data.  Real QMT order/query is deferred to P3
+and is not part of the current product scope.  Route-level query parameters
+must not enable a real broker connection.
 
 Every response includes a ``status`` dict with:
 
-- ``source``: ``"mock"`` or ``"live"``
-- ``mock``: ``True`` when data is synthetic
+- ``source``: ``"mock"``
+- ``mock``: ``True`` because all current QMT data is synthetic
 - ``read_only``: ``True`` (all current routes are read-only)
 - ``live_ready``: ``False`` (not connected to a real broker)
 - ``capability``: ``"managed"`` with ``"note": "mock/read-only — real QMT order/query is P3 deferred"``
@@ -20,20 +21,19 @@ from __future__ import annotations
 
 from typing import Any
 
-from flask import Blueprint, Response, jsonify, request
+from flask import Blueprint, Response, jsonify
 
 bp = Blueprint("qmt", __name__)
 
-# Global QMT bridge instance (lazily created; mock mode supported)
+# Global QMT bridge instance (lazily created; mock mode only for API routes)
 _qmt_bridge: Any = None
 
 
 def _get_bridge() -> Any:
     """Return the shared QMT bridge instance (always mock by default).
 
-    **Mock mode is intentional.**  This endpoint never connects to a real
-    broker.  To use real QMT, pass ``use_mock=False`` directly — do not
-    rely on a global toggle here.
+    **Mock mode is intentional.**  API routes never connect to a real broker
+    or instantiate ``QmtBridge(use_mock=False)``.
 
     Real QMT order/query is P3 deferred.
     """
@@ -55,11 +55,14 @@ def _bridge_status(bridge: Any) -> dict[str, Any]:
     Real QMT order/query is P3 deferred.
     """
     return {
-        "source": "mock" if bridge.is_mock else "live",
-        "mock": bridge.is_mock,
+        "source": "mock",
+        "mock": True,
         "read_only": True,  # All current QMT routes are read-only
         "live_ready": False,  # Not connected to a real broker
         "capability": "managed",
+        "allows_real_broker_order": False,
+        "allows_real_order_query": False,
+        "real_connection_check_enabled": False,
         "note": "mock/read-only — real QMT order/query is P3 deferred",
     }
 
@@ -76,33 +79,24 @@ def qmt_health() -> tuple[Response, int]:
     **Capability: ``managed`` (mock/read-only)**
 
     Query params:
-        real (bool) — if ``1``, attempt a real (non-mock) connection check.
+        Ignored.  Real QMT checks are disabled in API routes.
     """
     try:
-        force_real = request.args.get("real", "0") == "1"
         bridge = _get_bridge()
         ok = bridge.health_check()
-
-        # Real connection attempt
-        real_healthy = None
-        real_error = None
-        if force_real:
-            try:
-                from tradingagents.astock.execution.qmt_bridge import QmtBridge
-                real_bridge = QmtBridge(use_mock=False)
-                real_healthy = real_bridge.health_check()
-            except Exception as exc:
-                real_healthy = False
-                real_error = str(exc)
 
         return jsonify(
             {
                 "healthy": ok,
-                "mock_mode": bridge.is_mock,
+                "mock_mode": True,
                 "host": bridge.config.host,
                 "port": bridge.config.port,
-                "real_healthy": real_healthy,
-                "real_error": real_error,
+                "real_healthy": False,
+                "real_error": "disabled: QMT real connection checks are P3 deferred",
+                "real_connection_check": {
+                    "enabled": False,
+                    "reason": "QMT real broker/order query is P3 deferred",
+                },
                 "status": _bridge_status(bridge),
             }
         ), 200
@@ -137,26 +131,27 @@ def qmt_positions() -> tuple[Response, int]:
 
 @bp.route("/qmt/orders")
 def qmt_orders() -> tuple[Response, int]:
-    """QMT account info (read-only, mock by default).
+    """QMT account snapshot (read-only, mock only).
 
-    NOTE: This endpoint returns account snapshot data, not actual order
-    records.  Real QMT order/query is not yet implemented.
+    NOTE: This endpoint does not query actual order records.  The ``orders``
+    key is retained as an empty compatibility field; consumers should read
+    ``account_snapshot`` for the mock account state.
     """
     try:
         bridge = _get_bridge()
         account_info = bridge.get_account_info()
+        account_snapshot = {
+            "account_id": account_info.get("account_id", ""),
+            "total_asset": account_info.get("total_asset", 0),
+            "cash": account_info.get("cash", 0),
+            "market_value": account_info.get("market_value", 0),
+            "frozen_cash": account_info.get("frozen_cash", 0),
+            "available_cash": account_info.get("available_cash", 0),
+        }
         return jsonify({
-            "orders": [
-                {
-                    "account_id": account_info.get("account_id", ""),
-                    "total_asset": account_info.get("total_asset", 0),
-                    "cash": account_info.get("cash", 0),
-                    "market_value": account_info.get("market_value", 0),
-                    "frozen_cash": account_info.get("frozen_cash", 0),
-                    "available_cash": account_info.get("available_cash", 0),
-                }
-            ],
-            "mock_mode": bridge.is_mock,
+            "orders": [],
+            "account_snapshot": account_snapshot,
+            "mock_mode": True,
             "status": _bridge_status(bridge),
         }), 200
     except Exception as exc:

@@ -218,7 +218,7 @@
     <div class="tv-card" style="margin-bottom:8px;">
       <div style="display:flex;gap:4px;padding:4px;">
         <button class="mode-btn active" data-mode="paper" onclick="switchMode('paper')" style="flex:1;padding:4px 8px;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #2a2e39;background:#2962FF;color:#fff;">📝 Paper</button>
-        <button class="mode-btn" data-mode="live" onclick="switchMode('live')" style="flex:1;padding:4px 8px;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #2a2e39;background:#1c2030;color:#787b86;">🔴 实盘</button>
+        <button class="mode-btn" data-mode="managed" onclick="switchMode('managed')" style="flex:1;padding:4px 8px;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #2a2e39;background:#1c2030;color:#787b86;">🛡️ 受控</button>
         <button class="mode-btn" data-mode="research" onclick="switchMode('research')" style="flex:1;padding:4px 8px;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #2a2e39;background:#1c2030;color:#787b86;">🔍 研究</button>
       </div>
       <div id="mode-status" style="padding:2px 8px 6px;font-size:10px;color:#787b86;">📝 Paper Trading — 模拟盘模式</div>
@@ -331,7 +331,7 @@ function switchMode(mode) {
     b.style.background = isActive ? '#2962FF' : '#1c2030';
     b.style.color = isActive ? '#fff' : '#787b86';
   });
-  const labels = { paper: '📝 Paper Trading — 模拟盘模式', live: '🔴 实盘执行 — ⚠️ QMT 未连接', research: '🔍 研究辅助 — 只读模式' };
+  const labels = { paper: '📝 Paper Trading — 模拟盘模式', managed: '🛡️ Managed — QMT mock/read-only，真实券商未接入', research: '🔍 研究辅助 — 只读模式' };
   const orderPanel = document.getElementById('order-panel');
   if (orderPanel) orderPanel.style.display = mode === 'research' ? 'none' : '';
   document.getElementById('mode-status').textContent = labels[mode] || labels.paper;
@@ -721,7 +721,7 @@ document.getElementById('order-qty').addEventListener('input', updateEstimate);
 async function submitOrder() {
   // ── Mode guard ──
   if (currentMode === 'research') { showToast('研究模式不支持下单', 'error'); return; }
-  if (currentMode === 'live') { showToast('QMT 桥接未连接，暂不支持实盘下单', 'error'); return; }
+  if (currentMode === 'managed') { showToast('当前 QMT 为 mock/read-only，真实券商下单未接入', 'error'); return; }
 
   const price = parseFloat(document.getElementById('order-price').value);
   const qty = parseInt(document.getElementById('order-qty').value);

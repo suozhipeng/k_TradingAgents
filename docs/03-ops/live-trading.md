@@ -10,10 +10,10 @@
 |---|---|---|
 | `research` | 只读研究和报告 | AI 分析、数据查询、报告生成 |
 | `paper` | 模拟盘 | 虚拟订单、虚拟成交、模拟持仓 |
-| `managed` | 受控执行 | 风控门 + 人工确认 + QMT 桥接 |
+| `managed` | 受控执行口径 | 当前仅 mock/read-only；风控门 + 人工确认 + QMT 真实桥接属于 P3 准入后事项 |
 | `live-ready` | 满足准入清单后的实盘准备状态 | 仅在 checklist 全部通过后允许标记 |
 
-默认模式不得高于 `managed`。
+默认模式不得高于 `paper`；`managed` 当前仅作为 mock/read-only 边界展示，不代表已接真实券商。
 
 当前仓库口径（2026-06-26）：
 
@@ -44,8 +44,8 @@
 - 当前模式明确显示。
 - kill switch 状态可见。
 - 风控门状态可见。
-- paper/managed/live-ready 视觉和文案区分。
-- QMT 不可用时自动降级或阻断，不得伪装成功。
+- paper/managed/live-ready 视觉和文案区分；当前 managed 必须显示 mock/read-only。
+- QMT API/UI 不发起真实连接检查；不得把 mock 状态伪装成真实券商连接成功。
 - 若页面允许切换 `live`/`managed` 文案，必须同时说明后端是否真正落到该执行链路。
 
 ## 3. 实盘准入 checklist

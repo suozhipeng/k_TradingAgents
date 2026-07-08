@@ -10,7 +10,7 @@ TradingAgents-Astock 是**投研分析 + 策略验证 + 模拟盘 + 受控执行
 - AI 辅助的 A 股研究报告生成
 - 策略回测与参数优化
 - 模拟盘试跑
-- 在 QMT 环境下受控执行（需人工确认）
+- 查看 QMT managed mock/read-only 边界状态（不接真实券商）
 
 **不能做：**
 - 自动实盘交易（默认不触发真实交易）
@@ -193,9 +193,9 @@ curl -X POST http://localhost:8080/api/v1/data/refresh/all
 | AI Research | AI 结论仅供研究参考 |
 | Strategy Lab | 回测不代表未来收益 |
 | Market Leaders | 候选池不构成买入建议 |
-| Trading | 明确 research/paper/managed/live-ready 模式 |
+| Trading | 明确 research/paper/managed/live-ready 模式；当前 managed 不接真实券商 |
 | Paper | 虚拟资金、虚拟成交、非真实账户 |
-| QMT/Managed | 需要人工确认和风控门 |
+| QMT/Managed | 明确 mock/read-only，真实连接检查和真实委托查询均禁用 |
 | Data & Ops | 数据延迟、fallback、provider 状态 |
 
 ## 10. 支持与反馈

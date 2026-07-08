@@ -49,7 +49,7 @@
 
 现状：
 
-- 当前系统已经能支撑投研分析、回测、模拟盘和 QMT 受控执行
+- 当前系统已经能支撑投研分析、回测、模拟盘和 QMT managed mock/read-only 边界展示
 - 但专业金融系统的实盘生产闭环仍缺账户/订单/成交 reconciliation、审计、kill switch、数据质量和组合级风控门槛
 
 目标：
@@ -69,13 +69,13 @@
 
 | 状态 | 备注 |
 |------|------|
-| ✅ done | QMT capability 标签已注入所有 API 响应（`capability: "managed"`, `note: "mock/read-only"`） |
+| ✅ done | QMT capability 标签已注入所有 API 响应（`capability: "managed"`, `note: "mock/read-only"`）；`real=1` 不再触发真实 QMT bridge，`real_connection_check.enabled=false` |
 
 ### BL-002 修正 `qmt/orders` 的 mock 语义
 
 | 状态 | 备注 |
 |------|------|
-| ✅ done | API 响应、UI 横幅、文档三处已同步标注 mock/read-only |
+| ✅ done | `/qmt/orders` 已收口为 mock account snapshot；`orders` 固定为空兼容字段，UI/文档均不再描述为真实委托列表 |
 
 ### BL-003 修正 trade quote / trade state 的能力口径
 
