@@ -82,38 +82,40 @@
 - 归档 phase-web-* 合规验收文件至 _archived/web-evidence/
 - 清理 _archived/ 中已合并的 ASTOCK_*.md 旧文件（19 个）
 
-**模块快照**
+**模块快照（2026-07-08 实际值）**
 
 | 模块 | 文件数 | 说明 |
 |------|--------|------|
-| llm_clients/ | 10 (核心) | OpenAI/Anthropic/Google/Azure 客户端 |
-| dataflows/ | 17 | 全球市场数据管道（Yahoo/AV/Reddit/StockTwits） |
-| agents/ | 25 | 多智能体研究系统 |
+| llm_clients/ | 11 (核心) | OpenAI/Anthropic/Google/Azure/DeepSeek 客户端 + 工厂/能力/校验 |
+| dataflows/ | 16 | 全球市场数据管道（Yahoo/AV/Reddit/StockTwits） |
+| agents/ | 24 | 多智能体研究系统 |
 | graph/ | 8 (核心) | LangGraph 交易图 |
-| astock/data_sources/ | 16 (核心) | 8 供应商适配器 + 10 工具文件 |
-| astock/store/ | 8 + models/6 | DuckDB/PG/ClickHouse 三后端 |
-| astock/execution/ | 18 (核心) | 12 策略 + 回测/模拟/QMT/风控 |
-| astock/api/ | 21 蓝图 | 88 端点 REST API |
-| astock/web/ | 27 模板 | Flask Jinja2 WebUI |
+| astock/data_sources/ | 15 (核心) | 7 供应商适配器 + 10 工具文件 |
+| astock/store/ | 8 + models/6 | DuckDB/PG/ClickHouse 三后端（33 ORM 模型） |
+| astock/execution/ | 18 (核心) | 10 单股策略 + 1 组合策略 + 回测/模拟/QMT/风控 |
+| astock/api/ | 27 蓝图 | 119 端点 REST API（110 唯一路径） |
+| astock/web/ | 30 模板 | Flask Jinja2 WebUI（含 6 模块 blueprint） |
 | astock/schemas/ | 7 | Pydantic 数据模型（API.md §5 已覆盖） |
 | astock/quality/ | 3 | 数据质量门控 |
 | astock/alert/ | 2 | 预警系统 |
 | astock/analysis/ | 2 | 市场分析 |
 | astock/reporting/ | 2 | PPT 报告生成 |
+| web/blueprints/ | 6 | WebUI 路由 blueprint |
 
-**关键数字**
+**关键数字（2026-07-08 实测）**
 
 | 指标 | 数量 |
 |------|------|
-| 数据源适配器 | 8 |
+| 数据源适配器 | 7 |
 | 数据能力 | 22 |
-| 策略 | 12 (10 单股 + 2 组合) |
-| 数据库表 | 31 (DuckDB/PG) + 12 (CH OLAP) |
+| 策略 | 10 单股 + 1 组合 |
+| 数据库表 | 32 (DuckDB/PG) + 12 (CH OLAP) |
 | 索引 | 27 |
-| ORM 模型 | 31 |
-| API 端点 | 88 |
-| Web 页面 | 27 模板 (25 功能页) |
-| 测试文件 | 62 |
+| ORM 模型 | 33 |
+| API 端点 | 119 (110 唯一路径) |
+| WebUI 模板 | 30 HTML (25 功能页) |
+| WebUI 路由 | 34 |
+| 测试文件 | 64 |
 
 ---
 
@@ -122,7 +124,7 @@
 **数据库模块 v1.0 — 三后端架构**
 
 - DuckDB (本地 OLAP) / PostgreSQL (生产 OLTP) / ClickHouse (生产 OLAP)
-- 31 表完整 schema，含迁移版本管理、审计日志、API 密钥、数据质量规则和隔离区
+- 32 表完整 schema，含迁移版本管理、审计日志、API 密钥、数据质量规则和隔离区
 - 迁移引擎：DuckDB 内联迁移 + PostgreSQL `MigrationRunner`
 - DataJobManager：异步作业管理，支持重试/优先级/持久化
 - 部署脚本：`scripts/astock_pg_tool.py` + `scripts/astock_sync_ch.py`

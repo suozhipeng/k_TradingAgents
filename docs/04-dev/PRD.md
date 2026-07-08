@@ -202,7 +202,7 @@
 - 回归稳定，产品迭代后可复验
 - 所有页面明确标注 research / paper / managed / live-ready 能力边界
 - 关键产品指标可被追踪，包括研究报告生成成功率、回测完成率、provider 可用率、任务失败率和审计事件覆盖率
-- 后续 Phase 30-38 的每项需求都能在需求追踪矩阵中定位到模块、页面/API、测试和 phase 证据
+- 后续 Phase 30-39 的每项需求都能在需求追踪矩阵中定位到模块、页面/API、测试和 phase 证据
 - API、数据、运行、测试和风险披露均有独立文档约束，不依赖口头约定
 - 每个 live-ready 声明都能追溯到准入清单、运行手册、测试验收和风险披露
 - 商用交付前必须能回答“当前能力等级、数据来源、测试证据、失败处理、合规边界”五个问题
@@ -220,6 +220,7 @@
 7. Phase 36：Portfolio Risk & Attribution
 8. Phase 37：Ops & Audit
 9. Phase 38：Product Navigation Cleanup
+10. Phase 39：End-to-End UAT
 
 ## 9.2 商用生产级文档要求
 

@@ -100,7 +100,7 @@
 **文件清单：**
 | 文件 | 行数 | 职责 |
 |------|------|------|
-| `store/schema_defs.py` | 698 | **SSOT**：31 张表的 ColumnDef / TableDef / DDL 生成 |
+| `store/schema_defs.py` | 698 | **SSOT**：32 张表的 ColumnDef / TableDef / DDL 生成 |
 | `store/schema.py` | 963 | DuckDB 后端（已重构为导入 schema_defs） |
 | `store/pg_store.py` | 753 | PostgreSQL 后端（已重构为导入 schema_defs） |
 | `store/models/` | 5 文件 | ORM 模型（按模块拆分） |
@@ -116,7 +116,7 @@
 - **数据类型**：
   - `ColumnDef`: name, type_duckdb, type_postgresql, nullable, default, check
   - `TableDef`: name, columns[], primary_key[], checks[], indexes[]
-- 覆盖表：31 张，含行情、参考数据、事件、治理、迁移版本、审计日志、API 密钥、数据质量规则、隔离区
+- 覆盖表：32 张，含行情、参考数据、事件、治理、迁移版本、审计日志、API 密钥、数据质量规则、隔离区
 
 #### FR-09 ORM 模型拆分
 

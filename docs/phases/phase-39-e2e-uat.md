@@ -4,7 +4,7 @@
 
 ## 0. 前置依赖
 
-- ✅ Phase 30-38 全部完成（模块级文档/schema/测试均已就绪）
+- ✅ Phase 30-39 全部完成（模块级文档/schema/测试均已就绪）
 - ✅ Phase 38 导航收敛已落地（顶层 7 模块 sidebar + 旧入口 redirect + deprecation banner）
 - ✅ 历史 UAT 执行时的模块级前置条件已满足
 - ℹ️ 2026-07-08 当前本地离线全量回归：`1082 passed, 10 skipped`
@@ -12,7 +12,7 @@
 
 ## 1. Phase 目标
 
-Phase 30-38 每个 phase 的任务均为模块级文档/schema/测试任务，缺少跨模块的端到端用户工作流验收。Phase 39 的目标是：
+Phase 30-39 每个 phase 的任务均为模块级文档/schema/测试任务，缺少跨模块的端到端用户工作流验收。Phase 39 的目标是：
 
 - 执行 6 个跨模块端到端 UAT 场景
 - 每个场景记录执行步骤、通过/失败状态、root cause（如失败）

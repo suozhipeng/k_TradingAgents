@@ -128,7 +128,7 @@ pytest tests/ -q
 | 顶层导航收敛到 7 个模块 | ✅ 完成 | sidebar 含：Trading/Dashboard/Research/Strategy Lab/Market Leaders/Data & Ops/Screener — 旧入口不再顶层 |
 | 旧入口迁移策略明确 | ✅ 完成 | redirect / hidden / deprecation banner 均已落地 |
 | 所有核心页面有输入/输出/状态/错误态 | ✅ 完成 | 25 模板全部覆盖 |
-| 文档数字口径一致 | ✅ 完成 | API 27 blueprints, 118 route decorators |
+| 文档数字口径一致 | ✅ 完成 | API 27 blueprints, 119 route decorators |
 
 **注**: `Portfolio Workbench` 是 roadmap 中的目标第 8 模块，当前尚未加入 sidebar。当前 sidebar 的 7 模块以 Screener 为第七项。
 

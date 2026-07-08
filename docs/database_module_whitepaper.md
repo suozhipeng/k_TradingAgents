@@ -114,7 +114,7 @@ df = store.query_kline("000001.SZ", start="2024-01-01")
 from tradingagents.astock.store import PGConfig, PGStore
 
 config = PGConfig(host="postgres", port=5432, database="astock",
-                  user="astock", password="astock_prod_2026")
+                  user="astock", password="[REDACTED]")
 store = PGStore(config)
 await store.connect()
 await store.init_schema()
@@ -370,7 +370,7 @@ python scripts/astock_sync_ch.py --source duckdb --watch --interval 60
 ```bash
 export CH_HOST=http://localhost:8123
 export CH_USER=astock
-export CH_PASSWORD=astock_ch_2026
+export CH_PASSWORD=[REDACTED]
 export PG_HOST=postgres
 export PG_PORT=5432
 export DUCKDB_PATH=~/.tradingagents/astock/astock.duckdb
@@ -703,11 +703,11 @@ store = backend_mgr.get_store()
 | `PG_PORT` | `5432` | PostgreSQL 端口 |
 | `PG_DB` | `astock` | PostgreSQL 数据库名 |
 | `PG_USER` | `astock` | PostgreSQL 用户名 |
-| `PG_PASSWORD` | `astock_prod_2026` | PostgreSQL 密码 |
+| `PG_PASSWORD` | `[REDACTED]` | PostgreSQL 密码 |
 | `PG_POOL_SIZE` | `20` | PG 连接池大小 |
 | `CH_HOST` | `http://localhost:8123` | ClickHouse HTTP 地址 |
 | `CH_USER` | `astock` | ClickHouse 用户名 |
-| `CH_PASSWORD` | `astock_ch_2026` | ClickHouse 密码 |
+| `CH_PASSWORD` | `[REDACTED]` | ClickHouse 密码 |
 | `FLASK_ENV` | `production` | Flask 运行环境 |
 
 ## 附录 B: 表间关系图
