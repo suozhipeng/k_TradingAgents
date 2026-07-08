@@ -10,7 +10,7 @@
 |------|------|
 | 产品用途 | ❌ 不作为 AStock Pro 产品主入口 |
 | 开发进度 | 🧪 实验性 — 部分组件原型，非完整页面系统 |
-| npm 漏洞 | ⚠️ 8 个（2 low, 4 moderate, 2 high） |
+| npm 漏洞 | ✅ 0 个（`npm audit` 已清零） |
 | 维护责任 | ⚠️ 无持续维护承诺 |
 
 ## 技术栈
@@ -40,13 +40,14 @@
 
 ```bash
 cd webui
-npm install   # 安装依赖（8 个已知漏洞）
+npm install   # 需要 Node.js 18+
 npm run dev   # 开发服务器
 ```
 
 ## 备注
 
-- 8 个 npm 漏洞（`npm audit fix` 可修复一部分）
+- 当前依赖已升级到 `vite 6.4.3`，`npm audit` 为 0
+- 本地默认 Node 14 会导致 Vite 6 构建失败，需切到 Node 18+ 运行
 - 无持续性 CI/CD
 - 无测试覆盖
 - 如果长期不维护，建议归档或移除

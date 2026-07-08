@@ -150,7 +150,7 @@ python scripts/smoke_structured_output.py
   A: 确认已安装 `pip install '.[astock-providers]'`，且 DuckDB 数据库文件路径可写。
 
 - **Q: React WebUI 实验前端？**
-  A: `webui/` 目录为实验性 React/TS 项目，当前渲染静态数据，API 客户端已就绪但未接线。运行 `cd webui && npm install && npm run dev`。
+  A: `webui/` 目录为实验性 React/TS 项目，当前渲染静态数据，API 客户端已就绪但未接线。需使用 Node.js 18+，运行 `cd webui && npm install && npm run dev`。
 
 ## 9. 下一步
 

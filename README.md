@@ -75,7 +75,7 @@ TradingAgents is a multi-agent trading framework that mirrors the dynamics of re
 - **当前状态**：参见 [`docs/phases/README.md`](docs/phases/README.md) 和 [`docs/04-dev/traceability-matrix.md`](docs/04-dev/traceability-matrix.md)。
 - **WebUI 启动（Jinja2）**：`PORT=8080 python run_webui.py`（28 个页面，25 个模板）。
 - **API 启动**：`python scripts/run_astock_api.py`（默认端口 5860，57 个 REST 端点）。
-- **React/TS 实验前端**：`cd webui && npm install && npm run dev`（Vite + TailwindCSS，当前渲染静态 `modules.json`，API 客户端已就绪但未接线到 UI）。
+- **React/TS 实验前端**：`cd webui && npm install && npm run dev`（Vite 6 + TailwindCSS，需要 Node.js 18+；当前渲染静态 `modules.json`，API 客户端已就绪但未接线到 UI）。
 - **环境配置**：参见 [`docs/03-ops/live-research.md`](docs/03-ops/live-research.md)。
 
 > A 股定制模块当前定位为投研分析 + 策略验证 + 模拟盘 + 受控执行试运行平台，不是完整自动实盘生产交易系统。当前产品范围明确 **不接入真实券商**。详见 [`docs/03-ops/compliance.md`](docs/03-ops/compliance.md) 与 [`docs/03-ops/live-trading.md`](docs/03-ops/live-trading.md)。
