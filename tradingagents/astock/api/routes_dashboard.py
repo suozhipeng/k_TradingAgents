@@ -236,6 +236,7 @@ def _compute_paper_equity_curve(store: Any) -> list[dict]:
 def _get_decision_summary() -> dict[str, Any]:
     counts = {"buy": 0, "hold": 0, "sell": 0}
     top_picks: list[dict] = []
+    research_only_count = 0
     try:
         items = load_watchlist()
         if items:
@@ -248,16 +249,23 @@ def _get_decision_summary() -> dict[str, Any]:
                 rating = result.get("rating", "hold")
                 if rating in counts:
                     counts[rating] += 1
+                else:
+                    research_only_count += 1
                 if rating == "buy" and len(top_picks) < 5:
                     top_picks.append({
                         "symbol": result["symbol"], "name": result["name"],
                         "score": result["score"], "signal": result["signal"],
                     })
+                if rating == "hold":
+                    signal = result.get("signal", "")
+                    if signal in ("数据不足", "分析异常"):
+                        research_only_count += 1
     except Exception as exc:
         logger.warning("Failed to compute decision summary: %s", exc)
-    total = counts["buy"] + counts["hold"] + counts["sell"]
+    total = counts["buy"] + counts["hold"] + counts["sell"] + research_only_count
     return {
         "total": total, "counts": counts, "top_picks": top_picks,
-        "dominant": max(counts, key=counts.get) if total > 0 else "hold",
-        "research_only": True, "actionable": False,
+        "research_only": research_only_count,
+        "dominant": max(counts, key=counts.get) if (counts["buy"] + counts["hold"] + counts["sell"]) > 0 else "hold",
+        "decision_scope": "research_only", "actionable": False,
     }

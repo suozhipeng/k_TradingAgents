@@ -7,9 +7,13 @@
 ## 1. 契约规范
 
 
-| 更新时间：2026-06-26 |
+| 更新时间：2026-07-08 |
 
-本文定义 TradingAgents-Astock 的生产级 API 契约要求。当前代码中的具体端点以实现为准；本文用于约束后续 Phase 30-38 的接口口径、能力等级、错误语义和验收要求。
+本文定义 TradingAgents-Astock 的生产级 API 契约要求。当前代码中的具体端点以实现为准；本文用于约束后续接口口径、能力等级、错误语义和验收要求。
+
+当前本地验证基线（2026-07-08）：
+- `DEEPSEEK_API_KEY=placeholder pytest -q` → `1076 passed, 14 skipped`
+- DeepSeek live API 测试使用 placeholder key 跳过；真实 live key 验证不属于 A 股主业务链阻断项
 
 ## 1. API 总原则
 
@@ -93,13 +97,16 @@
 
 ### 4.1 关键 endpoint 能力等级（Phase 30 快照）
 
-> 以下为代表性端点（代码中共有 118 个端点，详见完整端点参考 §2）。
+> 以下为代表性端点（当前代码基线约 118 个端点，详见完整端点参考 §2）。
 
 | Endpoint | 当前能力 | 说明 |
 |----------|----------|------|
 | `POST /api/v1/trade/order` | `paper` | 虚拟下单，走 PaperTrader |
 | `GET /api/v1/trade/quote` | `research` | 真实市场行情（EastMoney/Sina） |
 | `GET /api/v1/trade/state` | `paper` | PaperTrader 虚拟持仓 |
+| `GET /api/v1/daily/review` | `research` | 结构化每日市场复盘（5 指数、板块、涨跌家数、北向、龙虎榜、涨跌幅榜、regime） |
+| `POST /api/v1/analysis/watchlist` | `research` | Watchlist 技术分析摘要，含 `research_only` 统计 |
+| `POST /api/v1/watchlist/batch-analyze` | `research` | 自选股批量分析，供 dashboard / watchlist 入口复用 |
 | `POST /api/v1/paper/cycle` | `paper` | 虚拟策略周期执行 |
 | `GET /api/v1/paper/state` | `paper` | 虚拟账户状态 |
 | `GET /api/v1/paper/trades` | `paper` | 虚拟成交记录 |
@@ -223,7 +230,7 @@ Phase 30 约束：
 ## 2. 完整端点参考
 
 
-| 更新时间：2026-06-26 |
+| 更新时间：2026-07-08 |
 
 本文梳理 TradingAgents-Astock 当前后台 API、所属模块、数据源、能力等级、真实/模拟边界和测试验收。`01-arch/API.md` 定义 API 规范；本文列出现有与 Phase 30-38 目标 API 清单。
 
@@ -495,15 +502,18 @@ curl -X GET "http://localhost:5860/api/v1/kline?symbol="
 
 | API | Method | 功能 | 响应 keys | 能力 | 测试 |
 |---|---|---|---|---|---|
+| `/api/v1/daily/review` | GET | 结构化每日市场复盘 | `date`, `indices`, `sectors`, `breadth`, `northbound`, `dragon_tiger`, `top_gainers`, `top_losers`, `regime` | research | `test_astock_api.py` |
+| `/api/v1/analysis/watchlist` | POST | Watchlist 技术分析摘要 | `stocks[]`, `summary.total`, `summary.buy`, `summary.hold`, `summary.sell`, `summary.research_only` | research | `test_astock_api.py` |
+| `/api/v1/watchlist/batch-analyze` | POST | Watchlist 批量分析 | `results[]`, `summary`, `errors[]` | research | `test_astock_api.py` |
 | `/api/v1/paper/state` | GET | 模拟盘状态 | `positions`, `cash`, `total_value`, `pnl`, `trade_count`, `execution_signal`, `decision_scope`, `last_updated` | paper | `test_astock_paper_trader.py` |
 | `/api/v1/paper/trades` | GET | 模拟盘交易 | `trades[]` | paper | 同上 |
 | `/api/v1/paper/cycle` | POST | 模拟盘周期 | `positions`, `cash`, `total_value`, `pnl`, `trade_count`, `last_updated` | paper | 同上 |
 | `/api/v1/trade/order` | POST | 下单 | `order` (含 order_id/symbol/side/quantity/price/status) | paper | `test_astock_api.py` |
 | `/api/v1/trade/quote` | GET | 实时报价 | `symbol`, `name`, `last_price`, `open`, `high`, `low`, `change`, `change_pct`, `volume`, `bid`, `ask`, `source`, `timestamp` | research | 同上 |
 | `/api/v1/trade/state` | GET | 交易状态 | `positions[]`, `cash`, `total_value`, `pnl`, `trade_count` | paper | 同上 |
-| `/api/v1/qmt/health` | GET | QMT 健康 | `healthy`, `connected`, `mode` | managed | `test_astock_qmt_bridge.py` |
-| `/api/v1/qmt/positions` | GET | QMT 持仓 | `positions[]`, `mode` | managed | 同上 |
-| `/api/v1/qmt/orders` | GET | Mock/read-only QMT 响应；真实订单/委托查询暂不接入 | `orders[]`, `mode`, `status` | managed | 同上 |
+| `/api/v1/qmt/health` | GET | QMT 健康 | `healthy`, `mock_mode`, `host`, `port`, `real_healthy`, `real_error`, `status` | managed | `test_astock_qmt_bridge.py` |
+| `/api/v1/qmt/positions` | GET | QMT 持仓 | `positions[]`, `mock_mode`, `status` | managed | 同上 |
+| `/api/v1/qmt/orders` | GET | Mock/read-only QMT 响应；真实订单/委托查询暂不接入 | `orders[]`, `mock_mode`, `status` | managed | 同上 |
 
 ## 10. SSE / Ops API
 

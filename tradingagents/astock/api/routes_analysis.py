@@ -5,6 +5,10 @@ POST /api/v1/analysis/watchlist  — analyze all watchlist stocks using
 
 All core logic lives in ``_analysis_engine.py`` so that
 ``routes_dashboard`` and ``routes_watchlist`` can reuse the same functions.
+
+Summary response includes ``research_only`` count for stocks with
+insufficient data or analysis errors (rating = "hold" with signal
+in ("数据不足", "分析异常")).
 """
 
 from __future__ import annotations
@@ -32,7 +36,7 @@ def analyze_watchlist() -> tuple[Response, int]:
     if not items:
         return jsonify({
             "stocks": [],
-            "summary": {"total": 0, "buy": 0, "hold": 0, "sell": 0},
+            "summary": {"total": 0, "buy": 0, "hold": 0, "sell": 0, "research_only": 0},
             "message": "暂无自选股",
         }), 200
 
@@ -46,10 +50,17 @@ def analyze_watchlist() -> tuple[Response, int]:
         results.append(result)
 
     counts = {"buy": 0, "hold": 0, "sell": 0}
+    research_only_count = 0
     for r in results:
         rating = r.get("rating", "hold")
         if rating in counts:
             counts[rating] += 1
+        else:
+            research_only_count += 1
+        if rating == "hold":
+            signal = r.get("signal", "")
+            if signal in ("数据不足", "分析异常"):
+                research_only_count += 1
 
     rating_order = {"buy": 0, "hold": 1, "sell": 2}
     results.sort(key=lambda r: (rating_order.get(r.get("rating", "hold"), 9), -r.get("score", 0)))
@@ -61,5 +72,6 @@ def analyze_watchlist() -> tuple[Response, int]:
             "buy": counts["buy"],
             "hold": counts["hold"],
             "sell": counts["sell"],
+            "research_only": research_only_count,
         },
     }), 200

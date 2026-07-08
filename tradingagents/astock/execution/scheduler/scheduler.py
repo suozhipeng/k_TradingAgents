@@ -323,7 +323,7 @@ class PaperTradeScheduler:
             if aps_job:
                 aps_job.remove()
         except Exception:
-            pass
+            logger.warning("Failed to remove APScheduler job: %s", job_id)
 
         # Remove from persistent registry
         record = self._persistent_jobs.pop(job_id, None)
@@ -373,7 +373,7 @@ class PaperTradeScheduler:
                 else:
                     aps_job.pause()
         except Exception:
-            pass
+            logger.warning("Failed to toggle job %s (enabled=%s)", job_id, enabled)
         logger.info("Job toggled: %s -> enabled=%s", job_id, enabled)
         return True
 
@@ -613,6 +613,7 @@ class PaperTradeScheduler:
                 df = df.iloc[-lookback:]
             return df
         except Exception:
+            logger.debug("Failed to load historical kline for %s", symbol)
             import pandas as pd
 
             return pd.DataFrame()

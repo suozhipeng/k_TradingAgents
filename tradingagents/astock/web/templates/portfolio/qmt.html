@@ -1,17 +1,17 @@
 {% extends "base.html" %}
-{% block title %}QMT Bridge — AStock WebUI{% endblock %}
+{% block title %}QMT Mock Bridge — AStock WebUI{% endblock %}
 {% block content %}
-<h2 class="text-2xl font-bold text-white mb-6">🔗 QMT 桥接 QMT Bridge</h2>
+<h2 class="text-2xl font-bold text-white mb-6">🔗 QMT 只读桥接 QMT Mock/Read-only Bridge</h2>
 
 <!-- Mock Mode Warning Banner -->
 <div class="bg-amber-900/30 border border-amber-700/50 rounded-lg p-4 mb-6">
   <div class="flex items-start gap-3">
     <span class="text-2xl">⚠️</span>
     <div>
-      <p class="text-amber-300 font-semibold text-sm">当前运行在模拟模式 (Mock Mode)</p>
+      <p class="text-amber-300 font-semibold text-sm">当前运行在模拟/只读模式 (Mock / Read-only)</p>
       <p class="text-amber-400/80 text-xs mt-1">
         所有 QMT 数据为确定性模拟值，不代表真实账户状态、持仓或委托。<br>
-        真实 QMT 实盘连接需要本地运行 QMT 客户端并安装 xtquant 模块。
+        当前范围不接入真实券商，不查询真实 QMT 委托，不启用自动实盘交易；真实接入统一列为 P3 延后项。
       </p>
     </div>
   </div>
@@ -32,13 +32,13 @@
   </div>
 </div>
 
-<!-- Real Connectivity Test -->
+<!-- Deferred Real Connectivity Diagnostic -->
 <div class="card mb-6">
-  <h3 class="text-lg font-semibold text-white mb-4">🔍 实盘连通性测试 Live Connectivity Test</h3>
-  <p class="text-xs text-gray-400 mb-4">尝试连接真实的 QMT 客户端。QMT 客户端需要在本地运行并监听 <code class="text-indigo-400">127.0.0.1:58609</code>，且已安装 <code class="text-indigo-400">xtquant</code> 模块。</p>
+  <h3 class="text-lg font-semibold text-white mb-4">🔍 桥接诊断 Bridge Diagnostic (P3 Deferred)</h3>
+  <p class="text-xs text-gray-400 mb-4">该诊断仅用于未来真实 QMT 接入前的端口可达性排查；即使端口可达，当前系统仍按模拟/只读模式处理，不会启用真实委托或真实账户查询。</p>
 
   <div class="flex items-center gap-4 mb-4">
-    <button onclick="testRealConnection()" class="btn btn-primary">🔗 测试实盘连接 Test Real</button>
+    <button onclick="testRealConnection()" class="btn btn-primary">🔗 诊断桥接端口 Diagnose Bridge</button>
     <span id="qmt-real-status" class="text-xs text-gray-400"></span>
   </div>
 
@@ -47,14 +47,14 @@
 
 <!-- Setup Guide -->
 <div class="card">
-  <h3 class="text-lg font-semibold text-white mb-4">📖 QMT 实盘部署指南</h3>
+  <h3 class="text-lg font-semibold text-white mb-4">📖 QMT 未来接入说明</h3>
   <div class="text-sm text-gray-400 space-y-2">
-    <p>要启用实盘 QMT 桥接，需要：</p>
+    <p>真实券商/QMT 委托查询当前不在开发范围内。若未来进入 P3 接入阶段，需要补齐：</p>
     <ol class="list-decimal list-inside space-y-1 text-gray-400">
       <li>安装 QMT 客户端（券商版）</li>
       <li>确保 <code class="text-indigo-400">xtquant</code> 模块在 Python 环境中可用</li>
       <li>启动 QMT 客户端，开启 HTTP 桥接服务（默认端口 <code class="text-indigo-400">58609</code>）</li>
-      <li>重启本 WebUI 服务，QMT 桥接将自动连接到 <code class="text-indigo-400">127.0.0.1:58609</code></li>
+      <li>完成权限、风控、审计、回滚与人工确认验收后，才允许接入真实账户</li>
     </ol>
     <p class="mt-2 text-gray-500">当前环境 <code class="text-indigo-400">xtquant</code> 模块：<span id="xtquant-status" class="text-amber-400">检查中...</span></p>
   </div>
@@ -88,10 +88,12 @@ async function loadQmt() {
     <div class="space-y-1 text-xs">
       <div class="flex justify-between"><span class="text-gray-500">模式:</span><span class="${mockMode ? 'text-amber-400' : 'text-emerald-400'}">${mockMode ? '🟡 模拟 Mock' : '🟢 实盘 Live'}</span></div>
       <div class="flex justify-between"><span class="text-gray-500">数据源:</span><span class="text-gray-300">${status.source === 'mock' ? '模拟数据 (Mock)' : '真实连接 (Live)'}</span></div>
+      <div class="flex justify-between"><span class="text-gray-500">能力:</span><span class="text-gray-300">${status.capability || 'managed'}</span></div>
       <div class="flex justify-between"><span class="text-gray-500">只读:</span><span class="text-gray-300">${status.read_only ? '是 (Read-only)' : '否'}</span></div>
       <div class="flex justify-between"><span class="text-gray-500">实盘就绪:</span><span class="${liveReady ? 'text-emerald-400' : 'text-red-400'}">${liveReady ? '是 ✅' : '否 ❌'}</span></div>
       <div class="flex justify-between"><span class="text-gray-500">主机:</span><span class="text-gray-300">${health?.host || '--'}</span></div>
       <div class="flex justify-between"><span class="text-gray-500">端口:</span><span class="text-gray-300">${health?.port || '--'}</span></div>
+      <div class="pt-2 text-amber-400/80">${status.note || 'mock/read-only — real QMT order/query is P3 deferred'}</div>
     </div>`;
 
     // Positions
@@ -155,7 +157,7 @@ async function loadQmt() {
 async function testRealConnection() {
   const status = document.getElementById('qmt-real-status');
   const detail = document.getElementById('qmt-real-detail');
-  status.textContent = '⏳ 正在测试实盘连接...';
+  status.textContent = '⏳ 正在诊断桥接端口...';
   detail.classList.add('hidden');
 
   try {
@@ -167,17 +169,18 @@ async function testRealConnection() {
 
     if (isConnected) {
       detail.innerHTML = `<div class="flex items-center gap-2 text-emerald-400 font-medium mb-2">
-        <span>✅ QMT 实盘桥接已连通</span>
+        <span>✅ QMT 桥接端口可达</span>
       </div>
       <div class="text-xs text-gray-400 space-y-1">
         <div>主机: ${data.host}:${data.port}</div>
-        <div>模式: 实盘 (Live)</div>
+        <div>当前能力: managed mock/read-only</div>
+        <div class="text-amber-400">端口可达不代表已启用真实券商；真实 QMT 委托查询仍为 P3 延后项。</div>
       </div>`;
-      status.textContent = '✅ 实盘连接成功';
+      status.textContent = '✅ 桥接端口可达（仍为只读范围）';
     } else {
       const errorMsg = data.real_error || '无响应（QMT 客户端可能未运行）';
       detail.innerHTML = `<div class="flex items-center gap-2 text-red-400 font-medium mb-2">
-        <span>❌ QMT 实盘桥接不可用</span>
+        <span>❌ QMT 桥接端口不可用</span>
       </div>
       <div class="text-xs text-gray-400 space-y-1">
         <div>错误: ${errorMsg}</div>
@@ -185,12 +188,12 @@ async function testRealConnection() {
         <div>当前运行在 <strong class="text-amber-400">模拟模式 (Mock)</strong> — 所有 QMT 功能使用模拟数据</div>
       </div>
       <div class="mt-3 p-3 bg-dark-bg rounded-lg text-xs text-gray-500">
-        要启用实盘连接：<br>
+        未来进入 P3 真实接入前需完成：<br>
         1. 启动 QMT 客户端并开启 HTTP 桥接<br>
         2. 安装 xtquant 模块<br>
-        3. 重启 WebUI 后 QMT 将自动切换到实盘模式
+        3. 补齐真实账户权限、风控、审计与回滚验收
       </div>`;
-      status.textContent = '❌ 实盘连接失败（模拟模式运行中）';
+      status.textContent = '❌ 桥接端口不可用（模拟模式运行中）';
     }
   } catch (e) {
     status.textContent = '❌ 请求失败';

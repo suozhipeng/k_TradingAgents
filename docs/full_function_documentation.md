@@ -700,7 +700,7 @@ class ReportGenerator:
 | `routes_data_health.py` | GET | `/data/health` | 数据源健康探测 |
 | `routes_paper.py` | POST/GET | `/paper/cycle`, `/paper/state`, `/paper/trades` | 模拟交易周期/状态/成交 |
 | `routes_trade.py` | POST/GET | `/trade/order`, `/trade/quote`, `/trade/state` | 下单/实时报价/交易状态 |
-| `routes_qmt.py` | GET | `/qmt/health`, `/qmt/positions`, `/qmt/orders` | QMT 健康/持仓/订单 |
+| `routes_qmt.py` | GET | `/qmt/health`, `/qmt/positions`, `/qmt/orders` | QMT mock/read-only 健康、模拟持仓、模拟账户快照；真实委托查询为 P3 延后 |
 | `routes_tv.py` | GET | `/tv/history`, `/tv/symbols`, `/tv/stock-search`, `/tv/stock-info` | TradingView 图表数据 |
 | `routes_sse.py` | GET/DELETE | `/sse/paper-progress`, `/sse/events` | SSE 推送/事件轮询 |
 | | GET/POST/DELETE | `/sse/scheduler/status`, `/sse/scheduler/start`, `/sse/scheduler/stop`, `/sse/scheduler/pause`, `/sse/scheduler/resume`, `/sse/scheduler/jobs`, `/sse/scheduler/jobs/<job_id>`, `/sse/scheduler/jobs/<job_id>/toggle` | APScheduler 生命周期与用户 cron/interval 任务管理 |
@@ -837,7 +837,7 @@ services:
 
 **路径**: `tests/`
 
-当前全量回归基线：`1074 passed, 15 skipped, 7 warnings, 120 subtests passed`（2026-07-07，`.venv/bin/python -m pytest -q`）。
+当前本地离线全量回归基线：`1076 passed, 14 skipped`（2026-07-08，`DEEPSEEK_API_KEY=placeholder pytest -q`）。
 
 64 个测试文件，关键测试：
 
@@ -947,6 +947,7 @@ tradingagents/graph/
 
 | 变更 | 说明 |
 |------|------|
+| 2026-07-08 | 校准当前离线回归基线：`1076 passed, 14 skipped`；DeepSeek live API 测试使用 placeholder key 跳过 |
 | 2026-07-07 | 校准全量数字：118 route decorators (27 蓝图/109 唯一路径)、30 模板、15 策略、64 测试文件、回归基线 1074 passed |
 | 2026-07-05 | 同步当前代码基线：32 张 DuckDB/PG 表、117 条 `/api/v1` route、29 个 Web 模板、63 个测试文件 |
 | 2026-06-28 | 完整功能文档，三后端架构，12 策略，8 适配器，60+ API 端点 |

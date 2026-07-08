@@ -28,7 +28,7 @@
 # TradingAgents: Multi-Agents LLM Financial Trading Framework
 
 ## News
-- [2026-06] **TradingAgents-Astock** has progressed through Phase 0–38: A 股五层数据路由、DuckDB 本地数据库、Flask REST API（57 端点）、Jinja2 WebUI（25 模板 / 28 页面）、React/TS 实验前端、10 种回测策略 + 参数优化、模拟盘 + QMT 受控执行、龙头股动量轮动、股票筛选器 + 板块热力图、KLineChart 全功能（27 指标 + 17 画线）、AI Research Center、Portfolio / Ops Audit / Market Leaders 等模块。详见 [`docs/ASTOCK_CURRENT_STATUS.md`](docs/ASTOCK_CURRENT_STATUS.md)。
+- [2026-07] **TradingAgents-Astock** current local workspace has completed Phase 0–39 and the main Web workbench flow under the current product scope: A 股五层数据路由、DuckDB 本地数据库、Flask REST API、Jinja2 WebUI 主工作台、结构化 daily review、批量分析入口、模拟盘 + mock/read-only QMT managed 试运行、AI Research Center、Strategy Lab、Portfolio / Ops Audit / Market Leaders 等模块。当前状态见 [`docs/phases/README.md`](docs/phases/README.md) 与 [`docs/04-dev/traceability-matrix.md`](docs/04-dev/traceability-matrix.md)。
 - [2026-05] **TradingAgents v0.2.5** released with the grounded Sentiment Analyst, GPT-5.5 etc. model coverage, Qwen/GLM/MiniMax dual-region support, `TRADINGAGENTS_*` env-var configurability with API-key auto-detection, remote Ollama support, non-US alpha benchmarks, and ticker path-traversal hardening. See [CHANGELOG.md](CHANGELOG.md) for the full list.
 - [2026-04] **TradingAgents v0.2.4** released with structured-output agents (Research Manager, Trader, Portfolio Manager), LangGraph checkpoint resume, persistent decision log, DeepSeek/Qwen/GLM/Azure provider support, Docker, and a Windows UTF-8 encoding fix.
 - [2026-03] **TradingAgents v0.2.3** released with multi-language support, GPT-5.4 family models, unified model catalog, backtesting date fidelity, and proxy support.
@@ -71,14 +71,14 @@ TradingAgents is a multi-agent trading framework that mirrors the dynamics of re
 本项目包含一个面向 A 股的定制模块 `TradingAgents-Astock`，在保留原 TradingAgents 底层 AI 分析能力的基础上，扩展了 A 股专属的数据源、研究链、回测引擎、模拟盘、QMT 受控执行和 WebUI。
 
 - **A 股文档入口**：详见 [`docs/README.md`](docs/README.md)，包含产品需求、技术架构、API 契约、数据字典、测试验收、风险披露等完整文档体系。
-- **快速上手**：参见 [`docs/QUICK_START.md`](docs/QUICK_START.md)。
-- **当前状态**：参见 [`docs/ASTOCK_CURRENT_STATUS.md`](docs/ASTOCK_CURRENT_STATUS.md)。
+- **快速上手**：参见 [`docs/02-guide/QUICK_START.md`](docs/02-guide/QUICK_START.md)。
+- **当前状态**：参见 [`docs/phases/README.md`](docs/phases/README.md) 和 [`docs/04-dev/traceability-matrix.md`](docs/04-dev/traceability-matrix.md)。
 - **WebUI 启动（Jinja2）**：`PORT=8080 python run_webui.py`（28 个页面，25 个模板）。
 - **API 启动**：`python scripts/run_astock_api.py`（默认端口 5860，57 个 REST 端点）。
 - **React/TS 实验前端**：`cd webui && npm install && npm run dev`（Vite + TailwindCSS，当前渲染静态 `modules.json`，API 客户端已就绪但未接线到 UI）。
-- **环境配置**：参见 [`docs/ASTOCK_LIVE_RESEARCH_SETUP.md`](docs/ASTOCK_LIVE_RESEARCH_SETUP.md)。
+- **环境配置**：参见 [`docs/03-ops/live-research.md`](docs/03-ops/live-research.md)。
 
-> A 股定制模块当前定位为投研分析 + 策略验证 + 模拟盘 + 受控执行试运行平台，不是完整自动实盘生产交易系统。详见 [`docs/ASTOCK_RISK_DISCLOSURE_AND_COMPLIANCE.md`](docs/ASTOCK_RISK_DISCLOSURE_AND_COMPLIANCE.md)。
+> A 股定制模块当前定位为投研分析 + 策略验证 + 模拟盘 + 受控执行试运行平台，不是完整自动实盘生产交易系统。当前产品范围明确 **不接入真实券商**。详见 [`docs/03-ops/compliance.md`](docs/03-ops/compliance.md) 与 [`docs/03-ops/live-trading.md`](docs/03-ops/live-trading.md)。
 
 Our framework decomposes complex trading tasks into specialized roles.
 
@@ -178,7 +178,7 @@ pip install '.[astock-providers]'   # akshare, mootdx, pywencai, duckdb
 pip install '.[ui]'                # streamlit
 ```
 
-A 股 Provider 环境变量配置参见 [`docs/ASTOCK_LIVE_RESEARCH_SETUP.md`](docs/ASTOCK_LIVE_RESEARCH_SETUP.md) 和 [`planning/codebase/ASTOCK_PROVIDER_CONFIG.md`](planning/codebase/ASTOCK_PROVIDER_CONFIG.md)。
+A 股 Provider 环境变量配置参见 [`docs/03-ops/live-research.md`](docs/03-ops/live-research.md) 和 [`planning/codebase/ASTOCK_PROVIDER_CONFIG.md`](planning/codebase/ASTOCK_PROVIDER_CONFIG.md)。
 
 For local models, configure Ollama with `llm_provider: "ollama"`. The default endpoint is `http://localhost:11434/v1`; set `OLLAMA_BASE_URL` to point at a remote `ollama-serve`. Pull models with `ollama pull <name>`, and pick "Custom model ID" in the CLI for any model not listed by default.
 

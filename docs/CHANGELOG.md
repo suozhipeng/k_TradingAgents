@@ -2,6 +2,22 @@
 
 > 记录每个版本的架构变更、模块清单和关键决策。对应 `CHANGELOG.md`。
 
+## Workspace Snapshot — 2026-07-08（local / unreleased）
+
+**当前本地工作区状态同步**
+
+- `tradingagents/astock/api/routes_daily.py` — `GET /api/v1/daily/review` 从基础市场摘要扩展为结构化复盘接口，聚合 5 大指数、板块排行、涨跌家数、北向资金、龙虎榜、涨跌幅榜和 market regime
+- `tradingagents/astock/api/routes_analysis.py` + `routes_dashboard.py` — dashboard 决策摘要补齐 `research_only` 实际统计，不再仅靠推导占位
+- `tradingagents/astock/web/templates/dashboard/dashboard.html` — 首页补齐批量分析入口、核心卡片 error/empty 处理、决策摘要与工作台收口
+- `tradingagents/astock/api/routes_qmt.py` — QMT 能力边界文案统一为 `managed`（mock/read-only），并明确真实 QMT order/query 为 P3 deferred
+- `docs/phases/README.md`、`docs/phases/phase-39-e2e-uat.md`、`docs/04-dev/traceability-matrix.md`、`docs/BACKLOG.md` — 当前状态文档已同步到 2026-07-08
+
+**当前验证基线**
+
+- 本地离线回归：`DEEPSEEK_API_KEY=placeholder pytest -q` → `1076 passed, 14 skipped`
+- DeepSeek live API 测试使用 placeholder key 跳过；真实 live key 验证不属于当前 A 股主业务链阻断项
+- 失败原因：当前环境中的 `DEEPSEEK_API_KEY` 返回 401，无效密钥；不属于 A 股主业务链功能回归
+
 ## v2.3 — 2026-07-08
 
 **回测入口最小收敛**
@@ -26,7 +42,7 @@
 - `run_webui.py` 默认端口改为 5001（与 cli/main.py / run.py 一致）
 - `streamlit_app.py` 端口和 API base URL 从环境变量读取（`MOMENTUM_PORT` / `PORT` / `ASTOCK_API_BASE_URL`）
 - `tests/test_astock_backtest_facade.py` — 4 个 facade 专项测试
-- 全量回归：`1074 passed, 15 skipped, 7 warnings, 120 subtests passed`
+- 全量回归：`DEEPSEEK_API_KEY=placeholder pytest -q` → `1076 passed, 14 skipped`
 
 ## v2.3 — 2026-07-06
 
@@ -134,5 +150,5 @@
 
 - Phase 30：Live Trading Readiness 准入清单
 - Phase 31-38：数据质量、策略实验室、AI 研究中心、市场龙头、交易执行、组合风控、运维审计、导航清理
-- Phase 39：E2E UAT（planned）
+- Phase 39：E2E UAT（后续已完成；当前状态以 `docs/phases/README.md` 为准）
 - Web-G0 ~ Web-P7：Web 页面合规验收（已完成，归档至 `_archived/web-evidence/`）

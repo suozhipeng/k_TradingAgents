@@ -286,7 +286,7 @@
     <div style="font-size:11px;color:#4a5a6a;margin-bottom:6px;">⚡ 快捷操作</div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;">
       <a href="/research" class="tv-btn tv-btn-primary tv-btn-sm">🎯 开始分析</a>
-      <a href="/ai_agent" class="tv-btn tv-btn-secondary tv-btn-sm">🤖 批量分析</a>
+      <button id="batch-analyze-btn" class="tv-btn tv-btn-secondary tv-btn-sm" onclick="runBatchAnalysis()">🤖 批量分析</button>
       <a href="/market_leaders" class="tv-btn tv-btn-secondary tv-btn-sm">👁 盯盘</a>
       <a href="/strategy_hub" class="tv-btn tv-btn-secondary tv-btn-sm">🧪 回测</a>
     </div>
@@ -396,7 +396,15 @@ async function loadAll() {
 
   } catch(e) {
     console.error('Dashboard load error:', e);
-    document.querySelectorAll('.dash-empty').forEach(el => { if (el.textContent === '加载中...') el.textContent = '⚠️ 加载失败'; });
+    // Set error state on key metric cards individually
+    const mSymbols = document.getElementById('m-symbols');
+    const mBacktests = document.getElementById('m-backtests');
+    const mNav = document.getElementById('m-nav');
+    const mPositions = document.getElementById('m-positions');
+    if (mSymbols) mSymbols.textContent = '⚠️';
+    if (mBacktests) mBacktests.textContent = '⚠️';
+    if (mNav) mNav.textContent = '⚠️';
+    if (mPositions) mPositions.textContent = '⚠️';
     _dashTrack('key_metrics', false);
   }
 }
@@ -600,7 +608,7 @@ function renderWatchlistMovers(overview) {
   const movers = Object.values(moverMap).slice(0, 3);
 
   if (!movers.length) {
-    el.innerHTML = '';
+    el.innerHTML = '<div style="font-size:9px;color:#4a5a6a;">无活跃标的</div>';
     badge.textContent = '';
     return;
   }
@@ -1069,8 +1077,9 @@ async function loadGlobalDecisionSummary() {
     const res = await fetch('/api/v1/analysis/watchlist', {method: 'POST'});
     if (!res.ok) throw new Error('status ' + res.status);
     const data = await res.json();
-    const s = data.summary || {total:0,buy:0,hold:0,sell:0};
+    const s = data.summary || {total:0,buy:0,hold:0,sell:0,research_only:0};
     const total = s.total || 0;
+    const researchOnly = s.research_only != null ? s.research_only : Math.max(0, total - s.buy - s.hold - s.sell);
 
     if (total === 0) {
       el.innerHTML = '<div class="dash-empty">暂无自选股数据</div>';
@@ -1079,7 +1088,6 @@ async function loadGlobalDecisionSummary() {
       return;
     }
 
-    const researchOnly = total - s.buy - s.hold - s.sell;
     const items = [
       { label: '买入', count: s.buy, color: '#dc2626', bg: 'rgba(220,38,38,0.12)' },
       { label: '观望', count: s.hold, color: '#eab308', bg: 'rgba(234,179,8,0.12)' },
@@ -1175,6 +1183,75 @@ async function loadAIStatus() {
       </div>
     `;
     _dashTrack('ai_status', false);
+  }
+}
+
+// ── Batch AI Analysis (BL-204) ──
+function escapeDashHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, ch => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  }[ch]));
+}
+
+async function runBatchAnalysis() {
+  const btn = document.getElementById('batch-analyze-btn');
+  if (!btn) return;
+  btn.disabled = true;
+  btn.textContent = '⏳ 分析中...';
+  try {
+    const res = await fetch('/api/v1/watchlist/batch-analyze', {method: 'POST'});
+    if (!res.ok) throw new Error('Batch analyze failed (' + res.status + ')');
+    const data = await res.json();
+    // Update decision cards with batch results
+    const container = document.getElementById('decision-cards');
+    const summary = document.getElementById('decision-summary');
+    if (data.results && data.results.length > 0) {
+      const batchSummary = data.summary || {buy: 0, hold: 0, sell: 0};
+      summary.textContent = `批量分析完成 | 共${data.total}只 | 🟢买入:${batchSummary.buy} 🟡观望:${batchSummary.hold} 🔴卖出:${batchSummary.sell}`;
+      container.innerHTML = data.results.map(stk => {
+        const rating = stk.rating || 'hold';
+        const colors = {
+          buy:  {bg:'rgba(220,38,38,0.12)', border:'#dc2626', text:'#dc2626'},
+          hold: {bg:'rgba(234,179,8,0.12)',  border:'#eab308', text:'#eab308'},
+          sell: {bg:'rgba(22,163,74,0.12)',  border:'#16a34a', text:'#16a34a'},
+        };
+        const labels = {buy:'🟢 买入', hold:'🟡 观望', sell:'🔴 卖出'};
+        const c = colors[rating] || colors.hold;
+        const safeName = escapeDashHtml(stk.name || stk.symbol);
+        const safeSymbol = escapeDashHtml(stk.symbol);
+        const safeSignal = escapeDashHtml(stk.signal || '');
+        const safeReasons = Array.isArray(stk.reasons) ? stk.reasons.map(escapeDashHtml).join('; ') : '';
+        return `<div style="background:${c.bg};border:1px solid ${c.border};border-radius:8px;padding:12px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:13px;font-weight:600;color:#d1d4dc;">${safeName}</span>
+            <span style="font-size:11px;color:#787b86;font-family:JetBrains Mono,monospace;">${safeSymbol}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin:8px 0;">
+            <span style="font-size:22px;font-weight:800;color:${c.text};">${labels[rating]}</span>
+            <span style="font-size:14px;font-weight:700;font-family:JetBrains Mono,monospace;color:#d1d4dc;">${stk.score||'--'}</span>
+          </div>
+          <div style="font-size:11px;color:#787b86;">￥${Number(stk.price||0).toFixed(2)} ${safeSignal}</div>
+          ${safeReasons ? `<div style="font-size:10px;color:#4a5a6a;margin-top:4px;">${safeReasons}</div>` : ''}
+        </div>`;
+      }).join('');
+    } else {
+      container.innerHTML = '<div class="dash-empty">暂无分析结果</div>';
+      summary.textContent = '批量分析完成 | 无结果';
+    }
+    if (data.errors && data.errors.length > 0) {
+      console.warn('Batch analyze errors:', data.errors);
+    }
+  } catch(e) {
+    const container = document.getElementById('decision-cards');
+    container.innerHTML = `<div class="dash-empty">⚠️ 批量分析失败: ${e.message}</div>`;
+    document.getElementById('decision-summary').textContent = '批量分析失败';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🤖 批量分析';
   }
 }
 

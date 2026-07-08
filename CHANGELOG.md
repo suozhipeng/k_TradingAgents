@@ -10,6 +10,7 @@ Breaking changes within the 0.x line are called out explicitly.
 
 > 以下 A 股定制模块的交付记录按 phase 归档，详细变更见各 phase 文档。当前版本 HEAD 为 `xg_dev` 分支。
 
+- **Phase 40** — 2026-07-08：BL-001/BL-002 QMT 能力边界统一、BL-205 决策仪表盘摘要、BL-201 Dashboard 卡片五态、BL-203 结构化每日复盘、BL-204 批量分析入口、Code Quality 静默异常修复、traceability matrix 全面更新（completed）
 - **Phase 39** — E2E UAT：端到端用户工作流验收（pass-with-gaps）
 - **Phase 38** — Product Navigation Cleanup：7 模块 Sidebar 精简、旧入口 redirect、文档口径回补（completed）
 - **Phase 37** — Ops & Audit Center：SSE TaskRun 标准化、Ops Audit 页面、统一审计持久化（completed）
@@ -43,6 +44,54 @@ Breaking changes within the 0.x line are called out explicitly.
 - **Phase 0–9** — 只读研究与展示链路（completed）
 
 当前代码规模：30 个 WebUI 模板、27 个 API 蓝图、118 条 route decorators（109 唯一路径）、64 个测试文件。
+
+---
+
+### 2026-07-08 — BL-001/BL-002/BL-201/BL-203/BL-204/BL-205 + Code Quality
+
+**BL-001 + BL-002：QMT 能力边界统一**
+
+- `tradingagents/astock/api/routes_qmt.py`：所有 QMT 响应增加 `capability` 标签（`"managed"`）与 `note` 字段（`"mock/read-only — real QMT order/query is P3 deferred"`）
+- 模块 docstring、`_get_bridge()`、`_bridge_status()` 显式标注 QMT 为 managed(mock/read-only)
+
+**BL-205：Dashboard 决策仪表盘摘要**
+
+- `tradingagents/astock/api/routes_dashboard.py`：`_get_decision_summary()` 现在正确统计 `research_only`（数据不足或分析失败的标的）
+- `tradingagents/astock/api/routes_analysis.py`：`/api/v1/analysis/watchlist` summary 新增 `research_only` 字段
+- `tradingagents/astock/web/templates/dashboard/dashboard.html`：`loadGlobalDecisionSummary()` 优先使用后端 `research_only` 而非前端派生计算
+
+**BL-201：Dashboard 首页深化（卡片五态）**
+
+- `tradingagents/astock/web/templates/dashboard/dashboard.html`：`loadAll()` catch 块现在在单个指标卡片上设置 ⚠️ 标记，而非全局替换
+- `renderWatchlistMovers()` 在无活跃标的时显示"无活跃标的"而非空白
+
+**BL-203：结构化每日市场复盘**
+
+- `tradingagents/astock/api/routes_daily.py`：完全重写，从 3 索引聚合升级为 7 数据源聚合
+  - 五大指数（上证指数/深证成指/创业板指/沪深300/上证50）
+  - 板块涨跌排名（前 20）
+  - 市场广度（上涨/下跌/涨停/跌停/比例）
+  - 北向资金流向（HGT/SGT 最近 5 日）
+  - 龙虎榜（买入前五 + 卖出前五）
+  - 涨跌幅榜（各前 10）
+  - 市场状态分析
+
+**BL-204：自选股批量 AI 分析入口**
+
+- `tradingagents/astock/web/templates/dashboard/dashboard.html`：新增 `runBatchAnalysis()` 函数用于内联批量分析
+- "批量分析" 按钮由链接改为 onclick 处理器调用
+
+**Code Quality：Silent exception swallowing 修复**
+
+除 Exception: pass → logger 调用，修复以下文件中的静默异常吞没：
+- `backtest_engine/engine.py`：6 处（数据加载、停牌检查、涨跌停、日历、市场状态分析 x2）
+- `scheduler/scheduler.py`：3 处（任务移除、任务开关、K线加载）
+- `strategy_base/fetch.py`：3 处（baostock 登出、facade fetch x2）
+- `strategies/momentum_rotation.py`：1 处（领涨股获取）
+
+**Documentation updates**
+
+- `docs/04-dev/traceability-matrix.md`：BL-201/BL-203/BL-204/FR-22/FR-23/FR-24/FR-25/NFR-04/NFR-05/NFR-07/NFR-09/NFR-11/NFR-14/NFR-16/NFR-17/NFR-19 从 partial 更新为 done，附证据
 
 ## A Stock Pro 详细变更
 

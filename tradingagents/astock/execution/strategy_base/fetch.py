@@ -79,7 +79,7 @@ def fetch_multi_stock_prices(
             finally:
                 bs.logout()
         except Exception:
-            pass
+            _log.warning("baostock logout failed")
 
     # Fallback: AStockDataFacade 逐只获取
     if not price_data:
@@ -106,9 +106,9 @@ def fetch_multi_stock_prices(
                             elif "close" in df.columns:
                                 price_data[sym] = df["close"].astype(float)
                 except Exception:
-                    pass
+                    _log.debug("Facade fetch failed for %s", sym)
         except Exception:
-            pass
+            _log.warning("Facade data fetch failed for all symbols")
 
     if not price_data:
         return pd.DataFrame()

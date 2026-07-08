@@ -60,7 +60,7 @@ class BacktestEngine:
                         df[col] = pd.to_numeric(df[col], errors="coerce")
                 return df
         except Exception:
-            pass
+            logger.warning("Data load failed for %s, falling back to mock data", symbol)
 
         # Fallback to mock data
         return _mock_fallback(symbol, start_date, end_date)
@@ -183,7 +183,7 @@ class BacktestEngine:
                     return True, f"suspended_external_{reason}"
                 return True, "suspended_external"
         except Exception:
-            pass
+            logger.debug("External suspension check unavailable for %s", symbol)
         return False, ""
 
     def _check_external_price_limit(
@@ -204,7 +204,7 @@ class BacktestEngine:
             if limited:
                 return True, f"external_{direction}"
         except Exception:
-            pass
+            logger.debug("External price limit check unavailable for %s", symbol)
         return False, ""
 
     def run(
@@ -316,7 +316,7 @@ class BacktestEngine:
                 notes.extend(cal_notes)
                 data_assumption["notes"] = notes
         except Exception:
-            pass
+            logger.debug("Calendar validation failed for %s", symbol)
 
         if df.empty:
             return BacktestResult(
@@ -364,7 +364,7 @@ class BacktestEngine:
                     regime["recommended_strategies"],
                 )
             except Exception:
-                pass
+                logger.debug("Regime analysis unavailable for %s", symbol)
 
         # --- Group by rebalance periods ---
         periods = df.resample(rebalance_freq.replace("M", "ME"))
@@ -654,7 +654,7 @@ class BacktestEngine:
                 notes.append(f"recommended_{','.join(regime['recommended_strategies'])}")
                 data_assumption["notes"] = notes
             except Exception:
-                pass
+                logger.debug("Regime analysis unavailable for portfolio mode")
 
         # ── 2. 日收益率 ──
         daily_ret = stock_prices.pct_change().replace([np.inf, -np.inf], np.nan).fillna(0.0)

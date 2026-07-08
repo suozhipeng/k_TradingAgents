@@ -8,6 +8,41 @@
 
 本文档整理当前仓库后续最值得推进的需求项，按优先级划分为 P0/P1/P2。需求到模块、测试和 phase 的映射见 `04-dev/traceability-matrix.md`。产品指标、运行指标、告警和 Ops 要求见 `03-ops/deployment.md` §8。
 
+## 1.1 当前范围约束（2026-07-08）
+
+当前开发范围明确为：
+
+- 不接入真实券商
+- 不接入真实 QMT 订单/委托查询
+- 不把当前系统升级为完整自动实盘生产交易系统
+
+在这个范围下，交易执行相关工作的目标是：
+
+- 统一 `research` / `paper` / `managed` / `live-ready` 能力边界
+- 保持现有 QMT 路由为 `mock` / `read_only` 语义并避免误导
+- 完善投研、回测、模拟盘、工作台和产品化页面收口
+
+以下能力继续视为范围外 / P3：
+
+- 真实券商订单、成交、撤单、拒单、部分成交、券商回报 reconciliation
+- 真实 QMT 订单/委托查询
+- 默认自动实盘执行
+- RBAC / 多用户系统
+- SLA 与故障分级
+
+## 1.2 当前建议开发顺序（2026-07-08）
+
+| 顺序 | 优先级 | 项目 | 当前目标 |
+|------|------|------|---------|
+| 1 | P0 | `BL-001` + `BL-002` | ✅ 已完成 — QMT 能力边界统一，mock/read-only 语义已标注 |
+| 2 | P1 | `BL-205` + `BL-201` | ✅ 已完成 — Dashboard 决策摘要 + 卡片五态已闭环 |
+| 3 | P1 | `BL-203` + `BL-204` | ✅ 已完成 — 结构化每日复盘 + 批量分析入口已落地 |
+| 4 | P1 | `FR-22` ~ `FR-25` | ✅ 已完成 — 4 个模块页面级收口已更新为 done |
+| 5 | P2 | `NFR-04/05/07/09/11/14/16/17/19` | ✅ 已完成 — 9 项治理收尾已全部 done |
+| 6 | P2 | Code Quality | ✅ 已完成 — 13 处 silent exception swallowing 已修复 |
+| — | — | `FR-09` 页面级收口 | 🟡 partial — 旧入口兼容、文档口径仍在回补 |
+| — | — | `FR-07` 受控执行边界 | 🟡 partial — QMT mock 语义已标注，真实 broker reconciliation 仍 P3 |
+
 ## 2. P0
 
 ### BL-000 建立实盘准入清单
@@ -32,36 +67,15 @@
 
 ### BL-001 统一 QMT 能力边界
 
-现状：
-
-- QMT 在执行层已存在
-- QMT 在 blueprint/provider 口径里仍保留 placeholder 语义
-
-目标：
-
-- 统一 QMT 在 provider、execution、API、状态文档中的能力定义
-
-完成标准：
-
-- blueprint / status / phase / code 口径一致
-- 不再同时出现“已完成执行”和“provider 仍占位”冲突
+| 状态 | 备注 |
+|------|------|
+| ✅ done | QMT capability 标签已注入所有 API 响应（`capability: "managed"`, `note: "mock/read-only"`） |
 
 ### BL-002 修正 `qmt/orders` 的 mock 语义
 
-现状：
-
-- `/api/v1/qmt/orders` 返回的是 mock/read-only 响应
-
-目标：
-
-- 当前阶段不接入真实 QMT 订单/委托查询；该能力标注为已知问题/远期项
-- 保持 `/api/v1/qmt/orders` 为 mock/read-only 响应，并在 API/UI/docs 中明确标注
-
-完成标准：
-
-- endpoint 语义与返回内容一致
-- 文档不再误导为真实订单模块
-- 真实 QMT 订单/委托查询明确列为暂不接入
+| 状态 | 备注 |
+|------|------|
+| ✅ done | API 响应、UI 横幅、文档三处已同步标注 mock/read-only |
 
 ### BL-003 修正 trade quote / trade state 的能力口径
 
@@ -123,21 +137,22 @@
 
 | 状态 | 备注 |
 |------|------|
-| 🔶 partial | dashboard.html 已有 7 个区域骨架，但非所有卡片实现五态；Web-P0 需深化完成 |
+| ✅ done | dashboard.html 已完成 7 区域工作台收口，并补齐核心卡片 loading/empty/error/degraded/stale 处理与决策摘要 |
 
 现状：
-- `/dashboard` 更像系统指标页，不像用户每日打开的工作台
-- 当前首页缺少市场摘要、自选股/持仓、任务、报告、告警和数据健康聚合
+- ✅ 当前 `/dashboard` 已成为默认产品首页
+- ✅ 第一屏已聚合市场、自选股/决策、任务、报告、告警、板块/龙头、数据健康
+- ✅ 快捷操作区已补批量分析入口
 
 目标：
-- 重做 `/dashboard`，第一屏聚合市场、自选股、持仓、AI 任务、报告、告警和数据健康
-- 交易入口后置为二级动作
+- ✅ 已达成 — 第一屏聚合市场、自选股、持仓、AI 任务、报告、告警和数据健康
+- ✅ 已达成 — 交易入口后置为二级动作
 
 完成标准：
-- 首页有市场、自选股/持仓、任务、报告、告警、龙头/板块摘要、数据健康七个区域
-- 所有卡片支持 loading、empty、error/degraded 状态
-- 首页不使用 iframe
-- 桌面 1366px、1440px、1920px 下无遮挡或横向溢出
+- ✅ 首页有市场、自选股/持仓、任务、报告、告警、龙头/板块摘要、数据健康七个区域
+- ✅ 所有核心卡片支持 loading、empty、error/degraded/stale 状态
+- ✅ 首页不使用 iframe
+- ✅ 已补全决策摘要与批量分析入口
 
 ### BL-202 默认入口变更 — `/` 重定向到 `/dashboard`
 
@@ -160,47 +175,49 @@
 
 | 状态 | 备注 |
 |------|------|
-| 🔶 partial | 市场摘要 API (market/summary) + dashboard 指数卡片已存在，但缺少结构化交易日回顾报告 |
+| ✅ done | `/api/v1/daily/review` 已扩展为结构化复盘接口，覆盖指数、板块、涨跌家数、北向、龙虎榜、涨跌幅榜和市场 regime |
 
 现状：
-- 无每日市场复盘能力
-- 用户需要手动查看指数、涨跌家数和板块
+- ✅ 已有按交易日输出的复盘接口
+- ✅ 不再只停留在 market summary / dashboard 指数卡片
 
 目标：
-- 可按交易日生成市场复盘，含指数、涨跌家数、板块强弱和风险摘要
+- ✅ 已达成 — 可按交易日生成市场复盘，含指数、涨跌家数、板块强弱和市场 regime 摘要
 
 完成标准：
-- 复盘包含主要指数涨跌幅、涨跌家数比、板块强弱排序和风险标注
-- 复盘结果可归档为报告
+- ✅ 复盘包含 5 大指数、涨跌家数比、板块强弱排序、北向资金、龙虎榜、涨跌幅榜和 regime
+- ⏳ 报告归档能力可继续复用现有 reports 流程，但 daily 接口本身已完成
 
 ### BL-204 DSA-02 自选股批量分析 — 维护 watchlist 并批量生成 AI 摘要
 
 | 状态 | 备注 |
 |------|------|
-| 🔶 partial | dashboard 有自选股异动卡片，PaperTrader 维护 watchlist，但缺少批量 AI 分析入口 |
+| ✅ done | dashboard 已新增批量分析入口，直接触发 `/api/v1/watchlist/batch-analyze` 并回填决策卡片 |
 
 现状：
-- 自选股管理不完整，缺少批量 AI 分析入口
+- ✅ watchlist 管理已存在
+- ✅ dashboard 已补一键批量分析入口
 
 目标：
-- 用户可维护 watchlist，并批量生成 AI 摘要和评分
+- ✅ 已达成 — 用户可维护 watchlist，并批量生成分析结果与评分
 
 完成标准：
-- 有 watchlist 管理或读取入口
-- 批量分析任务可触发、查看进度和结果
+- ✅ 有 watchlist 管理或读取入口
+- ✅ 批量分析任务可触发，并将结果直接渲染回 dashboard 决策区
 
 ### BL-205 DSA-03 决策仪表盘摘要 — 首页展示 buy/hold/sell/research-only 摘要
 
 | 状态 | 备注 |
 |------|------|
-| 🔶 partial | dashboard 展示汇总数据卡片（跟踪股票数/回测数/模拟盘净值/持仓数），但缺少 buy/hold/sell/research-only 决策摘要 |
+| ✅ done | dashboard 已展示 buy/hold/sell/research-only 摘要，且 `research_only` 由实际分析结果统计而非推导占位值 |
 
 现状：
-- 首页缺少决策摘要，用户不知道 AI 对自选股/持仓的整体判断
+- ✅ 首页已有全局决策摘要
+- ✅ 已支持 `research_only` 计数并明确 `actionable=false`
 
 目标：
-- 首页展示买入/观望/卖出或 research-only 等级摘要
-- 不得直接标成可执行指令
+- ✅ 已达成 — 首页展示买入/观望/卖出和 research-only 等级摘要
+- ✅ 已达成 — 不直接标成可执行指令
 
 完成标准：
-- 摘要明确标注 `research_only` / `actionable=false`
+- ✅ 摘要明确标注 `research_only` / `actionable=false`

@@ -581,18 +581,26 @@ class TestQmtEndpoints:
         data = resp.get_json()
         assert "healthy" in data
         assert data["mock_mode"] is True
+        assert data["status"]["read_only"] is True
+        assert data["status"]["live_ready"] is False
+        assert data["status"]["capability"] == "managed"
+        assert "P3 deferred" in data["status"]["note"]
 
     def test_qmt_positions(self, app):
         resp = app.get("/api/v1/qmt/positions")
         assert resp.status_code == 200
         data = resp.get_json()
         assert "positions" in data
+        assert data["status"]["mock"] is True
+        assert data["status"]["read_only"] is True
 
     def test_qmt_orders(self, app):
         resp = app.get("/api/v1/qmt/orders")
         assert resp.status_code == 200
         data = resp.get_json()
         assert "orders" in data
+        assert data["status"]["mock"] is True
+        assert data["status"]["read_only"] is True
 
 
 # ---------------------------------------------------------------------------

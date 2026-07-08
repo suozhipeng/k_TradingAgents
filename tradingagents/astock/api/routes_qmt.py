@@ -1,6 +1,17 @@
 """QMT status API routes — read-only bridge health, positions, and orders.
 
-All routes return JSON.  Error responses follow ``{"error": ..., "status": N}``.
+**Capability level: ``managed`` (mock/read-only)**
+
+All QMT endpoints return mock data by default.  Real QMT order/query is
+deferred to P3 and is not part of the current product scope.
+
+Every response includes a ``status`` dict with:
+
+- ``source``: ``"mock"`` or ``"live"``
+- ``mock``: ``True`` when data is synthetic
+- ``read_only``: ``True`` (all current routes are read-only)
+- ``live_ready``: ``False`` (not connected to a real broker)
+- ``capability``: ``"managed"`` with ``"note": "mock/read-only — real QMT order/query is P3 deferred"``
 
 Uses lazy imports for ``tradingagents.astock.execution.qmt_bridge``.
 """
@@ -20,8 +31,11 @@ _qmt_bridge: Any = None
 def _get_bridge() -> Any:
     """Return the shared QMT bridge instance (always mock by default).
 
-    To use real QMT, pass ``use_mock=False`` directly — do not rely on
-    a global toggle here.
+    **Mock mode is intentional.**  This endpoint never connects to a real
+    broker.  To use real QMT, pass ``use_mock=False`` directly — do not
+    rely on a global toggle here.
+
+    Real QMT order/query is P3 deferred.
     """
     global _qmt_bridge
     if _qmt_bridge is None:
@@ -36,12 +50,17 @@ def _bridge_status(bridge: Any) -> dict[str, Any]:
 
     Every QMT endpoint adds this dict so the caller can unambiguously
     determine whether the data is mock / real / unavailable.
+
+    Capability level: ``managed`` (mock/read-only).
+    Real QMT order/query is P3 deferred.
     """
     return {
         "source": "mock" if bridge.is_mock else "live",
         "mock": bridge.is_mock,
         "read_only": True,  # All current QMT routes are read-only
         "live_ready": False,  # Not connected to a real broker
+        "capability": "managed",
+        "note": "mock/read-only — real QMT order/query is P3 deferred",
     }
 
 
@@ -53,6 +72,8 @@ def _bridge_status(bridge: Any) -> dict[str, Any]:
 @bp.route("/qmt/health")
 def qmt_health() -> tuple[Response, int]:
     """QMT bridge health check.
+
+    **Capability: ``managed`` (mock/read-only)**
 
     Query params:
         real (bool) — if ``1``, attempt a real (non-mock) connection check.

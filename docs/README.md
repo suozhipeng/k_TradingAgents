@@ -2,6 +2,13 @@
 
 > 每个主题**只有一个权威文档**。版本历史见 [../CHANGELOG.md](../CHANGELOG.md)（已合并 AStock Pro 变更）。
 
+## 当前状态
+
+- 当前本地状态以 [`phases/README.md`](phases/README.md) 和 [`04-dev/traceability-matrix.md`](04-dev/traceability-matrix.md) 为准
+- 2026-07-08 本地离线验证基线：`1076 passed, 14 skipped`
+- DeepSeek live API 测试使用 placeholder key 跳过；真实 live key 验证不属于当前 A 股主业务链阻断项
+- 当前产品范围明确为：投研分析 + 回测 + 模拟盘 + mock/read-only QMT managed 试运行；**不接入真实券商**
+
 ## 📂 文档结构
 
 ```
@@ -47,6 +54,7 @@ docs/
 
 | 我想... | 打开... |
 |---------|---------|
+| 看当前状态 | `phases/README.md` |
 | 启动服务 | `02-guide/QUICK_START.md` |
 | 查看 API | `01-arch/API.md` |
 | 了解产品功能 | `04-dev/PRD.md` |
