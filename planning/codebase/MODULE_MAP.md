@@ -56,7 +56,7 @@
 | A 股 QMT 受控执行 | `tradingagents/astock/execution/qmt_execution.py` | dataflow | Phase 11 交付。safety/auto 模式切换，人工确认门，ATR 实时止损。 | auto mode 风险自担；real QMT 未测试；安全边界依赖 code review |
 | A 股 风控门 | `tradingagents/astock/execution/risk_gate.py` | dataflow | Phase 11 交付。ATR 动态止损、safety mode 确认门、组合风控约束、实时止损计算。 | 风控不等于零风险；实时止损依赖行情刷新频率 |
 | A 股 策略基类 | `tradingagents/astock/execution/strategy_base.py` | dataflow | 策略定义基类，供回测/模拟盘/实盘策略复用。 | 仓库中无具体策略实现；仅 base class 而非策略实例 |
-| LLM Client Factory 与 Model Catalog | `tradingagents/llm_clients/*.py` | config | 统一构建 OpenAI、Anthropic、Google/Gemini、Azure、OpenRouter/Ollama/OpenAI-compatible、DeepSeek、Qwen、GLM、MiniMax、xAI 等 LLM 客户端，并维护模型能力、API key 环境变量和校验逻辑。 | provider/API key/base_url 配置错误会导致运行失败；模型结构化输出和工具调用能力差异影响 Agent；不同 provider 的 reasoning/temperature 语义不一致 |
+| LLM Client Factory 与 Model Catalog | `tradingagents/llm_clients/*.py` | config | 统一构建 OpenAI、Anthropic、Azure、OpenRouter/Ollama/OpenAI-compatible、DeepSeek、Qwen、GLM、MiniMax、xAI 等 LLM 客户端，并维护模型能力、API key 环境变量和校验逻辑。Gemini 相关代码文件仍在，但当前仓库运行期已暂时屏蔽。 | provider/API key/base_url 配置错误会导致运行失败；模型结构化输出和工具调用能力差异影响 Agent；不同 provider 的 reasoning/temperature 语义不一致 |
 | Structured Output Schemas | `tradingagents/agents/schemas.py / agents/utils/structured.py / rating.py` | config | Pydantic schema 与渲染/降级工具，定义并格式化 SentimentReport、ResearchPlan、TraderProposal、PortfolioDecision 等结构化输出和五档 rating。 | schema 变更会影响多个 Agent 和 UI 展示；部分 provider 不稳定支持结构化输出；降级解析准确性需人工确认 |
 | Memory Log 持久化 | `tradingagents/agents/utils/memory.py` | config | 维护历史交易决策日志，支持 pending outcome、同标的历史上下文、跨标的 lessons，并向 Trader/Portfolio Manager 注入 past_context。 | 会写用户 home 下持久化文件，本阶段不得运行；历史记忆可能引入偏差；收益回填依赖 yfinance 价格数据和 benchmark map |
 

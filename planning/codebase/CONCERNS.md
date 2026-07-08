@@ -42,7 +42,7 @@
 `llm_clients/api_key_env.py` 显示支持大量 key：
 - `OPENAI_API_KEY`
 - `ANTHROPIC_API_KEY`
-- `GOOGLE_API_KEY`
+- `GOOGLE_API_KEY`（当前仓库已暂时屏蔽 Gemini provider，key 映射仍残留）
 - `AZURE_OPENAI_API_KEY`
 - `OPENROUTER_API_KEY`
 - 以及 xAI / DeepSeek / Qwen / GLM / MiniMax 等

@@ -94,7 +94,6 @@ factory.py (create_llm_client)
     │
     ├─► OpenAIClient      → openai, xai, deepseek, qwen, glm, minimax, ollama, openrouter
     ├─► AnthropicClient   → anthropic
-    ├─► GoogleClient      → google
     └─► AzureOpenAIClient → azure
 ```
 
@@ -105,7 +104,7 @@ factory.py (create_llm_client)
 | `base_client.py` | 抽象基类，定义统一接口 |
 | `openai_client.py` | OpenAI 兼容 API 客户端 |
 | `anthropic_client.py` | Anthropic Claude 客户端 |
-| `google_client.py` | Google Gemini 客户端 |
+| `google_client.py` | Gemini 残留客户端文件，当前仓库运行期已暂时屏蔽 |
 | `azure_client.py` | Azure OpenAI 客户端 |
 | `factory.py` | 工厂函数 `create_llm_client(provider, model, base_url, **kwargs)` |
 | `model_catalog.py` | 模型注册表 |
@@ -914,7 +913,7 @@ cli/main.py
 
 tradingagents/llm_clients/
     │
-    └─► 各提供商 SDK (openai, anthropic, google, azure)
+    └─► 各提供商 SDK (openai, anthropic, azure; Gemini 当前已暂时屏蔽)
 
 tradingagents/dataflows/
     │

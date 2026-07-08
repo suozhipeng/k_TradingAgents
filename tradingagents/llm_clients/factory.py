@@ -1,6 +1,7 @@
 from typing import Optional
 
 from .base_client import BaseLLMClient
+from .provider_support import assert_provider_available
 
 # Providers that use the OpenAI-compatible chat completions API
 _OPENAI_COMPATIBLE = (
@@ -37,6 +38,7 @@ def create_llm_client(
         ValueError: If provider is not supported
     """
     provider_lower = provider.lower()
+    assert_provider_available(provider_lower)
 
     if provider_lower in _OPENAI_COMPATIBLE:
         from .openai_client import OpenAIClient
@@ -45,10 +47,6 @@ def create_llm_client(
     if provider_lower == "anthropic":
         from .anthropic_client import AnthropicClient
         return AnthropicClient(model, base_url, **kwargs)
-
-    if provider_lower == "google":
-        from .google_client import GoogleClient
-        return GoogleClient(model, base_url, **kwargs)
 
     if provider_lower == "azure":
         from .azure_client import AzureOpenAIClient

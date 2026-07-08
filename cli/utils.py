@@ -10,6 +10,7 @@ from rich.console import Console
 from cli.models import AnalystType, AssetType
 from tradingagents.llm_clients.api_key_env import get_api_key_env
 from tradingagents.llm_clients.model_catalog import get_model_options
+from tradingagents.llm_clients.provider_support import get_provider_unavailable_message
 
 console = Console()
 
@@ -285,7 +286,7 @@ def _llm_provider_table() -> list[tuple[str, str, str | None]]:
     ollama_url = os.environ.get("OLLAMA_BASE_URL") or "http://localhost:11434/v1"
     return [
         ("OpenAI", "openai", "https://api.openai.com/v1"),
-        ("Google", "google", None),
+        ("Google (Gemini, temporarily unavailable)", "google", None),
         ("Anthropic", "anthropic", "https://api.anthropic.com/"),
         ("xAI", "xai", "https://api.x.ai/v1"),
         ("DeepSeek", "deepseek", "https://api.deepseek.com"),
@@ -314,7 +315,11 @@ def select_llm_provider() -> tuple[str, str | None]:
     choice = questionary.select(
         "Select your LLM Provider:",
         choices=[
-            questionary.Choice(display, value=(provider_key, url))
+            questionary.Choice(
+                display,
+                value=(provider_key, url),
+                disabled=get_provider_unavailable_message(provider_key),
+            )
             for display, provider_key, url in PROVIDERS
         ],
         instruction="\n- Use arrow keys to navigate\n- Press Enter to select",
@@ -333,6 +338,14 @@ def select_llm_provider() -> tuple[str, str | None]:
 
     provider, url = choice
     return provider, url
+
+
+def ensure_provider_available_or_exit(provider: str) -> None:
+    """Exit early with a clear prompt when a provider is temporarily disabled."""
+    message = get_provider_unavailable_message(provider)
+    if message:
+        console.print(f"\n[red]{message}[/red]")
+        exit(1)
 
 
 def ask_openai_reasoning_effort() -> str:

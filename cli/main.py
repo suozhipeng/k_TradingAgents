@@ -721,6 +721,7 @@ def get_user_selections():
         backend_url = DEFAULT_CONFIG["backend_url"] or provider_default_url(selected_llm_provider)
         console.print(f"[green]✓ LLM provider from environment:[/green] {selected_llm_provider}")
         console.print(f"[green]✓ Backend URL:[/green] {backend_url}")
+        ensure_provider_available_or_exit(selected_llm_provider)
         # Still confirm/persist the API key so the run doesn't fail later.
         ensure_api_key(selected_llm_provider)
     else:
@@ -730,6 +731,7 @@ def get_user_selections():
             )
         )
         selected_llm_provider, backend_url = select_llm_provider()
+        ensure_provider_available_or_exit(selected_llm_provider)
 
         # Providers with regional endpoints prompt for the region as a secondary
         # step so the main dropdown stays clean (mainland China and international

@@ -14,7 +14,6 @@
 - `langchain-core>=0.3.81`
 - `langchain-openai>=0.3.23`
 - `langchain-anthropic>=0.3.15`
-- `langchain-google-genai>=4.0.0`
 - `langchain-experimental>=0.3.4`
 - `langgraph>=0.4.8`
 - `langgraph-checkpoint-sqlite>=2.0.0`
@@ -45,7 +44,7 @@
 - `factory.py`：统一入口，按 provider 构造客户端
 - `openai_client.py`
 - `anthropic_client.py`
-- `google_client.py`
+- `google_client.py`：残留代码文件，当前 provider 已暂时屏蔽
 - `azure_client.py`
 - `api_key_env.py`：provider → 环境变量映射
 - `model_catalog.py`：CLI 模型选单
@@ -54,7 +53,6 @@
 ### 已支持 Provider（由 `factory.py` 和 `api_key_env.py` 可见）
 - OpenAI
 - Anthropic
-- Google Gemini
 - Azure OpenAI
 - xAI
 - DeepSeek
@@ -63,6 +61,10 @@
 - MiniMax / MiniMax-CN
 - OpenRouter
 - Ollama
+
+### 当前暂时屏蔽的 Provider
+- Google Gemini
+  - 原因：`langchain-google-genai` 需要较新的 `httpx`，与 A 股 provider 栈中的 `mootdx 0.11.7` 约束冲突
 
 ## 数据源相关组件
 ### 市场与基本面数据

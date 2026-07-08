@@ -66,3 +66,6 @@ class AStockAdapterBase(object):
 
     def get_announcement_summary(self, request: AStockRequest):
         return self._unavailable(request, "announcement summary endpoint not implemented")
+
+    def get_sector_data(self, request: AStockRequest):
+        return self._unavailable(request, "sector data endpoint not implemented")

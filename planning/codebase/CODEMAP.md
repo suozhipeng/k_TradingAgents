@@ -211,7 +211,7 @@ TradingAgentsGraph
 - `llm_clients/factory.py`：路由入口
 - `llm_clients/openai_client.py`：OpenAI-compatible providers
 - `llm_clients/anthropic_client.py`
-- `llm_clients/google_client.py`
+- `llm_clients/google_client.py`：代码文件仍在，但当前仓库已暂时屏蔽 Gemini provider
 - `llm_clients/azure_client.py`
 - `llm_clients/api_key_env.py`：环境变量映射
 

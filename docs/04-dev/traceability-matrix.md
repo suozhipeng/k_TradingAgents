@@ -89,6 +89,8 @@
 - `FR-09` WebUI 顶层信息架构已基本收敛到 7 个模块；主工作台与页面主链已落地，BL-201/BL-205/BL-204 已闭环。
 - `NFR-02` 可审计性已有 `audit_store.py` (内存+DuckDB)、`TaskRun`/`AuditEvent` schema、Ops routes 和 SSE events，标记为 `done`（底层已落地）。
 - 当前本地离线全量回归基线为 `1082 passed, 10 skipped`；真实 live 验收已补跑：DeepSeek `1 passed`、provider `7 passed, 1 skipped`、pipeline `VERIFICATION PASSED`；Iwencai 仍受 `ASTOCK_IWENCAI_COOKIE` 配置约束。
+- 已知缺口：`announcement_*` 路由优先级为 cninfo 但测试 facade 仅注册 akshare 属预期行为。
+- 已修复：`sector` 能力 — akshare 适配器新增 `get_sector_data()` 实现（基于 THS `stock_board_industry_summary_ths` + EM `stock_board_concept_spot_em`），路由策略与实际实现对齐。
 - 安全与隐私、SLA 与故障分级、用户角色/RBAC 当前只登记在 `README.md`，不进入本矩阵需求行。
 
 ## 4. 更新规则

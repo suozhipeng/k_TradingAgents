@@ -25,7 +25,7 @@ from ..common import (
     _temporarily_disable_proxies,
 )
 from ...errors import AStockNoDataError, AStockSourceUnavailableError
-from ...schema import AStockRequest
+from ...schema import AStockRequest, _as_records
 from ...symbols import astock_code, normalize_astock_symbol
 from .tencent import TencentFinanceAdapter
 
@@ -506,3 +506,30 @@ class AkshareAdapter(AStockAdapterBase):
     def get_global_news(self, request: AStockRequest):
         payload = self._call(request, "stock_info_global_em")
         return self._parse_flash_news(request, payload, source_name="em")
+
+    def get_sector_data(self, request: AStockRequest):
+        """Fetch industry sector ranking via akshare (THS board data)."""
+        indicator = str(request.extras.get("indicator", "industry")).lower().strip()
+        if indicator == "concept":
+            func_name = "stock_board_concept_spot_em"
+        else:
+            func_name = "stock_board_industry_summary_ths"
+        payload = self._call(request, func_name)
+        items: List[Dict[str, Any]] = []
+        records = _as_records(payload)
+        for row in records:
+            items.append({
+                "sector_code": _first_non_null(row, ("序号", "code"), ""),
+                "sector_name": _first_non_null(row, ("板块", "name"), ""),
+                "change_pct": _coerce_float(_first_non_null(row, ("涨跌幅", "change_pct"), 0.0)),
+                "volume": _coerce_float(_first_non_null(row, ("总成交量", "volume"), 0.0)),
+                "amount": _coerce_float(_first_non_null(row, ("总成交额", "amount"), 0.0)),
+                "net_inflow": _coerce_float(_first_non_null(row, ("净流入", "net_inflow"), 0.0)),
+                "advancers": _coerce_int(_first_non_null(row, ("上涨家数", "advancers"), 0)),
+                "decliners": _coerce_int(_first_non_null(row, ("下跌家数", "decliners"), 0)),
+                "avg_price": _coerce_float(_first_non_null(row, ("均价", "avg_price"), 0.0)),
+                "leading_stock": _first_non_null(row, ("领涨股", "leading_stock"), ""),
+                "leading_stock_price": _coerce_float(_first_non_null(row, ("领涨股-最新价", "leading_stock_price"), 0.0)),
+                "leading_stock_change": _coerce_float(_first_non_null(row, ("领涨股-涨跌幅", "leading_stock_change"), 0.0)),
+            })
+        return {"items": items, "count": len(items), "indicator": indicator, "source": self.name}

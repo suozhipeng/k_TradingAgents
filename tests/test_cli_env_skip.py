@@ -29,6 +29,11 @@ class TestProviderDefaultUrl(unittest.TestCase):
         with mock.patch.dict(os.environ, {"OLLAMA_BASE_URL": "http://host:1234/v1"}):
             self.assertEqual(provider_default_url("ollama"), "http://host:1234/v1")
 
+    def test_disabled_provider_exits_with_clear_prompt(self):
+        from cli.utils import ensure_provider_available_or_exit
+        with self.assertRaises(SystemExit):
+            ensure_provider_available_or_exit("google")
+
 
 @pytest.mark.unit
 class TestCliSkipsPromptsFromEnv(unittest.TestCase):

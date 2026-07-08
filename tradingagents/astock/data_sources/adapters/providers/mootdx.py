@@ -37,6 +37,10 @@ class MootdxAdapter(AStockAdapterBase):
         if self._client is not None:
             return self._client
         try:
+            # Note: keep this provider import path lightweight. The current
+            # repo temporarily disables Gemini because langchain-google-genai
+            # wants a newer httpx, while mootdx 0.11.7 still constrains
+            # httpx < 0.26.0 in the shared environment.
             from mootdx.quotes import Quotes  # type: ignore
         except Exception as exc:  # pragma: no cover - optional dependency
             raise AStockSourceUnavailableError(self.name, "mootdx import failed: {0}".format(exc))

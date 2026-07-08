@@ -116,7 +116,8 @@ TradingAgents/
 
 #### `tradingagents/llm_clients/`
 - LLM provider 抽象层
-- 屏蔽 OpenAI / Anthropic / Gemini / OpenRouter / Ollama 等差异
+- 屏蔽 OpenAI / Anthropic / OpenRouter / Ollama 等差异
+- Gemini 相关文件仍在，但当前仓库运行期已暂时屏蔽
 
 #### `tradingagents/default_config.py`
 - 默认配置单点来源

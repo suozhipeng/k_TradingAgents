@@ -47,6 +47,25 @@
 
 ### BL-000 建立实盘准入清单
 
+#### 2026-07-08 Live 验证结论
+
+| 验证项 | 结果 | 说明 |
+|--------|------|------|
+| 离线测试基线 | 1082 passed, 10 skipped | 零失败 |
+| Live Provider (akshare) | 7 passed, 1 skipped | 全部 7 个 provider 测试通过；iwencai 需 cookie |
+| Live Provider (tencent) | 5/5 ok | order_book/trade_tape/turnover 全部 ok |
+| Live Provider (cninfo) | 2/2 ok | announcement_summary/full 全部 ok |
+| Live Provider (mootdx) | 4/4 ok | kline/order_book/trade_tape/f10 全部 ok |
+| DeepSeek 离线 | 13 passed | 1 skipped (需 API key) |
+| Pydantic BT | 39 passed | TEST_PYDANTIC_BT=1 |
+| 模块导入 | 26/28 OK | settlement/cli_report 为内部名非独立模块 |
+- 已知缺口：2 项 | announcement_* 路由优先级非 akshare（预期行为）
+
+#### 已知缺口详述
+
+1. **`announcement_*` 能力** — 路由优先级为 cninfo → mootdx，测试 facade 仅注册 akshare 导致 error。这是测试场景的预期行为，生产环境 cninfo 适配器可用。
+2. **`sector` 已修复** — akshare 适配器已实现 `get_sector_data()`，支持 industry（THS）和 concept（EM）两种模式。
+
 现状：
 
 - 当前系统已经能支撑投研分析、回测、模拟盘和 QMT managed mock/read-only 边界展示

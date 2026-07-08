@@ -18,7 +18,6 @@ class TestTemperatureForwarding:
         [
             ("openai", "gpt-4.1"),
             ("anthropic", "claude-sonnet-4-6"),
-            ("google", "gemini-2.5-flash"),
             ("deepseek", "deepseek-chat"),
         ],
     )
@@ -35,6 +34,12 @@ class TestTemperatureForwarding:
         ).get_llm()
         # langchain's default is unset/None, not 0.0
         assert llm.temperature is None
+
+    def test_google_provider_is_temporarily_disabled(self):
+        with pytest.raises(ValueError, match="Gemini support is temporarily disabled"):
+            create_llm_client(
+                provider="google", model="gemini-2.5-flash", temperature=0.0, api_key="placeholder"
+            )
 
 
 @pytest.mark.unit
