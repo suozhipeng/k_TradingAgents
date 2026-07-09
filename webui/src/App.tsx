@@ -307,11 +307,24 @@ function AppContent() {
                   await api.runBacktest({ symbol: btSymbol, strategy: btStrategy, start: btStart, end: btEnd });
                   const res = await api.fetchBacktestResults(btStrategy);
                   const results = res.results ?? [];
-                  const curves: EquityCurve[] = results.map((r: Record<string, unknown>) => ({
-                    strategy_name: (r.strategy_name as string) ?? btStrategy,
-                    dates: (r.equity_curve_dates as string[]) ?? [],
-                    values: (r.equity_curve_values as number[]) ?? [],
-                  }));
+                  const curves: EquityCurve[] = results.map((r: Record<string, unknown>) => {
+                    // Backend returns equity_curve as [{period, value}]; normalize for frontend
+                    const ec = r.equity_curve as Array<Record<string, unknown>> | undefined;
+                    const legacyDates = (r.equity_curve_dates as string[]) ?? [];
+                    const legacyValues = (r.equity_curve_values as number[]) ?? [];
+                    if (ec && ec.length > 0) {
+                      return {
+                        strategy_name: (r.strategy_name as string) ?? btStrategy,
+                        dates: ec.map(item => String(item.period ?? "")),
+                        values: ec.map(item => Number(item.value ?? 0)),
+                      };
+                    }
+                    return {
+                      strategy_name: (r.strategy_name as string) ?? btStrategy,
+                      dates: legacyDates,
+                      values: legacyValues,
+                    };
+                  });
                   setBtCurves(curves.length ? curves : []);
                 } catch (e: unknown) {
                   setBtError(t("backtest.error", { msg: e instanceof Error ? e.message : String(e) }));
@@ -365,7 +378,7 @@ function AppContent() {
                   const res = await api.fetchKline(klSymbol, undefined, undefined, klInterval);
                   const bars = (res.bars ?? []) as Record<string, unknown>[];
                   const ohlcv: OHLCV[] = bars.map(b => ({
-                    trade_date: (b.trade_date ?? b.date ?? "") as string,
+                    trade_date: (b.trade_date ?? b.bar_time ?? b.date ?? "") as string,
                     open: Number(b.open ?? 0),
                     high: Number(b.high ?? 0),
                     low: Number(b.low ?? 0),
