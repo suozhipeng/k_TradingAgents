@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import logging
 import time
 from typing import Any
 
 from flask import Blueprint, Response, jsonify
 
 bp = Blueprint("data_health", __name__)
+logger = logging.getLogger(__name__)
 
 
 def _probe_adapter(adapter_name: str, adapter_cls: Any) -> dict[str, Any]:
@@ -37,7 +39,8 @@ def _probe_adapter(adapter_name: str, adapter_cls: Any) -> dict[str, Any]:
                 try:
                     data = instance.get_kline("600519.SH")
                     ok = data is not None
-                except Exception:
+                except Exception as exc:
+                    logger.warning("Health check failed for %s: %s", name, exc)
                     ok = False
             else:
                 ok = True
@@ -93,8 +96,8 @@ def data_health() -> tuple[Response, int]:
             ("TDX (通达信在线)", TdxProvider),
             ("Tencent Finance", TencentFinanceAdapter),
         ]
-    except ImportError:
-        pass
+    except ImportError as e:
+        logger.debug("Operation failed: {0}", e)
 
     for name, cls in adapter_classes:
         adapters.append(_probe_adapter(name, cls))

@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any, Dict, List, Optional
 
 from ..base import AStockAdapterBase
+
+logger = logging.getLogger(__name__)
 from ..common import (
     _coerce_float,
     _env,

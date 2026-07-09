@@ -274,8 +274,10 @@ class TdxProvider:
         if self._client is not None:
             try:
                 self._client.disconnect()
-            except Exception:
-                pass
+            except Exception as e:
+
+                logger.debug("Operation failed: {0}", e)
+
             self._client = None
 
     def _call(self, request: AStockRequest, method_name: str, **kwargs: Any) -> Any:
@@ -609,8 +611,10 @@ class TdxProvider:
                         cache.set(
                             request.symbol, "kline", "1d", result, source="tdx_pytdx"
                         )
-                    except Exception:
-                        pass
+                    except Exception as e:
+
+                        logger.debug("Operation failed: {0}", e)
+
                 return result
 
         result = self._parse_tdx_bars(raw, request)
@@ -621,8 +625,10 @@ class TdxProvider:
                 cache.set(
                     request.symbol, "kline", interval, result, source="tdx_pytdx"
                 )
-            except Exception:
-                pass
+            except Exception as e:
+
+                logger.debug("Operation failed: {0}", e)
+
 
         return result
 

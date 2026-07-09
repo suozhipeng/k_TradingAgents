@@ -438,8 +438,8 @@ class QmtExecutionEngine:
         """
         try:
             self._open_orders = self._bridge.get_positions()  # simplified; real bridge would have get_open_orders
-        except (ConnectionError, ValueError):
-            pass
+        except (ConnectionError, ValueError) as e:
+            logger.debug("Operation failed: {0}", e)
         return list(self._open_orders)
 
     # -- internal helpers ---------------------------------------------------
@@ -464,8 +464,8 @@ class QmtExecutionEngine:
                 for pos in positions:
                     if pos["symbol"] == symbol:
                         return int(pos.get("available", 0))
-            except (ConnectionError, ValueError):
-                pass
+            except (ConnectionError, ValueError) as e:
+                logger.debug("Operation failed: {0}", e)
             return 0
         return 0
 

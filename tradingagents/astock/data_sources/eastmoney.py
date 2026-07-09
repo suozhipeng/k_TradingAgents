@@ -12,6 +12,8 @@ All eastmoney.com requests go through ``em_get()`` which enforces:
 
 from __future__ import annotations
 
+import logging
+
 import random
 import time
 from datetime import datetime
@@ -20,6 +22,7 @@ from typing import Any
 import requests
 
 from .calendar import prev_trading_day
+logger = logging.getLogger(__name__)
 
 UA = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "

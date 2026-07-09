@@ -78,8 +78,8 @@ def audit_log(
                     body = request.get_json(silent=True)
                     detail["body"] = body if body else {}
                     detail["query"] = dict(request.args)
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.warning("Audit flush failed: %s", exc)
 
             if capture_response:
                 # We'll capture after the response is built below
@@ -167,8 +167,8 @@ def _capture_response_body(detail: dict[str, Any], response: Any) -> None:
             if len(preview) > 2048:
                 preview = preview[:2048] + "... (truncated)"
             detail["response_preview"] = preview
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("Audit response capture failed: %s", exc)
 
 
 def _write_audit(
@@ -196,8 +196,8 @@ def _write_audit(
             try:
                 from flask import current_app
                 store = current_app.config.get("STORE")
-            except (RuntimeError, KeyError):
-                pass
+            except (RuntimeError, KeyError) as e:
+                logger.debug("Operation failed: {0}", e)
         if store is None:
             logger.debug("Audit write skipped: no store available")
             return

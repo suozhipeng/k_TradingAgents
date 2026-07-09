@@ -22,7 +22,7 @@ from flask import Blueprint, Response, current_app, jsonify, request
 bp = Blueprint("tv", __name__)
 logger = logging.getLogger(__name__)
 
-from ._helpers import df_to_json  # noqa: E402
+from ._helpers import df_to_json, get_store  # noqa: E402
 
 # Backward-compatible alias
 _df_to_json = df_to_json
@@ -34,10 +34,6 @@ RESOLUTION_MAP: dict[str, str] = {
     "1M": "1mo", "M": "1mo", "43200": "1mo",
     "1Y": "1y", "Y": "1y", "12M": "1y", "525600": "1y",
 }
-
-
-def _store() -> Any:
-    return current_app.config["STORE"]
 
 
 def _router() -> Any:
@@ -126,10 +122,10 @@ def _load_index_constituents() -> dict[str, set[str]]:
                 df = ak.index_stock_cons(symbol=idx_code)
                 codes = {_code_to_astock(c) for c in df.iloc[:, 0].astype(str).tolist()}
                 _index_constituents[idx_code] = codes
-            except Exception:
-                pass
-    except Exception:
-        pass
+            except Exception as exc:
+                logger.debug("Failed to fetch index constituent %s: %s", idx_code, exc)
+    except Exception as exc:
+        logger.debug("Failed to fetch index constituents from akshare: %s", exc)
     return _index_constituents
 
 
@@ -212,8 +208,8 @@ def _load_stock_list() -> list[dict[str, str | tuple[str, str]]]:
                              "pinyin": (py, init)})
             _stock_list_cache = rows
             _stock_list_loaded = True
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("Failed to load stock list from mootdx: %s", exc)
     return _stock_list_cache or []
 
 
@@ -234,7 +230,8 @@ def tv_stock_search() -> tuple[Response, int]:
         from pypinyin import lazy_pinyin, Style
         q_pinyin = "".join(lazy_pinyin(q, style=Style.NORMAL)).lower()
         q_initials = "".join(lazy_pinyin(q, style=Style.FIRST_LETTER)).lower()
-    except Exception:
+    except Exception as exc:
+        logger.debug("Failed to convert pinyin for search: %s", exc)
         q_pinyin = ""
         q_initials = ""
 
@@ -308,8 +305,8 @@ def tv_stock_info() -> tuple[Response, int]:
             resp = router.get_valuation(symbol, source="tencent")
             if resp.status == "ok" and resp.data:
                 name = resp.data.get("name", "")
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Failed to fetch valuation from router: %s", exc)
         try:
             from tradingagents.astock.data_sources.adapters import build_default_adapters
             adapters = build_default_adapters()
@@ -322,8 +319,8 @@ def tv_stock_info() -> tuple[Response, int]:
                     ind_code = resp2.get("industry")
                     if isinstance(ind_code, int) and ind_code in _TDX_INDUSTRY:
                         industry = _TDX_INDUSTRY[ind_code]
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Failed to fetch industry from mootdx adapter: %s", exc)
     info["name"] = name
     info["industry"] = industry
     info["indices"] = _check_index_membership(symbol)
@@ -365,12 +362,13 @@ def tv_symbols() -> tuple[Response, int]:
         return jsonify({"error": "symbol is required", "status": 400}), 400
 
     try:
-        store = _store()
+        store = get_store()
         df = store.query_kline(symbol, interval="1d", limit=1)
         bars = _df_to_json(df)
         last_price = bars[-1]["close"] if bars else 100.0
         prev_close = bars[-2]["close"] if len(bars) > 1 else last_price
-    except Exception:
+    except Exception as exc:
+        logger.debug("Failed to get market summary for %s: %s", symbol, exc)
         last_price = 100.0
         prev_close = 100.0
 
@@ -431,7 +429,7 @@ def tv_history() -> tuple[Response, int]:
     interval = _tv_resolution(resolution)
 
     try:
-        store = _store()
+        store = get_store()
         start_str = __import__("datetime").datetime.utcfromtimestamp(from_ts).strftime("%Y-%m-%d") if from_ts else None  # noqa: E501
         end_str = __import__("datetime").datetime.utcfromtimestamp(to_ts).strftime("%Y-%m-%d") if to_ts else None
         df = store.query_kline(symbol, interval=interval, start=start_str, end=end_str)

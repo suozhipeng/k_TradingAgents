@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import os
+import time
 from typing import Any
 
 from flask import Flask
@@ -72,8 +73,12 @@ def _build_store_config(app: Flask, db_path: str | None = None) -> None:
     try:
         from tradingagents.astock.data_sources.router import AStockDataFacade
         app.config["DATA_FACADE"] = AStockDataFacade()
-    except Exception:
+    except Exception as exc:
+        app.logger.warning("Failed to initialize DataFacade: %s", exc)
         app.config["DATA_FACADE"] = None
+
+    # Record app start time for health-check uptime
+    app.config["_START_TIME"] = time.time()
 
 
 def _build_scheduler_config(app: Flask) -> None:

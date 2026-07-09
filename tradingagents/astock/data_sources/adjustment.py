@@ -282,8 +282,10 @@ def fetch_adjust_factors(symbol: str) -> pd.DataFrame:
             if df is not None and not df.empty:
                 _factor_cache[symbol] = df
                 return df
-        except Exception:
-            pass
+        except Exception as e:
+
+            logger.debug("Operation failed: {0}", e)
+
 
     # 3+4. External sources with fallback
     sources = [
@@ -299,8 +301,10 @@ def fetch_adjust_factors(symbol: str) -> pd.DataFrame:
                 if _duckdb_conn is not None:
                     try:
                         _persist_to_duckdb(symbol, df)
-                    except Exception:
-                        pass
+                    except Exception as e:
+
+                        logger.debug("Operation failed: {0}", e)
+
                 return df
         except Exception:
             continue
@@ -327,8 +331,10 @@ def _persist_to_duckdb(symbol: str, df: pd.DataFrame) -> None:
                 "VALUES (?, ?, ?)",
                 [symbol, row["date"], float(row["adjust_factor"])],
             )
-    except Exception:
-        pass
+    except Exception as e:
+
+        logger.debug("Operation failed: {0}", e)
+
 
 
 # ---------------------------------------------------------------------------

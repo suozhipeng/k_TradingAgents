@@ -65,7 +65,7 @@ def normalize_astock_symbol(raw: str) -> str:
     - ``830899`` -> ``830899.BJ``
     """
     if not isinstance(raw, str):
-        return raw
+        return str(raw)
 
     text = raw.strip().upper()
     if not text:
@@ -73,8 +73,9 @@ def normalize_astock_symbol(raw: str) -> str:
 
     code, exchange = split_astock_symbol(text)
     if code and exchange:
-        return "{0}.{1}".format(code, exchange)
+        return f"{code}.{exchange}"
 
+    # If we couldn't parse it, return the cleaned-up input rather than raw
     return text
 
 

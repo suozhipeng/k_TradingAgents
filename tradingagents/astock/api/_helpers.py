@@ -13,6 +13,8 @@ import os
 from datetime import datetime
 from typing import Any
 
+from flask import Blueprint, current_app
+
 from tradingagents.astock.data_sources.cleaner import (
     clean_records,
     summary_text,
@@ -111,3 +113,17 @@ def _int_config(app: Any, key: str, default: int) -> int:
         return int(str(val).strip())
     except (TypeError, ValueError):
         return default
+
+
+# ---------------------------------------------------------------------------
+# Store accessor (replaces per-file _store() functions)
+# ---------------------------------------------------------------------------
+
+def get_store() -> Any:
+    """Get the configured STORE from app config."""
+    return current_app.config["STORE"]
+
+
+def get_router() -> Any:
+    """Get the configured DATA_FACADE from app config."""
+    return current_app.config.get("DATA_FACADE")

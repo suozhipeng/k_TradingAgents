@@ -4,11 +4,14 @@ from __future__ import annotations
 
 import importlib
 import inspect
+import logging
 import time
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from ..base import AStockAdapterBase
+
+logger = logging.getLogger(__name__)
 from ..common import (
     _coerce_bool,
     _coerce_float,

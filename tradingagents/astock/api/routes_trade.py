@@ -8,6 +8,7 @@ Uses lazy imports for ``tradingagents.astock.execution.paper_trader``.
 from __future__ import annotations
 
 import re
+import logging
 from datetime import datetime
 from hashlib import sha256
 from threading import Lock
@@ -17,15 +18,17 @@ import requests
 from flask import Blueprint, Response, jsonify, request
 
 bp = Blueprint("trade", __name__)
+logger = logging.getLogger(__name__)
 
 # Global paper trader instance (shared with paper blueprint)
 _trader: Any = None
 
 # ── 实时报价缓存 ───────────────────────────────────────────────────────
 
-_quote_cache: dict[str, dict[str, Any]] = {}   # symbol → quote dict
+_quote_cache: dict[str, dict[str, Any]] = {}   # symbol → {data, cached_at}
 _cache_lock = Lock()
 _CACHE_TTL_SECONDS = 60                          # 缓存有效期 60 秒
+_CACHE_MAX_SIZE = 500                            # 缓存上限（LRU 淘汰）
 
 EM_QUOTE_URL = "https://push2.eastmoney.com/api/qt/stock/get"
 SINA_QUOTE_URL = "https://hq.sinajs.cn/list={code}"
@@ -70,7 +73,8 @@ def _fetch_quote_eastmoney(symbol: str) -> dict[str, Any] | None:
             "turnover_rate": float(d.get("f168", 0)),
             "timestamp": datetime.now().isoformat(),
         }
-    except Exception:
+    except Exception as exc:
+        logger.debug("Failed to fetch quote for %s: %s", symbol, exc)
         return None
 
 
@@ -117,7 +121,8 @@ def _fetch_quote_sina(symbol: str) -> dict[str, Any] | None:
             "ask": ask if ask > 0 else price,
             "timestamp": datetime.now().isoformat(),
         }
-    except Exception:
+    except Exception as exc:
+        logger.debug("Failed to fetch quote for %s: %s", symbol, exc)
         return None
 
 
@@ -203,8 +208,22 @@ def _load_cached_quote(symbol: str) -> dict[str, Any] | None:
 
 
 def _save_to_cache(symbol: str, quote: dict[str, Any]) -> None:
-    """写入缓存。"""
+    """写入缓存（超过上限时淘汰最旧的条目）。"""
     with _cache_lock:
+        # Evict oldest entries if at capacity
+        if len(_quote_cache) >= _CACHE_MAX_SIZE and symbol not in _quote_cache:
+            oldest_key = min(
+                (k for k, v in _quote_cache.items()
+                 if (datetime.now() - v["cached_at"]).total_seconds() > _CACHE_TTL_SECONDS),
+                key=lambda k: _quote_cache[k]["cached_at"],
+                default=None,
+            )
+            if oldest_key:
+                del _quote_cache[oldest_key]
+            # If no expired entries, evict the very oldest
+            if len(_quote_cache) >= _CACHE_MAX_SIZE:
+                oldest_key = min(_quote_cache, key=lambda k: _quote_cache[k]["cached_at"])
+                del _quote_cache[oldest_key]
         _quote_cache[symbol] = {
             "data": quote,
             "cached_at": datetime.now(),

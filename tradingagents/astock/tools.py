@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import logging
+
 import json
 from typing import Annotated, List, Optional, Sequence
+logger = logging.getLogger(__name__)
 
 try:  # pragma: no cover - optional dependency
     from langchain_core.tools import tool

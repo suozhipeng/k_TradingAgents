@@ -11,6 +11,8 @@ risk     — risk control threshold breach
 
 from __future__ import annotations
 
+import logging
+
 import json
 import os
 import threading
@@ -22,6 +24,7 @@ from typing import Any, Optional
 
 import duckdb
 import pandas as pd
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Enums
@@ -213,8 +216,8 @@ class AlertStore:
                     ).fetchdf()
                     if not df.empty:
                         return self._row_to_rule(df.iloc[0].to_dict())
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("Operation failed: {0}", e)
             row = self._mem_rules.get(rule_id)
             return self._row_to_rule(row) if row else None
 
@@ -230,8 +233,8 @@ class AlertStore:
                     if not df.empty:
                         for _, row in df.iterrows():
                             rules.append(self._row_to_rule(row.to_dict()))
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("Operation failed: {0}", e)
             # Fallback to memory if DB failed or returned empty
             if not rules:
                 for row in self._mem_rules.values():
@@ -318,8 +321,8 @@ class AlertStore:
                     if not df.empty:
                         for _, row in df.iterrows():
                             events.append(self._row_to_event(row.to_dict()))
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("Operation failed: {0}", e)
             if not events:
                 all_events = sorted(
                     self._mem_events.values(),
@@ -347,8 +350,8 @@ class AlertStore:
                     if not df.empty:
                         for _, row in df.iterrows():
                             events.append(self._row_to_event(row.to_dict()))
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("Operation failed: {0}", e)
             if not events:
                 all_events = sorted(
                     self._mem_events.values(),

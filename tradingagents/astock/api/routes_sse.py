@@ -50,7 +50,8 @@ _TASK_RUN_FIELDS = frozenset({
 
 def _to_task_run(event: dict[str, Any]) -> dict[str, Any]:
     """Wrap a raw EventBus event dict with ``TaskRun``-shaped fields."""
-    now = datetime.utcnow().isoformat()
+    import datetime as _dt
+    now = _dt.datetime.now(tz=_dt.timezone.utc).isoformat()
     event_type = event.get("type", "unknown")
     task_type = _TASK_TYPE_MAP.get(event_type, TaskType.DATA_REFRESH)
     task_id: str = event.get("task_id") or f"sse-{uuid.uuid4().hex[:8]}"

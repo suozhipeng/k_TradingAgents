@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 import json
 import math
 import os
@@ -15,6 +17,7 @@ from typing import Any, Dict, Iterator, List, Optional, Sequence
 
 from ..schema import AStockRequest
 from ..symbols import astock_code, normalize_astock_symbol, split_astock_symbol
+logger = logging.getLogger(__name__)
 
 
 # ── Type coercion ───────────────────────────────────────────────────────

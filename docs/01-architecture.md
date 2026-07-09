@@ -18,6 +18,8 @@
 - [10. 端点清单](#10-端点清单)
 - [11. 代表性端点](#11-代表性端点)
 
+> ⚠️ 以下文档中的端点路径与响应格式可能已过时。**以 `docs/API_REFERENCE.md` 为准**，该文件由代码自动生成，涵盖全部 121 个端点。
+
 ---
 
 
@@ -163,6 +165,10 @@
 
 ## 标准响应 envelope
 
+> ⚠️ 以下为 **设计目标**。当前代码实际采用 **扁平 JSON** 响应，错误格式为 `{error: str, status: int}`。信封格式 `{success, data, error, meta}` 是 Phase 30+ 目标，尚未实现。
+
+**设计目标响应信封（Phase 30+ 目标）：**
+
 ```json
 {
   "success": true,
@@ -211,6 +217,19 @@
 | `risk` | `RISK_GATE_BLOCKED`, `KILL_SWITCH_ACTIVE`, `LIMIT_EXCEEDED` | 阻断执行并写审计 |
 | `execution` | `BROKER_UNAVAILABLE`, `ORDER_REJECTED`, `RECONCILIATION_MISMATCH` | 不得静默重试真实订单 |
 | `system` | `TASK_FAILED`, `STORE_UNAVAILABLE`, `INTERNAL_ERROR` | 进入 Ops 错误中心 |
+
+## 当前实际错误格式
+
+当前代码中所有错误响应使用扁平格式：
+
+```json
+{
+  "error": "具体错误信息",
+  "status": 400
+}
+```
+
+信封格式 `{success, data, error, meta}` 为 Phase 30+ 设计目标，尚未实现。
 
 ## API 能力矩阵
 
@@ -529,13 +548,18 @@ curl -X GET "http://localhost:5860/api/v1/kline?symbol="
 
 ## Health / Dashboard
 
+> ⚠️ 完整端点清单请参见 [`docs/API_REFERENCE.md`](API_REFERENCE.md)，由代码自动生成，覆盖全部 121 个端点。以下仅列出代表性端点。
+
 | API | Method | 功能 | 响应 keys | 能力 | 测试 |
 |---|---|---|---|---|---|
-| `/api/v1/health` | GET | 服务健康 | `backend`, `status`, `store_connected`, `version` | research | `test_astock_api.py` |
+| `/api/v1/health` | GET | 服务健康 | `backend`, `status`, `store_connected`, `uptime_seconds`, `version` | ops | — |
+| `/api/v1/data/health` | GET | 数据源健康 | `sources[]`, `summary` (total/available/degraded), `quality_overall`, `cleaning` | research | `test_astock_web.py` |
 | `/api/v1/dashboard/overview` | GET | 首页概览 | `statistics`, `recent_backtests`, `recent_trades`, `paper_positions`, `paper_equity_curve`, `latest_equity_curve` | research/paper | `test_astock_api.py`, `test_astock_web.py` |
 | `/api/v1/admin/backend` | GET | 后端状态 | `backend`, `duckdb_connected`, `postgresql`, `postgresql_connected` | admin | — |
 
 ## Data & Ops API
+
+> ⚠️ 完整端点清单请参见 [`docs/API_REFERENCE.md`](API_REFERENCE.md)。以下仅列关键端点。
 
 | API | Method | 功能 | 响应 keys | 能力 | 测试 |
 |---|---|---|---|---|---|
@@ -574,6 +598,8 @@ curl -X GET "http://localhost:5860/api/v1/kline?symbol="
 
 ## TradingView / KLine API
 
+> 完整端点参见 `docs/API_REFERENCE.md`。
+
 | API | Method | 功能 | 响应 keys | 能力 | 测试 |
 |---|---|---|---|---|---|
 | `/api/v1/tv/stock-search` | GET | 股票搜索 | `stocks[]` (含 code/name) | research | `test_astock_tv_routes.py` |
@@ -587,6 +613,8 @@ curl -X GET "http://localhost:5860/api/v1/kline?symbol="
 - KLine 页面显示 data quality 标签。
 
 ## Strategy Lab API
+
+> 完整端点参见 `docs/API_REFERENCE.md`。
 
 | API | Method | 功能 | 响应 keys | 能力 | 测试 |
 |---|---|---|---|---|---|
@@ -605,6 +633,8 @@ curl -X GET "http://localhost:5860/api/v1/kline?symbol="
 
 ## Market Leaders API
 
+> 完整端点参见 `docs/API_REFERENCE.md`。
+
 | API | Method | 功能 | 响应 keys | 能力 | 测试 |
 |---|---|---|---|---|---|
 | `/api/v1/market/summary` | GET | 市场摘要 | `symbol`, `latest_price`, `latest_date`, `source`, `pe`, `pb`, `market_cap`, `kline_bars[]`, `valuations[]`, `indicators[]` | research | `test_astock_api.py` |
@@ -622,6 +652,8 @@ curl -X GET "http://localhost:5860/api/v1/kline?symbol="
 
 ## AI Research API
 
+> 完整端点参见 `docs/API_REFERENCE.md`。
+
 | API | Method | 功能 | 响应 keys | 能力 | 测试 |
 |---|---|---|---|---|---|
 | `/api/v1/ai/analyze` | POST | AI 分析 | `status`, `symbol`, `advisory`, `llm_analysis`, `llm_error` | research | `test_astock_web.py`, `test_astock_graph_runtime.py` |
@@ -629,6 +661,8 @@ curl -X GET "http://localhost:5860/api/v1/kline?symbol="
 | `/api/v1/reports/list` | GET | 报告列表 | `items[]` (含 title/date/status) | research | — |
 
 ## Paper / Trading / QMT API
+
+> 完整端点参见 `docs/API_REFERENCE.md`。
 
 | API | Method | 功能 | 响应 keys | 能力 | 测试 |
 |---|---|---|---|---|---|
@@ -646,6 +680,8 @@ curl -X GET "http://localhost:5860/api/v1/kline?symbol="
 | `/api/v1/qmt/orders` | GET | Mock/read-only 账户快照；真实订单/委托查询暂不接入 | `account_snapshot`, `orders[]` (固定空列表), `mock_mode`, `status` | managed | 同上 |
 
 ## SSE / Ops API
+
+> 完整端点参见 `docs/API_REFERENCE.md`。
 
 | API | Method | 功能 | 响应 keys | 能力 |
 |---|---|---|---|---|

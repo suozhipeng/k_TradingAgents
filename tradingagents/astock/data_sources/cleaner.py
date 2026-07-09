@@ -134,8 +134,8 @@ def clean_records(
                     issues.append(f"volume={v}")
                     report.volume_negative += 1
                     rec["volume"] = 0  # 负成交量修正为 0
-            except (ValueError, TypeError):
-                pass
+            except (ValueError, TypeError) as e:
+                logger.debug("Operation failed: {0}", e)
 
         # ── 3. Change outlier detection ──
         close = _get(rec, "close", "Close")
@@ -149,8 +149,8 @@ def clean_records(
                     issues.append(f"change={cp:.2f}% > {max_change_pct}%")
                     report.change_outliers += 1
                     rec["_flagged"] = True  # 标记但不删除
-            except (ValueError, TypeError):
-                pass
+            except (ValueError, TypeError) as e:
+                logger.debug("Operation failed: {0}", e)
         elif close is not None and prev_close is not None:
             try:
                 cp = (float(close) - float(prev_close)) / float(prev_close) * 100
@@ -158,8 +158,8 @@ def clean_records(
                     issues.append(f"implied_change={cp:.2f}% > {max_change_pct}%")
                     report.change_outliers += 1
                     rec["_flagged"] = True
-            except (ValueError, TypeError, ZeroDivisionError):
-                pass
+            except (ValueError, TypeError, ZeroDivisionError) as e:
+                logger.debug("Operation failed: {0}", e)
 
         # ── 4. Date ordering check ──
         trade_date = _get(rec, "trade_date", "date", "datetime", "time", default="")

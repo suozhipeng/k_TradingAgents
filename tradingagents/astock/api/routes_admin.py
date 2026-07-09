@@ -6,6 +6,7 @@ Requires admin-level API key in production mode.
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any
 
 from flask import Blueprint, current_app, g, jsonify, request
@@ -17,17 +18,15 @@ logger = logging.getLogger(__name__)
 def _require_admin(*required_capabilities: str) -> bool:
     """Check if the current request has admin role and required capabilities.
 
-    In DuckDB (dev) mode, admin operations are allowed without auth.
-    In PostgreSQL (production) mode:
-    - role must be "admin"
-    - if *required_capabilities* are provided, ``g.allowed_capabilities``
-      must contain each capability (comma-separated string)
+    Requires ``ASTOCK_ADMIN_TOKEN`` env var (or ``?token=`` query param).
+    DuckDB mode no longer bypasses auth.
 
     Returns True if allowed, False if blocked (caller should return 403).
     """
-    backend = current_app.config.get("DB_BACKEND", "duckdb")
-    if backend != "postgresql":
-        return True  # Dev mode: no forced admin check
+    token = request.args.get("token") or request.headers.get("Authorization", "").replace("Bearer ", "")
+    expected = os.environ.get("ASTOCK_ADMIN_TOKEN", "")
+    if expected and token != expected:
+        return False
 
     role = getattr(g, "role", "public")
     if role != "admin":

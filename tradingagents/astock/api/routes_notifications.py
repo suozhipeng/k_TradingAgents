@@ -3,7 +3,11 @@
 from __future__ import annotations
 
 import logging
+import socket
+import struct
+import threading
 from datetime import datetime
+from ipaddress import IPv4Address, IPv6Address, ip_address
 from typing import Any
 
 import requests as http_requests
@@ -14,6 +18,62 @@ from ._notification_runtime import runtime
 
 logger = logging.getLogger(__name__)
 bp = Blueprint("notifications", __name__)
+
+# ---------------------------------------------------------------------------
+# SSRF protection helpers
+# ---------------------------------------------------------------------------
+
+_PRIVATE_RANGES = (
+    "10.0.0.0/8",
+    "100.64.0.0/10",
+    "127.0.0.0/8",
+    "169.254.0.0/16",
+    "172.16.0.0/12",
+    "192.168.0.0/16",
+    "::1/128",
+    "fc00::/7",
+    "fe80::/10",
+)
+
+
+def _is_private_or_reserved(host: str) -> bool:
+    """Return True if *host* resolves to a private / reserved IP address."""
+    try:
+        addr = ip_address(host)
+        if addr.is_private or addr.is_loopback or addr.is_link_local:
+            return True
+    except ValueError:
+        # Could not parse as IP — it's a hostname; resolve it
+        try:
+            infos = socket.getaddrinfo(host, None, socket.AF_INET)
+            for _, _, _, _, sockaddr in infos:
+                addr = IPv4Address(sockaddr[0])
+                if addr.is_private or addr.is_loopback or addr.is_link_local:
+                    return True
+        except socket.gaierror as e:
+            logger.debug("Operation failed: {0}", e)
+    return False
+
+
+def _safe_http_request(url: str, **kwargs: Any) -> Any:
+    """Send an HTTP request with SSRF protection.
+
+    Blocks requests to private / loopback / link-local addresses.
+    """
+    from urllib.parse import urlparse
+
+    parsed = urlparse(url)
+    hostname = parsed.hostname or ""
+
+    if not parsed.scheme.startswith(("http", "https")):
+        raise ValueError("Only http/https schemes are allowed")
+
+    if _is_private_or_reserved(hostname):
+        raise ValueError(f"Blocked SSRF attempt to private/reserved host: {hostname}")
+
+    # Apply default timeout if not specified
+    kwargs.setdefault("timeout", 10)
+    return http_requests.request(parsed.scheme.split("+")[0], url, **kwargs)
 
 
 def set_notification_store(store: Any) -> None:
@@ -39,7 +99,7 @@ def test_webhook() -> tuple[Any, int]:
     }
 
     try:
-        resp = http_requests.post(url, json=payload, headers={"User-Agent": "AStockPro/1.0"}, timeout=10)
+        resp = _safe_http_request(url, json=payload, headers={"User-Agent": "AStockPro/1.0"})
         if resp.ok:
             logger.info("Webhook test OK: %s -> %s", url, resp.status_code)
             return jsonify({"status": "ok", "http_status": resp.status_code}), 200
@@ -63,7 +123,7 @@ def send_dingtalk() -> tuple[Any, int]:
 
     payload = {"msgtype": "markdown", "markdown": {"title": title, "text": message}}
     try:
-        resp = http_requests.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=10)
+        resp = _safe_http_request(url, json=payload, headers={"Content-Type": "application/json"})
         if resp.ok:
             return jsonify({"status": "ok"}), 200
         logger.warning("DingTalk send failed: %s -> %s", url, resp.status_code)
@@ -98,6 +158,10 @@ def send_email_notification() -> tuple[Any, int]:
     msg["To"] = to_address
 
     try:
+        if _is_private_or_reserved(smtp_host):
+            logger.warning("Blocked SMTP to private/reserved host: %s", smtp_host)
+            return jsonify({"status": "error", "error": "SMTP host must be a public mail server"}), 400
+
         ctx = ssl.create_default_context()
         with smtplib.SMTP(smtp_host, smtp_port) as server:
             server.ehlo()

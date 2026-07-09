@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import logging
 import socket
 from typing import Any, Dict
 
 from ..base import AStockAdapterBase
+
+logger = logging.getLogger(__name__)
 from ..common import (
     _coerce_float,
     _ensure_records,

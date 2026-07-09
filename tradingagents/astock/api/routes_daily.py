@@ -119,8 +119,8 @@ def _collect_indices(facade: Any) -> list[dict[str, Any]]:
                     indices.append(fallback_index(symbol, name_cn))
             else:
                 indices.append(fallback_index(symbol, name_cn))
-        except Exception:
-            indices.append(fallback_index(symbol, name_cn))
+        except Exception as exc:
+            logger.debug("Failed to fetch index data for %s: %s", symbol, exc)
     return indices
 
 
@@ -153,8 +153,8 @@ def _collect_sectors(facade: Any) -> list[dict[str, Any]]:
                     )
                     if df is not None and not df.empty:
                         sectors = df.to_dict(orient="records")
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("Operation failed: {0}", e)
     except Exception as exc:
         logger.warning("Failed to collect sectors: %s", exc)
 
@@ -188,8 +188,8 @@ def _collect_breadth(facade: Any) -> dict[str, Any]:
                             row.get("advancing", 0) / max(row.get("declining", 0), 1), 2
                         ),
                     }
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Operation failed: {0}", e)
     except Exception as exc:
         logger.warning("Failed to collect breadth: %s", exc)
 
@@ -217,8 +217,8 @@ def _collect_northbound(facade: Any) -> list[dict[str, Any]]:
                 )
                 if df is not None and not df.empty:
                     return df.to_dict(orient="records")
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Operation failed: {0}", e)
     except Exception as exc:
         logger.warning("Failed to collect northbound: %s", exc)
     return []
@@ -243,8 +243,8 @@ def _collect_dragon_tiger(facade: Any) -> dict[str, Any]:
                 top_sellers = df2.to_dict(orient="records") if df2 is not None and not df2.empty else []
 
                 return {"top_buyers": top_buyers, "top_sellers": top_sellers}
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Operation failed: {0}", e)
     except Exception as exc:
         logger.warning("Failed to collect dragon_tiger: %s", exc)
     return {"top_buyers": [], "top_sellers": []}
@@ -271,8 +271,8 @@ def _collect_movers(facade: Any) -> tuple[list[dict[str, Any]], list[dict[str, A
                 )
                 if df2 is not None and not df2.empty:
                     top_losers = df2.to_dict(orient="records")
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Operation failed: {0}", e)
     except Exception as exc:
         logger.warning("Failed to collect movers: %s", exc)
     return top_gainers, top_losers
@@ -286,8 +286,8 @@ def _collect_regime(facade: Any) -> dict[str, Any]:
                 resp = facade.get_market_regime(symbol="000001.SH", lookback="60d")
                 if resp.status == "ok" and resp.data:
                     return resp.data
-            except (AttributeError, TypeError):
-                pass
+            except (AttributeError, TypeError) as e:
+                logger.debug("Operation failed: {0}", e)
     except Exception as exc:
         logger.warning("Failed to collect regime: %s", exc)
     return {}

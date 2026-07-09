@@ -9,13 +9,12 @@ import logging
 from typing import Any
 
 from flask import Blueprint, Response, current_app, jsonify, request
+from ._helpers import get_store
 
 bp = Blueprint("data_ingest", __name__)
 logger = logging.getLogger(__name__)
 
 
-def _store() -> Any:
-    return current_app.config["STORE"]
 
 
 # ---------------------------------------------------------------------------
@@ -34,7 +33,7 @@ def refresh_kline() -> tuple[Response, int]:
     interval = body.get("interval", "1d")
     try:
         from tradingagents.astock.store.loader import KlineLoader
-        store = _store()
+        store = get_store()
         router = current_app.config.get("DATA_FACADE")
         loader = KlineLoader(store, router)
         count = loader.load(symbol, start=start, end=end, interval=interval)
@@ -52,7 +51,7 @@ def refresh_valuation() -> tuple[Response, int]:
         return jsonify({"error": "symbol is required", "status": 400}), 400
     try:
         from tradingagents.astock.store.loader import ValuationLoader
-        store = _store()
+        store = get_store()
         router = current_app.config.get("DATA_FACADE")
         loader = ValuationLoader(store, router)
         count = loader.load(symbol)
@@ -73,7 +72,7 @@ def refresh_all() -> tuple[Response, int]:
     interval = body.get("interval", "1d")
     try:
         from tradingagents.astock.store.loader import BatchLoader
-        store = _store()
+        store = get_store()
         router = current_app.config.get("DATA_FACADE")
         loader = BatchLoader(store, router)
         results = loader.load_all(symbols, kline_start=start, kline_end=end, interval=interval)
@@ -89,7 +88,7 @@ def refresh_all() -> tuple[Response, int]:
 
 
 def _raw_store() -> Any:
-    store = _store()
+    store = get_store()
     return getattr(store, "_store", store)
 
 
@@ -194,7 +193,7 @@ def manual_insert_rows(table_name: str) -> tuple[Response, int]:
             row["source"] = source
     try:
         _validate_manual_rows(table_name, records)
-        count = _store().insert_table_rows(table_name, records)
+        count = get_store().insert_table_rows(table_name, records)
         return jsonify({"table": table_name, "rows_inserted": count, "status": "ok"}), 200
     except Exception as exc:
         logger.warning("Manual insert failed for %s: %s", table_name, exc)

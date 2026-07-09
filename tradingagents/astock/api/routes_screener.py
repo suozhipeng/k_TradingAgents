@@ -6,16 +6,17 @@ and returns those matching the specified technical criteria.
 
 from __future__ import annotations
 
+import logging
+
 from typing import Any
 
 import numpy as np
 from flask import Blueprint, Response, current_app, jsonify, request
 
+from ._helpers import get_store
+logger = logging.getLogger(__name__)
+
 bp = Blueprint("screener", __name__)
-
-
-def _store() -> Any:
-    return current_app.config["STORE"]
 
 
 # ---------------------------------------------------------------------------
@@ -117,7 +118,7 @@ def screener() -> tuple[Response, int]:
         mock (bool) — use synthetic data for testing
     """
     try:
-        store = _store()
+        store = get_store()
         limit = int(request.args.get("limit", 50))
         use_mock = bool(request.args.get("mock", False))
 

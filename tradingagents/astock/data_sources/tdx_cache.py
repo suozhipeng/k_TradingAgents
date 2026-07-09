@@ -231,8 +231,10 @@ class TdxCache:
         if self._conn is not None:
             try:
                 self._conn.close()
-            except Exception:
-                pass
+            except Exception as e:
+
+                logger.debug("Operation failed: {0}", e)
+
             self._conn = None
 
     # ── Internal helpers ──────────────────────────────────────────────
@@ -409,14 +411,18 @@ class TdxCache:
             for f in csv_dir.glob("{0}_*.csv".format(safe_symbol)):
                 try:
                     f.unlink()
-                except Exception:
-                    pass
+                except Exception as e:
+
+                    logger.debug("Operation failed: {0}", e)
+
         else:
             for f in csv_dir.glob("*.csv"):
                 try:
                     f.unlink()
-                except Exception:
-                    pass
+                except Exception as e:
+
+                    logger.debug("Operation failed: {0}", e)
+
 
     # ── Cleanup ───────────────────────────────────────────────────────
 

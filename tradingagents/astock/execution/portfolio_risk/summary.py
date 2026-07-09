@@ -6,11 +6,14 @@ concentration, liquidity, and stress metrics into a single dict.
 
 from __future__ import annotations
 
+import logging
+
 from typing import Any, List, Optional
 
 from tradingagents.astock.schemas.trading_execution import Position
 from .var import calculate_var, _portfolio_value
 from .exposure import calculate_industry_exposure
+logger = logging.getLogger(__name__)
 
 
 def calculate_risk_exposure(

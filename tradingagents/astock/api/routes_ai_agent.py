@@ -55,10 +55,22 @@ def ai_analyze() -> tuple[Response, int]:
         return jsonify({"error": "symbol or symbols is required", "status": 400}), 400
 
     # Normalize each symbol
-    symbols = [
-        s if s.endswith((".SH", ".SZ")) else s + ".SH"
-        for s in symbols
-    ]
+    # Normalize each symbol — infer exchange from stock code prefix
+    def _normalize_symbol(s: str) -> str:
+        s = s.strip()
+        if s.endswith((".SH", ".SZ")):
+            return s.upper()
+        # A-share code prefix rules: 6=SH, 0/3=SZ
+        code = s.lstrip("0")  # strip leading zeros for prefix check
+        if not code:
+            code = s
+        first = code[0]
+        if first in ("6",):
+            return s.upper() + ".SH"
+        else:
+            return s.upper() + ".SZ"
+
+    symbols = [_normalize_symbol(s) for s in symbols]
 
     # Primary symbol for analysis (first one)
     primary = symbols[0]
@@ -191,8 +203,8 @@ def _gather_context(symbol: str) -> dict[str, Any]:
             with urllib.request.urlopen(f"{base}{path}", timeout=10) as r:
                 return json.loads(r.read().decode())
         except Exception:
+            logger.debug("Failed to fetch %s: %s", path, exc)
             return None
-
     return {
         "stock_info": _fetch(f"/tv/stock-info?symbol={symbol}"),
         "market_summary": _fetch(f"/market/summary?symbol={symbol}"),

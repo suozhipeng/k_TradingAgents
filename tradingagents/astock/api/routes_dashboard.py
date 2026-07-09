@@ -17,15 +17,12 @@ from typing import Any
 from flask import Blueprint, Response, current_app, jsonify
 
 from ._analysis_engine import load_watchlist, analyze_stock_symbol
+from ._helpers import get_store
 from ._paper_service import get_paper_trader
 
 logger = logging.getLogger(__name__)
 
 bp = Blueprint("dashboard", __name__)
-
-
-def _store() -> Any:
-    return current_app.config["STORE"]
 
 
 def _get_paper_state() -> dict[str, Any]:
@@ -76,7 +73,7 @@ def _sanitize(rows: list[dict]) -> list[dict]:
 @bp.route("/dashboard/overview")
 def dashboard_overview() -> tuple[Response, int]:
     try:
-        store = _store()
+        store = get_store()
         stats = store.get_table_stats() if hasattr(store, "get_table_stats") else {}
 
         symbols_tracked = 0
@@ -104,8 +101,8 @@ def dashboard_overview() -> tuple[Response, int]:
                 total_value = pstate.get("total_value", 0.0) or 0.0
                 paper_total_value = total_value
                 paper_return_pct = pnl_val / (total_value - pnl_val) if (total_value - pnl_val) > 0 else 0.0
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Operation failed: {0}", e)
 
         recent_backtests = []
         try:
@@ -114,8 +111,8 @@ def dashboard_overview() -> tuple[Response, int]:
                 bt_list = bt_df.sort_values("end_date", ascending=False).head(5)
                 recent_backtests = bt_list.to_dict(orient="records")
                 _sanitize(recent_backtests)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Operation failed: {0}", e)
 
         latest_equity_curve = []
         if recent_backtests:
@@ -146,8 +143,8 @@ def dashboard_overview() -> tuple[Response, int]:
                 trades_list = trades_df.sort_values("trade_date", ascending=False).head(10)
                 recent_trades = trades_list.to_dict(orient="records")
                 _sanitize(recent_trades)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Operation failed: {0}", e)
 
         paper_positions_detail = []
         try:
@@ -165,8 +162,8 @@ def dashboard_overview() -> tuple[Response, int]:
                          "pnl": p.get("pnl", 0), "quantity": p.get("quantity", 0)}
                         for p in positions if p.get("quantity", 0) > 0
                     ]
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Operation failed: {0}", e)
 
         paper_equity_curve = _compute_paper_equity_curve(store)
         decision_summary = _get_decision_summary()

@@ -17,10 +17,13 @@ Composite score ranges from ``[-1, 1]`` where:
 
 from __future__ import annotations
 
+import logging
+
 import math
 from typing import Any
 
 import pandas as pd
+logger = logging.getLogger(__name__)
 
 _DIM_WEIGHTS: dict[str, float] = {
     "trend": 0.30,

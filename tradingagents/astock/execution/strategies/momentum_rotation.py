@@ -87,7 +87,7 @@ def get_leading_stocks() -> tuple[list[dict[str, str]], str]:
                 _LEADING_STOCKS_SOURCE = "eastmoney"
                 return stocks, "eastmoney"
     except Exception:
-        _logger.warning("Failed to fetch leading stocks from eastmoney, using defaults")
+        logger.warning("Failed to fetch leading stocks from eastmoney, using defaults")
 
     # Fallback to default
     _LEADING_STOCKS_CACHE = _DEFAULT_LEADING_STOCKS

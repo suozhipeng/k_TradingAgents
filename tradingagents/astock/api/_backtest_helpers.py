@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import logging
+
 import json
 import math
 import re
 from datetime import datetime
 from typing import Any
+logger = logging.getLogger(__name__)
 
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 _STRATEGY_REGISTRY: dict[str, type] | None = None

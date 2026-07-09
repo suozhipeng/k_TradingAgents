@@ -9,6 +9,7 @@ import logging
 from typing import Any
 
 from flask import Blueprint, Response, current_app, jsonify, request
+from ._helpers import get_store
 
 bp = Blueprint("data_jobs", __name__)
 logger = logging.getLogger(__name__)
@@ -18,8 +19,6 @@ def _jobs() -> Any:
     return current_app.config["DATA_JOB_MANAGER"]
 
 
-def _store() -> Any:
-    return current_app.config["STORE"]
 
 
 def _as_list(value: Any) -> list[Any]:
@@ -33,7 +32,7 @@ def _as_list(value: Any) -> list[Any]:
 def _known_symbols_or_payload(body: dict[str, Any]) -> list[str]:
     symbols = body.get("symbols")
     if symbols in (None, "", "all"):
-        return _store().list_symbols()
+        return get_store().list_symbols()
     if isinstance(symbols, str):
         return [symbols]
     return [str(item) for item in symbols if item]
@@ -75,7 +74,7 @@ def create_refresh_job() -> tuple[Response, int]:
     include_valuation = bool(body.get("include_valuation", False))
     total = len(symbols) * len(intervals) + (len(symbols) if include_valuation else 0)
 
-    store = _store()
+    store = get_store()
     router = current_app.config.get("DATA_FACADE")
 
     def run(update: Any) -> dict[str, Any]:
@@ -114,7 +113,7 @@ def create_database_import_job() -> tuple[Response, int]:
             "error": "source_db_path, source_table and target_table are required",
             "status": 400,
         }), 400
-    store = _store()
+    store = get_store()
 
     def run(update: Any) -> dict[str, Any]:
         update(message=f"importing {source_table} -> {target_table}", completed=0)

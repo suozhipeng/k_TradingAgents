@@ -8,14 +8,19 @@ Error responses follow ``{"error": ..., "status": N}``.
 
 from __future__ import annotations
 
+import logging
+
+import threading
 from typing import Any
 
 from flask import Blueprint, Response, jsonify, request
+logger = logging.getLogger(__name__)
 
 bp = Blueprint("ops", __name__)
 
-# Module-level AuditStore singleton (lazily initialised)
+# Module-level AuditStore singleton (lazily initialised, thread-safe)
 _audit_store: Any = None
+_audit_store_lock = threading.Lock()
 
 
 def _safe_int(val: str | None, default: int) -> int:
@@ -32,8 +37,9 @@ def _get_audit_store() -> Any:
     global _audit_store
     if _audit_store is None:
         from tradingagents.astock.execution.audit_store import AuditStore
-
-        _audit_store = AuditStore()
+        with _audit_store_lock:
+            if _audit_store is None:
+                _audit_store = AuditStore()
     return _audit_store
 
 

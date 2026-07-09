@@ -7,6 +7,8 @@ call the router/facade, never vendor SDKs directly.
 
 from __future__ import annotations
 
+import logging
+
 from typing import Any, Dict, Iterable, List, Mapping, MutableMapping, Optional, Sequence, Tuple
 
 from .adapters.registry import build_default_adapters
@@ -15,6 +17,7 @@ from .errors import AStockDataError, AStockNoDataError, AStockSourceUnavailableE
 from .quality import DataQualityTag
 from .schema import AStockRequest, AStockResponse, normalize_capability_payload
 from .symbols import normalize_astock_symbol
+logger = logging.getLogger(__name__)
 
 
 DEFAULT_ELIMINATED_SOURCES = frozenset(("tushare", "ashare"))

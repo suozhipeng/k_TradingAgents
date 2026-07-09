@@ -19,9 +19,12 @@ Uses lazy imports for ``tradingagents.astock.execution.qmt_bridge``.
 
 from __future__ import annotations
 
+import logging
+
 from typing import Any
 
 from flask import Blueprint, Response, jsonify
+logger = logging.getLogger(__name__)
 
 bp = Blueprint("qmt", __name__)
 

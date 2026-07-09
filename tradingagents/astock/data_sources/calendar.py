@@ -10,8 +10,11 @@ backtests do not accidentally trade on exchange-closed days.
 
 from __future__ import annotations
 
+import logging
+
 import datetime
 from typing import Optional
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Statically known Chinese public holidays (exchange-closed) for fallback.

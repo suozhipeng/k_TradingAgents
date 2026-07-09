@@ -84,7 +84,8 @@ def sectors() -> tuple[Response, int]:
             if data.get("top"):
                 data["_source"] = name.lower()
                 return jsonify(data), 200
-        except Exception:
+        except Exception as exc:
+            logger.debug("Failed to fetch northbound data (attempt %d): %s", attempt, exc)
             if attempt == 0:
                 continue
 
@@ -282,7 +283,8 @@ def momentum_realtime() -> tuple[Response, int]:
 
     try:
         pool_summary = get_leading_pool_summary()
-    except Exception:
+    except Exception as exc:
+        logger.debug("Failed to get leading pool summary: %s", exc)
         pool_summary = {"trade_date": trade_date, "source": "unknown", "count": len(stocks)}
 
     return jsonify(
@@ -327,8 +329,8 @@ def market_overview() -> tuple[Response, int]:
         resp = router.get_market_summary()
         if resp.status == "ok" and resp.data:
             return jsonify({"status": "ok", "source": "real", "data": resp.data}), 200
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("Failed to get market overview from router: %s", exc)
 
     return jsonify(
         {

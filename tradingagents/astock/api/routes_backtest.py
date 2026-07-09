@@ -8,6 +8,7 @@ dependency chain at module load time.
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime
 from typing import Any
 
@@ -26,11 +27,10 @@ from ._backtest_helpers import (
     validate_date_range,
 )
 
+from ._helpers import get_store
+
 bp = Blueprint("backtest", __name__)
-
-
-def _store() -> Any:
-    return current_app.config["STORE"]
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -91,7 +91,7 @@ def run_backtest() -> tuple[Response, int]:
         result.run_id = run_id
 
         # Persist to store
-        _store().store_backtest_result(result)
+        get_store().store_backtest_result(result)
 
         payload = {
             "run_id": run_id,
@@ -131,7 +131,7 @@ def run_backtest() -> tuple[Response, int]:
 def clear_backtest_results() -> tuple[Response, int]:
     """Delete all stored backtest results."""
     try:
-        deleted = _store().clear_backtest_results()
+        deleted = get_store().clear_backtest_results()
         return jsonify({"status": "ok", "deleted": deleted}), 200
     except Exception as exc:
         return jsonify({"error": str(exc), "status": 500}), 500
@@ -146,7 +146,7 @@ def clear_backtest_results() -> tuple[Response, int]:
 def delete_backtest_result(run_id: str) -> tuple[Response, int]:
     """Delete a single backtest result by run_id."""
     try:
-        deleted = _store().delete_backtest_result(run_id)
+        deleted = get_store().delete_backtest_result(run_id)
         return jsonify({"status": "ok", "deleted": deleted}), 200
     except Exception as exc:
         return jsonify({"error": str(exc), "status": 500}), 500
@@ -166,7 +166,7 @@ def get_backtest_results() -> tuple[Response, int]:
     """
     strategy_name = request.args.get("strategy")
     try:
-        df = _store().get_backtest_results(strategy_name=strategy_name)
+        df = get_store().get_backtest_results(strategy_name=strategy_name)
         if df is not None and not df.empty and "params_json" in df.columns:
             return jsonify({"results": expand_params_json_rows(df)}), 200
         rows = df.to_dict(orient="records") if df is not None and not df.empty else []

@@ -17,26 +17,23 @@ import pandas as pd
 
 from flask import Blueprint, Response, current_app, jsonify, request
 
-from ._helpers import df_to_json, sanitise_records
+from ._helpers import df_to_json, get_store, sanitise_records
 
 bp = Blueprint("data_query", __name__)
 logger = logging.getLogger(__name__)
-
-
-def _store() -> Any:
-    return current_app.config["STORE"]
 
 
 def _router() -> Any:
     return current_app.config.get("DATA_FACADE")
 
 
-def _int_param(name: str, default: int) -> int:
+def _int_param(name: str, default: int, max_val: int = 1000) -> int:
     raw = request.args.get(name, str(default))
     try:
-        return int(raw)
+        val = int(raw)
     except (ValueError, TypeError):
         return default
+    return min(max(val, 0), max_val)
 
 
 def _clean_nan(obj: Any) -> Any:
@@ -68,11 +65,11 @@ def get_kline() -> tuple[Response, int]:
     start = request.args.get("start")
     end = request.args.get("end")
     interval = request.args.get("interval", "1d")
-    limit = _int_param("limit", 500)
+    limit = _int_param("limit", 500, max_val=5000)
     _FETCH_LIMIT = 400
 
     try:
-        store = _store()
+        store = get_store()
         store_limit = limit + 1 if limit > 0 else None
         df = store.query_kline(symbol, start=start, end=end, interval=interval, limit=store_limit)
         bars = df_to_json(df)
@@ -140,7 +137,7 @@ def get_valuation() -> tuple[Response, int]:
         return jsonify({"error": "symbol is required", "status": 400}), 400
     limit = _int_param("limit", 0)
     try:
-        store = _store()
+        store = get_store()
         df = store.query_valuations(symbol)
         valuations = df_to_json(df)
         if limit > 0:
@@ -188,7 +185,7 @@ def get_orderbook() -> tuple[Response, int]:
     if not symbol:
         return jsonify({"error": "symbol is required", "status": 400}), 400
     try:
-        df = _store().query_order_book(symbol)
+        df = get_store().query_order_book(symbol)
         return jsonify({"symbol": symbol, "snapshots": df_to_json(df)}), 200
     except Exception as exc:
         return jsonify({"error": str(exc), "status": 500}), 500
@@ -206,7 +203,7 @@ def get_news() -> tuple[Response, int]:
         return jsonify({"error": "symbol is required", "status": 400}), 400
     limit = _int_param("limit", 20)
     try:
-        df = _store().query_news_items(symbol)
+        df = get_store().query_news_items(symbol)
         items = df_to_json(df)
         return jsonify({"symbol": symbol, "news": items[-limit:] if limit > 0 else items}), 200
     except Exception as exc:
@@ -302,7 +299,7 @@ def get_research() -> tuple[Response, int]:
         return jsonify({"error": "symbol is required", "status": 400}), 400
     limit = _int_param("limit", 20)
     try:
-        df = _store().query_research_reports(symbol)
+        df = get_store().query_research_reports(symbol)
         items = df_to_json(df)
         return jsonify({"symbol": symbol, "reports": items[-limit:] if limit > 0 else items}), 200
     except Exception as exc:
@@ -322,7 +319,12 @@ def get_research_pdf() -> tuple[Response, int]:
         kwargs = {"title": title} if title else {}
         resp = router.download_research_pdf(symbol, **kwargs)
         if resp.status == "ok" and resp.data:
-            return jsonify(resp.data), 200
+            # Akshare adapter returns PDF metadata (url, title, etc.), not binary data
+            return jsonify({
+                "symbol": symbol,
+                "pdf_metadata": resp.data,
+                "note": "PDF metadata returned; actual PDF download requires pdf_url from metadata",
+            }), 200
         return jsonify({"error": resp.error_message or "no research pdf"}), 404
     except Exception as exc:
         logger.warning("research pdf failed for %s: %s", symbol, exc)
@@ -432,7 +434,7 @@ def get_announcements() -> tuple[Response, int]:
         return jsonify({"error": "symbol is required", "status": 400}), 400
     limit = _int_param("limit", 20)
     try:
-        df = _store().query_announcements(symbol)
+        df = get_store().query_announcements(symbol)
         items = df_to_json(df)
         return jsonify({"symbol": symbol, "announcements": items[:limit]}), 200
     except Exception as exc:
@@ -447,7 +449,7 @@ def get_announcements() -> tuple[Response, int]:
 @bp.route("/store/stats")
 def get_store_stats() -> tuple[Response, int]:
     try:
-        stats = _store().get_table_stats()
+        stats = get_store().get_table_stats()
         return jsonify({"stats": stats}), 200
     except Exception as exc:
         return jsonify({"error": str(exc), "status": 500}), 500

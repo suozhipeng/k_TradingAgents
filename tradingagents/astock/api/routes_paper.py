@@ -7,11 +7,14 @@ Uses lazy imports for ``tradingagents.astock.execution.paper_trader``.
 
 from __future__ import annotations
 
+import logging
+
 from typing import Any
 
 from flask import Blueprint, Response, jsonify, request
 
 from ._paper_service import get_paper_trader
+logger = logging.getLogger(__name__)
 
 bp = Blueprint("paper", __name__)
 

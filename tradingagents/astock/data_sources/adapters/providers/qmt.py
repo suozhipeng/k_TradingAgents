@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import logging
+
 from typing import Any, Dict, List, Optional
 
 from ..base import AStockAdapterBase
 from ..common import _coerce_float
 from ...errors import AStockNoDataError, AStockSourceUnavailableError
 from ...schema import AStockRequest
+logger = logging.getLogger(__name__)
 
 
 class QMTAdapter(AStockAdapterBase):

@@ -252,7 +252,7 @@ def optional_auth(f: Callable):
                         g.role = record.get("role", "public")
                         g.key_id = record["key_id"]
                         g.allowed_capabilities = record.get("allowed_capabilities", "")
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Capability check failed: %s", exc)
         return f(*args, **kwargs)
     return decorated

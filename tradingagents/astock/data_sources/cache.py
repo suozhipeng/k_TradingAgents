@@ -93,8 +93,10 @@ class InMemoryAStockCache(object):
         if self._is_expired(bucket, created_at):
             try:
                 del store[key]
-            except KeyError:
-                pass
+            except KeyError as e:
+
+                logger.debug("Operation failed: {0}", e)
+
             return None
         return response
 
@@ -171,8 +173,10 @@ class FileAStockCache(object):
         if ttl is not None and created_at and (self.clock() - created_at) > ttl:
             try:
                 path.unlink()
-            except OSError:
-                pass
+            except OSError as e:
+
+                logger.debug("Operation failed: {0}", e)
+
             return None
         return _response_from_payload(payload)
 
@@ -215,5 +219,7 @@ class FileAStockCache(object):
             for path in bucket_dir.glob("*.json"):
                 try:
                     path.unlink()
-                except OSError:
-                    pass
+                except OSError as e:
+
+                    logger.debug("Operation failed: {0}", e)
+

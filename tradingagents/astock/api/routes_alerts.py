@@ -15,6 +15,8 @@ GET    /api/v1/alerts/check         — check all enabled rules (scheduler)
 
 from __future__ import annotations
 
+import logging
+
 from datetime import datetime
 from enum import Enum
 from typing import Any
@@ -30,6 +32,7 @@ from tradingagents.astock.alert.alert_store import (
 )
 
 bp = Blueprint("alerts", __name__)
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # AlertStore accessor
@@ -307,8 +310,8 @@ def check_alerts() -> tuple[Response, int]:
                 if event:
                     store.create_event(event)
                     triggered.append(asdict_safe(event))
-            except Exception:
-                continue
+            except Exception as exc:
+                logger.debug("Failed to evaluate rule %s: %s", rule.rule_id, exc)
 
         return jsonify(
             {
@@ -444,8 +447,8 @@ def _evaluate_rule(rule: AlertRule, facade: Any) -> AlertEvent | None:
                                         threshold=threshold,
                                         source="strategy_backtest",
                                     )
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.debug("Failed to check strategy alert for %s: %s", symbol, exc)
 
         elif trigger_type == TriggerType.RISK.value:
             # Risk-based alerts: check portfolio risk metrics
@@ -484,10 +487,11 @@ def _evaluate_rule(rule: AlertRule, facade: Any) -> AlertEvent | None:
                                         threshold=threshold,
                                         source="risk_monitor",
                                     )
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.debug("Failed to check risk alert for %s: %s", symbol, exc)
 
-    except Exception:
+    except Exception as exc:
+        logger.debug("Rule evaluation failed for %s: %s", rule.symbol, exc)
         return None
 
     return None

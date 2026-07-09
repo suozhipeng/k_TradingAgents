@@ -43,8 +43,10 @@ def register_blueprints(app: Flask) -> None:
     from . import routes_admin
     from . import routes_daily
     from . import routes_strategy_monitor
+    from . import routes_health
 
     # -- [summary]  lightweight aggregation, for dashboard first screen --------
+    app.register_blueprint(routes_health.bp,         url_prefix="/api/v1")
     app.register_blueprint(routes_dashboard.bp,  url_prefix="/api/v1")
     app.register_blueprint(routes_data_health.bp, url_prefix="/api/v1")
     app.register_blueprint(routes_market.bp,     url_prefix="/api/v1")

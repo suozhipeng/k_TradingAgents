@@ -14,7 +14,7 @@ from typing import Any
 import pandas as pd
 from flask import Blueprint, Response, current_app, jsonify, request
 
-from ._helpers import df_to_json, sanitise_records
+from ._helpers import df_to_json, get_store, sanitise_records
 
 logger = logging.getLogger(__name__)
 
@@ -34,13 +34,6 @@ AVAILABLE_STRATEGIES = [
     {"name": "StockFlow", "description": "Multi-strategy signal cascade (AND/OR/MAJORITY/CASCADE)"},
     {"name": "MomentumRotation", "description": "Leading stock momentum rotation (portfolio)"},
 ]
-
-
-def _store() -> Any:
-    return current_app.config["STORE"]
-
-
-# df_to_json imported from ._helpers
 
 
 # ---------------------------------------------------------------------------
@@ -99,7 +92,7 @@ def market_summary() -> tuple[Response, int]:
         return jsonify({"error": "symbol is required", "status": 400}), 400
 
     try:
-        store = _store()
+        store = get_store()
         kline_df = store.query_kline(symbol)
         val_df = store.query_valuations(symbol)
         indicators_df = store.query_market_indicators(symbol)
@@ -279,8 +272,8 @@ def daily_market_recap() -> tuple[Response, int]:
                         total_adv["down"] += 1
                     else:
                         total_adv["flat"] += 1
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Failed to fetch sector data: %s", exc)
 
         # Sector strength
         try:
@@ -300,8 +293,8 @@ def daily_market_recap() -> tuple[Response, int]:
                     }
                     for s in sorted_sectors[:10]
                 ]
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Failed to fetch risk flag data: %s", exc)
 
         # Risk flags
         if indices_data:

@@ -9,11 +9,14 @@ Error responses follow ``{"error": ..., "status": N}``.
 
 from __future__ import annotations
 
+import logging
+
 from typing import Any
 
 from flask import Blueprint, Response, jsonify
 
 from ._paper_service import get_paper_trader
+logger = logging.getLogger(__name__)
 
 bp = Blueprint("portfolio", __name__)
 

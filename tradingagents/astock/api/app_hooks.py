@@ -68,7 +68,8 @@ def _register_before_request(app: Flask) -> None:
                     record = asyncio.run(store.validate_api_key(key_hash))
                 else:
                     record = store.validate_api_key(key_hash)
-            except Exception:
+            except Exception as exc:
+                logger.warning("API key validation failed: %s", exc)
                 record = None
 
         if record is None:
@@ -113,8 +114,8 @@ def _register_after_request(app: Flask) -> None:
                 body = request.get_json(silent=True)
                 if body:
                     detail["body_keys"] = list(body.keys())[:20]
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Operation failed: {0}", e)
 
             segs = request.path.strip("/").split("/")
             resource_type = segs[2] if len(segs) > 2 else "api"
@@ -135,12 +136,12 @@ def _register_after_request(app: Flask) -> None:
                 if asyncio.iscoroutinefunction(insert_fn):
                     try:
                         asyncio.run(insert_fn(**audit_data))
-                    except RuntimeError:
-                        pass
+                    except RuntimeError as e:
+                        logger.debug("Operation failed: {0}", e)
                 else:
                     insert_fn(**audit_data)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Audit write failed: %s", exc)
         return response
 
 

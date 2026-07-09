@@ -161,8 +161,8 @@ def report_pptx() -> Response:
 
     try:
         store = current_app.config.get("STORE")
-    except RuntimeError:
-        pass
+    except RuntimeError as e:
+        logger.debug("Operation failed: {0}", e)
 
     # Try to fetch research data from the store
     report_data = {
