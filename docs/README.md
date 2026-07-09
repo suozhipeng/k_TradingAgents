@@ -4,7 +4,7 @@
 
 ## 当前状态
 
-| 当前本地状态以 [`phases/README.md`](phases/README.md) 和 [`04-development.md`](04-development.md) 为准 |
+| 当前本地状态以 [`docs/phase-archive.md`](docs/phase-archive.md) 和 [`04-development.md`](04-development.md) 为准 |
 - 2026-07-08 本地离线验证基线：`1082 passed, 10 skipped`
 - 2026-07-08 已完成真实 live 验收：DeepSeek live API `1 passed`，live provider `7 passed, 1 skipped`，端到端 `live_research` pipeline `VERIFICATION PASSED`
 - 当前唯一未闭环 live 依赖为 `ASTOCK_IWENCAI_COOKIE`；未配置时 Iwencai 用例按设计跳过
@@ -15,7 +15,7 @@
 ```
 docs/
 ├── README.md              ← 你在这里
-├── CHANGELOG.md           ← 版本白皮书（已归档至 _archived/，合并入根 CHANGELOG.md）
+├── CHANGELOG.md           ← 版本白皮书
 ├── BACKLOG.md             ← 待完成任务清单
 │
 ├── 01-architecture.md         ← 架构设计（API + ADR 整合）
@@ -23,13 +23,12 @@ docs/
 ├── 03-operations.md         ← 运维与合规（部署 + 实盘 + 研究 + 数据源 + 合规 + 风险）
 ├── 04-development.md        ← 需求与开发（PRD + 新功能 + 测试 + 追踪）
 │
-├── phases/                ← 阶段设计文档
+
 │   ├── README.md          ← 阶段索引
 │   ├── TEMPLATE.md        ← 阶段模板
-│   └── phase-summary.md   ← Phase 31-39 交付总结
+│   └── docs/phase-archive.md   ← Phase 31-39 交付总结
 ├── database_module_whitepaper.md ← 数据库模块白皮书
 ├── full_function_documentation.md ← 全功能文档
-└── _archived/             ← 历史归档
 ```
 
 ## 🧭 快速导航
@@ -38,7 +37,7 @@ docs/
 
 | 我想... | 打开... |
 |---------|---------|
-| 看当前状态 | [phases/README.md](phases/README.md) |
+| 看当前状态 | [docs/phase-archive.md](docs/phase-archive.md) |
 | 看当前计划 | [BACKLOG.md](BACKLOG.md) |
 | 查版本变更 | [../CHANGELOG.md](../CHANGELOG.md) |
 | 全功能概览 | [full_function_documentation.md](full_function_documentation.md) |
@@ -77,9 +76,9 @@ docs/
 
 | 我想... | 打开... |
 |---------|---------|
-| 阶段索引 | [phases/README.md](phases/README.md) |
-| 阶段模板 | [phases/TEMPLATE.md](phases/TEMPLATE.md) |
-| Phase 31-39 交付总结 | [phases/phase-summary.md](phases/phase-summary.md) |
+| 阶段索引 | [docs/phase-archive.md](docs/phase-archive.md) |
+| 阶段模板 | [docs/phase-template.md](docs/phase-template.md) |
+| Phase 31-39 交付总结 | [docs/phase-archive.md](docs/phase-archive.md) |
 
 ## ⚠️ 已知文档缺口
 

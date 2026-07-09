@@ -63,14 +63,14 @@ Write durable outcomes to `docs/phases/`, not only to chat:
 - Next phase entry criteria
 - Final commit SHA
 
-Use `docs/phases/TEMPLATE.md`. A phase cannot be marked complete or handed off until its archive entry and `docs/phases/README.md` index are updated.
+Use `docs/phase-template.md`. A phase cannot be marked complete or handed off until its archive entry and `docs/phase-archive.md` index are updated.
 
 ## Documentation Flow
 
 ```
 task complete → write phase archive in docs/phases/
              → update docs/ASTOCK_CURRENT_STATUS.md
-             → update docs/phases/README.md index
+             → update docs/phase-archive.md index
              → commit all docs together with code
 ```
 
@@ -103,15 +103,15 @@ task complete → write phase archive in docs/phases/
 
 - `docs/HERMES_SKILLS_PLAYBOOK.md`
 - `docs/ASTOCK_CURRENT_STATUS.md`
-- `docs/phases/README.md`
-- `docs/phases/TEMPLATE.md`
+- `docs/phase-archive.md`
+- `docs/phase-template.md`
 
 ## Verification
 
 After a rollout cycle:
 
 - [ ] Phase archive written to `docs/phases/phase-N-*.md`
-- [ ] `docs/phases/README.md` index updated
+- [ ] `docs/phase-archive.md` index updated
 - [ ] `docs/ASTOCK_CURRENT_STATUS.md` reflects new phase status
 - [ ] Codex review accepted (`accept` or `partial` with documented gaps)
 - [ ] ECC validation passed (review or self-test)

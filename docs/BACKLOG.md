@@ -6,7 +6,7 @@
 
 ## 1. 文档目标
 
-本文档整理当前仓库后续最值得推进的需求项，按优先级划分为 P0/P1/P2。需求到模块、测试和 phase 的映射见 `04-dev/traceability-matrix.md`。产品指标、运行指标、告警和 Ops 要求见 `03-ops/deployment.md` §8。
+本文档整理当前仓库后续最值得推进的需求项，按优先级划分为 P0/P1/P2。需求到模块、测试和 phase 的映射见 `04-development.md`。产品指标、运行指标、告警和 Ops 要求见 `03-operations.mddeployment.md` §8。
 
 ## 1.1 当前范围约束（2026-07-08）
 
@@ -118,15 +118,15 @@
 现状：
 
 - `trading.html`、`routes_trade.py`、相关测试已进入代码
-- 已建立独立 phase 归档 `_archived/phase-29-trading-page.md`
+- Phase 29 已归档至 docs/phase-archive.md
 
 目标：
 
-- ✅ 已达成 — 有 scope、测试、风险说明、commit SHA（Phase 29 已归档至 `_archived/`）
+- ✅ 已达成 — 有 scope、测试、风险说明、commit SHA（Phase 29 已归档至 docs/phase-archive.md）
 
 完成标准：
 
-- ✅ 已达成 — 有 scope — `_archived/phase-29-trading-page.md`（已归档至 `_archived/`）
+- ✅ 已达成 — Phase 29 已归档至 docs/phase-archive.md
 - 有测试 — ✅ WebUI + API 切片 150 passed
 - 有风险说明 — ✅ 实时报价依赖/缓存/持久化
 - 有 commit SHA — ✅ `268d326`, `87e5b73`, `1960c65` 等

@@ -10,7 +10,7 @@
 - `tradingagents/astock/api/routes_analysis.py` + `routes_dashboard.py` — dashboard 决策摘要补齐 `research_only` 实际统计，不再仅靠推导占位
 - `tradingagents/astock/web/templates/dashboard/dashboard.html` — 首页补齐批量分析入口、核心卡片 error/empty 处理、决策摘要与工作台收口
 - `tradingagents/astock/api/routes_qmt.py` — QMT 能力边界文案统一为 `managed`（mock/read-only），并明确真实 QMT order/query 为 P3 deferred
-- `docs/phases/README.md`、`docs/phases/phase-39-e2e-uat.md`、`docs/04-dev/traceability-matrix.md`、`docs/BACKLOG.md` — 当前状态文档已同步到 2026-07-08
+- `docs/phase-archive.md`、`docs/phase-archive.md`、`docs/04-development.md`、`docs/BACKLOG.md` — 当前状态文档已同步到 2026-07-08
 
 **当前验证基线**
 
@@ -79,8 +79,8 @@
 - 精简 PRD.md：移除重复的 ASTOCK_REQUIREMENTS 合并残留（1075 → 266 行）
 - 修正全功能文档数字：数据能力 22、API 端点 88、Web UI 27 页、索引 27、测试 62
 - 补充 sina_sectors.py 到数据源工具表
-- 归档 phase-web-* 合规验收文件至 _archived/web-evidence/
-- 清理 _archived/ 中已合并的 ASTOCK_*.md 旧文件（19 个）
+- 归档 phase-web-* 合规验收文件至 docs/phase-archive.md Appendix C
+- 清理已合并的历史归档文件
 
 **模块快照（2026-07-08 实际值）**
 
@@ -133,8 +133,8 @@
 
 - 新增 `full_function_documentation.md`（全功能文档）
 - 新增 `database_module_whitepaper.md`（数据库白皮书）
-- 新增 `04-dev/PRD.md`（合并 PRD + 需求 + 技术需求）
-- 旧 `ASTOCK_*.md` 归档至 `_archived/`
+- 新增 `04-development.md`（合并 PRD + 需求 + 技术需求）
+- 旧 `ASTOCK_*.md` 已合并至专题文档
 - Docker Compose 部署支持（app + postgres + clickhouse + pgadmin）
 
 ---
@@ -154,5 +154,5 @@
 
 - Phase 30：Live Trading Readiness 准入清单
 - Phase 31-38：数据质量、策略实验室、AI 研究中心、市场龙头、交易执行、组合风控、运维审计、导航清理
-- Phase 39：E2E UAT（后续已完成；当前状态以 `docs/phases/README.md` 为准）
-- Web-G0 ~ Web-P7：Web 页面合规验收（已完成，归档至 `_archived/web-evidence/`）
+- Phase 39：E2E UAT（后续已完成；当前状态以 `docs/phase-archive.md` 为准）
+- Web-G0 ~ Web-P7：Web 页面合规验收（已完成，归档至 docs/phase-archive.md Appendix C）

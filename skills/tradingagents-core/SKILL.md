@@ -184,7 +184,7 @@ docker compose --profile ollama up   # with local LLM
 - `docs/ASTOCK_CURRENT_STATUS.md` — Current phase baseline
 - `docs/ASTOCK_REQUIREMENTS.md` — Requirements traceability
 - `docs/ASTOCK_STRATEGY_DEVELOPMENT_GUIDE.md` — Strategy development rules
-- `docs/phases/README.md` — Phase archive index
+- `docs/phase-archive.md` — Phase archive index
 - `planning/codebase/STACK.md` — Complete tech stack analysis
 - `planning/codebase/ARCHITECTURE.md` — Architecture documentation
 - `planning/review/ECC_REVIEW.md` — ECC review records

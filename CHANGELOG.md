@@ -91,7 +91,7 @@ Breaking changes within the 0.x line are called out explicitly.
 
 **Documentation updates**
 
-- `docs/04-dev/traceability-matrix.md`：BL-201/BL-203/BL-204/FR-22/FR-23/FR-24/FR-25/NFR-04/NFR-05/NFR-07/NFR-09/NFR-11/NFR-14/NFR-16/NFR-17/NFR-19 从 partial 更新为 done，附证据
+- `docs/04-development.md`：BL-201/BL-203/BL-204/FR-22/FR-23/FR-24/FR-25/NFR-04/NFR-05/NFR-07/NFR-09/NFR-11/NFR-14/NFR-16/NFR-17/NFR-19 从 partial 更新为 done，附证据
 
 ## A Stock Pro 详细变更
 
@@ -177,7 +177,7 @@ Breaking changes within the 0.x line are called out explicitly.
 
 - 新增 `full_function_documentation.md`（全功能文档）
 - 新增 `database_module_whitepaper.md`（数据库白皮书）
-- 新增 `04-dev/PRD.md`（合并 PRD + 需求 + 技术需求）
+- 新增 `04-development.md`（合并 PRD + 需求 + 技术需求）
 - 旧 `ASTOCK_*.md` 归档至 `_archived/`
 - Docker Compose 部署支持（app + postgres + clickhouse + pgadmin）
 

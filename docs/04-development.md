@@ -15,7 +15,7 @@
 
 # Product Requirements Document
 
-> 本文档定义产品定位、目标用户、核心场景、能力需求和安全约束。详细需求分解和任务队列见 [`BACKLOG.md`](../BACKLOG.md)，模块技术细节见 [`full_function_documentation.md`](../full_function_documentation.md)。
+> 本文档定义产品定位、目标用户、核心场景、能力需求和安全约束。详细需求分解和任务队列见 [`BACKLOG.md`](BACKLOG.md)，模块技术细节见 [`full_function_documentation.md`](full_function_documentation.md)。
 >
 > 合并自 ASTOCK_PRD.md + ASTOCK_REQUIREMENTS.md + ASTOCK_TECH_REQUIREMENTS.md
 
@@ -241,34 +241,34 @@
 
 后续开发必须按以下文档闭环执行：
 
-- API 变更先更新 `01-arch/API.md`，再进入代码实现。
-- 数据字段、provider、质量标签、血缘和快照变更先更新 `03-ops/data-sources.md`。
-- DuckDB、cache、schema、报告归档和回测结果结构变更先更新 `04-dev/PRD.md`。
-- 受控执行、QMT、订单、风控、故障处理和回滚流程先更新 `03-ops/live-trading.md`。
-- 每个 phase 必须按 `04-dev/test-plan.md` 留存测试命令、结果和阻断项。
-- 页面、报告、AI 输出、回测结果和交易入口必须遵守 `03-ops/compliance.md`。
-- 核心功能启动、依赖和健康检查必须遵守 `03-ops/deployment.md`。
-- AI provider、prompt、模型输出和降级必须遵守 `03-ops/compliance.md`。
-- WebUI 页面状态、能力标签和顶层导航必须遵守 `02-guide/USER_MANUAL.md`。
+- API 变更先更新 `01-architecture.md`，再进入代码实现。
+- 数据字段、provider、质量标签、血缘和快照变更先更新 `03-operations.md`。
+- DuckDB、cache、schema、报告归档和回测结果结构变更先更新 `04-development.md`。
+- 受控执行、QMT、订单、风控、故障处理和回滚流程先更新 `03-operations.md`。
+- 每个 phase 必须按 `04-development.md` 留存测试命令、结果和阻断项。
+- 页面、报告、AI 输出、回测结果和交易入口必须遵守 `03-operations.md`。
+- 核心功能启动、依赖和健康检查必须遵守 `03-operations.md`。
+- AI provider、prompt、模型输出和降级必须遵守 `03-operations.md`。
+- WebUI 页面状态、能力标签和顶层导航必须遵守 `02-user-guide.md`。
 - WebUI 页面输入、输出、状态、错误态和截图证据必须遵守 `README.md`。
-- API/data/AI/trading/UI 兼容性变化必须遵守 `03-ops/deployment.md`。
+- API/data/AI/trading/UI 兼容性变化必须遵守 `03-operations.md`。
 - 当前暂不纳入范围必须以 `README.md` 为准，不得隐式扩展。
 
 ### 关联文档
 
 - `BACKLOG.md` — 待开发 backlog 和 Phase 30-39 路线图
-- `04-dev/traceability-matrix.md` — 需求、模块、API/页面、测试、phase 追踪矩阵
-- `03-ops/deployment.md` — 部署、环境、产品指标与监控
-- `01-arch/API.md` — API 端点参考、错误码、能力等级
-- `03-ops/data-sources.md` — 数据源授权、字典和血缘
-- `03-ops/compliance.md` — 风险披露、合规边界与隐私声明
-- `03-ops/live-trading.md` — 实盘运行手册
-- `03-ops/risk-register.md` — 项目风险登记
-- `04-dev/test-plan.md` — 测试验收计划
-- `02-guide/USER_MANUAL.md` — WebUI 产品规范
-- `02-guide/strategy-dev.md` — 策略开发规范
+- `04-development.md` — 需求、模块、API/页面、测试、phase 追踪矩阵
+- `03-operations.md` — 部署、环境、产品指标与监控
+- `01-architecture.md` — API 端点参考、错误码、能力等级
+- `03-operations.md` — 数据源授权、字典和血缘
+- `03-operations.md` — 风险披露、合规边界与隐私声明
+- `03-operations.md` — 实盘运行手册
+- `03-operations.md` — 项目风险登记
+- `04-development.md` — 测试验收计划
+- `02-user-guide.md` — WebUI 产品规范
+- `02-user-guide.md` — 策略开发规范
 - `README.md` — 文档体系索引
-- `phases/README.md` — 阶段索引
+- `docs/phase-archive.md` — 阶段索引
 - `full_function_documentation.md` — 全功能文档
 - `database_module_whitepaper.md` — 数据库模块白皮书
 
@@ -508,7 +508,7 @@
 
 | 更新时间：2026-07-08（含验收证据表 ✅） |
 
-本文定义 TradingAgents-Astock 的生产级测试、验收和发布门槛。它不替代 `tests/` 和 `phases/`，而是规定后续 phase 如何证明“可以进入下一阶段”。
+本文定义 TradingAgents-Astock 的生产级测试、验收和发布门槛。它不替代 `tests/` 和 `docs/phase-archive.md`，而是规定后续 phase 如何证明“可以进入下一阶段”。
 
 ### 测试分层
 
@@ -700,24 +700,24 @@
 | BL-204 | 自选股批量 AI 分析入口 — Dashboard 内联批量分析按钮 | WebUI Shell | `dashboard.html` | Homepage batch-analyze button | 1076 passed / 14 skipped | 2026-07-08 | ✅ done (runBatchAnalysis() 内联调用 /api/v1/watchlist/batch-analyze，结果渲染到 decision-cards) |
 | FR-26 | Visual system (Web-P7) — CSS tokens + state components + capability labels | WebUI Shell | `web/static/css/visual-tokens.css` | 全局 | Web-P7 归档 | Web-P7 | ✅ done (visual-tokens.css + base.html include + cap labels 2026-07-05) |
 | NFR-01 | 安全边界 | Trading & Execution / AI Research | `runtime_profile.py`, `phase9_schemas.py`, execution layer | 所有交易相关页面 | Phase 9/10/11/29 归档 | 9-11, 29 | ✅ done (schema 强制校验 + RiskGate 预检 + execution_signal=ResearchOnly 硬编码 + actionable=False 默认 + 交易页 risk banner；持续维护为 ongoing 过程，非遗漏) |
-| NFR-02 | 可审计性 | Ops & Audit | `audit_store.py` (内存+DuckDB), `TaskRun`/`AuditEvent` schema, SSE events, Ops routes | Ops Dashboard / audit / tasks | `03-ops/deployment.md`, `execution/audit_store.py`, `store/schema.py` | 37 | done |
-| NFR-03 | 可维护性 | Docs / Governance | `README.md`, `phases/` | N/A | Phase 0-29 归档覆盖检查 | 0-29 | done |
+| NFR-02 | 可审计性 | Ops & Audit | `audit_store.py` (内存+DuckDB), `TaskRun`/`AuditEvent` schema, SSE events, Ops routes | Ops Dashboard / audit / tasks | `03-operations.md`, `execution/audit_store.py`, `store/schema.py` | 37 | done |
+| NFR-03 | 可维护性 | Docs / Governance | `README.md`, `docs/phase-archive.md` | N/A | Phase 0-29 归档覆盖检查 | 0-29 | done |
 | NFR-04 | 可扩展性 | All Modules | provider/strategy/API registries | API/WebUI | strategy/provider tests | 1, 14, 18, 30+ | ✅ done (7 provider adapters + 11 strategies + 27 API blueprints all use registry pattern) |
-| NFR-05 | 产品可观测性 | Data & Ops / Ops & Audit | current metrics: health/API/backtest pages; future metrics registry | Ops Dashboard / health pages / SSE | `03-ops/deployment.md` §8, SSE TaskRun events | 30-38 | ✅ done (health endpoint + SSE TaskRun events + AuditStore persistence + ops_audit.html + alerts system) |
-| NFR-06 | API 契约稳定性 | API Platform | 119 条 `/api/v1` Flask route + contract doc | all `/api/v1/*` endpoints | `01-arch/API.md` (含验收证据表 ✅) | 30-38 | done |
-| NFR-07 | 数据字典与血缘 | Data & Ops / Strategy / AI / Trading | provider/store/schema docs + DataCleaner | Data Health / Strategy / AI / Trading pages | `03-ops/data-sources.md` | 31, 32, 33, 35, 37 | ✅ done (data_health.html shows provider status + DataCleaner NaN cleanup + store schema docs) |
-| NFR-08 | 测试验收与发布门槛 | Test & Release | `tests/`, phase evidence, 1064 tests collected | N/A | `04-dev/test-plan.md` (含验收证据表 ✅) | 30-38 | done |
-| NFR-09 | 风险披露与合规边界 | Product Governance | page/report copy, AI/report/trading outputs, risk register | WebUI / CLI / reports | `03-ops/compliance.md` | 30-38 | ✅ done (compliance.md §7 page requirements enforced; all trading pages have risk banners; AI output default advisory-only) |
-| NFR-10 | 核心功能环境可复现 | Core Runtime | env/config/startup docs + Docker + .venv | health checks | `03-ops/deployment.md` (含验收证据表 ✅) | 30-38 | done |
-| NFR-11 | AI 模型治理 | AI Research Center | model/prompt/audit docs + RuntimeProfile isolation | AI Research / reports | `03-ops/compliance.md` | 33, 37 | ✅ done (ResearchTask/ResearchAudit schemas + RuntimeProfile isolation + AI agent page model display) |
-| NFR-12 | 核心功能变更兼容 | Release Governance | phase docs / compatibility notes / changelog | API / WebUI / store | `03-ops/deployment.md` (含验收证据表 ✅) | 30-38 | done |
-| NFR-13 | WebUI 页面级一致性 | WebUI Shell | 7-module sidebar, templates/routes/nav docs, deprecation banners, 24 templates all extend base.html | all WebUI pages | `02-guide/USER_MANUAL.md` | 32-38 | done |
-| NFR-14 | 数据源使用边界 | Data & Ops | provider docs + fallback semantics | data pages / API meta | `03-ops/data-sources.md` | 31, 37 | ✅ done (data source quality tags in API responses + fallback chain documented + data_health.html shows provider status) |
+| NFR-05 | 产品可观测性 | Data & Ops / Ops & Audit | current metrics: health/API/backtest pages; future metrics registry | Ops Dashboard / health pages / SSE | `03-operations.md` §8, SSE TaskRun events | 30-38 | ✅ done (health endpoint + SSE TaskRun events + AuditStore persistence + ops_audit.html + alerts system) |
+| NFR-06 | API 契约稳定性 | API Platform | 119 条 `/api/v1` Flask route + contract doc | all `/api/v1/*` endpoints | `01-architecture.md` (含验收证据表 ✅) | 30-38 | done |
+| NFR-07 | 数据字典与血缘 | Data & Ops / Strategy / AI / Trading | provider/store/schema docs + DataCleaner | Data Health / Strategy / AI / Trading pages | `03-operations.md` | 31, 32, 33, 35, 37 | ✅ done (data_health.html shows provider status + DataCleaner NaN cleanup + store schema docs) |
+| NFR-08 | 测试验收与发布门槛 | Test & Release | `tests/`, phase evidence, 1064 tests collected | N/A | `04-development.md` (含验收证据表 ✅) | 30-38 | done |
+| NFR-09 | 风险披露与合规边界 | Product Governance | page/report copy, AI/report/trading outputs, risk register | WebUI / CLI / reports | `03-operations.md` | 30-38 | ✅ done (compliance.md §7 page requirements enforced; all trading pages have risk banners; AI output default advisory-only) |
+| NFR-10 | 核心功能环境可复现 | Core Runtime | env/config/startup docs + Docker + .venv | health checks | `03-operations.md` (含验收证据表 ✅) | 30-38 | done |
+| NFR-11 | AI 模型治理 | AI Research Center | model/prompt/audit docs + RuntimeProfile isolation | AI Research / reports | `03-operations.md` | 33, 37 | ✅ done (ResearchTask/ResearchAudit schemas + RuntimeProfile isolation + AI agent page model display) |
+| NFR-12 | 核心功能变更兼容 | Release Governance | phase docs / compatibility notes / changelog | API / WebUI / store | `03-operations.md` (含验收证据表 ✅) | 30-38 | done |
+| NFR-13 | WebUI 页面级一致性 | WebUI Shell | 7-module sidebar, templates/routes/nav docs, deprecation banners, 24 templates all extend base.html | all WebUI pages | `02-user-guide.md` | 32-38 | done |
+| NFR-14 | 数据源使用边界 | Data & Ops | provider docs + fallback semantics | data pages / API meta | `03-operations.md` | 31, 37 | ✅ done (data source quality tags in API responses + fallback chain documented + data_health.html shows provider status) |
 | NFR-15 | 文档范围登记 | Docs / Governance | docs scope register | N/A | `README.md` | 30-38 | done |
-| NFR-16 | 数据迁移与升级 | Data & Ops / Strategy / AI / Trading | DuckDB/cache/schema migration docs | API / WebUI / store | `04-dev/PRD.md` | 31-38 | ✅ done (migration engine in store/migrations/runner.py + DuckDB auto-create directory + schema versioning) |
+| NFR-16 | 数据迁移与升级 | Data & Ops / Strategy / AI / Trading | DuckDB/cache/schema migration docs | API / WebUI / store | `04-development.md` | 31-38 | ✅ done (migration engine in store/migrations/runner.py + DuckDB auto-create directory + schema versioning) |
 | NFR-17 | WebUI 页面级验收 | WebUI Shell | page acceptance checklist + 27 HTML templates | all WebUI pages | `README.md` | 32-38 | ✅ done (30 templates all extend base.html; Web-P3~P7 page acceptance evidence archived) |
-| NFR-18 | 项目风险管理 | Project Governance | risk register docs + BL tracker | N/A | `03-ops/risk-register.md` (风险状态已按 Phase 34-38 完成情况更新 ✅) | 30-38 | done |
-| NFR-19 | 架构决策记录 | Architecture Governance | ADR docs + phase archives | N/A | `01-arch/ADR.md` | 30-38 | ✅ done (ADR.md exists + phase 0-39 archives + changelog tracks all breaking changes) |
+| NFR-18 | 项目风险管理 | Project Governance | risk register docs + BL tracker | N/A | `03-operations.md` (风险状态已按 Phase 34-38 完成情况更新 ✅) | 30-38 | done |
+| NFR-19 | 架构决策记录 | Architecture Governance | ADR docs + phase archives | N/A | `01-architecture.md` | 30-38 | ✅ done (ADR.md exists + phase 0-39 archives + changelog tracks all breaking changes) |
 | PROD-01 | 实盘准入清单 | Live Trading Readiness | future execution capability schema | Trading / Risk / Ops | future Phase 30 tests | 30 | planned |
 | PROD-02 | 数据质量与回测反偏差 | Data Quality & Bias Control | quality / calendar / constraints / adjustment modules | Data & Ops / Strategy Lab | `tests/test_astock_phase31.py`, backtest/data-source tests, 26 phase validation tests | 31 | done |
 | PROD-03 | Strategy Lab 模块整合 | Strategy Lab | strategy registry / backtest result schema | Strategy Lab tabs | strategy/backtest/optimizer tests | 32 | done |
