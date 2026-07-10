@@ -2,6 +2,15 @@
 
 > 记录每个版本的架构变更、模块清单和关键决策。对应 `CHANGELOG.md`。
 
+## Workspace Snapshot — 2026-07-10（xg_dev）
+
+**Research-only 边界与行情可信度契约**
+
+- P0-B1（`adbfcb0`）：默认启用 `ASTOCK_RESEARCH_ONLY`；执行页面重定向到 `/dashboard`，执行 API 返回 `410 research_only`，研究 UI 使用 `/api/v1/market/quote`。
+- P0-B2（`4f7b20a`）：新增 `DataQualityBanner`，为研究行情相关端点统一注入 `source`、`as_of`、`age_seconds`、`is_mock`、`is_stale`，区分 live、cache/store/fallback/duckdb 与 mock/synthetic 数据。
+- 验证：`PYTHONPATH="" .venv/bin/python -m pytest tests/ -q --tb=short` → `1136 passed, 10 skipped`。
+- P0-B3 正在进行：将旧盯盘 URL 归并到 `/market_leaders`，并下线 localhost iframe。
+
 ## Workspace Snapshot — 2026-07-08（local / unreleased）
 
 **当前本地工作区状态同步**

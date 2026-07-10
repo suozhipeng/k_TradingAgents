@@ -98,20 +98,19 @@
 
 ### BL-003 修正 trade quote / trade state 的能力口径
 
-现状：
+状态：✅ done（2026-07-10，P0-B1/P0-B2）
 
-- `trade/quote` 使用 EastMoney push2 实时报价 + Sina 降级 + 60s 缓存 — ✅ **已真实**
-- `trade/state` 使用 PaperTrader 状态 + 实时报价估值 — ✅ **明确为 Paper Trading 路径**
+现状与结论：
 
-目标：
+- 默认 Research-only 范围下，`/api/v1/trade/quote` 与其他执行 API 返回 `410 research_only`；研究行情入口为 `/api/v1/market/quote`。
+- `/api/v1/market/quote`、龙虎榜、板块、北向、股票归属板块、动量和市场概览统一返回 `source`、`as_of`、`age_seconds`、`is_mock`、`is_stale`。
+- `mock` / `synthetic` 明确标记 `is_mock=true`；`cache` / `store` / `fallback` / `duckdb` 超过 TTL 时明确标记 `is_stale=true`。
+- `trade/state` 属于兼容模式中的 PaperTrader 路径，非实盘，且不属于默认 Research-only 产品面。
 
-- ✅ 已达成 — trade/quote 是实时数据（EastMoney → Sina → 缓存三级降级）
-- trade/state 属于 Paper Trading，非实盘，文档已写明
+验收证据：
 
-完成标准：
-
-- endpoint 语义与返回内容一致 — ✅ trade/quote 返回实时数据
-- 用户不会把 mock 报价误认为真实交易报价 — ✅ trade/quote 已标注 source: "live"|"cache"；trade/state 通过 PaperTrader 路径
+- `tests/test_astock_data_quality_banner.py` 覆盖来源分类、TTL、时区、空字典和非法输入边界。
+- 2026-07-10 全量回归：`1136 passed, 10 skipped`。
 
 ### BL-004 为专业交易页建立正式归档
 

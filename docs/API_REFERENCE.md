@@ -143,6 +143,7 @@
 | `POST` | `/api/v1/market/momentum-rotation` | 动量轮动 |
 | `GET` | `/api/v1/market/northbound` | (无描述) |
 | `GET` | `/api/v1/market/overview` | (无描述) |
+| `GET` | `/api/v1/market/quote` | Research-only 行情入口；返回 `source`、`as_of`、`age_seconds`、`is_mock`、`is_stale` |
 | `GET` | `/api/v1/market/sectors` | (无描述) |
 
 ## `routes_notifications.py`
@@ -244,7 +245,7 @@
 | Method | Path | 说明 |
 |--------|------|------|
 | `POST` | `/api/v1/trade/order` | 模拟盘下单（需 writer/operator/admin key，与 `/paper/*` 共享状态） |
-| `GET` | `/api/v1/trade/quote` | (无描述) |
+| `GET` | `/api/v1/trade/quote` | 兼容模式行情入口；默认 Research-only 范围返回 `410 research_only`，请使用 `/api/v1/market/quote` |
 | `GET` | `/api/v1/trade/state` | 交易页模拟盘状态；与 `/paper/state` 使用相同 schema |
 
 ## `routes_tv.py`

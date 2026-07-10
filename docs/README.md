@@ -5,10 +5,11 @@
 ## 当前状态
 
 | 当前本地状态以 [`docs/phase-archive.md`](docs/phase-archive.md) 和 [`04-development.md`](04-development.md) 为准 |
-- 2026-07-08 本地离线验证基线：`1082 passed, 10 skipped`
+- 2026-07-10 本地离线验证基线：`1136 passed, 10 skipped`
 - 2026-07-08 已完成真实 live 验收：DeepSeek live API `1 passed`，live provider `7 passed, 1 skipped`，端到端 `live_research` pipeline `VERIFICATION PASSED`
 - 当前唯一未闭环 live 依赖为 `ASTOCK_IWENCAI_COOKIE`；未配置时 Iwencai 用例按设计跳过
-- 当前产品范围明确为：投研分析 + 回测 + 模拟盘 + mock/read-only QMT managed 试运行；**不接入真实券商**
+- 默认产品范围为 Research-only：投研分析 + 策略回测 + 市场盯盘；执行页面与 `/api/v1/trade/*`、`/paper/*`、`/qmt/*`、`/portfolio/*` API 默认不可用。`ASTOCK_RESEARCH_ONLY=false` 仅保留兼容模式；**不接入真实券商**。
+- 行情响应统一包含 `source`、`as_of`、`age_seconds`、`is_mock`、`is_stale`，UI 与调用方必须据此区分实时、缓存、降级与模拟数据。
 
 ## 📂 文档结构
 
