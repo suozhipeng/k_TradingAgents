@@ -52,6 +52,7 @@ class BackendConfig:
     pg_password: str = "astock"
     pg_pool_size: int = 20
     pg_use_timescaledb: bool = True
+    mock_data_enabled: bool = False
 
     @classmethod
     def load(cls, path: Path = CONFIG_FILE) -> BackendConfig:
@@ -81,6 +82,9 @@ class BackendConfig:
             pass
         config.pg_use_timescaledb = (
             os.environ.get("PG_USE_TIMESCALEDB", "true").lower() == "true"
+        )
+        config.mock_data_enabled = os.environ.get("ASTOCK_MOCK_DATA_ENABLED", "false").lower() in (
+            "true", "1", "yes", "on"
         )
 
         # File overrides (lower priority, survives manual edit)
@@ -114,6 +118,7 @@ class BackendConfig:
             "pg_password": self.pg_password,
             "pg_pool_size": self.pg_pool_size,
             "pg_use_timescaledb": self.pg_use_timescaledb,
+            "mock_data_enabled": self.mock_data_enabled,
         }
 
 

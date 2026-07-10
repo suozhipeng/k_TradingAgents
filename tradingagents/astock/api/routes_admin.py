@@ -11,6 +11,9 @@ from typing import Any
 
 from flask import Blueprint, current_app, g, jsonify, request
 
+from .auth import require_auth
+from ._helpers import _as_bool
+
 bp = Blueprint("admin", __name__)
 logger = logging.getLogger(__name__)
 
@@ -43,6 +46,7 @@ def _require_admin(*required_capabilities: str) -> bool:
 
 
 @bp.route("/admin/backend", methods=["GET"])
+@require_auth(roles=["admin"])
 def get_backend() -> tuple[Any, int]:
     """Return current backend status."""
     mgr = current_app.config.get("BACKEND_MGR")
@@ -104,6 +108,7 @@ def switch_backend() -> tuple[Any, int]:
 
 
 @bp.route("/admin/backend/config", methods=["GET"])
+@require_auth(roles=["admin"])
 def get_backend_config() -> tuple[Any, int]:
     """Return current backend configuration (passwords masked)."""
     mgr = current_app.config.get("BACKEND_MGR")
@@ -114,6 +119,28 @@ def get_backend_config() -> tuple[Any, int]:
     if cfg.get("pg_password"):
         cfg["pg_password"] = "***"
     return jsonify(cfg), 200
+
+
+@bp.route("/admin/mock-data", methods=["GET"])
+@require_auth(roles=["admin"])
+def get_mock_data_setting() -> tuple[Any, int]:
+    """Return the process-wide mock-data switch."""
+    return jsonify({"enabled": _as_bool(current_app.config.get("ASTOCK_MOCK_DATA_ENABLED"), False)}), 200
+
+
+@bp.route("/admin/mock-data", methods=["PUT"])
+@require_auth(roles=["admin"])
+def set_mock_data_setting() -> tuple[Any, int]:
+    """Enable or disable process-wide mock data and persist the setting."""
+    body = request.get_json(silent=True) or {}
+    enabled = _as_bool(body.get("enabled"), False)
+    current_app.config["ASTOCK_MOCK_DATA_ENABLED"] = enabled
+    manager = current_app.config.get("BACKEND_MGR")
+    if manager is not None:
+        manager.config.mock_data_enabled = enabled
+        manager.config.save()
+    logger.warning("Global mock-data mode changed: enabled=%s actor=%s", enabled, getattr(g, "actor", "unknown"))
+    return jsonify({"enabled": enabled, "persistent": manager is not None}), 200
 
 
 @bp.route("/admin/health/sync-ch", methods=["POST"])

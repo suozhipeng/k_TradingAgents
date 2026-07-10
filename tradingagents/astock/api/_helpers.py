@@ -13,7 +13,7 @@ import os
 from datetime import datetime
 from typing import Any
 
-from flask import Blueprint, current_app
+from flask import Blueprint, current_app, has_app_context
 
 from tradingagents.astock.data_sources.cleaner import (
     clean_records,
@@ -102,6 +102,13 @@ def _bool_config(app: Any, key: str, default: bool = False) -> bool:
     if key in app.config:
         return _as_bool(app.config.get(key), default)
     return _bool_env(key, default)
+
+
+def mock_data_enabled() -> bool:
+    """Return whether the process-wide mock-data mode is enabled."""
+    if not has_app_context():
+        return _bool_env("ASTOCK_MOCK_DATA_ENABLED", False)
+    return _as_bool(current_app.config.get("ASTOCK_MOCK_DATA_ENABLED"), False)
 
 
 def _int_config(app: Any, key: str, default: int) -> int:

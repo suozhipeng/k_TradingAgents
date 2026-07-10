@@ -96,6 +96,11 @@ def _register_after_request(app: Flask) -> None:
     @app.after_request
     def _audit_write_operations(response: Any) -> Any:
         """Non-blocking audit for all POST/PUT/DELETE/PATCH operations."""
+        if response.status_code >= 500 and response.status_code != 501:
+            logger.error("API request failed: %s %s -> %s", request.method, request.path, response.status_code)
+            error_response = jsonify({"error": "internal_server_error", "status": response.status_code})
+            error_response.status_code = response.status_code
+            return error_response
         if request.method not in ("POST", "PUT", "DELETE", "PATCH"):
             return response
         if request.path.startswith("/api/v1/health"):

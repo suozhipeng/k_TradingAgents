@@ -16,6 +16,7 @@ from ._notification_delivery import (
     validate_public_url,
 )
 from ._notification_runtime import runtime
+from ._helpers import _as_bool
 
 logger = logging.getLogger(__name__)
 bp = Blueprint("notifications", __name__)
@@ -194,7 +195,7 @@ def register_dispatcher() -> tuple[Any, int]:
         "name": name,
         "kind": kind,
         "url": url,
-        "enabled": bool(data.get("enabled", True)),
+        "enabled": _as_bool(data.get("enabled"), True),
         **{k: v for k, v in data.items() if k not in ("name", "kind", "url")},
     }
     try:

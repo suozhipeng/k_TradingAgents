@@ -20,10 +20,8 @@ import logging
 import os
 from typing import Any
 
-from flask import Flask, jsonify
+from flask import Flask
 from flask_cors import CORS
-
-from tradingagents.astock.store.backend import backend_mgr
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +74,8 @@ def create_app(
         "ASTOCK_REQUIRE_AUTH",
         os.environ.get("ASTOCK_TESTING", "").lower() not in ("1", "true", "yes", "on"),
     )
+    from tradingagents.astock.store.backend import backend_mgr
+    app.config.setdefault("ASTOCK_MOCK_DATA_ENABLED", backend_mgr.config.mock_data_enabled)
 
     # -- CORS -----------------------------------------------------------------
     origin = cors_origin or os.environ.get("CORS_ORIGIN", DEFAULT_CORS_ORIGIN)
@@ -115,17 +115,6 @@ def create_app(
     if _bool_config(app, "ASTOCK_ENABLE_WEB_UI", True):
         from tradingagents.astock.web import bp as web_bp
         app.register_blueprint(web_bp)
-
-    # -- Health check ---------------------------------------------------------
-    @app.route("/api/v1/health")
-    def health() -> tuple[Any, int]:
-        status = backend_mgr.status()
-        return jsonify({
-            "status": "ok",
-            "version": APP_VERSION,
-            "backend": status["backend"],
-            "store_connected": status["duckdb_connected"] or status["postgresql_connected"],
-        }), 200
 
     return app
 

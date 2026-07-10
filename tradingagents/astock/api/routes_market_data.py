@@ -43,6 +43,7 @@ from ._market_data_helpers import (
     resolve_trade_date,
     router,
 )
+from ._helpers import _as_bool, mock_data_enabled
 
 bp = Blueprint("market_data", __name__)
 logger = logging.getLogger(__name__)
@@ -51,7 +52,7 @@ logger = logging.getLogger(__name__)
 @bp.route("/market/dragon-tiger")
 def dragon_tiger() -> tuple[Response, int]:
     """Fetch daily dragon & tiger board."""
-    if request.args.get("mock", "0") == "1":
+    if mock_data_enabled() or _as_bool(request.args.get("mock"), False):
         return jsonify(mock_dragon_tiger()), 200
 
     raw_date = request.args.get("date")
@@ -72,7 +73,7 @@ def dragon_tiger() -> tuple[Response, int]:
 @bp.route("/market/sectors")
 def sectors() -> tuple[Response, int]:
     """Industry sector ranking with unified fallback handling."""
-    if request.args.get("mock", "0") == "1":
+    if mock_data_enabled() or _as_bool(request.args.get("mock"), False):
         return jsonify(mock_sectors()), 200
 
     top_n = int(request.args.get("top_n", 20))
@@ -110,7 +111,7 @@ def sectors() -> tuple[Response, int]:
 @bp.route("/market/northbound")
 def northbound() -> tuple[Response, int]:
     """Shanghai / Shenzhen Stock Connect real-time flow."""
-    if request.args.get("mock", "0") == "1":
+    if mock_data_enabled() or _as_bool(request.args.get("mock"), False):
         return jsonify(mock_northbound()), 200
 
     try:
@@ -155,7 +156,7 @@ def stock_blocks() -> tuple[Response, int]:
         return jsonify({"error": "symbol is required", "status": 400}), 400
 
     limit = int(request.args.get("limit", 10))
-    if request.args.get("mock", "0") == "1":
+    if mock_data_enabled() or _as_bool(request.args.get("mock"), False):
         data = mock_stock_blocks(symbol)
         data["items"] = data["items"][:limit]
         data["count"] = len(data["items"])

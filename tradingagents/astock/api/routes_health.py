@@ -45,6 +45,7 @@ def health_check() -> tuple[Response, int]:
         "status": "ok" if store_connected else "degraded",
         "backend": backend,
         "store_connected": store_connected,
+        "mock_data_enabled": bool(current_app.config.get("ASTOCK_MOCK_DATA_ENABLED", False)),
         "uptime_seconds": uptime,
         "version": "0.3.0",
     }), status_code

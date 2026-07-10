@@ -33,6 +33,14 @@ document.addEventListener('DOMContentLoaded', function() {
         <label class="block text-xs text-gray-400 mb-1">API 基础 URL</label>
         <input type="text" id="cfg-api-url" value="/api/v1" class="tv-input w-full" readonly>
       </div>
+      <label class="flex items-center gap-2 text-sm text-gray-200">
+        <input type="checkbox" id="cfg-mock-data" class="tv-checkbox">
+        全局使用 Mock 数据
+      </label>
+      <div>
+        <label class="block text-xs text-gray-400 mb-1">管理员 API Key（仅用于保存 Mock 开关）</label>
+        <input type="password" id="cfg-admin-key" class="tv-input w-full" autocomplete="off">
+      </div>
       <button onclick="saveSettings()" class="tv-btn tv-btn-primary">保存设置</button>
       <div id="save-status" class="text-xs text-gray-400"></div>
     </div>
@@ -195,15 +203,32 @@ async function loadSettings() {
     const data = await res.json();
     document.getElementById('sys-version').textContent = data?.version || '0.1.0';
     document.getElementById('sys-status').textContent = data?.status === 'ok' ? 'Online' : 'Degraded';
+    document.getElementById('cfg-mock-data').checked = data?.mock_data_enabled === true;
   } catch (e) {
     document.getElementById('sys-status').textContent = 'Offline';
     document.getElementById('sys-version').textContent = 'ERR';
   }
 }
 
-function saveSettings() {
-  document.getElementById('save-status').textContent = '设置仅前端模拟。Settings are frontend-only in this demo.';
-  setTimeout(() => document.getElementById('save-status').textContent = '', 3000);
+async function saveSettings() {
+  const status = document.getElementById('save-status');
+  const key = document.getElementById('cfg-admin-key').value.trim();
+  if (!key) {
+    status.textContent = '请输入管理员 API Key 后保存 Mock 开关。';
+    return;
+  }
+  try {
+    const res = await fetch('/api/v1/admin/mock-data', {
+      method: 'PUT',
+      headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key},
+      body: JSON.stringify({enabled: document.getElementById('cfg-mock-data').checked}),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || data.error || '保存失败');
+    status.textContent = data.enabled ? '✅ 已启用全局 Mock 数据。' : '✅ 已关闭全局 Mock 数据。';
+  } catch (e) {
+    status.textContent = '保存失败：' + (e.message || e);
+  }
 }
 
 // ── Notification preferences ──

@@ -27,7 +27,7 @@ from ._backtest_helpers import (
     validate_date_range,
 )
 
-from ._helpers import get_store
+from ._helpers import _as_bool, get_store, mock_data_enabled
 
 bp = Blueprint("backtest", __name__)
 logger = logging.getLogger(__name__)
@@ -56,7 +56,7 @@ def run_backtest() -> tuple[Response, int]:
     start_date = data.get("start", "")
     end_date = data.get("end", "")
     rebalance_freq = data.get("rebalance_freq", "M")
-    use_mock = bool(data.get("mock_data", False))
+    use_mock = mock_data_enabled() or _as_bool(data.get("mock_data"), False)
 
     if not symbol:
         return jsonify({"error": "symbol is required", "status": 400}), 400
@@ -168,9 +168,17 @@ def get_backtest_results() -> tuple[Response, int]:
     try:
         df = get_store().get_backtest_results(strategy_name=strategy_name)
         if df is not None and not df.empty and "params_json" in df.columns:
-            return jsonify({"results": expand_params_json_rows(df)}), 200
-        rows = df.to_dict(orient="records") if df is not None and not df.empty else []
+            rows = expand_params_json_rows(df)
+        else:
+            rows = df.to_dict(orient="records") if df is not None and not df.empty else []
         sanitize_nan(rows)
+        for row in rows:
+            if isinstance(row.get("equity_curve"), list):
+                continue
+            params = row.get("params")
+            periods = params.get("periods") if isinstance(params, dict) else None
+            if isinstance(periods, list):
+                row["equity_curve"] = build_equity_curve(periods)
         return jsonify({"results": rows}), 200
     except Exception as exc:
         return jsonify({"error": str(exc), "status": 500}), 500
@@ -199,7 +207,7 @@ def compare_backtests() -> tuple[Response, int]:
     symbol = request.args.get("symbol", "")
     start_date = request.args.get("start", "")
     end_date = request.args.get("end", "")
-    use_mock = bool(request.args.get("mock_data", "0"))
+    use_mock = mock_data_enabled() or _as_bool(request.args.get("mock_data"), False)
 
     if not strategies_param:
         return jsonify({"error": "strategies is required (comma-separated)", "status": 400}), 400
@@ -307,7 +315,9 @@ def walkforward():
         if strategy_cls is None:
             return jsonify({"error": f"Unknown strategy: {strategy_name}", "status": 400}), 400
 
-        engine = create_backtest_engine(use_mock_data=True)
+        engine = create_backtest_engine(
+            use_mock_data=mock_data_enabled() or _as_bool(body.get("mock_data"), False)
+        )
         from tradingagents.astock.execution.optimizer import WalkForwardAnalyzer
 
         wfa = WalkForwardAnalyzer(strategy_cls, engine=engine)
@@ -383,7 +393,9 @@ def analyze_backtest() -> tuple[Response, int]:
 
     try:
         strategy = registry[strategy_name]()
-        engine = create_backtest_engine(use_mock_data=bool(body.get("mock_data", False)))
+        engine = create_backtest_engine(
+            use_mock_data=mock_data_enabled() or _as_bool(body.get("mock_data"), False)
+        )
         result = engine.run(symbol, start_date, end_date, strategy)
 
         periods = result.periods or []
@@ -436,7 +448,7 @@ def optimize_strategy_api() -> tuple[Response, int]:
     symbol = body.get("symbol", "600519.SH")
     start_date = body.get("start_date", "")
     end_date = body.get("end_date", "")
-    use_mock = bool(body.get("mock_data", False))
+    use_mock = mock_data_enabled() or _as_bool(body.get("mock_data"), False)
     if not start_date or not end_date:
         return jsonify({"error": "start_date and end_date are required", "status": 400}), 400
     param_grid = body.get("param_grid")

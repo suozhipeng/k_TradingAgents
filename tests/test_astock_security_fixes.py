@@ -12,7 +12,11 @@ def _app(*, require_auth: bool):
     app = create_app(
         db_path=":memory:",
         cors_origin="*",
-        test_config={"ASTOCK_REQUIRE_AUTH": require_auth, "ASTOCK_SCHEDULER_ENABLED": False},
+        test_config={
+            "ASTOCK_REQUIRE_AUTH": require_auth,
+            "ASTOCK_SCHEDULER_ENABLED": False,
+            "ASTOCK_MOCK_DATA_ENABLED": False,
+        },
     )
     app.config["STORE"].init_schema()
     return app
@@ -47,6 +51,66 @@ def test_write_routes_require_a_writer_key() -> None:
             json=payload,
             headers={"Authorization": f"Bearer {writer_key}"},
         ).status_code == 200
+
+
+def test_admin_read_routes_require_an_admin_key() -> None:
+    app = _app(require_auth=True)
+    with app.test_client() as client:
+        assert client.get("/api/v1/admin/backend/config").status_code == 401
+
+        admin_key = "admin-key"
+        app.config["STORE"].add_api_key(
+            key_hash=hashlib.sha256(admin_key.encode()).hexdigest(), role="admin"
+        )
+        assert client.get(
+            "/api/v1/admin/backend/config",
+            headers={"Authorization": f"Bearer {admin_key}"},
+        ).status_code == 200
+
+
+def test_global_mock_data_setting_defaults_off_and_requires_admin() -> None:
+    app = _app(require_auth=True)
+    with app.test_client() as client:
+        assert client.get("/api/v1/health").get_json()["mock_data_enabled"] is False
+        assert client.put("/api/v1/admin/mock-data", json={"enabled": True}).status_code == 401
+
+        admin_key = "mock-admin-key"
+        app.config["STORE"].add_api_key(
+            key_hash=hashlib.sha256(admin_key.encode()).hexdigest(), role="admin"
+        )
+        manager = app.config["BACKEND_MGR"]
+        previous = manager.config.mock_data_enabled
+        with patch.object(manager.config, "save"):
+            response = client.put(
+                "/api/v1/admin/mock-data",
+                json={"enabled": True},
+                headers={"Authorization": f"Bearer {admin_key}"},
+            )
+        assert response.status_code == 200
+        assert response.get_json() == {"enabled": True, "persistent": True}
+        assert client.get("/api/v1/health").get_json()["mock_data_enabled"] is True
+        screener = client.get("/api/v1/market/screener")
+        assert screener.status_code == 200
+        assert screener.get_json()["total"] == 10
+        manager.config.mock_data_enabled = previous
+
+
+def test_api_5xx_responses_do_not_expose_exception_text() -> None:
+    app = _app(require_auth=False)
+    with patch("tradingagents.astock.api.routes_data_query.get_store", side_effect=RuntimeError("secret detail")):
+        with app.test_client() as client:
+            response = client.get("/api/v1/kline?symbol=600519.SH")
+    assert response.status_code == 500
+    assert response.get_json() == {"error": "internal_server_error", "status": 500}
+
+
+def test_api_boolean_parser_accepts_only_explicit_true_values() -> None:
+    from tradingagents.astock.api._helpers import _as_bool
+
+    assert _as_bool("true") is True
+    assert _as_bool("1") is True
+    assert _as_bool("false", True) is False
+    assert _as_bool("0", True) is False
 
 
 def test_dispatcher_responses_redact_credentials_and_webhook_query() -> None:

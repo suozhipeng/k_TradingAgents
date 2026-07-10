@@ -9,7 +9,7 @@ import logging
 from typing import Any
 
 from flask import Blueprint, Response, current_app, jsonify, request
-from ._helpers import get_store
+from ._helpers import _as_bool, get_store
 
 bp = Blueprint("data_jobs", __name__)
 logger = logging.getLogger(__name__)
@@ -71,7 +71,7 @@ def create_refresh_job() -> tuple[Response, int]:
     intervals = [str(item) for item in _as_list(intervals) if item]
     start = body.get("start")
     end = body.get("end")
-    include_valuation = bool(body.get("include_valuation", False))
+    include_valuation = _as_bool(body.get("include_valuation"), False)
     total = len(symbols) * len(intervals) + (len(symbols) if include_valuation else 0)
 
     store = get_store()

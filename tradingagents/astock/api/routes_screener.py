@@ -13,7 +13,7 @@ from typing import Any
 import numpy as np
 from flask import Blueprint, Response, current_app, jsonify, request
 
-from ._helpers import get_store
+from ._helpers import _as_bool, get_store, mock_data_enabled
 logger = logging.getLogger(__name__)
 
 bp = Blueprint("screener", __name__)
@@ -120,7 +120,7 @@ def screener() -> tuple[Response, int]:
     try:
         store = get_store()
         limit = int(request.args.get("limit", 50))
-        use_mock = bool(request.args.get("mock", False))
+        use_mock = mock_data_enabled() or _as_bool(request.args.get("mock"), False)
 
         # Get symbols to scan
         if use_mock:
@@ -139,10 +139,10 @@ def screener() -> tuple[Response, int]:
         # Parse filter params
         rsi_min = float(request.args.get("rsi_min", 0))
         rsi_max = float(request.args.get("rsi_max", 100))
-        ma_golden = bool(request.args.get("ma_golden_cross", False))
-        ma_death = bool(request.args.get("ma_death_cross", False))
-        macd_golden = bool(request.args.get("macd_golden", False))
-        macd_death = bool(request.args.get("macd_death", False))
+        ma_golden = _as_bool(request.args.get("ma_golden_cross"), False)
+        ma_death = _as_bool(request.args.get("ma_death_cross"), False)
+        macd_golden = _as_bool(request.args.get("macd_golden"), False)
+        macd_death = _as_bool(request.args.get("macd_death"), False)
         vol_ratio_min = float(request.args.get("volume_ratio_min", 0))
 
         any_filter = any([rsi_min > 0, rsi_max < 100, ma_golden, ma_death,

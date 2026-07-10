@@ -30,6 +30,7 @@ from tradingagents.astock.alert.alert_store import (
     TriggerDirection,
     TriggerType,
 )
+from ._helpers import _as_bool
 
 bp = Blueprint("alerts", __name__)
 logger = logging.getLogger(__name__)
@@ -202,7 +203,7 @@ def create_rule() -> tuple[Response, int]:
             direction=direction,
             severity=severity,
             label=str(body.get("label", "")),
-            enabled=bool(body.get("enabled", True)),
+            enabled=_as_bool(body.get("enabled"), True),
         )
         store = _alert_store()
         created = store.create_rule(rule)

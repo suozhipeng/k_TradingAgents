@@ -19,6 +19,8 @@ from flask import Blueprint, jsonify, Response, request
 
 from tradingagents.astock.reporting.ppt import ReportGenerator, HAS_PPTX
 
+from ._helpers import _as_bool
+
 logger = logging.getLogger(__name__)
 
 bp = Blueprint("reports", __name__)
@@ -123,8 +125,8 @@ def report_save() -> tuple[Response, int]:
         "investment_plan": data.get("investment_plan", ""),
         "research_conclusion": data.get("research_conclusion"),
         "created_at": datetime.now().isoformat(),
-        "advisory_only": bool(data.get("advisory_only", True)),
-        "actionable": not bool(data.get("advisory_only", True)),
+        "advisory_only": _as_bool(data.get("advisory_only"), True),
+        "actionable": not _as_bool(data.get("advisory_only"), True),
         "data_snapshot": data.get("data_snapshot", None),
         "trade_date": data.get("trade_date", ""),
     }

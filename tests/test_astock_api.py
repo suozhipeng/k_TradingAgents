@@ -467,6 +467,10 @@ class TestBacktestEndpoints:
         assert resp.status_code == 200
         data = resp.get_json()
         assert "results" in data
+        assert data["results"]
+        curve = data["results"][0]["equity_curve"]
+        assert curve
+        assert set(curve[0]) == {"period", "value"}
 
     def test_compare_backtests(self, app):
         resp = app.get(
