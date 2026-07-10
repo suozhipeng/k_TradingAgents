@@ -548,6 +548,14 @@ TRADINGAGENTS_TEMPERATURE=0.0
 
 ### 推荐本地流程
 
+## AStock API 安全配置
+
+默认运行时，所有写请求以及交易、数据导入、调度、QMT、运维和通知控制面均要求 Bearer API key。写操作仅接受 `writer`、`operator` 或 `admin` 角色；`readonly` key 只能访问允许的查询接口。
+
+本机临时开发可显式设置 `ASTOCK_REQUIRE_AUTH=false`，但不得用于局域网或公网部署。测试环境通过 `ASTOCK_TESTING=1` 自动关闭该 gate。
+
+通知渠道只允许公网 HTTP(S) 或 SMTP 目标，禁止私网/回环/保留地址，HTTP 请求不跟随重定向。渠道列表和创建/更新响应会移除密码、token、secret、API key 及 URL 查询参数；凭据只应通过受控写接口提交。
+
 1. 如有需要，复制环境变量模板：
 
 ```bash

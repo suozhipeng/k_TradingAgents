@@ -263,19 +263,18 @@ def _get_decision_summary() -> dict[str, Any]:
                     continue
 
                 rating = result.get("rating", "hold")
-                if rating in counts:
-                    counts[rating] += 1
-                else:
+                is_research_only = rating == "hold" and result.get("signal", "") in (
+                    "数据不足", "分析异常",
+                )
+                if is_research_only or rating not in counts:
                     research_only_count += 1
+                else:
+                    counts[rating] += 1
                 if rating == "buy" and len(top_picks) < 5:
                     top_picks.append({
                         "symbol": result["symbol"], "name": result["name"],
                         "score": result["score"], "signal": result["signal"],
                     })
-                if rating == "hold":
-                    signal = result.get("signal", "")
-                    if signal in ("数据不足", "分析异常"):
-                        research_only_count += 1
     except Exception as exc:
         logger.warning("Failed to compute decision summary: %s", exc)
     total = counts["buy"] + counts["hold"] + counts["sell"] + research_only_count

@@ -70,6 +70,12 @@ def create_app(
     """
     app = Flask(__name__)
     app.config.setdefault("ASTOCK_ENABLE_WEB_UI", True)
+    # Network-facing deployments must opt in to anonymous mutation explicitly.
+    # The test harness sets ASTOCK_TESTING=1 before importing the app factory.
+    app.config.setdefault(
+        "ASTOCK_REQUIRE_AUTH",
+        os.environ.get("ASTOCK_TESTING", "").lower() not in ("1", "true", "yes", "on"),
+    )
 
     # -- CORS -----------------------------------------------------------------
     origin = cors_origin or os.environ.get("CORS_ORIGIN", DEFAULT_CORS_ORIGIN)

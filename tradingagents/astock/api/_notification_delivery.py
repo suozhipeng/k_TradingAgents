@@ -5,14 +5,47 @@ from __future__ import annotations
 import json
 import logging
 import smtplib
+import socket
 import ssl
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from ipaddress import ip_address
 from typing import Any
+from urllib.parse import urlsplit
 
 import requests as http_requests
 
 logger = logging.getLogger(__name__)
+
+
+def validate_public_host(host: str) -> None:
+    """Reject hosts that resolve to loopback, private, or reserved addresses."""
+    if not host:
+        raise ValueError("A host is required")
+    try:
+        infos = socket.getaddrinfo(host, None, type=socket.SOCK_STREAM)
+    except socket.gaierror as exc:
+        raise ValueError(f"Unable to resolve host: {host}") from exc
+    for _, _, _, _, sockaddr in infos:
+        address = ip_address(sockaddr[0])
+        if not address.is_global:
+            raise ValueError(f"Blocked non-public host: {host}")
+
+
+def validate_public_url(url: str) -> None:
+    """Validate an HTTP(S) destination before it is stored or requested."""
+    parsed = urlsplit(url)
+    if parsed.scheme not in ("http", "https") or not parsed.hostname:
+        raise ValueError("Only absolute http/https URLs are allowed")
+    validate_public_host(parsed.hostname)
+
+
+def safe_http_request(url: str, **kwargs: Any) -> Any:
+    """Send an outbound HTTP request without following unvalidated redirects."""
+    validate_public_url(url)
+    kwargs.setdefault("timeout", 10)
+    kwargs["allow_redirects"] = False
+    return http_requests.request(urlsplit(url).scheme, url, **kwargs)
 
 
 def dispatch_event(channel: dict[str, Any], event: dict[str, Any]) -> None:
@@ -22,19 +55,19 @@ def dispatch_event(channel: dict[str, Any], event: dict[str, Any]) -> None:
 
     if kind == "dingtalk":
         payload = build_dingtalk_payload(event)
-        http_requests.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=10)
+        safe_http_request(url, json=payload, headers={"Content-Type": "application/json"})
     elif kind == "feishu":
         payload = build_feishu_payload(event)
-        http_requests.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=10)
+        safe_http_request(url, json=payload, headers={"Content-Type": "application/json"})
     elif kind == "work_weixin":
         payload = build_work_weixin_payload(event)
-        http_requests.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=10)
+        safe_http_request(url, json=payload, headers={"Content-Type": "application/json"})
     elif kind == "email":
         send_email(channel, event)
     elif kind == "desktop":
         send_desktop(channel, event)
     else:
-        http_requests.post(url, json=event, headers={"Content-Type": "application/json"}, timeout=10)
+        safe_http_request(url, json=event, headers={"Content-Type": "application/json"})
 
 
 def send_email(channel: dict[str, Any], event: dict[str, Any]) -> None:
@@ -65,6 +98,7 @@ def send_email(channel: dict[str, Any], event: dict[str, Any]) -> None:
     msg["To"] = ", ".join(to_addrs)
     msg.attach(MIMEText(body, "html", "utf-8"))
 
+    validate_public_host(smtp_host)
     ctx = ssl.create_default_context()
     with smtplib.SMTP(smtp_host, smtp_port) as server:
         server.ehlo()
@@ -164,8 +198,10 @@ def send_desktop(channel: dict[str, Any], event: dict[str, Any]) -> None:
 def send_desktop_macos(title: str, body: str) -> None:
     import subprocess
 
+    # Pass values as argv so user-controlled text cannot alter AppleScript.
+    script = "on run argv\n display notification item 1 of argv with title item 2 of argv\nend run"
     subprocess.run(
-        ["osascript", "-e", f'display notification "{body}" with title "{title}"'],
+        ["osascript", "-e", script, body, title],
         capture_output=True,
         timeout=5,
     )

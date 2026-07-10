@@ -9,15 +9,26 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-import json as _json
 import logging
 import time
-import uuid
 from typing import Any
 
 from flask import Flask, g, jsonify, request
 
 logger = logging.getLogger(__name__)
+
+_WRITE_METHODS = frozenset(("POST", "PUT", "DELETE", "PATCH"))
+_CONTROL_PREFIXES = (
+    "/api/v1/admin/",
+    "/api/v1/data/",
+    "/api/v1/notifications/",
+    "/api/v1/ops/",
+    "/api/v1/paper/",
+    "/api/v1/qmt/",
+    "/api/v1/sse/scheduler/",
+    "/api/v1/trade/",
+)
+_WRITE_ROLES = frozenset(("admin", "operator", "writer"))
 
 
 def register_hooks(app: Flask) -> None:
@@ -44,11 +55,13 @@ def _register_before_request(app: Flask) -> None:
         g.allowed_capabilities = ""
 
     @app.before_request
-    def _require_auth_on_writes() -> tuple[Any, int] | None:
-        backend = app.config.get("DB_BACKEND", "duckdb")
-        if backend != "postgresql":
+    def _require_auth_on_sensitive_routes() -> tuple[Any, int] | None:
+        if not app.config.get("ASTOCK_REQUIRE_AUTH", True):
             return None
-        if request.method not in ("POST", "PUT", "DELETE", "PATCH"):
+        requires_auth = request.method in _WRITE_METHODS or any(
+            request.path.startswith(prefix) for prefix in _CONTROL_PREFIXES
+        )
+        if not requires_auth:
             return None
         if any(request.path.startswith(p) for p in ("/api/v1/health",)):
             return None
@@ -80,6 +93,11 @@ def _register_before_request(app: Flask) -> None:
         g.role = record.get("role", "readonly")
         g.key_id = record.get("key_id", "")
         g.allowed_capabilities = record.get("allowed_capabilities", "")
+        if request.method in _WRITE_METHODS and g.role not in _WRITE_ROLES:
+            return jsonify({
+                "error": "forbidden",
+                "message": "A writer, operator, or admin API key is required for write operations",
+            }), 403
         return None
 
 
@@ -121,13 +139,10 @@ def _register_after_request(app: Flask) -> None:
             resource_type = segs[2] if len(segs) > 2 else "api"
 
             audit_data = {
-                "event_id": uuid.uuid4().hex,
-                "event_type": "api_write",
                 "actor": actor,
                 "resource_type": resource_type,
                 "resource_id": segs[-1] if segs else "",
-                "action": f"{request.method} {request.path}",
-                "detail_json": _json.dumps(detail, ensure_ascii=False, default=str),
+                "detail": detail,
                 "outcome": "success" if status_code < 400 else "error",
             }
 
@@ -135,11 +150,11 @@ def _register_after_request(app: Flask) -> None:
             if insert_fn is not None:
                 if asyncio.iscoroutinefunction(insert_fn):
                     try:
-                        asyncio.run(insert_fn(**audit_data))
+                        asyncio.run(insert_fn("api_write", f"{request.method} {request.path}", **audit_data))
                     except RuntimeError as e:
                         logger.debug("Operation failed: {0}", e)
                 else:
-                    insert_fn(**audit_data)
+                    insert_fn("api_write", f"{request.method} {request.path}", **audit_data)
         except Exception as exc:
             logger.warning("Audit write failed: %s", exc)
         return response

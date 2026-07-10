@@ -139,7 +139,7 @@
 | `GET` | `/api/v1/market/blocks` | (无描述) |
 | `GET` | `/api/v1/market/dragon-tiger` | (无描述) |
 | `GET` | `/api/v1/market/leading-pool` | (无描述) |
-| `GET` | `/api/v1/market/momentum` | (无描述) |
+| `GET` | `/api/v1/market/momentum` | 龙头股动量榜；回退分数按代码稳定生成 |
 | `POST` | `/api/v1/market/momentum-rotation` | 动量轮动 |
 | `GET` | `/api/v1/market/northbound` | (无描述) |
 | `GET` | `/api/v1/market/overview` | (无描述) |
@@ -149,14 +149,14 @@
 
 | Method | Path | 说明 |
 |--------|------|------|
-| `POST` | `/api/v1/notifications/consumer/start` | 启动通知消费者 |
-| `POST` | `/api/v1/notifications/consumer/stop` | (无描述) |
-| `POST` | `/api/v1/notifications/desktop` | (无描述) |
+| `POST` | `/api/v1/notifications/consumer/start` | 启动通知消费者（需认证） |
+| `POST` | `/api/v1/notifications/consumer/stop` | 停止通知消费者（需认证） |
+| `POST` | `/api/v1/notifications/desktop` | 发送本机通知测试（需认证） |
 | `POST` | `/api/v1/notifications/dingtalk` | 钉钉通知 |
-| `GET` | `/api/v1/notifications/dispatchers` | (无描述) |
-| `POST` | `/api/v1/notifications/dispatchers` | 注册通知渠道 |
-| `DELETE` | `/api/v1/notifications/dispatchers/<name>` | 删除通知渠道 |
-| `PUT` | `/api/v1/notifications/dispatchers/<name>` | 更新通知渠道 |
+| `GET` | `/api/v1/notifications/dispatchers` | 通知渠道元数据（需认证，凭据与 URL 查询参数脱敏） |
+| `POST` | `/api/v1/notifications/dispatchers` | 注册通知渠道（需认证，仅允许公网目标） |
+| `DELETE` | `/api/v1/notifications/dispatchers/<name>` | 删除通知渠道（需认证） |
+| `PUT` | `/api/v1/notifications/dispatchers/<name>` | 更新通知渠道（需认证，仅允许公网目标） |
 | `POST` | `/api/v1/notifications/email` | (无描述) |
 | `GET` | `/api/v1/notifications/events` | (无描述) |
 | `POST` | `/api/v1/notifications/test-webhook` | Webhook 测试 |

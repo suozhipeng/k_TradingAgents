@@ -3,77 +3,53 @@
 from __future__ import annotations
 
 import logging
-import socket
-import struct
-import threading
 from datetime import datetime
-from ipaddress import IPv4Address, IPv6Address, ip_address
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 
-import requests as http_requests
 from flask import Blueprint, jsonify, request
 
-from ._notification_delivery import send_desktop
+from ._notification_delivery import (
+    safe_http_request,
+    send_desktop,
+    validate_public_host,
+    validate_public_url,
+)
 from ._notification_runtime import runtime
 
 logger = logging.getLogger(__name__)
 bp = Blueprint("notifications", __name__)
 
-# ---------------------------------------------------------------------------
-# SSRF protection helpers
-# ---------------------------------------------------------------------------
-
-_PRIVATE_RANGES = (
-    "10.0.0.0/8",
-    "100.64.0.0/10",
-    "127.0.0.0/8",
-    "169.254.0.0/16",
-    "172.16.0.0/12",
-    "192.168.0.0/16",
-    "::1/128",
-    "fc00::/7",
-    "fe80::/10",
-)
+_HTTP_CHANNELS = frozenset(("generic", "dingtalk", "feishu", "work_weixin"))
+_CHANNEL_KINDS = _HTTP_CHANNELS | {"email", "desktop"}
 
 
-def _is_private_or_reserved(host: str) -> bool:
-    """Return True if *host* resolves to a private / reserved IP address."""
-    try:
-        addr = ip_address(host)
-        if addr.is_private or addr.is_loopback or addr.is_link_local:
-            return True
-    except ValueError:
-        # Could not parse as IP — it's a hostname; resolve it
-        try:
-            infos = socket.getaddrinfo(host, None, socket.AF_INET)
-            for _, _, _, _, sockaddr in infos:
-                addr = IPv4Address(sockaddr[0])
-                if addr.is_private or addr.is_loopback or addr.is_link_local:
-                    return True
-        except socket.gaierror as e:
-            logger.debug("Operation failed: {0}", e)
-    return False
+def _public_channel(channel: dict[str, Any]) -> dict[str, Any]:
+    """Return channel metadata without credentials or webhook query secrets."""
+    safe: dict[str, Any] = {}
+    for key, value in channel.items():
+        lowered = key.lower()
+        if any(marker in lowered for marker in ("pass", "secret", "token", "api_key", "authorization")):
+            continue
+        if key == "url" and value:
+            parsed = urlsplit(str(value))
+            safe[key] = urlunsplit((parsed.scheme, parsed.netloc, parsed.path, "", ""))
+        else:
+            safe[key] = value
+    return safe
 
 
-def _safe_http_request(url: str, **kwargs: Any) -> Any:
-    """Send an HTTP request with SSRF protection.
-
-    Blocks requests to private / loopback / link-local addresses.
-    """
-    from urllib.parse import urlparse
-
-    parsed = urlparse(url)
-    hostname = parsed.hostname or ""
-
-    if not parsed.scheme.startswith(("http", "https")):
-        raise ValueError("Only http/https schemes are allowed")
-
-    if _is_private_or_reserved(hostname):
-        raise ValueError(f"Blocked SSRF attempt to private/reserved host: {hostname}")
-
-    # Apply default timeout if not specified
-    kwargs.setdefault("timeout", 10)
-    return http_requests.request(parsed.scheme.split("+")[0], url, **kwargs)
+def _validate_channel(channel: dict[str, Any]) -> None:
+    kind = str(channel.get("kind", "generic"))
+    if kind not in _CHANNEL_KINDS:
+        raise ValueError(f"Unsupported notification channel kind: {kind}")
+    if kind in _HTTP_CHANNELS:
+        validate_public_url(str(channel.get("url", "")))
+    elif kind == "email":
+        validate_public_host(str(channel.get("smtp_host", "smtp.gmail.com")))
+        port = channel.get("smtp_port", 587)
+        if not isinstance(port, int) or not 1 <= port <= 65535:
+            raise ValueError("smtp_port must be an integer between 1 and 65535")
 
 
 def set_notification_store(store: Any) -> None:
@@ -99,7 +75,7 @@ def test_webhook() -> tuple[Any, int]:
     }
 
     try:
-        resp = _safe_http_request(url, json=payload, headers={"User-Agent": "AStockPro/1.0"})
+        resp = safe_http_request(url, json=payload, headers={"User-Agent": "AStockPro/1.0"})
         if resp.ok:
             logger.info("Webhook test OK: %s -> %s", url, resp.status_code)
             return jsonify({"status": "ok", "http_status": resp.status_code}), 200
@@ -123,7 +99,7 @@ def send_dingtalk() -> tuple[Any, int]:
 
     payload = {"msgtype": "markdown", "markdown": {"title": title, "text": message}}
     try:
-        resp = _safe_http_request(url, json=payload, headers={"Content-Type": "application/json"})
+        resp = safe_http_request(url, json=payload, headers={"Content-Type": "application/json"})
         if resp.ok:
             return jsonify({"status": "ok"}), 200
         logger.warning("DingTalk send failed: %s -> %s", url, resp.status_code)
@@ -158,9 +134,9 @@ def send_email_notification() -> tuple[Any, int]:
     msg["To"] = to_address
 
     try:
-        if _is_private_or_reserved(smtp_host):
-            logger.warning("Blocked SMTP to private/reserved host: %s", smtp_host)
-            return jsonify({"status": "error", "error": "SMTP host must be a public mail server"}), 400
+        validate_public_host(smtp_host)
+        if not isinstance(smtp_port, int) or not 1 <= smtp_port <= 65535:
+            return jsonify({"status": "error", "error": "smtp_port must be an integer between 1 and 65535"}), 400
 
         ctx = ssl.create_default_context()
         with smtplib.SMTP(smtp_host, smtp_port) as server:
@@ -197,7 +173,7 @@ def list_dispatchers() -> tuple[Any, int]:
     """List configured notification channels."""
     return jsonify(
         {
-            "dispatchers": runtime.list_channels(),
+            "dispatchers": [_public_channel(channel) for channel in runtime.list_channels()],
             "consumer_running": runtime.is_consumer_running(),
         }
     ), 200
@@ -218,23 +194,34 @@ def register_dispatcher() -> tuple[Any, int]:
         "name": name,
         "kind": kind,
         "url": url,
-        "enabled": True,
+        "enabled": bool(data.get("enabled", True)),
         **{k: v for k, v in data.items() if k not in ("name", "kind", "url")},
     }
+    try:
+        _validate_channel(channel)
+    except ValueError as exc:
+        return jsonify({"error": "invalid_input", "message": str(exc), "status": 400}), 400
     runtime.register_channel(channel)
     logger.info("Registered notification dispatcher: %s (kind=%s)", name, kind)
-    return jsonify({"status": "ok", "dispatcher": channel}), 201
+    return jsonify({"status": "ok", "dispatcher": _public_channel(channel)}), 201
 
 
 @bp.route("/notifications/dispatchers/<name>", methods=["PUT"])
 def update_dispatcher(name: str) -> tuple[Any, int]:
     """Update a notification channel."""
     data = request.get_json(silent=True) or {}
+    existing = next((item for item in runtime.list_channels() if item.get("name") == name), None)
+    if existing is None:
+        return jsonify({"error": f"Dispatcher not found: {name}", "status": 404}), 404
+    try:
+        _validate_channel({**existing, **data})
+    except ValueError as exc:
+        return jsonify({"error": "invalid_input", "message": str(exc), "status": 400}), 400
     channel = runtime.update_channel(name, data)
     if channel is None:
         return jsonify({"error": f"Dispatcher not found: {name}", "status": 404}), 404
     logger.info("Updated notification dispatcher: %s", name)
-    return jsonify({"status": "ok", "dispatcher": channel}), 200
+    return jsonify({"status": "ok", "dispatcher": _public_channel(channel)}), 200
 
 
 @bp.route("/notifications/dispatchers/<name>", methods=["DELETE"])

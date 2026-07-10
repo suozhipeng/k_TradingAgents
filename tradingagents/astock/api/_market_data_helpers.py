@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import random
+import hashlib
 from datetime import date as date_type
 from datetime import datetime
 from typing import Any
@@ -229,13 +230,13 @@ def compute_momentum_scores(real_stocks: list[dict[str, Any]]) -> list[dict[str,
             else:
                 stock["momentum_score"] = 0.0
     else:
-        # Deterministic per-symbol scoring: hash-based, no magic numbers
+        # Use a cryptographic digest rather than Python's process-salted hash.
         for index, stock in enumerate(real_stocks):
             symbol = stock.get("symbol", "") or stock.get("name", "")
             if not symbol:
                 symbol = f"stock_{index}"
-            # Hash the symbol to get a stable base in [0, 99]
-            h = hash(symbol) & 0xFFFF
+            # Hash the symbol to get a stable base in [0, 99].
+            h = int.from_bytes(hashlib.sha256(symbol.encode("utf-8")).digest()[:2], "big")
             base_score = (h % 95) + 5  # 5..99
             stock["momentum_score"] = round(base_score, 1)
             stock["source"] = "fallback"

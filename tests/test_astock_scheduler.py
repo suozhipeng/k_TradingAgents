@@ -189,7 +189,7 @@ class TestPaperTradeScheduler(unittest.TestCase):
                 json={
                     "name": "local",
                     "kind": "generic",
-                    "url": "http://127.0.0.1:1/hook",
+                    "url": "https://8.8.8.8/hook",
                 },
             )
         self.assertEqual(resp.status_code, 201)
@@ -198,7 +198,7 @@ class TestPaperTradeScheduler(unittest.TestCase):
             "SELECT name, kind, url, enabled FROM notification_channels WHERE name = ?",
             ["local"],
         ).fetchall()
-        self.assertEqual(rows, [("local", "generic", "http://127.0.0.1:1/hook", True)])
+        self.assertEqual(rows, [("local", "generic", "https://8.8.8.8/hook", True)])
 
         routes_notifications._stop_consumer()
         with routes_notifications._channels_lock:
