@@ -6,36 +6,58 @@ Templates live in templates/portfolio/
 
 from __future__ import annotations
 
-from flask import Blueprint, render_template
+from flask import Blueprint, redirect, render_template, url_for, current_app
 
 bp = Blueprint("web_portfolio", __name__)
 
 
+def _redirect_if_research_only():
+    """Return a 302 redirect to /dashboard if in research-only mode."""
+    if current_app and current_app.config.get("ASTOCK_RESEARCH_ONLY", True):
+        return redirect(url_for("web.dashboard.dashboard"), 302)
+    return None
+
+
 @bp.route("/trading")
-def trading() -> str:
+def trading():
+    rv = _redirect_if_research_only()
+    if rv:
+        return rv
     return render_template("portfolio/trading.html")
 
 
 @bp.route("/paper")
-def paper() -> str:
+def paper():
+    rv = _redirect_if_research_only()
+    if rv:
+        return rv
     return render_template("portfolio/paper.html")
 
 
 @bp.route("/qmt")
-def qmt() -> str:
+def qmt():
+    rv = _redirect_if_research_only()
+    if rv:
+        return rv
     return render_template("portfolio/qmt.html")
 
 
 @bp.route("/risk")
-def risk() -> str:
+def risk():
+    rv = _redirect_if_research_only()
+    if rv:
+        return rv
     return render_template("portfolio/risk.html")
 
 
 @bp.route("/portfolio")
-def portfolio() -> str:
+def portfolio():
+    rv = _redirect_if_research_only()
+    if rv:
+        return rv
     return render_template("portfolio/portfolio.html")
 
 
 @bp.route("/reports")
-def reports() -> str:
+def reports():
     return render_template("portfolio/reports.html")

@@ -49,6 +49,26 @@ bp = Blueprint("market_data", __name__)
 logger = logging.getLogger(__name__)
 
 
+@bp.route("/market/quote")
+def market_quote() -> tuple[Response, int]:
+    """Research-market quote: delegates to trade quote's live/fetch logic."""
+    from . import routes_trade
+    # Use the same quote-fetching function from routes_trade
+    symbol = request.args.get("symbol", "").strip()
+    if not symbol:
+        return jsonify({"error": "symbol is required", "status": 400}), 400
+    cached = routes_trade._load_cached_quote(symbol)
+    if cached:
+        return jsonify({**cached, "source": "cache"}), 200
+    live = routes_trade._fetch_realtime_quote(symbol)
+    if live:
+        routes_trade._save_to_cache(symbol, live)
+        return jsonify({**live, "source": "live"}), 200
+    synthetic = routes_trade._build_deterministic_quote(symbol)
+    routes_trade._save_to_cache(symbol, synthetic)
+    return jsonify({**synthetic, "source": "mock"}), 200
+
+
 @bp.route("/market/dragon-tiger")
 def dragon_tiger() -> tuple[Response, int]:
     """Fetch daily dragon & tiger board."""

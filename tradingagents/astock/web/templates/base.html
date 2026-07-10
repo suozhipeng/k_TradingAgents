@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{% block title %}AStock Pro · 量化交易终端{% endblock %}</title>
+  <title>{% block title %}AStock Pro · A股研究与量化平台{% endblock %}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
@@ -403,23 +403,6 @@
       </a>
     </div>
 
-    <!-- Section: 交易 -->
-    <div class="as-sidebar-section">
-      <div class="as-sidebar-section-title">交易</div>
-      <a href="/trading" class="as-sidebar-item" data-page="trading" title="交易">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="3" height="16"/><rect x="10.5" y="2" width="3" height="20"/><rect x="18" y="6" width="3" height="14"/></svg>
-        <span class="as-sidebar-tooltip">交易 Trading</span>
-      </a>
-      <a href="/paper" class="as-sidebar-item" data-page="paper" title="模拟盘">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
-        <span class="as-sidebar-tooltip">模拟盘 Paper</span>
-      </a>
-      <a href="/qmt" class="as-sidebar-item" data-page="qmt" title="QMT">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M12 12h.01"/><path d="M17 12h.01"/><path d="M7 12h.01"/></svg>
-        <span class="as-sidebar-tooltip">QMT Mock/只读</span>
-      </a>
-    </div>
-
     <!-- Section: 策略 -->
     <div class="as-sidebar-section">
       <div class="as-sidebar-section-title">策略</div>
@@ -433,20 +416,12 @@
       </a>
     </div>
 
-    <!-- Section: 分析 -->
+    <!-- Section: 研究 -->
     <div class="as-sidebar-section">
-      <div class="as-sidebar-section-title">分析</div>
+      <div class="as-sidebar-section-title">研究</div>
       <a href="/research" class="as-sidebar-item" data-page="research" title="研究">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/></svg>
         <span class="as-sidebar-tooltip">研究 Research</span>
-      </a>
-      <a href="/portfolio" class="as-sidebar-item" data-page="portfolio" title="组合">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
-        <span class="as-sidebar-tooltip">组合 Portfolio</span>
-      </a>
-      <a href="/risk" class="as-sidebar-item" data-page="risk" title="风控">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-        <span class="as-sidebar-tooltip">风控 Risk</span>
       </a>
       <a href="/ai_agent" class="as-sidebar-item" data-page="ai_agent" title="AI">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 0 1 10 10c0 2.5-1 5-2.8 6.7"/><circle cx="12" cy="12" r="4"/><path d="M12 6v2M12 16v2M6 12H4M20 12h-2"/></svg>
@@ -482,19 +457,17 @@
       <div class="as-topbar-logo" onclick="window.location.href='/dashboard'">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="2" y="2" width="20" height="20" rx="4" fill="#2962FF"/><text x="7" y="17" fill="#fff" font-size="14" font-weight="800" font-family="Inter">A</text></svg>
         <span>AStock <span class="accent">Pro</span></span>
-        <span class="badge">v0.5</span>
+        <span class="badge">研究 / 回测</span>
       </div>
       <div class="as-topbar-sep"></div>
 
       <!-- Main Tab Navigation -->
       <nav class="as-tab-nav" id="as-tab-nav">
-        <a href="/dashboard" class="as-tab" data-tab="dashboard"><span class="icon">📊</span> 今日</a>
-        <a href="/market_leaders" class="as-tab" data-tab="watch"><span class="icon">👁️</span> 盯盘</a>
-        <a href="/research" class="as-tab" data-tab="ai"><span class="icon">🤖</span> AI 研究</a>
-        <a href="/strategy_hub" class="as-tab" data-tab="strategy"><span class="icon">🧪</span> 策略</a>
-        <a href="/portfolio" class="as-tab" data-tab="portfolio"><span class="icon">📋</span> 组合风控</a>
-        <a href="/trading" class="as-tab" data-tab="trading"><span class="icon">💹</span> 交易执行</a>
-        <a href="/settings" class="as-tab" data-tab="system"><span class="icon">⚙️</span> 系统</a>
+        <a href="/dashboard" class="as-tab" data-tab="dashboard"><span class="icon">📊</span> 市场追踪</a>
+        <a href="/research" class="as-tab" data-tab="research"><span class="icon">🔍</span> 研究中心</a>
+        <a href="/strategy_hub" class="as-tab" data-tab="strategy"><span class="icon">🧪</span> 策略回测</a>
+        <a href="/reports" class="as-tab" data-tab="reports"><span class="icon">📝</span> 复盘报告</a>
+        <a href="/settings" class="as-tab" data-tab="system"><span class="icon">⚙️</span> 数据运维</a>
       </nav>
 
       <!-- Global Search -->
@@ -546,7 +519,7 @@
       <span class="item">📡 <span id="srv-version" class="val">v?</span></span>
       <span class="sep"></span>
       <span class="item">🕐 <span id="status-time" class="val"></span></span>
-      <span style="margin-left:auto;color:#3a4a5a;">AStock Pro · 量化交易终端</span>
+      <span style="margin-left:auto;color:#3a4a5a;">AStock Pro · A股研究与量化平台</span>
     </div>
   </div>
 </div>
@@ -560,15 +533,11 @@
       <div class="as-palette-group">
         <div class="as-palette-group-title">页面导航</div>
         <div class="as-palette-item" data-url="/dashboard"><span class="icon">📊</span> 总览 Dashboard <span class="path">/dashboard</span></div>
-        <div class="as-palette-item" data-url="/"><span class="icon">💹</span> 交易 Trading <span class="path">/</span></div>
         <div class="as-palette-item" data-url="/strategy_hub"><span class="icon">🧪</span> 策略研究 Strategy Hub <span class="path">/strategy_hub</span></div>
         <div class="as-palette-item" data-url="/backtest"><span class="icon">🔬</span> 回测控制台 Backtest <span class="path">/backtest</span></div>
-        <div class="as-palette-item" data-url="/portfolio"><span class="icon">📋</span> 组合分析 Portfolio <span class="path">/portfolio</span></div>
         <div class="as-palette-item" data-url="/research"><span class="icon">🔍</span> 研究 Research <span class="path">/research</span></div>
-        <div class="as-palette-item" data-url="/paper"><span class="icon">📝</span> 模拟盘 Paper <span class="path">/paper</span></div>
         <div class="as-palette-item" data-url="/screener"><span class="icon">🔎</span> 选股器 Screener <span class="path">/screener</span></div>
         <div class="as-palette-item" data-url="/market_leaders"><span class="icon">⚡</span> 龙头股 Market Leaders <span class="path">/market_leaders</span></div>
-        <div class="as-palette-item" data-url="/risk"><span class="icon">🛡️</span> 风控中心 Risk <span class="path">/risk</span></div>
         <div class="as-palette-item" data-url="/ai_agent"><span class="icon">🤖</span> AI Agent <span class="path">/ai_agent</span></div>
         <div class="as-palette-item" data-url="/reports"><span class="icon">📄</span> 报告中心 Reports <span class="path">/reports</span></div>
         <div class="as-palette-item" data-url="/ops_audit"><span class="icon">📋</span> 运维审计 <span class="path">/ops_audit</span></div>

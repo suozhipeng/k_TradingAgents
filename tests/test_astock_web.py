@@ -37,6 +37,7 @@ def app():
         cors_origin="*",
     )
     app.config["TESTING"] = True
+    app.config["ASTOCK_RESEARCH_ONLY"] = False
     return app
 
 
@@ -123,7 +124,6 @@ class TestWebPageRendering:
         assert 'as-topbar' in html or 'tv-topbar' in html
         assert 'as-main' in html or 'tv-main' in html
         # All nav tooltip texts should be present (new hybrid design)
-        assert 'Trading' in html or '交易' in html
         assert 'Dashboard' in html or '总览' in html
         assert 'Research' in html or '研究' in html or 'AI Research Center' in html
         assert 'Strategy' in html or '策略' in html or 'Strategy Lab' in html or 'Strategy Hub' in html
@@ -164,7 +164,7 @@ class TestWebSpecificPages:
         assert "m-backtests" in html or "stat-backtests" in html
         assert "heatmap-content" in html
         assert "recent-backtests-content" in html or "recent-backtests" in html
-        assert "量化控制中心" in html
+        assert "市场追踪中心" in html
 
     def test_research_has_symbol_input(self, client):
         resp = client.get("/research")

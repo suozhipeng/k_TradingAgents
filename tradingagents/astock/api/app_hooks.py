@@ -19,6 +19,9 @@ logger = logging.getLogger(__name__)
 
 _WRITE_METHODS = frozenset(("POST", "PUT", "DELETE", "PATCH"))
 _WRITE_ROLES = frozenset(("admin", "operator", "writer"))
+_EXECUTION_PREFIXES = frozenset((
+    "/api/v1/trade/", "/api/v1/paper/", "/api/v1/qmt/", "/api/v1/portfolio/",
+))
 
 
 def register_hooks(app: Flask) -> None:
@@ -34,6 +37,20 @@ def register_hooks(app: Flask) -> None:
 # ---------------------------------------------------------------------------
 
 def _register_before_request(app: Flask) -> None:
+    @app.before_request
+    def _block_execution_in_research_only() -> tuple[Any, int] | None:
+        """Return 410 if RESEARCH_ONLY and path matches an execution prefix."""
+        if not app.config.get("ASTOCK_RESEARCH_ONLY", True):
+            return None
+        if not any(request.path.startswith(p) for p in _EXECUTION_PREFIXES):
+            return None
+        return jsonify({
+            "error": "research_only",
+            "message": "This endpoint is disabled in research-only mode. "
+                       "Set ASTOCK_RESEARCH_ONLY=false to re-enable.",
+            "status": 410,
+        }), 410
+
     @app.before_request
     def _inject_globals() -> None:
         g.store = app.config.get("STORE")

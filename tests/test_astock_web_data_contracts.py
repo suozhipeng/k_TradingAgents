@@ -21,7 +21,7 @@ def _app(*, require_auth: bool = False):
     return create_app(
         db_path=":memory:",
         cors_origin="*",
-        test_config={"ASTOCK_REQUIRE_AUTH": require_auth, "ASTOCK_SCHEDULER_ENABLED": False},
+        test_config={"ASTOCK_REQUIRE_AUTH": require_auth, "ASTOCK_SCHEDULER_ENABLED": False, "ASTOCK_RESEARCH_ONLY": False},
     )
 
 

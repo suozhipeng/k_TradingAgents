@@ -41,6 +41,7 @@ def app():
     app = create_app(
         db_path=":memory:",
         cors_origin="*",
+        test_config={"ASTOCK_RESEARCH_ONLY": False},
     )
 
     # Seed some test data

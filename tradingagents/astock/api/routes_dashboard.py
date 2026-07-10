@@ -54,6 +54,43 @@ def _sanitize(rows: list[dict]) -> list[dict]:
     return clean
 
 
+def _get_recent_backtests(store: Any) -> list[dict]:
+    """Fetch the 5 most recent backtest results from the store."""
+    try:
+        bt_df = store.get_backtest_results()
+        if bt_df is not None and not bt_df.empty:
+            bt_list = bt_df.sort_values("end_date", ascending=False).head(5)
+            return bt_list.to_dict(orient="records")
+    except Exception as e:
+        logger.debug("Operation failed: %s", e)
+    return []
+
+
+def _get_latest_equity_curve(recent_backtests: list[dict]) -> list[dict]:
+    """Extract equity curve from the most recent backtest result."""
+    if not recent_backtests:
+        return []
+    latest = recent_backtests[0]
+    periods = []
+    if "periods" in latest and latest["periods"]:
+        periods = latest["periods"]
+    elif latest.get("params_json"):
+        try:
+            pj = json.loads(latest["params_json"]) if isinstance(latest["params_json"], str) else latest["params_json"]
+            periods = pj.get("periods", [])
+        except (json.JSONDecodeError, TypeError, AttributeError):
+            periods = []
+    if isinstance(periods, str):
+        try:
+            periods = json.loads(periods)
+        except (json.JSONDecodeError, TypeError):
+            periods = []
+    return [
+        {"period": p.get("period", ""), "value": p.get("end_value", p.get("value", 0))}
+        for p in (periods or [])
+    ][-30:]
+
+
 # ---------------------------------------------------------------------------
 # GET /api/v1/dashboard/overview
 # ---------------------------------------------------------------------------
@@ -77,6 +114,21 @@ def dashboard_overview() -> tuple[Response, int]:
 
         backtests_total = stats.get("backtest_results", {}).get("rows", 0) if stats else 0
 
+        # ── Research-only early return: skip paper/execution data ──
+        if current_app and current_app.config.get("ASTOCK_RESEARCH_ONLY", True):
+            recent_backtests = _sanitize(_get_recent_backtests(store))
+            latest_equity_curve = _get_latest_equity_curve(recent_backtests)
+            decision_summary = _get_decision_summary()
+            return jsonify({
+                "statistics": {
+                    "symbols_tracked": symbols_tracked,
+                    "backtests_total": backtests_total,
+                },
+                "recent_backtests": _sanitize(recent_backtests),
+                "latest_equity_curve": latest_equity_curve,
+                "decision_summary": decision_summary,
+            }), 200
+
         paper_positions = 0
         paper_return_pct = 0.0
         paper_total_value = 0.0
@@ -93,40 +145,8 @@ def dashboard_overview() -> tuple[Response, int]:
         except Exception as e:
             logger.debug("Operation failed: {0}", e)
 
-        recent_backtests = []
-        try:
-            bt_df = store.get_backtest_results()
-            if bt_df is not None and not bt_df.empty:
-                bt_list = bt_df.sort_values("end_date", ascending=False).head(5)
-                recent_backtests = bt_list.to_dict(orient="records")
-                _sanitize(recent_backtests)
-        except Exception as e:
-            logger.debug("Operation failed: {0}", e)
-
-        latest_equity_curve = []
-        if recent_backtests:
-            latest = recent_backtests[0]
-            periods = []
-            if "periods" in latest and latest["periods"]:
-                periods = latest["periods"]
-            elif latest.get("params_json"):
-                try:
-                    pj = json.loads(latest["params_json"]) if isinstance(latest["params_json"], str) else latest["params_json"]
-                    periods = pj.get("periods", [])
-                except (json.JSONDecodeError, TypeError, AttributeError):
-                    periods = []
-            if isinstance(periods, str):
-                try:
-                    periods = json.loads(periods)
-                except (json.JSONDecodeError, TypeError):
-                    periods = []
-            latest_equity_curve = [
-                {
-                    "period": p.get("period", ""),
-                    "value": p.get("end_value", p.get("value", 0)),
-                }
-                for p in (periods or [])
-            ][-30:]
+        recent_backtests = _sanitize(_get_recent_backtests(store))
+        latest_equity_curve = _get_latest_equity_curve(recent_backtests)
 
         recent_trades = serialize_paper_trades()
         try:

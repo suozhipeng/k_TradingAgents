@@ -161,7 +161,7 @@ class TestPaperTradeScheduler(unittest.TestCase):
         app = create_app(
             db_path=":memory:",
             cors_origin="*",
-            test_config={"ASTOCK_SCHEDULER_ENABLED": False},
+            test_config={"ASTOCK_SCHEDULER_ENABLED": False, "ASTOCK_RESEARCH_ONLY": False},
         )
 
         scheduler = app.config["SCHEDULER"]
@@ -180,7 +180,7 @@ class TestPaperTradeScheduler(unittest.TestCase):
         app = create_app(
             db_path=":memory:",
             cors_origin="*",
-            test_config={"ASTOCK_SCHEDULER_ENABLED": False},
+            test_config={"ASTOCK_SCHEDULER_ENABLED": False, "ASTOCK_RESEARCH_ONLY": False},
         )
 
         with app.test_client() as client:

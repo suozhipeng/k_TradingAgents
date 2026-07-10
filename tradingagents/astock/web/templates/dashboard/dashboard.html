@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% from "_components/macros.html" import page_header %}
-{% block title %}总览 Dashboard — AStock Pro 量化交易终端{% endblock %}
+{% block title %}市场追踪 — AStock Pro A股研究与量化平台{% endblock %}
 {% block content %}
 <style>
 .dash-grid { display: grid; gap: 12px; }
@@ -71,8 +71,8 @@
 
 <!-- ── Section Title ── -->
 {{ page_header(
-  "📊 量化控制中心",
-  "AStock Pro 交易终端 · 每日工作台",
+  "📊 市场追踪中心",
+  "AStock Pro · A股研究、量化与回测每日工作台",
   "dashboard",
   "<button class=\"tv-btn tv-btn-secondary tv-btn-sm\" onclick=\"loadAll();this.innerHTML='⟳ 刷新中...';setTimeout(()=>this.innerHTML='⟳ 刷新',800)\">⟳ 刷新</button><a href=\"/strategy_hub\" class=\"tv-btn tv-btn-primary tv-btn-sm\">🧪 策略研究 →</a>"
 ) }}
@@ -125,58 +125,18 @@
 <!-- ── Row 1: Key Metrics ── -->
 <div class="dash-row-4" id="metrics-row">
   <div class="dash-card dash-glow-green">
-    <div class="dash-card-title">
-      📈 跟踪股票
-      <span id="watchlist-movers-badge" style="float:right;font-weight:400;color:#4a5a6a;font-size:10px;text-transform:none;letter-spacing:0;"></span>
-    </div>
+    <div class="dash-card-title">📈 跟踪股票</div>
     <div class="dash-value" id="m-symbols">--</div>
     <div class="dash-label">覆盖 A 股标的</div>
-    <div id="watchlist-movers" style="margin-top:6px;"></div>
   </div>
   <div class="dash-card dash-glow-blue">
     <div class="dash-card-title">🔄 历史回测</div>
     <div class="dash-value" id="m-backtests">--</div>
     <div class="dash-label">总计执行轮次</div>
   </div>
-  <div class="dash-card dash-glow-blue">
-    <div class="dash-card-title">📝 模拟盘净值</div>
-    <div class="dash-value" id="m-nav">--</div>
-    <div class="dash-label"><span id="m-pnl-label">--</span></div>
-  </div>
-  <div class="dash-card dash-glow-blue">
-    <div class="dash-card-title">📊 持仓数量</div>
-    <div class="dash-value" id="m-positions">--</div>
-    <div class="dash-label"><a href="/paper" style="color:#2962FF;text-decoration:none;">查看详情 →</a></div>
-  </div>
 </div>
 
-<!-- ── Row 2: Equity Curve + Recent Trades ── -->
-<div class="dash-row">
-  <!-- Paper Equity Curve Mini Chart -->
-  <div class="dash-card">
-    <div class="dash-card-title" style="display:flex;align-items:center;gap:8px;">
-      📈 模拟盘净值曲线
-      <span id="curve-period" style="font-weight:400;color:#4a5a6a;font-size:10px;"></span>
-    </div>
-    <div style="height:120px;position:relative;" id="equity-chart-container">
-      <canvas id="equity-chart" style="width:100%;height:100%;"></canvas>
-      <div id="equity-empty" class="dash-empty" style="display:none;position:absolute;inset:0;display:flex;align-items:center;justify-content:center;">暂无交易数据</div>
-    </div>
-  </div>
-
-  <!-- Recent Trades -->
-  <div class="dash-card">
-    <div class="dash-card-title" style="display:flex;align-items:center;gap:8px;">
-      ⚡ 最近交易
-      <a href="/paper" class="dash-footer-link" style="float:none;margin-left:auto;">全部 →</a>
-    </div>
-    <div id="recent-trades-content">
-      <div class="dash-empty">加载中...</div>
-    </div>
-  </div>
-</div>
-
-<!-- ── Row 3: Strategy Heatmap + Recent Backtests ── -->
+<!-- ── Strategy Heatmap + Recent Backtests ── -->
 <div class="dash-row">
   <!-- Strategy Performance Heatmap -->
   <div class="dash-card">
@@ -300,9 +260,8 @@
   <a href="/research" class="tv-btn tv-btn-secondary tv-btn-sm">🔍 研究</a>
   <a href="/ai_agent" class="tv-btn tv-btn-secondary tv-btn-sm">🤖 AI Agent</a>
   <a href="/strategy_hub" class="tv-btn tv-btn-secondary tv-btn-sm">🧪 策略</a>
-  <a href="/portfolio" class="tv-btn tv-btn-secondary tv-btn-sm">📋 组合</a>
   <a href="/market_leaders" class="tv-btn tv-btn-secondary tv-btn-sm">⚡ 龙头</a>
-  <a href="/paper" class="tv-btn tv-btn-secondary tv-btn-sm">📝 模拟盘</a>
+  <a href="/reports" class="tv-btn tv-btn-secondary tv-btn-sm">📝 报告</a>
   <a href="/settings" class="tv-btn tv-btn-secondary tv-btn-sm">⚙ 设置</a>
 </div>
 {% endblock %}
@@ -339,8 +298,6 @@ function chgArrow(v) {
 }
 
 // ── Load all dashboard data ──
-let equityChartInstance = null;
-
 async function loadAll() {
   const tag = document.getElementById('refresh-tag');
   tag.textContent = '⟳ ' + new Date().toLocaleTimeString('zh-CN', {hour12:false});
@@ -358,25 +315,6 @@ async function loadAll() {
     document.getElementById('m-symbols').textContent = stats.symbols_tracked ?? '--';
     document.getElementById('m-backtests').textContent = stats.backtests_total ?? '--';
 
-    // Paper NAV
-    const nav = stats.paper_total_value || 0;
-    const retPct = stats.paper_return_pct || 0;
-    document.getElementById('m-nav').textContent = '¥' + nav.toLocaleString('zh-CN', {minimumFractionDigits:0,maximumFractionDigits:0});
-    const pnlEl = document.getElementById('m-pnl-label');
-    pnlEl.textContent = (retPct >= 0 ? '+' : '') + (retPct * 100).toFixed(2) + '%';
-    pnlEl.style.color = retPct >= 0 ? '#089981' : '#f23645';
-    document.getElementById('m-positions').textContent = stats.paper_positions ?? '0';
-
-    // === Watchlist movers (from overview data) ===
-    renderWatchlistMovers(overview);
-
-    // === Equity Chart ===
-    const equityCurve = overview.paper_equity_curve || overview.latest_equity_curve || [];
-    renderEquityCurve(equityCurve);
-
-    // === Recent Trades ===
-    renderRecentTrades(overview.recent_trades || []);
-
     // === Strategy Heatmap ===
     renderHeatmap(overview.recent_backtests || [], stratData?.strategies || []);
 
@@ -389,8 +327,6 @@ async function loadAll() {
     // Track core components
     _dashTrack('key_metrics', true);
     _dashStaleMark('metrics');
-    _dashTrack('equity_curve', equityCurve && equityCurve.length >= 2);
-    _dashTrack('recent_trades', true);
     _dashTrack('heatmap', true);
     _dashTrack('recent_backtests', (overview.recent_backtests || []).length > 0);
 
@@ -399,89 +335,12 @@ async function loadAll() {
     // Set error state on key metric cards individually
     const mSymbols = document.getElementById('m-symbols');
     const mBacktests = document.getElementById('m-backtests');
-    const mNav = document.getElementById('m-nav');
-    const mPositions = document.getElementById('m-positions');
     if (mSymbols) mSymbols.textContent = '⚠️';
     if (mBacktests) mBacktests.textContent = '⚠️';
-    if (mNav) mNav.textContent = '⚠️';
-    if (mPositions) mPositions.textContent = '⚠️';
     _dashTrack('key_metrics', false);
   }
 }
 
-// ── Equity Curve Chart (Chart.js) ──
-function renderEquityCurve(curveData) {
-  const container = document.getElementById('equity-chart-container');
-  const emptyEl = document.getElementById('equity-empty');
-
-  if (!curveData || curveData.length < 2) {
-    if (equityChartInstance) { equityChartInstance.destroy(); equityChartInstance = null; }
-    container.innerHTML = '<div class="dash-empty" style="display:flex;align-items:center;justify-content:center;height:100%;">暂无交易数据，开始模拟盘交易后生成净值曲线</div>';
-    return;
-  }
-
-  container.innerHTML = '<canvas id="equity-chart" style="width:100%;height:120px;"></canvas>';
-  const canvas = document.getElementById('equity-chart');
-  const ctx = canvas.getContext('2d');
-
-  const labels = curveData.map(d => d.period || d.date || '');
-  const values = curveData.map(d => d.value || d.equity || 0);
-  const firstVal = values[0] || 100000;
-
-  if (equityChartInstance) equityChartInstance.destroy();
-  equityChartInstance = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels,
-      datasets: [{
-        data: values,
-        borderColor: '#2962FF',
-        backgroundColor: (ctx) => {
-          const g = ctx.chart.ctx.createLinearGradient(0, 0, 0, 120);
-          g.addColorStop(0, 'rgba(41,98,255,0.12)');
-          g.addColorStop(1, 'rgba(41,98,255,0.01)');
-          return g;
-        },
-        fill: true,
-        borderWidth: 1.5,
-        pointRadius: 0,
-        tension: 0.3,
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: { legend: { display: false }, tooltip: { enabled: true, backgroundColor: '#1c2538', titleColor: '#d1d4dc', bodyColor: '#d1d4dc', borderColor: '#2a3a5a', borderWidth: 1, padding: 8, displayColors: false, callbacks: { label: ctx => '¥' + ctx.parsed.y.toLocaleString('zh-CN', {minimumFractionDigits:2}) } } },
-      scales: {
-        x: { display: false },
-        y: { display: true, grid: { color: '#1e2a3a' }, ticks: { color: '#4a5a6a', font: { size: 9 }, callback: v => '¥' + (v/10000).toFixed(1) + '万' } }
-      },
-      interaction: { intersect: false, mode: 'index' },
-    }
-  });
-}
-
-// ── Recent Trades Table ──
-function renderRecentTrades(trades) {
-  const el = document.getElementById('recent-trades-content');
-  if (!trades || trades.length === 0) {
-    el.innerHTML = '<div class="dash-empty">暂无交易记录</div>';
-    return;
-  }
-  el.innerHTML = `<table class="tv-table"><thead><tr><th>日期</th><th>标的</th><th>方向</th><th>价格</th><th>数量</th></tr></thead><tbody>
-    ${trades.slice(0, 6).map(t => {
-      const dir = (t.direction || t.side || '').toLowerCase();
-      const isBuy = dir === 'buy' || dir === '买入' || dir === 'b';
-      return `<tr>
-        <td class="tv-muted">${(t.trade_date || t.date || '').substring(0,10)}</td>
-        <td class="tv-text font-medium">${t.symbol || '--'}</td>
-        <td class="${isBuy ? 'tv-up' : 'tv-down'}">${isBuy ? '买入' : '卖出'}</td>
-        <td class="tv-text font-mono">${t.price ? '¥' + Number(t.price).toFixed(2) : '--'}</td>
-        <td class="tv-text font-mono">${t.volume || t.quantity || 0}</td>
-      </tr>`;
-    }).join('')}
-  </tbody></table>`;
-}
 
 // ── Strategy Heatmap ──
 function renderHeatmap(backtests, strategies) {
@@ -572,57 +431,6 @@ async function loadDataHealth() {
   }
 }
 
-// ── Watchlist Movers (top 3 from overview) ──
-function renderWatchlistMovers(overview) {
-  const el = document.getElementById('watchlist-movers');
-  const badge = document.getElementById('watchlist-movers-badge');
-
-  // Try to extract movers from recent_trades or paper_positions
-  const trades = overview.recent_trades || [];
-  const positions = overview.paper_positions || [];
-
-  // Build a simple map of symbol -> latest trade info
-  const moverMap = {};
-  trades.forEach(t => {
-    const sym = t.symbol;
-    if (!sym) return;
-    const price = t.price || 0;
-    // Use the trade price as a proxy for 'current price'
-    // No change% in trades, but we can show recent activity
-    moverMap[sym] = { name: sym, price: price, change: null, isMover: true };
-  });
-
-  // For positions, we have symbol, value, pnl, quantity
-  positions.forEach(p => {
-    const sym = p.symbol;
-    if (!sym) return;
-    if (!moverMap[sym]) {
-      moverMap[sym] = { name: sym, price: 0, change: null, isMover: false };
-    }
-    const pos = moverMap[sym];
-    pos.quantity = p.quantity || p.quantity || 0;
-    pos.value = p.value || 0;
-    pos.pnl = p.pnl || 0;
-  });
-
-  const movers = Object.values(moverMap).slice(0, 3);
-
-  if (!movers.length) {
-    el.innerHTML = '<div style="font-size:9px;color:#4a5a6a;">无活跃标的</div>';
-    badge.textContent = '';
-    return;
-  }
-
-  badge.textContent = movers.length + ' 活跃';
-  el.innerHTML = movers.map(m => {
-    const pnl = m.pnl;
-    const hasDir = pnl !== undefined && pnl !== null;
-    const chg = hasDir ? (Number(pnl) >= 0 ? 'up' : 'down') : '';
-    return `<span class="mover-tag ${chg}" style="margin-right:4px;margin-bottom:2px;">
-      ${m.name} ${hasDir ? (Number(pnl) >= 0 ? '▲' : '▼') + '¥' + safeNum(Math.abs(pnl)) : '--'}
-    </span>`;
-  }).join('');
-}
 
 // ── Market Summary (4 major indices) ──
 const MARKET_INDICES = [

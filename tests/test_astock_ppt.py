@@ -185,7 +185,7 @@ class TestReportsAPI:
     def app(self):
         from tradingagents.astock.api import create_app
 
-        app = create_app(db_path=":memory:", cors_origin="*")
+        app = create_app(db_path=":memory:", cors_origin="*", test_config={"ASTOCK_RESEARCH_ONLY": False})
         app.config["TESTING"] = True
         return app
 

@@ -1,21 +1,22 @@
-# TradingAgents 架构重构 — 回测双轨收敛
+# TradingAgents Web P0 — Research-only 产品边界
 
-Started: 2026-07-07T09:00:00+08:00
+Started: 2026-07-10T16:02:51+08:00
 Loop Level: l2
 Workflow Rev: 2
 
 Orchestration:
-  status: ready_for_execution
-  prd_path: .hermes/plans/2026-07-07_090000-backtest-unification.md
-  track: auto
+  status: blocked
+  prd_path: .hermes/plans/2026-07-10_160251-research-only-p0.md
+  track: c
+  task_gate_attempts: 1
 
-Phase: break
-Current Task Index: 1
+Phase: review
+Current Task Index: 0
 Review Mode: gate-sequence
 Paused: false
-Blocked: false
-Blocked Reason: ''
-Blocked Type: none
+Blocked: true
+Blocked Reason: 'Opencode review produced no verdict: Hermes delegate hit HTTP 429; local CLI models timed out, require authorization, or reject ChatGPT auth.'
+Blocked Type: environment
 
 Monitor:
   enabled: true
@@ -39,17 +40,17 @@ Track Config:
     enabled: true
 
 Review Routing:
-  default_reviewer: agnes
-  force_codex_review: false
-  upgrade_reason: ''
+  default_reviewer: opencode
+  force_codex_review: true
+  upgrade_reason: 'user-required sequential opencode -> Codex gate'
   skip_codex_review: false
 
 Gate Sequence:
   manual: true
-  review_agent: agnes
+  review_agent: opencode
   acceptance_agent: codex
-  current_gate: none
-  review_status: pending
+  current_gate: opencode_review
+  review_status: blocked_external
   acceptance_status: pending
 
 Fuse:
@@ -58,70 +59,49 @@ Fuse:
 
 Tasks:
   - id: 1
-    description: '分析两个引擎的策略接口差异'
-    status: done
-    track: a
+    description: 'Research-only 开关、旧执行 API 禁用与 Research 行情路径迁移'
+    status: opencode_reviewing
+    track: c
     commit_sha: ~
     review_verdict: ~
     acceptance_verdict: ~
-    execution_agent: ~
+    execution_agent: hermes
     iteration_count: 1
-    notes: '分析完成，详见 .hermes/task-1-analysis.md。关键发现：策略接口兼容但 config key 命名完全不同；modules 版有 2 个独有策略；execution 版有 2 个独有策略+组合策略。推荐方案：BacktestFacade 层做适配桥接。'
+    notes: 'FR-1/2/3 implemented; new boundary tests pass and full pytest Harness passed.'
 
   - id: 2
-    description: '统一指标计算'
-    status: pending
-    track: a
+    description: '删除命令面板与 Dashboard 的交易 DOM、加载、渲染及 Research-only API 字段'
+    status: opencode_reviewing
+    track: b
     commit_sha: ~
     review_verdict: ~
     acceptance_verdict: ~
-    execution_agent: ~
-    iteration_count: 0
-    notes: ''
+    execution_agent: hermes
+    iteration_count: 1
+    notes: 'FR-4 implemented: execution navigation and Dashboard paper DOM/scripts removed; API early return verified.'
 
   - id: 3
-    description: '创建 BacktestFacade'
+    description: 'P0-B2 行情可信度统一契约与 Mock/Cache 隔离'
     status: pending
-    track: a
+    track: c
     commit_sha: ~
     review_verdict: ~
     acceptance_verdict: ~
     execution_agent: ~
     iteration_count: 0
-    notes: ''
+    notes: '本轮先审计和拆分，不与 B1 混改。'
 
   - id: 4
-    description: 'CLI 回测命令改道'
+    description: 'P0-B3 盯盘工作台归并、旧页面重定向与 localhost iframe 下线'
     status: pending
-    track: a
+    track: b
     commit_sha: ~
     review_verdict: ~
     acceptance_verdict: ~
     execution_agent: ~
     iteration_count: 0
-    notes: ''
-
-  - id: 5
-    description: '模块化 modules/backtest_engine.py'
-    status: pending
-    track: a
-    commit_sha: ~
-    review_verdict: ~
-    acceptance_verdict: ~
-    execution_agent: ~
-    iteration_count: 0
-    notes: ''
-
-  - id: 6
-    description: '验证回归'
-    status: pending
-    track: a
-    commit_sha: ~
-    review_verdict: ~
-    acceptance_verdict: ~
-    execution_agent: ~
-    iteration_count: 0
-    notes: ''
+    notes: '本轮先审计和拆分，不与 B1 混改。'
 
 Next Actions:
-  - '任务 1: 分析 modules/backtest_engine.py 与 execution/strategy_base/base.py 的策略接口差异'
+  - 'Restore an authenticated, responsive OpenCode provider and obtain an explicit accept/partial/fail verdict.'
+  - 'Only if Opencode accepts: start independent Codex acceptance; do not commit.'

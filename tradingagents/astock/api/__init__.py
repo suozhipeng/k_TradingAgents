@@ -76,6 +76,10 @@ def create_app(
     )
     from tradingagents.astock.store.backend import backend_mgr
     app.config.setdefault("ASTOCK_MOCK_DATA_ENABLED", backend_mgr.config.mock_data_enabled)
+    app.config.setdefault(
+        "ASTOCK_RESEARCH_ONLY",
+        os.environ.get("ASTOCK_RESEARCH_ONLY", "true").lower() not in ("0", "false", "no", "off"),
+    )
 
     # -- CORS -----------------------------------------------------------------
     origin = cors_origin or os.environ.get("CORS_ORIGIN", DEFAULT_CORS_ORIGIN)

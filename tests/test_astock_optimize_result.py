@@ -40,7 +40,7 @@ class TestOptimizeApiSchema(unittest.TestCase):
         """POST /api/v1/backtest/optimize returns OptimizeResult fields."""
         from tradingagents.astock.api import create_app
 
-        app = create_app(db_path=":memory:")
+        app = create_app(db_path=":memory:", test_config={"ASTOCK_RESEARCH_ONLY": False})
         store = app.config["STORE"]
         store.init_schema()
 
@@ -91,7 +91,7 @@ class TestOptimizeApiSchema(unittest.TestCase):
         """Missing 'strategy' field returns 400."""
         from tradingagents.astock.api import create_app
 
-        app = create_app(db_path=":memory:")
+        app = create_app(db_path=":memory:", test_config={"ASTOCK_RESEARCH_ONLY": False})
         with app.test_client() as client:
             resp = client.post(
                 "/api/v1/backtest/optimize",
@@ -106,7 +106,7 @@ class TestOptimizeApiSchema(unittest.TestCase):
         """Missing start_date / end_date returns 400."""
         from tradingagents.astock.api import create_app
 
-        app = create_app(db_path=":memory:")
+        app = create_app(db_path=":memory:", test_config={"ASTOCK_RESEARCH_ONLY": False})
         with app.test_client() as client:
             resp = client.post(
                 "/api/v1/backtest/optimize",

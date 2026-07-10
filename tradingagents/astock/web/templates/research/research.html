@@ -492,7 +492,7 @@ async function loadResearch() {
     fetchJson(`/api/v1/news?symbol=${encodeURIComponent(symbol)}&limit=5`, 8000),
     fetchJson(`/api/v1/news/live?symbol=${encodeURIComponent(symbol)}&limit=10&type=flash&source=em`, 10000),
     fetchJson(`/api/v1/news/stock?symbol=${encodeURIComponent(symbol)}&limit=10`, 10000),
-    fetchJson(`/api/v1/trade/quote?symbol=${encodeURIComponent(symbol)}`, 8000),
+    fetchJson(`/api/v1/market/quote?symbol=${encodeURIComponent(symbol)}`, 8000),
     fetchJson(`/api/v1/research?symbol=${encodeURIComponent(symbol)}&limit=5`, 8000),
   ]);
   // 财务基本面 — akshare.stock_financial_analysis_indicator 后端路由
