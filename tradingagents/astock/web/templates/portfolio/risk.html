@@ -281,7 +281,13 @@ async function loadAttribution() {
 
   try {
     const data = await fetchJson('/api/v1/portfolio/attribution', 10000);
-    const items = data?.attribution || data?.items || data?.factors || [];
+    const items = data?.attribution || data?.items || data?.factors || [
+      { name: '选股效应', value: data?.selection_effect },
+      { name: '择时效应', value: data?.timing_effect },
+      { name: '成本影响', value: data?.cost_impact != null ? -data.cost_impact : null },
+      { name: '滑点影响', value: data?.slippage_impact != null ? -data.slippage_impact : null },
+      { name: '残差', value: data?.residual },
+    ].filter(item => item.value != null);
 
     hideLoading(loading);
 
@@ -452,7 +458,7 @@ async function loadAlerts() {
 
   try {
     const data = await fetchJson('/api/v1/ops/audit', 10000);
-    const events = data?.events || data?.items || data?.audit || [];
+    const events = Array.isArray(data) ? data : (data?.events || data?.items || data?.audit || []);
 
     hideLoading(loading);
 

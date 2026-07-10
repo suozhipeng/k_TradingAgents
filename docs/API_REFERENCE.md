@@ -153,7 +153,7 @@
 | `POST` | `/api/v1/notifications/consumer/stop` | 停止通知消费者（需认证） |
 | `POST` | `/api/v1/notifications/desktop` | 发送本机通知测试（需认证） |
 | `POST` | `/api/v1/notifications/dingtalk` | 钉钉通知 |
-| `GET` | `/api/v1/notifications/dispatchers` | 通知渠道元数据（需认证，凭据与 URL 查询参数脱敏） |
+| `GET` | `/api/v1/notifications/dispatchers` | 通知渠道元数据（凭据与 URL 查询参数脱敏） |
 | `POST` | `/api/v1/notifications/dispatchers` | 注册通知渠道（需认证，仅允许公网目标） |
 | `DELETE` | `/api/v1/notifications/dispatchers/<name>` | 删除通知渠道（需认证） |
 | `PUT` | `/api/v1/notifications/dispatchers/<name>` | 更新通知渠道（需认证，仅允许公网目标） |
@@ -176,9 +176,9 @@
 
 | Method | Path | 说明 |
 |--------|------|------|
-| `POST` | `/api/v1/paper/cycle` | (无描述) |
-| `GET` | `/api/v1/paper/state` | (无描述) |
-| `GET` | `/api/v1/paper/trades` | (无描述) |
+| `POST` | `/api/v1/paper/cycle` | 执行模拟盘周期（需 writer/operator/admin key） |
+| `GET` | `/api/v1/paper/state` | 模拟盘统一状态；`positions[]` 含成本价、估值来源和盈亏 |
+| `GET` | `/api/v1/paper/trades` | 模拟盘统一成交记录；包含 `side` 与 `quantity` 兼容字段 |
 
 ## `routes_portfolio.py`
 
@@ -243,9 +243,9 @@
 
 | Method | Path | 说明 |
 |--------|------|------|
-| `POST` | `/api/v1/trade/order` | (无描述) |
+| `POST` | `/api/v1/trade/order` | 模拟盘下单（需 writer/operator/admin key，与 `/paper/*` 共享状态） |
 | `GET` | `/api/v1/trade/quote` | (无描述) |
-| `GET` | `/api/v1/trade/state` | (无描述) |
+| `GET` | `/api/v1/trade/state` | 交易页模拟盘状态；与 `/paper/state` 使用相同 schema |
 
 ## `routes_tv.py`
 

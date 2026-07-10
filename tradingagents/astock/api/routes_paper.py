@@ -13,7 +13,7 @@ from typing import Any
 
 from flask import Blueprint, Response, jsonify, request
 
-from ._paper_service import get_paper_trader
+from ._paper_service import get_paper_trader, serialize_paper_state, serialize_paper_trades
 logger = logging.getLogger(__name__)
 
 bp = Blueprint("paper", __name__)
@@ -38,11 +38,7 @@ def paper_cycle() -> tuple[Response, int]:
     try:
         trader = get_paper_trader()
         state = trader.execute_cycle(signals, prices)
-        return jsonify({
-            "positions": state.positions, "cash": state.cash,
-            "total_value": state.total_value, "pnl": state.pnl,
-            "trade_count": len(state.trades), "last_updated": state.last_updated,
-        }), 200
+        return jsonify(serialize_paper_state(trader)), 200
     except Exception as exc:
         return jsonify({"error": str(exc), "status": 500}), 500
 
@@ -56,14 +52,7 @@ def paper_cycle() -> tuple[Response, int]:
 def paper_state() -> tuple[Response, int]:
     try:
         trader = get_paper_trader()
-        state = trader.get_state()
-        return jsonify({
-            "positions": state.positions, "cash": state.cash,
-            "total_value": state.total_value, "pnl": state.pnl,
-            "trade_count": len(state.trades), "last_updated": state.last_updated,
-            "execution_signal": state.execution_signal,
-            "decision_scope": state.decision_scope,
-        }), 200
+        return jsonify(serialize_paper_state(trader)), 200
     except Exception as exc:
         return jsonify({"error": str(exc), "status": 500}), 500
 
@@ -78,8 +67,7 @@ def paper_trades() -> tuple[Response, int]:
     try:
         limit = int(request.args.get("limit", "0"))
         trader = get_paper_trader()
-        state = trader.get_state()
-        trades = state.trades
+        trades = serialize_paper_trades(trader)
         count = len(trades)
         if limit > 0:
             trades = trades[-limit:]

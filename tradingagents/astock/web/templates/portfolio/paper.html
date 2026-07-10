@@ -188,7 +188,7 @@ async function loadPaperState() {
     const cash = data.cash;
     const positions = data.positions || [];
     const pnl = data.pnl || data.total_pnl || 0;
-    const pnlPct = data.pnl_pct || data.total_return || 0;
+    const pnlPct = data.pnl_pct ?? data.total_return ?? 0;
 
     const posMarketValue = positions.reduce((sum, p) => sum + (Number(p.market_value) || Number(p.amount) * Number(p.price) || 0), 0);
 
@@ -319,13 +319,13 @@ async function loadRecentTrades() {
     }
 
     const rows = trades.slice(0, 20).map(t => {
-      const side = (t.side || t.direction || '').toLowerCase();
+      const side = (t.side || t.type || t.direction || '').toLowerCase();
       const sideLabel = side === 'buy' || side === 'b' ? '买入' : side === 'sell' || side === 's' ? '卖出' : side;
       const sideCls = side === 'buy' || side === 'b' ? 'up' : 'down';
       const price = fmt(t.price, 2);
       const qty = t.quantity || t.shares || t.amount || 0;
       const total = t.total || (Number(t.price || 0) * Number(qty));
-      const dt = t.trade_date || t.date || t.time || t.created_at || '';
+      const dt = t.timestamp || t.trade_date || t.date || t.time || t.created_at || '';
       const symbol = t.symbol || t.code || t.stock || '';
       return `<tr>
         <td>${dt}</td>

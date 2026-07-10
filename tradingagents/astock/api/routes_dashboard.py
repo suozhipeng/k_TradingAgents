@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import logging
+from datetime import date as date_type
 from datetime import datetime
 from decimal import Decimal
 from typing import Any
@@ -18,7 +19,7 @@ from flask import Blueprint, Response, current_app, jsonify
 
 from ._analysis_engine import load_watchlist, analyze_stock_symbol
 from ._helpers import get_store
-from ._paper_service import get_paper_trader
+from ._paper_service import get_paper_trader, serialize_paper_state, serialize_paper_trades
 
 logger = logging.getLogger(__name__)
 
@@ -27,19 +28,7 @@ bp = Blueprint("dashboard", __name__)
 
 def _get_paper_state() -> dict[str, Any]:
     try:
-        trader = get_paper_trader()
-        state = trader.get_state()
-        if hasattr(state, "model_dump"):
-            return state.model_dump()
-        if isinstance(state, dict):
-            return state
-        return {
-            "positions": getattr(state, "positions", {}),
-            "cash": getattr(state, "cash", 0.0),
-            "total_value": getattr(state, "total_value", 0.0),
-            "pnl": getattr(state, "pnl", 0.0),
-            "trades": getattr(state, "trades", []),
-        }
+        return serialize_paper_state(get_paper_trader())
     except Exception:
         return {}
 
@@ -49,7 +38,7 @@ def _sanitize(rows: list[dict]) -> list[dict]:
     for row in rows:
         safe = {}
         for k, v in row.items():
-            if isinstance(v, (datetime.datetime, datetime.date)):
+            if isinstance(v, (datetime, date_type)):
                 safe[k] = v.isoformat()
             elif isinstance(v, Decimal):
                 safe[k] = float(v)
@@ -139,10 +128,10 @@ def dashboard_overview() -> tuple[Response, int]:
                 for p in (periods or [])
             ][-30:]
 
-        recent_trades = []
+        recent_trades = serialize_paper_trades()
         try:
             trades_df = store.get_paper_trades()
-            if trades_df is not None and not trades_df.empty:
+            if not recent_trades and trades_df is not None and not trades_df.empty:
                 trades_list = trades_df.sort_values("trade_date", ascending=False).head(10)
                 recent_trades = trades_list.to_dict(orient="records")
                 _sanitize(recent_trades)
@@ -154,15 +143,11 @@ def dashboard_overview() -> tuple[Response, int]:
             pstate = _get_paper_state()
             if pstate:
                 positions = pstate.get("positions", {})
-                if isinstance(positions, dict):
+                if isinstance(positions, list):
                     paper_positions_detail = [
-                        {"symbol": sym, "value": abs(qty) * 100.0, "pnl": 0, "quantity": qty}
-                        for sym, qty in positions.items() if qty > 0
-                    ]
-                elif isinstance(positions, list):
-                    paper_positions_detail = [
-                        {"symbol": p.get("symbol", "?"), "value": abs(p.get("quantity", 0) * p.get("current_price", 0)),
-                         "pnl": p.get("pnl", 0), "quantity": p.get("quantity", 0)}
+                        {"symbol": p.get("symbol", "?"), "value": p.get("market_value", 0),
+                         "pnl": p.get("pnl", 0), "quantity": p.get("quantity", 0),
+                         "price_source": p.get("price_source", "unknown")}
                         for p in positions if p.get("quantity", 0) > 0
                     ]
         except Exception as e:
@@ -193,6 +178,32 @@ def dashboard_overview() -> tuple[Response, int]:
 def _compute_paper_equity_curve(store: Any) -> list[dict]:
     import pandas as pd
     try:
+        live_trades = serialize_paper_trades()
+        if live_trades:
+            initial_cash = 100000.0
+            cash = initial_cash
+            positions: dict[str, float] = {}
+            latest_prices: dict[str, float] = {}
+            curve = []
+            for trade in live_trades:
+                symbol = str(trade.get("symbol", "")).strip()
+                price = float(trade.get("price", 0))
+                quantity = float(trade.get("quantity", trade.get("shares", 0)))
+                fees = float(trade.get("fees", 0))
+                direction = str(trade.get("side", trade.get("type", ""))).lower()
+                if not symbol or price <= 0 or quantity <= 0:
+                    continue
+                latest_prices[symbol] = price
+                if direction == "buy":
+                    cash -= price * quantity + fees
+                    positions[symbol] = positions.get(symbol, 0) + quantity
+                elif direction == "sell":
+                    cash += price * quantity - fees
+                    positions[symbol] = max(0, positions.get(symbol, 0) - quantity)
+                total_value = cash + sum(qty * latest_prices.get(sym, 0) for sym, qty in positions.items())
+                curve.append({"period": str(trade.get("timestamp", ""))[:10], "value": round(total_value, 2)})
+            return curve[-60:]
+
         df = store.get_paper_trades()
         if df is None or df.empty:
             return []

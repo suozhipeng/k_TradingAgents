@@ -323,22 +323,25 @@ async function loadMomentum() {
     const res = await fetch('/api/v1/market/momentum');
     const data = await res.json();
     if (data.error) { showError('md-error', data.error); return; }
-    const leaders = data.leaders || data.stocks || data.data || [];
+    const payload = data.data || data;
+    const leaders = payload.stocks || data.leaders || data.stocks || [];
     if (!leaders.length) { showEmpty('md-empty', '暂无龙头数据'); return; }
+    const metrics = payload.metrics || {};
+    const sourceLabel = `${data.data_source || 'unknown'} / ${data.pool_info?.source || 'unknown'}`;
     // Summary cards
     document.getElementById('md-cards').innerHTML = [
       ['总龙头数', leaders.length, '只', '#2962FF'],
-      ['平均涨幅', (leaders.reduce((s, l) => s + (l.change_pct || 0), 0) / leaders.length).toFixed(2) + '%', '', leaders.some(l => (l.change_pct||0) > 0) ? '#089981' : '#f23645'],
-      ['总成交额', leaders.reduce((s, l) => s + (l.amount || 0), 0) > 1e8 ? (leaders.reduce((s, l) => s + (l.amount || 0), 0) / 1e8).toFixed(0) + '亿' : '--', '', '#787b86'],
+      ['平均动量', Number(metrics.avg_momentum_score || 0).toFixed(1), '分', '#089981'],
+      ['最高动量', Number(metrics.top_momentum_score || 0).toFixed(1), '分', '#f59e0b'],
+      ['数据来源', sourceLabel, '', data.data_source === 'real' ? '#089981' : '#f59e0b'],
     ].map(([label, val, unit, color]) =>
       `<div class="md-card"><h4>${label}</h4><p class="val" style="color:${color}">${val}${unit}</p></div>`
     ).join('');
     // Table
-    document.getElementById('md-table').innerHTML = '<table class="tv-table"><thead><tr><th>#</th><th>代码</th><th>名称</th><th class="text-right">最新价</th><th class="text-right">涨幅</th><th class="text-right">成交额</th><th>概念</th></tr></thead><tbody>' +
+    document.getElementById('md-table').innerHTML = '<table class="tv-table"><thead><tr><th>#</th><th>代码</th><th>名称</th><th class="text-right">最新价</th><th class="text-right">动量</th><th class="text-right">换手率</th><th>板块</th><th>来源</th></tr></thead><tbody>' +
       leaders.map((s, i) => {
-        const chgCls = (s.change_pct||0) >= 0 ? 'tv-up' : 'tv-down';
-        const sign = (s.change_pct||0) >= 0 ? '+' : '';
-        return `<tr><td class="text-center text-gray-400">${i+1}</td><td class="font-mono text-xs">${s.code||s.symbol||'--'}</td><td class="font-medium">${s.name||'--'}</td><td class="text-right">${s.price||s.close||'--'}</td><td class="text-right ${chgCls}">${sign}${(s.change_pct||0).toFixed(2)}%</td><td class="text-right text-xs">${s.amount ? (s.amount > 1e8 ? (s.amount/1e8).toFixed(1)+'亿' : (s.amount/1e4).toFixed(0)+'万') : '--'}</td><td class="text-xs text-gray-400">${s.concept||s.sector||'--'}</td></tr>`;
+        const isFallback = s.source === 'fallback';
+        return `<tr><td class="text-center text-gray-400">${s.rank || i + 1}</td><td class="font-mono text-xs">${s.code||s.symbol||'--'}</td><td class="font-medium">${s.name||'--'}</td><td class="text-right">${s.price||s.close||'--'}</td><td class="text-right ${isFallback ? 'text-amber-400' : 'tv-up'}">${Number(s.momentum_score || 0).toFixed(1)}</td><td class="text-right text-xs">${s.turnover_rate != null ? Number(s.turnover_rate).toFixed(2) + '%' : '--'}</td><td class="text-xs text-gray-400">${s.sector||'--'}</td><td class="text-xs ${isFallback ? 'text-amber-400' : 'text-emerald-400'}">${s.source || '--'}${s.pool_source ? '/' + s.pool_source : ''}</td></tr>`;
       }).join('') + '</tbody></table>';
     loading.style.display = 'none'; content.style.display = '';
   } catch (e) { showError('md-error', e.message); }

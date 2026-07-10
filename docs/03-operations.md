@@ -550,11 +550,13 @@ TRADINGAGENTS_TEMPERATURE=0.0
 
 ## AStock API 安全配置
 
-默认运行时，所有写请求以及交易、数据导入、调度、QMT、运维和通知控制面均要求 Bearer API key。写操作仅接受 `writer`、`operator` 或 `admin` 角色；`readonly` key 只能访问允许的查询接口。
+默认运行时，所有会改变状态的请求均要求 Bearer API key。写操作仅接受 `writer`、`operator` 或 `admin` 角色；展示型 `GET` 接口保持可访问，且不得返回通知凭据或 webhook 查询参数。
 
 本机临时开发可显式设置 `ASTOCK_REQUIRE_AUTH=false`，但不得用于局域网或公网部署。测试环境通过 `ASTOCK_TESTING=1` 自动关闭该 gate。
 
 通知渠道只允许公网 HTTP(S) 或 SMTP 目标，禁止私网/回环/保留地址，HTTP 请求不跟随重定向。渠道列表和创建/更新响应会移除密码、token、secret、API key 及 URL 查询参数；凭据只应通过受控写接口提交。
+
+模拟盘展示以应用级 `PaperTrader` 为唯一状态源：`/trade/state`、`/paper/state`、`/paper/trades` 和首页概览读取同一份状态。无可验证市场报价时，持仓按成本价估值并返回 `price_source=cost_basis`，不得伪造实时价格或浮盈亏。动量榜同时返回价格来源和龙头池来源，默认池/回退数据不得标记为实时行情。
 
 1. 如有需要，复制环境变量模板：
 

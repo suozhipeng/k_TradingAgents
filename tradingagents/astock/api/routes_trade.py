@@ -21,7 +21,6 @@ bp = Blueprint("trade", __name__)
 logger = logging.getLogger(__name__)
 
 # Global paper trader instance (shared with paper blueprint)
-_trader: Any = None
 
 # ── 实时报价缓存 ───────────────────────────────────────────────────────
 
@@ -242,15 +241,6 @@ def _serialize_order(result: Any) -> dict[str, Any]:
     return payload
 
 
-def _get_trader() -> Any:
-    global _trader
-    if _trader is None:
-        from tradingagents.astock.execution.paper_trader import PaperTrader
-
-        _trader = PaperTrader()
-    return _trader
-
-
 # ---------------------------------------------------------------------------
 # POST /api/v1/trade/order — Place an individual order
 # ---------------------------------------------------------------------------
@@ -275,7 +265,8 @@ def place_order() -> tuple[Response, int]:
         return jsonify({"error": "quantity must be a positive integer", "status": 400}), 400
 
     try:
-        trader = _get_trader()
+        from ._paper_service import get_paper_trader
+        trader = get_paper_trader()
         # RiskGate pre-check
         from ..execution.risk_gate import RiskGate
         proposal = {
@@ -342,40 +333,8 @@ def get_quote() -> tuple[Response, int]:
 def trade_state() -> tuple[Response, int]:
     """Return current paper trading state for the trading page."""
     try:
-        trader = _get_trader()
-        state = trader.get_state()
-        enriched_positions = []
-        for sym, shares in state.positions.items():
-            # 用实际持仓价格为每条持仓查行情
-            quote = _load_cached_quote(sym)
-            if quote is None:
-                quote = _fetch_realtime_quote(sym)
-                if quote:
-                    _save_to_cache(sym, quote)
-            mock_price = quote["last_price"] if quote else 50.0
-            cost_basis = trader._cost_basis.get(sym, 0.0)
-            avg_cost = round(cost_basis / shares, 2) if shares > 0 else 0
-            mkt_val = round(shares * mock_price, 2)
-            pnl = round(mkt_val - cost_basis, 2)
-            pnl_pct = round((pnl / cost_basis) * 100, 2) if cost_basis > 0 else 0.0
-            enriched_positions.append({
-                "symbol": sym,
-                "shares": round(shares, 4),
-                "avg_cost": avg_cost,
-                "current_price": mock_price,
-                "market_value": mkt_val,
-                "pnl": pnl,
-                "pnl_pct": pnl_pct,
-                "quantity": round(shares, 4),
-            })
-
-        return jsonify({
-            "cash": state.cash,
-            "total_value": state.total_value,
-            "pnl": state.pnl,
-            "positions": enriched_positions,
-            "trade_count": len(state.trades),
-        }), 200
+        from ._paper_service import get_paper_trader, serialize_paper_state
+        return jsonify(serialize_paper_state(get_paper_trader())), 200
     except Exception as exc:
         return jsonify({"error": str(exc), "status": 500}), 500
 

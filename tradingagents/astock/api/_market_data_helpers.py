@@ -123,29 +123,26 @@ def get_current_leading_stocks() -> list[dict[str, Any]]:
     """Return the current leading-stock pool using dynamic data when possible."""
     try:
         leaders, source = get_dynamic_leading_pool()
-        if leaders and source == "eastmoney":
-            stocks = []
-            for leader in leaders:
-                stocks.append(
-                    {
-                        "symbol": leader.get("symbol", ""),
-                        "name": leader.get("name", ""),
-                        "sector": leader.get("sector", ""),
-                        "price": leader.get("price", 0),
-                        "change_pct": leader.get("leader_change", 0),
-                        "turnover_rate": leader.get("turnover_rate", 0),
-                        "market_cap": leader.get("market_cap", 0),
-                        "pb": leader.get("pb", 0),
-                        "source": "dynamic",
-                    }
-                )
-            if stocks:
-                return stocks
+        if leaders:
+            return [
+                {
+                    "symbol": leader.get("symbol", ""),
+                    "name": leader.get("name", ""),
+                    "sector": leader.get("sector", ""),
+                    "price": leader.get("price", 0),
+                    "change_pct": leader.get("leader_change", 0),
+                    "turnover_rate": leader.get("turnover_rate", 0),
+                    "market_cap": leader.get("market_cap", 0),
+                    "pb": leader.get("pb", 0),
+                    "pool_source": source,
+                }
+                for leader in leaders
+            ]
     except Exception as exc:
         logger.warning("Dynamic leading pool failed, using fallback: %s", exc)
 
     fallback, _ = get_leading_stocks()
-    return fallback
+    return [{**stock, "pool_source": "fallback"} for stock in fallback]
 
 
 def fetch_real_momentum() -> list[dict[str, Any]]:
@@ -176,6 +173,7 @@ def fetch_real_momentum() -> list[dict[str, Any]]:
                             "market_cap": resp.data.get("market_cap", 0),
                             "pb": resp.data.get("pb", 0),
                             "source": "real",
+                            "pool_source": stock.get("pool_source", "unknown"),
                         }
                     )
                     continue
@@ -189,13 +187,14 @@ def fetch_real_momentum() -> list[dict[str, Any]]:
                         "turnover_rate": stock.get("turnover_rate", 0),
                         "market_cap": stock.get("market_cap", 0),
                         "pb": stock.get("pb", 0),
-                        "source": "real",
+                        "source": "fallback",
+                        "pool_source": stock.get("pool_source", "fallback"),
                     }
                 )
             else:
-                stocks.append(_fallback_stock(symbol, name, sector))
+                stocks.append(_fallback_stock(symbol, name, sector, stock.get("pool_source", "fallback")))
         except Exception:
-            stocks.append(_fallback_stock(symbol, name, sector))
+            stocks.append(_fallback_stock(symbol, name, sector, stock.get("pool_source", "fallback")))
     return stocks
 
 
@@ -343,7 +342,7 @@ def mock_stock_blocks(symbol: str) -> dict[str, Any]:
     }
 
 
-def _fallback_stock(symbol: str, name: str, sector: str) -> dict[str, Any]:
+def _fallback_stock(symbol: str, name: str, sector: str, pool_source: str = "fallback") -> dict[str, Any]:
     return {
         "symbol": symbol,
         "name": name,
@@ -353,4 +352,5 @@ def _fallback_stock(symbol: str, name: str, sector: str) -> dict[str, Any]:
         "market_cap": 0,
         "pb": 0,
         "source": "fallback",
+        "pool_source": pool_source,
     }

@@ -18,16 +18,6 @@ from flask import Flask, g, jsonify, request
 logger = logging.getLogger(__name__)
 
 _WRITE_METHODS = frozenset(("POST", "PUT", "DELETE", "PATCH"))
-_CONTROL_PREFIXES = (
-    "/api/v1/admin/",
-    "/api/v1/data/",
-    "/api/v1/notifications/",
-    "/api/v1/ops/",
-    "/api/v1/paper/",
-    "/api/v1/qmt/",
-    "/api/v1/sse/scheduler/",
-    "/api/v1/trade/",
-)
 _WRITE_ROLES = frozenset(("admin", "operator", "writer"))
 
 
@@ -55,13 +45,10 @@ def _register_before_request(app: Flask) -> None:
         g.allowed_capabilities = ""
 
     @app.before_request
-    def _require_auth_on_sensitive_routes() -> tuple[Any, int] | None:
+    def _require_auth_on_write_routes() -> tuple[Any, int] | None:
         if not app.config.get("ASTOCK_REQUIRE_AUTH", True):
             return None
-        requires_auth = request.method in _WRITE_METHODS or any(
-            request.path.startswith(prefix) for prefix in _CONTROL_PREFIXES
-        )
-        if not requires_auth:
+        if request.method not in _WRITE_METHODS:
             return None
         if any(request.path.startswith(p) for p in ("/api/v1/health",)):
             return None
