@@ -303,6 +303,7 @@ def get_quote() -> tuple[Response, int]:
     三级降级：实时拉取（东方财富）→ 实时拉取（新浪）→ 本地缓存 → 空数据
     成功拉取的实时数据自动写入缓存。
     """
+    from tradingagents.astock.data_sources.quality import DataQualityBanner
     symbol = request.args.get("symbol", "").strip()
     if not symbol:
         return jsonify({"error": "symbol is required", "status": 400}), 400
@@ -310,18 +311,31 @@ def get_quote() -> tuple[Response, int]:
     # 1. 先看缓存（TTL 内快速返回）
     cached = _load_cached_quote(symbol)
     if cached:
-        return jsonify({**cached, "source": "cache"}), 200
+        ts = cached.get("cached_at")
+        return jsonify(DataQualityBanner.enrich(cached, source="cache", ts=ts)), 200
 
     # 2. 实时拉取
     live = _fetch_realtime_quote(symbol)
     if live:
+        ts = live.get("timestamp")
+        if isinstance(ts, str):
+            try:
+                ts = datetime.fromisoformat(ts)
+            except (ValueError, TypeError):
+                ts = None
         _save_to_cache(symbol, live)
-        return jsonify({**live, "source": "live"}), 200
+        return jsonify(DataQualityBanner.enrich(live, source="live", ts=ts)), 200
 
-    # 3. 离线兜底：返回确定性 mock quote，避免 API 在受限环境下完全不可用
+    # 3. 离线兜底：返回确定性 mock quote
     synthetic = _build_deterministic_quote(symbol)
+    ts = synthetic.get("timestamp")
+    if isinstance(ts, str):
+        try:
+            ts = datetime.fromisoformat(ts)
+        except (ValueError, TypeError):
+            ts = None
     _save_to_cache(symbol, synthetic)
-    return jsonify({**synthetic, "source": "mock"}), 200
+    return jsonify(DataQualityBanner.enrich(synthetic, source="mock", ts=ts)), 200
 
 
 # ---------------------------------------------------------------------------

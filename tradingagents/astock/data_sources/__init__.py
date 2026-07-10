@@ -36,6 +36,7 @@ _LAZY_EXPORTS = {
     "DataQualityTag": ("tradingagents.astock.data_sources.quality", "DataQualityTag"),
     "FreshnessInfo": ("tradingagents.astock.data_sources.quality", "FreshnessInfo"),
     "DataQualityMetadata": ("tradingagents.astock.data_sources.quality", "DataQualityMetadata"),
+    "DataQualityBanner": ("tradingagents.astock.data_sources.quality", "DataQualityBanner"),
     "AStockDataFacade": ("tradingagents.astock.data_sources.router", "AStockDataFacade"),
     "AStockDataRouter": ("tradingagents.astock.data_sources.router", "AStockDataRouter"),
     "CAPABILITY_TO_METHOD": ("tradingagents.astock.data_sources.router", "CAPABILITY_TO_METHOD"),

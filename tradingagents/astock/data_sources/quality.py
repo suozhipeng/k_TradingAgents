@@ -23,7 +23,7 @@ Quality levels
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any, Optional
 
@@ -291,8 +291,100 @@ class DataQualityMetadata:
         )
 
 
+class DataQualityBanner:
+    """Inject data quality fields into API responses.
+
+    Provides ``banner()`` and ``enrich()`` helpers that inject
+    *source*, *as_of*, *age_seconds*, *is_mock*, and *is_stale* into
+    API responses.
+    """
+
+    _MOCK_SOURCES = frozenset({"mock", "synthetic"})
+    _STALE_SOURCES = frozenset({"cache", "store", "fallback", "duckdb"})
+
+    @classmethod
+    def banner(
+        cls,
+        *,
+        source: str,
+        ts: datetime | None = None,
+        ttl_seconds: int = 60,
+    ) -> dict[str, Any]:
+        """Build a quality banner dict.
+
+        Parameters
+        ----------
+        source : str
+            Data source identifier (e.g. ``"live"``, ``"mock"``, ``"cache"``).
+        ts : datetime or None
+            Timestamp of the data.  Defaults to current UTC time.
+        ttl_seconds : int
+            Staleness threshold in seconds (default 60).
+
+        Returns
+        -------
+        dict[str, Any]
+            Banner dict with *source*, *as_of*, *age_seconds*, *is_mock*, *is_stale*.
+        """
+        if ts is None:
+            ts = datetime.now(timezone.utc)
+
+        if ts.tzinfo is None:
+            ts_utc = ts.replace(tzinfo=timezone.utc)
+        else:
+            ts_utc = ts.astimezone(timezone.utc)
+
+        now_utc = datetime.now(timezone.utc)
+        age_seconds = max(0, int((now_utc - ts_utc).total_seconds()))
+        as_of = ts_utc.isoformat()
+
+        is_mock = source in cls._MOCK_SOURCES
+        is_stale = source in cls._STALE_SOURCES and age_seconds > ttl_seconds
+
+        return {
+            "source": source,
+            "as_of": as_of,
+            "age_seconds": age_seconds,
+            "is_mock": is_mock,
+            "is_stale": is_stale,
+        }
+
+    @classmethod
+    def enrich(
+        cls,
+        data: dict[str, Any],
+        *,
+        source: str,
+        ts: datetime | None = None,
+        ttl_seconds: int = 60,
+    ) -> dict[str, Any]:
+        """Enrich an existing dict with quality banner fields.
+
+        Parameters
+        ----------
+        data : dict[str, Any]
+            Existing data dictionary.
+        source : str
+            Data source identifier.
+        ts : datetime or None
+            Timestamp of the data.
+        ttl_seconds : int
+            Staleness threshold in seconds.
+
+        Returns
+        -------
+        dict[str, Any]
+            New dict with quality banner fields injected.
+        """
+        banner = cls.banner(source=source, ts=ts, ttl_seconds=ttl_seconds)
+        result = dict(data)
+        result.update(banner)
+        return result
+
+
 __all__ = [
     "DataQualityTag",
     "FreshnessInfo",
     "DataQualityMetadata",
+    "DataQualityBanner",
 ]

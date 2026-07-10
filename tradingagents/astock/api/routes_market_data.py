@@ -23,6 +23,7 @@ from tradingagents.astock.data_sources.leading_pool import (
     get_leading_pool_summary,
     refresh_leading_pool,
 )
+from tradingagents.astock.data_sources.quality import DataQualityBanner
 from tradingagents.astock.data_sources.sina_sectors import (
     industry_comparison as sina_industry_comparison,
 )
@@ -53,39 +54,60 @@ logger = logging.getLogger(__name__)
 def market_quote() -> tuple[Response, int]:
     """Research-market quote: delegates to trade quote's live/fetch logic."""
     from . import routes_trade
+    from datetime import datetime as _dt
     # Use the same quote-fetching function from routes_trade
     symbol = request.args.get("symbol", "").strip()
     if not symbol:
         return jsonify({"error": "symbol is required", "status": 400}), 400
     cached = routes_trade._load_cached_quote(symbol)
     if cached:
-        return jsonify({**cached, "source": "cache"}), 200
+        ts = cached.get("cached_at")
+        if isinstance(ts, str):
+            try:
+                ts = _dt.fromisoformat(ts)
+            except (ValueError, TypeError):
+                ts = None
+        return jsonify(DataQualityBanner.enrich(cached, source="cache", ts=ts)), 200
     live = routes_trade._fetch_realtime_quote(symbol)
     if live:
+        ts = live.get("timestamp")
+        if isinstance(ts, str):
+            try:
+                ts = _dt.fromisoformat(ts)
+            except (ValueError, TypeError):
+                ts = None
         routes_trade._save_to_cache(symbol, live)
-        return jsonify({**live, "source": "live"}), 200
+        return jsonify(DataQualityBanner.enrich(live, source="live", ts=ts)), 200
     synthetic = routes_trade._build_deterministic_quote(symbol)
+    ts = synthetic.get("timestamp")
+    if isinstance(ts, str):
+        try:
+            ts = _dt.fromisoformat(ts)
+        except (ValueError, TypeError):
+            ts = None
     routes_trade._save_to_cache(symbol, synthetic)
-    return jsonify({**synthetic, "source": "mock"}), 200
+    return jsonify(DataQualityBanner.enrich(synthetic, source="mock", ts=ts)), 200
 
 
 @bp.route("/market/dragon-tiger")
 def dragon_tiger() -> tuple[Response, int]:
     """Fetch daily dragon & tiger board."""
+    from datetime import datetime as _dt
     if mock_data_enabled() or _as_bool(request.args.get("mock"), False):
-        return jsonify(mock_dragon_tiger()), 200
-
+        data = mock_dragon_tiger()
+        return jsonify(DataQualityBanner.enrich(data, source="mock")), 200
     raw_date = request.args.get("date")
     trade_date, source_label, was_fallback = resolve_trade_date(raw_date)
     min_net_buy = request.args.get("min_net_buy")
     min_net_buy_f = float(min_net_buy) if min_net_buy else None
-
     try:
         data = daily_dragon_tiger(trade_date=trade_date, min_net_buy=min_net_buy_f)
-        data["_source"] = source_label
+        ts = _dt.now()
+        banner = DataQualityBanner.banner(source="live" if not was_fallback else "fallback", ts=ts)
+        result = {**data, **banner}
         if was_fallback:
-            data["_note"] = f"今日非交易日，展示 {source_label} 数据"
-        return jsonify(data), 200
+            result["_note"] = f"今日非交易日，展示 {source_label} 数据"
+        return jsonify(result), 200
     except Exception as exc:
         return jsonify({"error": str(exc), "status": 500}), 500
 
@@ -93,9 +115,10 @@ def dragon_tiger() -> tuple[Response, int]:
 @bp.route("/market/sectors")
 def sectors() -> tuple[Response, int]:
     """Industry sector ranking with unified fallback handling."""
+    from datetime import datetime as _dt
     if mock_data_enabled() or _as_bool(request.args.get("mock"), False):
-        return jsonify(mock_sectors()), 200
-
+        data = mock_sectors()
+        return jsonify(DataQualityBanner.enrich(data, source="mock")), 200
     top_n = int(request.args.get("top_n", 20))
     for attempt, (name, fetcher) in enumerate(
         [("Sina", sina_industry_comparison), ("EastMoney", em_industry_comparison)]
@@ -103,44 +126,36 @@ def sectors() -> tuple[Response, int]:
         try:
             data = fetcher(top_n=top_n)
             if data.get("top"):
-                data["_source"] = name.lower()
-                return jsonify(data), 200
+                banner = DataQualityBanner.banner(source="live", ts=_dt.now())
+                result = {**data, **banner}
+                return jsonify(result), 200
         except Exception as exc:
             logger.debug("Failed to fetch northbound data (attempt %d): %s", attempt, exc)
             if attempt == 0:
                 continue
-
     duckdb_data = query_duckdb_valuations(top_n=top_n)
     if duckdb_data and duckdb_data.get("rows"):
-        return jsonify(
-            {
-                "top": duckdb_data["rows"],
-                "bottom": duckdb_data["rows"][-3:],
-                "total": len(duckdb_data["rows"]),
-                "_source": "duckdb",
-                "_note": fallback_note("duckdb"),
-            }
-        ), 200
-
+        banner = DataQualityBanner.banner(source="duckdb", ts=_dt.now())
+        return jsonify({**duckdb_data, **banner, "_note": fallback_note("duckdb")}), 200
     mock = mock_sectors()
-    mock["_source"] = "mock"
     mock["_note"] = fallback_note("mock")
-    return jsonify(mock), 200
+    return jsonify(DataQualityBanner.enrich(mock, source="mock")), 200
 
 
 @bp.route("/market/northbound")
 def northbound() -> tuple[Response, int]:
     """Shanghai / Shenzhen Stock Connect real-time flow."""
+    from datetime import datetime as _dt
     if mock_data_enabled() or _as_bool(request.args.get("mock"), False):
-        return jsonify(mock_northbound()), 200
-
+        data = mock_northbound()
+        return jsonify(DataQualityBanner.enrich(data, source="mock")), 200
     try:
         data = hsgt_realtime()
         if data:
-            return jsonify({"flow": data, "total_points": len(data), "_source": "eastmoney"}), 200
+            banner = DataQualityBanner.banner(source="live", ts=_dt.now())
+            return jsonify({**{"flow": data, "total_points": len(data)}, **banner}), 200
     except Exception as exc:
         logger.warning("Northbound hsgt_realtime failed: %s", exc)
-
     duckdb_data = query_duckdb_valuations(top_n=50)
     if duckdb_data and duckdb_data.get("rows"):
         flow = []
@@ -153,80 +168,42 @@ def northbound() -> tuple[Response, int]:
                 }
             )
         if flow:
-            return jsonify(
-                {
-                    "flow": flow,
-                    "total_points": len(flow),
-                    "_source": "duckdb",
-                    "_note": fallback_note("duckdb"),
-                }
-            ), 200
-
+            banner = DataQualityBanner.banner(source="duckdb", ts=_dt.now())
+            return jsonify({**banner, "flow": flow, "total_points": len(flow), "_note": fallback_note("duckdb")}), 200
     mock = mock_northbound()
-    mock["_source"] = "mock"
-    mock["_note"] = fallback_note("mock")
-    return jsonify(mock), 200
+    return jsonify(DataQualityBanner.enrich(mock, source="mock")), 200
 
 
 @bp.route("/market/blocks")
 def stock_blocks() -> tuple[Response, int]:
     """Concept / industry / region blocks a stock belongs to."""
+    from datetime import datetime as _dt
     symbol = request.args.get("symbol", "")
     if not symbol:
         return jsonify({"error": "symbol is required", "status": 400}), 400
-
     limit = int(request.args.get("limit", 10))
     if mock_data_enabled() or _as_bool(request.args.get("mock"), False):
         data = mock_stock_blocks(symbol)
         data["items"] = data["items"][:limit]
         data["count"] = len(data["items"])
-        data["_source"] = "mock"
-        data["_note"] = "模拟数据（测试模式）"
-        return jsonify(data), 200
-
+        return jsonify(DataQualityBanner.enrich(data, source="mock")), 200
     real_items = None
     error_msg = None
     try:
         real_items = concept_blocks(symbol)
     except Exception as exc:
         error_msg = f"东方财富接口请求失败: {exc}"
-
-    if not real_items and not error_msg:
-        try:
-            import akshare as ak  # noqa: F401
-
-            real_items = []
-        except Exception as ak_err:
-            error_msg = f"AkShare 接口请求失败: {ak_err}"
-
     if real_items:
-        return jsonify(
-            {
-                "symbol": symbol,
-                "items": real_items[:limit],
-                "count": min(len(real_items), limit),
-                "_source": "real",
-            }
-        ), 200
-
+        banner = DataQualityBanner.banner(source="live", ts=_dt.now())
+        return jsonify({**{"symbol": symbol, "items": real_items[:limit], "count": min(len(real_items), limit)}, **banner}), 200
     duckdb_data = query_duckdb_valuations(symbol=symbol)
     if duckdb_data and duckdb_data.get("rows"):
-        return jsonify(
-            {
-                "symbol": symbol,
-                "items": duckdb_data["rows"][:limit],
-                "count": min(len(duckdb_data["rows"]), limit),
-                "_source": "duckdb",
-                "_note": fallback_note("duckdb"),
-            }
-        ), 200
-
+        banner = DataQualityBanner.banner(source="duckdb", ts=_dt.now())
+        return jsonify({**{"symbol": symbol, "items": duckdb_data["rows"][:limit], "count": min(len(duckdb_data["rows"]), limit), "_note": fallback_note("duckdb")}, **banner}), 200
     mock_data = mock_stock_blocks(symbol)
     mock_data["items"] = mock_data["items"][:limit]
     mock_data["count"] = len(mock_data["items"])
-    mock_data["_source"] = "mock"
-    mock_data["_note"] = fallback_note("mock")
-    return jsonify(mock_data), 200
+    return jsonify(DataQualityBanner.enrich(mock_data, source="mock")), 200
 
 
 @bp.route("/market/leading-pool", methods=["GET"])
@@ -292,6 +269,7 @@ def momentum_rotation() -> tuple[Response, int]:
 @bp.route("/market/momentum", methods=["GET"])
 def momentum_realtime() -> tuple[Response, int]:
     """Return live momentum data for leading stocks."""
+    from datetime import datetime as _dt
     if request.args.get("refresh", "0") == "1":
         try:
             refresh_leading_pool()
@@ -307,7 +285,6 @@ def momentum_realtime() -> tuple[Response, int]:
     real_scores = [s["momentum_score"] for s in stocks if s.get("momentum_score", 0) > 0]
 
     if has_real and real_prices:
-        # Compute simple stats from real data
         avg_price = sum(real_prices) / len(real_prices)
         avg_score = sum(real_scores) / len(real_scores) if real_scores else 0
         top_score = max(real_scores) if real_scores else 0
@@ -321,7 +298,6 @@ def momentum_realtime() -> tuple[Response, int]:
             "fallback_count": len(stocks) - len(real_prices),
         }
     else:
-        # No real data — use placeholder metrics
         metrics = {
             "avg_price": 0,
             "avg_momentum_score": 0,
@@ -338,61 +314,61 @@ def momentum_realtime() -> tuple[Response, int]:
         logger.debug("Failed to get leading pool summary: %s", exc)
         pool_summary = {"trade_date": trade_date, "source": "unknown", "count": len(stocks)}
 
-    return jsonify(
-        {
-            "code": 0,
-            "message": "success",
-            "trade_date": trade_date,
-            "data_source": "real" if has_real else "fallback",
-            "pool_info": {
-                "source": pool_summary.get("source", "hardcoded"),
-                "count": pool_summary.get("count", len(stocks)),
-                "sectors": list(pool_summary.get("sectors", {}).keys())[:10],
-            },
-            "data": {
-                "stocks": stocks,
-                "metrics": metrics,
-                "config": {
-                    "momentum_period": 20,
-                    "rebalance_interval": 5,
-                    "max_holdings": 3,
-                    "positions": {
-                        "buy1_pct": 0.30,
-                        "buy2_pct": 0.30,
-                        "hold_pct": 0.40,
-                    },
+    source_label = "live" if has_real else "fallback"
+    banner = DataQualityBanner.banner(source=source_label, ts=_dt.now())
+    return jsonify({
+        "code": 0,
+        "message": "success",
+        "trade_date": trade_date,
+        "pool_info": {
+            "source": pool_summary.get("source", "hardcoded"),
+            "count": pool_summary.get("count", len(stocks)),
+            "sectors": list(pool_summary.get("sectors", {}).keys())[:10],
+        },
+        "data": {
+            "stocks": stocks,
+            "metrics": metrics,
+            "config": {
+                "momentum_period": 20,
+                "rebalance_interval": 5,
+                "max_holdings": 3,
+                "positions": {
+                    "buy1_pct": 0.30,
+                    "buy2_pct": 0.30,
+                    "hold_pct": 0.40,
                 },
             },
-        }
-    ), 200
+        },
+        **banner,
+    }), 200
 
 
 @bp.route("/market/overview", methods=["GET"])
 def market_overview() -> tuple[Response, int]:
     """Market summary with real-time indices and sector performance."""
+    from datetime import datetime as _dt
     try:
         resp = router.get_market_summary()
         if resp.status == "ok" and resp.data:
-            return jsonify({"status": "ok", "source": "real", "data": resp.data}), 200
+            banner = DataQualityBanner.banner(source="live", ts=_dt.now())
+            return jsonify({**{"status": "ok", "data": resp.data}, **banner}), 200
     except Exception as exc:
         logger.debug("Failed to get market overview from router: %s", exc)
-
-    return jsonify(
-        {
-            "status": "fallback",
-            "source": "mock",
-            "data": {
-                "indices": [
-                    {"name": "上证指数", "value": 3988.22, "change_pct": 0.52},
-                    {"name": "深证成指", "value": 13432.55, "change_pct": 0.87},
-                    {"name": "创业板指", "value": 2785.32, "change_pct": 1.15},
-                ],
-                "advance": 2856,
-                "decline": 2144,
-                "note": "⚠️ 实时数据不可用，展示的是模拟数据",
-            },
-        }
-    ), 200
+    banner = DataQualityBanner.banner(source="mock", ts=_dt.now())
+    return jsonify({
+        "status": "fallback",
+        "data": {
+            "indices": [
+                {"name": "上证指数", "value": 3988.22, "change_pct": 0.52},
+                {"name": "深证成指", "value": 13432.55, "change_pct": 0.87},
+                {"name": "创业板指", "value": 2785.32, "change_pct": 1.15},
+            ],
+            "advance": 2856,
+            "decline": 2144,
+            "note": "⚠️ 实时数据不可用，展示的是模拟数据",
+        },
+        **banner,
+    }), 200
 
 
 @bp.route("/calendar")

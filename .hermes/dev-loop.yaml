@@ -5,18 +5,18 @@ Loop Level: l2
 Workflow Rev: 2
 
 Orchestration:
-  status: blocked
+  status: ready_for_execution
   prd_path: .hermes/plans/2026-07-10_160251-research-only-p0.md
   track: c
   task_gate_attempts: 1
 
-Phase: review
-Current Task Index: 0
+Phase: next
+Current Task Index: 2
 Review Mode: gate-sequence
 Paused: false
-Blocked: true
-Blocked Reason: 'Opencode review produced no verdict: Hermes delegate hit HTTP 429; local CLI models timed out, require authorization, or reject ChatGPT auth.'
-Blocked Type: environment
+Blocked: false
+Blocked Reason: ''
+Blocked Type: none
 
 Monitor:
   enabled: true
@@ -40,18 +40,19 @@ Track Config:
     enabled: true
 
 Review Routing:
-  default_reviewer: opencode
-  force_codex_review: true
-  upgrade_reason: 'user-required sequential opencode -> Codex gate'
+  default_reviewer: agnes
+  force_codex_review: false
+  upgrade_reason: ''
   skip_codex_review: false
 
 Gate Sequence:
   manual: true
-  review_agent: opencode
+  review_agent: agnes
   acceptance_agent: codex
-  current_gate: opencode_review
-  review_status: blocked_external
+  current_gate: none
+  review_status: pending
   acceptance_status: pending
+  review_verdict_agnes: accepted
 
 Fuse:
   triggered: false
@@ -60,36 +61,36 @@ Fuse:
 Tasks:
   - id: 1
     description: 'Research-only 开关、旧执行 API 禁用与 Research 行情路径迁移'
-    status: opencode_reviewing
+    status: done
     track: c
-    commit_sha: ~
-    review_verdict: ~
-    acceptance_verdict: ~
+    commit_sha: adbfcb0
+    review_verdict: accept (Agnes)
+    acceptance_verdict: accept (Codex)
     execution_agent: hermes
     iteration_count: 1
-    notes: 'FR-1/2/3 implemented; new boundary tests pass and full pytest Harness passed.'
+    notes: 'FR-1/2/3 implemented; 25 boundary tests + 1121 full pytest passed. Codex acceptance accepted.'
 
   - id: 2
     description: '删除命令面板与 Dashboard 的交易 DOM、加载、渲染及 Research-only API 字段'
-    status: opencode_reviewing
+    status: done
     track: b
-    commit_sha: ~
-    review_verdict: ~
-    acceptance_verdict: ~
+    commit_sha: adbfcb0
+    review_verdict: accept (Agnes)
+    acceptance_verdict: accept (Codex)
     execution_agent: hermes
     iteration_count: 1
-    notes: 'FR-4 implemented: execution navigation and Dashboard paper DOM/scripts removed; API early return verified.'
+    notes: 'FR-4 implemented: execution navigation and Dashboard paper DOM/scripts removed. Codex acceptance accepted.'
 
   - id: 3
     description: 'P0-B2 行情可信度统一契约与 Mock/Cache 隔离'
-    status: pending
-    track: c
+    status: planning
+    track: a
     commit_sha: ~
     review_verdict: ~
     acceptance_verdict: ~
     execution_agent: ~
     iteration_count: 0
-    notes: '本轮先审计和拆分，不与 B1 混改。'
+    notes: 'Plan written: .hermes/plans/2026-07-10_192000-p0-b2-market-data-credibility.md'
 
   - id: 4
     description: 'P0-B3 盯盘工作台归并、旧页面重定向与 localhost iframe 下线'
@@ -103,5 +104,4 @@ Tasks:
     notes: '本轮先审计和拆分，不与 B1 混改。'
 
 Next Actions:
-  - 'Restore an authenticated, responsive OpenCode provider and obtain an explicit accept/partial/fail verdict.'
-  - 'Only if Opencode accepts: start independent Codex acceptance; do not commit.'
+  - 'P0-B2: 行情可信度统一契约与 Mock/Cache 隔离 — 审计现有 quote/provider/cache/mock 链路，定义 source/as_of/age_seconds/is_mock/is_stale 统一契约'
