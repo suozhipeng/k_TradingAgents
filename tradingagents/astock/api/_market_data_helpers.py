@@ -199,7 +199,13 @@ def fetch_real_momentum() -> list[dict[str, Any]]:
 
 
 def compute_momentum_scores(real_stocks: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Compute momentum scores with deterministic fallback values."""
+    """Compute momentum scores with deterministic fallback values.
+
+    When real price/turnover/market_cap data is available, scores are computed
+    from those fields.  When all data is unavailable (source=fallback), a
+    deterministic hash-based score is derived from the stock symbol so that
+    results are stable across calls but still differentiate each stock.
+    """
     has_real = any(stock["source"] == "real" and stock["price"] > 0 for stock in real_stocks)
 
     if has_real:
@@ -223,48 +229,15 @@ def compute_momentum_scores(real_stocks: list[dict[str, Any]]) -> list[dict[str,
             else:
                 stock["momentum_score"] = 0.0
     else:
-        base_scores = [
-            94.5,
-            91.2,
-            88.0,
-            82.3,
-            78.6,
-            75.1,
-            71.8,
-            54.2,
-            62.5,
-            68.3,
-            59.7,
-            45.2,
-            52.1,
-            48.9,
-            43.5,
-        ]
-        base_prices = [
-            285.50,
-            268.00,
-            98.60,
-            52.30,
-            78.40,
-            620.00,
-            25.80,
-            1550.00,
-            18.60,
-            48.20,
-            8.60,
-            8.20,
-            22.50,
-            36.80,
-            120.00,
-        ]
-
-        seed = int(datetime.now().timestamp() * 1000) % 10000
-        rng = random.Random(seed // 300)
+        # Deterministic per-symbol scoring: hash-based, no magic numbers
         for index, stock in enumerate(real_stocks):
-            score = base_scores[index % len(base_scores)]
-            price = base_prices[index % len(base_prices)]
-            stock["momentum_score"] = round(max(0, min(100, score + rng.uniform(-2, 2))), 1)
-            stock["price"] = round(price * (1 + rng.uniform(-0.5, 0.5) / 100), 2)
+            symbol = stock.get("symbol", "") or stock.get("name", "")
+            if not symbol:
+                symbol = f"stock_{index}"
+            # Hash the symbol to get a stable base in [0, 99]
+            h = hash(symbol) & 0xFFFF
+            base_score = (h % 95) + 5  # 5..99
+            stock["momentum_score"] = round(base_score, 1)
             stock["source"] = "fallback"
 
     real_stocks.sort(key=lambda item: item["momentum_score"], reverse=True)

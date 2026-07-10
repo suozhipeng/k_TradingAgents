@@ -132,7 +132,10 @@ def dashboard_overview() -> tuple[Response, int]:
                 except (json.JSONDecodeError, TypeError):
                     periods = []
             latest_equity_curve = [
-                {"period": p["period"], "value": p["end_value"]}
+                {
+                    "period": p.get("period", ""),
+                    "value": p.get("end_value", p.get("value", 0)),
+                }
                 for p in (periods or [])
             ][-30:]
 
@@ -201,12 +204,16 @@ def _compute_paper_equity_curve(store: Any) -> list[dict]:
         latest_prices: dict[str, float] = {}
         curve = []
         for _, row in df.iterrows():
-            symbol = row.get("symbol", "")
+            symbol = str(row.get("symbol", "")).strip()
+            if not symbol:
+                continue
             direction = str(row.get("direction", "")).lower()
             price = float(row.get("price", 0))
             volume = float(row.get("volume", 0))
             fees = float(row.get("fees", 0))
-            date_str = str(row.get("trade_date", ""))[:10]
+            date_str = str(row.get("trade_date", "") or row.get("date", ""))[:10]
+            if not date_str:
+                continue
             latest_prices[symbol] = price
             if direction == "buy":
                 cost = price * volume + fees
@@ -231,6 +238,12 @@ def _compute_paper_equity_curve(store: Any) -> list[dict]:
 
 
 def _get_decision_summary() -> dict[str, Any]:
+    """Compute a decision summary from the watchlist.
+
+    Uses synchronous technical analysis for each stock.  Errors per-stock
+    are caught and logged so a single bad symbol doesn't bring down the
+    entire dashboard.
+    """
     counts = {"buy": 0, "hold": 0, "sell": 0}
     top_picks: list[dict] = []
     research_only_count = 0
@@ -242,7 +255,13 @@ def _get_decision_summary() -> dict[str, Any]:
                 name = item.get("name", symbol)
                 if not symbol:
                     continue
-                result = analyze_stock_symbol(symbol, name)
+                try:
+                    result = analyze_stock_symbol(symbol, name)
+                except Exception as exc:
+                    logger.debug("Analysis failed for %s: %s", symbol, exc)
+                    research_only_count += 1
+                    continue
+
                 rating = result.get("rating", "hold")
                 if rating in counts:
                     counts[rating] += 1

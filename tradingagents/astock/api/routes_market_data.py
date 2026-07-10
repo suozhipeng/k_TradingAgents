@@ -281,6 +281,36 @@ def momentum_realtime() -> tuple[Response, int]:
     trade_date = resolve_trade_date()[0]
     has_real = any(stock["source"] == "real" for stock in stocks)
 
+    # Compute aggregate metrics from the real stocks data when available
+    real_prices = [s["price"] for s in stocks if s.get("price", 0) > 0 and s["source"] == "real"]
+    real_scores = [s["momentum_score"] for s in stocks if s.get("momentum_score", 0) > 0]
+
+    if has_real and real_prices:
+        # Compute simple stats from real data
+        avg_price = sum(real_prices) / len(real_prices)
+        avg_score = sum(real_scores) / len(real_scores) if real_scores else 0
+        top_score = max(real_scores) if real_scores else 0
+        bottom_score = min(real_scores) if real_scores else 0
+        metrics = {
+            "avg_price": round(avg_price, 2),
+            "avg_momentum_score": round(avg_score, 1),
+            "top_momentum_score": round(top_score, 1),
+            "bottom_momentum_score": round(bottom_score, 1),
+            "real_data_count": len(real_prices),
+            "fallback_count": len(stocks) - len(real_prices),
+        }
+    else:
+        # No real data — use placeholder metrics
+        metrics = {
+            "avg_price": 0,
+            "avg_momentum_score": 0,
+            "top_momentum_score": 0,
+            "bottom_momentum_score": 0,
+            "real_data_count": 0,
+            "fallback_count": len(stocks),
+            "note": "无实时数据，展示回测/缓存数据",
+        }
+
     try:
         pool_summary = get_leading_pool_summary()
     except Exception as exc:
@@ -300,13 +330,7 @@ def momentum_realtime() -> tuple[Response, int]:
             },
             "data": {
                 "stocks": stocks,
-                "metrics": {
-                    "annual_return": 114.2,
-                    "max_drawdown": -14.8,
-                    "win_rate": 62.3,
-                    "profit_loss_ratio": 3.4,
-                    "benchmark_outperform": 123.5,
-                },
+                "metrics": metrics,
                 "config": {
                     "momentum_period": 20,
                     "rebalance_interval": 5,

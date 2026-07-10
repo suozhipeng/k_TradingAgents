@@ -145,7 +145,7 @@ def _aggregate_bars(daily_bars: list[dict[str, Any]], interval: str) -> list[dic
 
     grouped: dict[str, dict[str, Any]] = {}
     for bar in daily_bars:
-        td = bar.get("trade_date") or bar.get("date") or ""
+        td = bar.get("bar_time") or bar.get("trade_date") or bar.get("date") or ""
         if not td:
             continue
         dt = datetime.strptime(td[:10], "%Y-%m-%d")
@@ -363,8 +363,9 @@ def tv_symbols() -> tuple[Response, int]:
 
     try:
         store = get_store()
-        df = store.query_kline(symbol, interval="1d", limit=1)
+        df = store.query_kline(symbol, interval="1d", limit=2)
         bars = _df_to_json(df)
+        # bars may use 'bar_time' or 'trade_date' as time column
         last_price = bars[-1]["close"] if bars else 100.0
         prev_close = bars[-2]["close"] if len(bars) > 1 else last_price
     except Exception as exc:
@@ -472,7 +473,8 @@ def tv_history() -> tuple[Response, int]:
         volumes: list[float] = []
 
         for b in bars:
-            td = b.get("trade_date") or b.get("date") or ""
+            # Try multiple time column names: bar_time (primary), trade_date, date
+            td = b.get("bar_time") or b.get("trade_date") or b.get("date") or ""
             if not td:
                 continue
             if len(td) <= 10:
