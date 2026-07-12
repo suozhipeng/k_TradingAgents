@@ -241,8 +241,8 @@ AStockDataRouter
 #### Jinja2 WebUI（Phase 17+）
 | 模块 | 路径 | 职责 |
 |---|---|---|
-| Blueprint | `tradingagents/astock/web/__init__.py` | 28 个 route，25 个 HTML 模板 |
-| 页面 | `templates/` | dashboard / research / strategy_hub / paper / risk / reports / screener / tv_chart / kc_chart / momentum_rotation / market_leaders / momentum_dashboard / portfolio / ops_audit / ai_agent / dragon_tiger / sectors / northbound / data_health / settings / momentum_standalone / backtest / comparison / performance |
+| Blueprint | `tradingagents/astock/web/__init__.py` | 6 个页面 blueprint；22 个非共享页面模板 + `base.html` / macros |
+| 页面 | `templates/` | dashboard / daily / research / ai_agent / strategy_hub / strategies / backtest / strategy_monitor / watchlist / screener / market_leaders / monitor / kc_chart / reports / ops_audit / data_health / settings；执行类模板仅兼容保留，旧盯盘 URL 以 302 归并到 Market Leaders |
 
 #### 策略与优化（Phase 14, 18, 20）
 | 模块 | 路径 | 职责 |
@@ -318,7 +318,7 @@ AStockDataRouter
   - **回测/模拟盘/QMT 桥接**执行层
   - **DuckDB 本地数据库**（10 表）
   - **Flask REST API**（57 端点 / 14 模块）
-  - **Jinja2 WebUI**（25 模板 / 28 页面）
+  - **Jinja2 WebUI**（22 个非共享页面模板；兼容 URL 使用重定向而非重复页面）
   - **React/TS 实验前端**（6 标签页）
   - **10 种回测策略** + 参数优化器
   - **统一数据清洗层** + 数据质量标签
