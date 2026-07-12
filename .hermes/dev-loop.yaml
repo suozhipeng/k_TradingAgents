@@ -1,129 +1,75 @@
-# TradingAgents Web P0 — Research-only 产品边界
+project: 'TradingAgents React 正式工作台'
+loop_level: l2
+description: '将 React/TS 从静态 modules.json demo 升级为正式 A 股工作台产品，覆盖数据下载、增量入库、投研分析、回测、报告、运维可观测'
+started: '2026-07-12T22:30:00Z'
+last_updated: '2026-07-12T23:00:00Z'
 
-Started: 2026-07-10T16:02:51+08:00
-Loop Level: l2
-Workflow Rev: 2
+orchestration:
+  status: ready_for_execution
+  phase: break
+  current_task_index: 3
+  completed_phases:
+    - id: 2
+      sha: f1d1d2d
+    - id: 1
+      sha: e5087ba
+    - id: 3
+      sha: 6c2a970
 
-Orchestration:
-  status: ready
-  prd_path: .hermes/plans/2026-07-10_160251-research-only-p0.md
-  track: c
-  task_gate_attempts: 1
-
-Phase: next
-Current Task Index: 6
-Review Mode: gate-sequence
-Paused: false
-Blocked: false
-Blocked Reason: ''
-Blocked Type: none
-
-Monitor:
-  enabled: true
-  dashboard_path: .hermes/loop-dashboard.html
-  last_rendered_at: ~
-
-Track Config:
-  a:
-    executor: deepseek
-    max_iterations: 3
-    strong_pass_max_iterations: 5
-    enabled: true
-  b:
-    executor: openhands
-    max_iterations: 3
-    enabled: true
-  c:
-    executor: codex-b
-    max_iterations: 1
-    hard_cap_max_iterations: 2
-    enabled: true
-
-Review Routing:
-  default_reviewer: agnes
-  force_codex_review: false
-  upgrade_reason: ''
-  skip_codex_review: false
-
-Gate Sequence:
-  manual: true
-  review_agent: independent-review
-  acceptance_agent: codex
-  current_gate: none
-  review_status: accepted
-  acceptance_status: accepted
-  review_verdict_agnes: n/a
-
-Fuse:
-  triggered: false
-  reason: ''
-
-Tasks:
+tasks:
   - id: 1
-    description: 'Research-only 开关、旧执行 API 禁用与 Research 行情路径迁移'
-    status: done
-    track: c
-    commit_sha: adbfcb0
-    review_verdict: accept (Agnes)
-    acceptance_verdict: accept (Codex)
-    execution_agent: hermes
-    iteration_count: 1
-    notes: 'FR-1/2/3 implemented; 25 boundary tests + 1121 full pytest passed. Codex acceptance accepted.'
-
-  - id: 2
-    description: '删除命令面板与 Dashboard 的交易 DOM、加载、渲染及 Research-only API 字段'
-    status: done
-    track: b
-    commit_sha: adbfcb0
-    review_verdict: accept (Agnes)
-    acceptance_verdict: accept (Codex)
-    execution_agent: hermes
-    iteration_count: 1
-    notes: 'FR-4 implemented: execution navigation and Dashboard paper DOM/scripts removed. Codex acceptance accepted.'
-
-  - id: 3
-    description: 'P0-B2 行情可信度统一契约与 Mock/Cache 隔离'
+    description: 'P2-R1: React 正式运行 — VITE_API_BASE_URL、Vite proxy、.env.example、健康检查页、SPA fallback'
     status: done
     track: a
-    commit_sha: 4f7b20a
-    review_verdict: historical completion
-    acceptance_verdict: historical completion
-    execution_agent: hermes
-    iteration_count: 1
-    notes: 'Data-quality contract delivered before this loop resume; status reconciled from current Git evidence.'
-
+    phase: done
+    completed_phases: [code, test, review, acceptance, commit]
+    commit_sha: e5087ba
+  - id: 2
+    description: 'P2-D2: 补齐 pyproject.toml astock-artifacts extra + Flask/Cors 核心依赖'
+    status: done
+    track: a
+    phase: done
+    completed_phases: [code, test, review, acceptance, commit]
+    commit_sha: f1d1d2d
+  - id: 3
+    description: 'P2-D1: React Data Hub — 数据下载/增量入库/任务进度/Provider 健康页面'
+    status: done
+    track: b
+    phase: done
+    completed_phases: [code, test, review, acceptance, commit]
+    commit_sha: 6c2a970
   - id: 4
-    description: 'P0-B3 盯盘工作台归并、旧页面重定向与 localhost iframe 下线'
-    status: done
+    description: 'P2-R2: React 正式首页 — 市场概览/数据源健康/数据新鲜度/自选/最近任务/报告/告警'
+    status: pending
     track: b
-    commit_sha: 24fc94f
-    review_verdict: accept (independent review)
-    acceptance_verdict: accept (Codex)
-    execution_agent: codex
-    iteration_count: 1
-    notes: 'Six legacy Watch URLs now 302 to typed Market Leaders deep links; localhost iframe removed; targeted 136 passed, offline suite 1113 passed / 15 skipped.'
-
+    phase: break
+    completed_phases: []
+    file_count_estimate: 6
+  - id: 4
+    description: 'P2-R2: React 正式首页 — 市场概览/数据源健康/数据新鲜度/自选/最近任务/报告/告警'
+    status: pending
+    track: b
+    phase: break
+    completed_phases: []
+    file_count_estimate: 6
   - id: 5
-    description: 'P0-B4 图表入口收敛：下线不可用 TV Pro 页面并统一 KC Chart'
-    status: done
+    description: 'P2-R3: 研究/报告/自选股闭环 — 报价/K线/F10/新闻/公告/AI分析/报告详情/决策摘要'
+    status: pending
     track: b
-    commit_sha: fbfcd82
-    review_verdict: accept (independent review)
-    acceptance_verdict: accept (Codex)
-    execution_agent: codex
-    iteration_count: 1
-    notes: 'tv_chart now preserves symbol through a 302 to KC Chart; unavailable template and Research TV Pro entry removed; targeted 136 passed, offline suite 1112 passed / 15 skipped.'
-
+    phase: break
+    completed_phases: []
+    file_count_estimate: 10
   - id: 6
-    description: 'P0-B5 删除无路由渲染的重复盯盘模板并同步当前 Web 清单'
-    status: done
-    track: b
-    commit_sha: 9ba4e95
-    review_verdict: accept (independent review)
-    acceptance_verdict: accept (Codex)
-    execution_agent: codex
-    iteration_count: 1
-    notes: 'Deleted four unreachable duplicate Watch templates; legacy URLs/APIs remain; targeted 134 passed.'
-
-Next Actions:
-  - 'P0-B5 complete. Run a new Task Gate before selecting any further Web work; the supported Jinja product surface is now consolidated.'
+    description: 'P2-R4: 策略/盯盘 — Strategy Lab/MC Leaders/KC Chart/数据中心'
+    status: pending
+    track: c
+    phase: break
+    completed_phases: []
+    file_count_estimate: 8
+  - id: 7
+    description: 'P2-R5: 质量与入口切换 — React 单元测试/E2E/对照表/React 默认入口/Jinja2 legacy'
+    status: pending
+    track: c
+    phase: break
+    completed_phases: []
+    file_count_estimate: 6
