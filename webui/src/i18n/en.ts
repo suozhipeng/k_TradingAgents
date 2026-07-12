@@ -12,6 +12,7 @@ export const en: Record<string, string> = {
   /* ── Nav ── */
   "nav.dashboard": "Dashboard",
   "nav.dataHub": "Data Hub",
+  "nav.research": "Research",
   "nav.moduleMap": "Module Map",
   "nav.agentFlow": "Agent Flow",
   "nav.taskCenter": "Task Center",
@@ -45,7 +46,12 @@ export const en: Record<string, string> = {
   /* ── Data Hub section ── */
   "section.dataHub.kicker": "Data Hub",
   "section.dataHub.title": "Real Market Data Download & Incremental Upsert",
-  "section.dataHub.desc": "Download K-line, valuation and other market data from providers, upsert into DuckDB, track async refresh job progress, and monitor data source health.",
+  "section.dataHub.desc": "Download K-line, valuation data from providers, upsert into DuckDB, track async refresh jobs, monitor provider health.",
+
+  /* ── Research section ── */
+  "section.research.kicker": "Research",
+  "section.research.title": "Quote · K-Line · F10 · News · Announcements · AI Analysis",
+  "section.research.desc": "Deep stock research page aggregating real-time quotes, K-line charts, fundamentals (F10), news, announcements, and AI decision analysis.",
 
   /* ── Agent Flow section ── */
   "section.agentFlow.kicker": "Agent Flow",

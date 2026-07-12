@@ -11,6 +11,7 @@ export const zh: Record<string, string> = {
   /* ── Nav ── */
   "nav.dashboard": "仪表盘",
   "nav.dataHub": "数据中心",
+  "nav.research": "投研分析",
   "nav.moduleMap": "模块地图",
   "nav.agentFlow": "Agent 流程",
   "nav.taskCenter": "任务中心",
@@ -45,6 +46,11 @@ export const zh: Record<string, string> = {
   "section.dataHub.kicker": "数据中心",
   "section.dataHub.title": "真实市场数据下载与增量入库",
   "section.dataHub.desc": "从数据源下载 K 线、估值等数据，写入 DuckDB，追踪异步刷新任务进度，监控数据源健康状态。",
+
+  /* ── Research section ── */
+  "section.research.kicker": "投研分析",
+  "section.research.title": "报价 · K线 · F10 · 新闻 · 公告 · AI分析",
+  "section.research.desc": "个股深度研究页面，聚合实时报价、K线图表、基本面(F10)、新闻资讯、公告和AI决策分析。",
 
   /* ── Agent Flow section ── */
   "section.agentFlow.kicker": "Agent 流程",

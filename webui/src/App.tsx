@@ -14,6 +14,7 @@ import ReportViewerWrapper from "./components/ReportViewer";
 import RiskPanel from "./components/RiskPanel";
 import DataHub from "./components/DataHub";
 import DashboardPage from "./components/Dashboard";
+import ResearchPage from "./components/ResearchPage";
 import { LocaleProvider, useTranslation } from "./hooks/useTranslation";
 import { useApi } from "./hooks/useApi";
 import HealthCheck from "./components/HealthCheck";
@@ -41,6 +42,7 @@ function AppContent() {
   const sections = [
     { id: "dashboard", label: t("nav.dashboard") },
     { id: "data-hub", label: t("nav.dataHub") },
+    { id: "research", label: t("nav.research") },
     { id: "module-map", label: t("nav.moduleMap") },
     { id: "agent-flow", label: t("nav.agentFlow") },
     { id: "task-center", label: t("nav.taskCenter") },
@@ -194,6 +196,17 @@ function AppContent() {
           />
           <div className="mt-5">
             <DataHub />
+          </div>
+        </section>
+
+        <section id="research" className="mt-5 panel p-5">
+          <SectionHeader
+            kicker={t("section.research.kicker")}
+            title={t("section.research.title")}
+            description={t("section.research.desc")}
+          />
+          <div className="mt-5">
+            <ResearchPage />
           </div>
         </section>
 

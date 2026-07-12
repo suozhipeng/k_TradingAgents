@@ -49,6 +49,63 @@ export interface AlertItem {
   acknowledged?: boolean;
 }
 
+export interface QuoteData {
+  symbol?: string;
+  name?: string;
+  price?: number;
+  change_pct?: number;
+  volume?: number;
+  turnover?: number;
+  source?: string;
+  is_mock?: boolean;
+  is_stale?: boolean;
+  [key: string]: unknown;
+}
+
+export interface KlineBar {
+  bar_time: string;
+  open?: number;
+  high?: number;
+  low?: number;
+  close?: number;
+  volume?: number;
+  amount?: number;
+  [key: string]: unknown;
+}
+
+export interface F10Data {
+  symbol?: string;
+  name?: string;
+  industry?: string;
+  pe?: number;
+  pb?: number;
+  market_cap?: number;
+  [key: string]: unknown;
+}
+
+export interface NewsItem {
+  title?: string;
+  source?: string;
+  published_at?: string;
+  url?: string;
+  [key: string]: unknown;
+}
+
+export interface Announcement {
+  title?: string;
+  date?: string;
+  url?: string;
+  [key: string]: unknown;
+}
+
+export interface AnalysisResult {
+  symbol?: string;
+  decisions?: Record<string, unknown>;
+  summary?: string;
+  scores?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
 /* ── Original types ──────────────────────────────────────────── */
 
 export class ApiError extends Error {
@@ -279,6 +336,46 @@ export function useApi() {
 
     listAlerts(): Promise<{ alerts: Array<AlertItem> }> {
       return request<{ alerts: Array<AlertItem> }>("/api/v1/alerts");
+    },
+
+    // ---- Research / Report / Watchlist -------------------------------
+
+    getMarketQuote(symbol: string): Promise<QuoteData> {
+      return request<QuoteData>(`/api/v1/market/quote?symbol=${encodeURIComponent(symbol)}`);
+    },
+
+    getKline(
+      symbol: string,
+      start?: string,
+      end?: string,
+      interval?: string,
+      limit?: number,
+    ): Promise<Array<KlineBar>> {
+      const params = new URLSearchParams({ symbol });
+      if (start) params.set("start", start);
+      if (end) params.set("end", end);
+      if (interval) params.set("interval", interval);
+      if (limit) params.set("limit", String(limit));
+      return request<Array<KlineBar>>(`/api/v1/data/kline?${params}`);
+    },
+
+    getF10(symbol: string): Promise<F10Data> {
+      return request<F10Data>(`/api/v1/data/f10?symbol=${encodeURIComponent(symbol)}`);
+    },
+
+    getNews(symbol: string, limit = 20): Promise<{ news: NewsItem[] }> {
+      return request<{ news: NewsItem[] }>(`/api/v1/data/news?symbol=${encodeURIComponent(symbol)}&limit=${limit}`);
+    },
+
+    getAnnouncements(symbol: string, limit = 20): Promise<{ announcements: Announcement[] }> {
+      return request<{ announcements: Announcement[] }>(`/api/v1/data/announcements?symbol=${encodeURIComponent(symbol)}&limit=${limit}`);
+    },
+
+    batchAnalyzeWatchlist(symbols: string[]): Promise<AnalysisResult> {
+      return request<AnalysisResult>("/api/v1/analysis/watchlist", {
+        method: "POST",
+        body: JSON.stringify({ symbols }),
+      });
     },
 
     // ---- Cache / Store -------------------------------------------------
