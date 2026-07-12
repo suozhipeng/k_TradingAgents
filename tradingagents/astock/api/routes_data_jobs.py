@@ -6,6 +6,7 @@ Routes: /data/jobs*, /data/import-database
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timedelta
 from typing import Any
 
 from flask import Blueprint, Response, current_app, jsonify, request
@@ -38,9 +39,43 @@ def _known_symbols_or_payload(body: dict[str, Any]) -> list[str]:
     return [str(item) for item in symbols if item]
 
 
+def _latest_kline_start(store: Any, symbol: str, interval: str) -> str | None:
+    """Return a server-derived one-bar overlap start for an idempotent refresh."""
+    bars = store.query_kline(symbol, interval=interval, limit=1)
+    if bars is None or bars.empty or "bar_time" not in bars.columns:
+        return None
+    value = bars.iloc[-1]["bar_time"]
+    if not value:
+        return None
+    try:
+        timestamp = value.to_pydatetime() if hasattr(value, "to_pydatetime") else value
+        if isinstance(timestamp, datetime):
+            if interval.endswith("m") and interval != "1mo":
+                minutes = int(interval[:-1])
+                return (timestamp - timedelta(minutes=minutes)).isoformat()
+            return (timestamp - timedelta(days=1)).date().isoformat()
+    except (TypeError, ValueError):
+        pass
+    return value.isoformat() if hasattr(value, "isoformat") else str(value)
+
+
 # ---------------------------------------------------------------------------
 # Job CRUD
 # ---------------------------------------------------------------------------
+
+
+@bp.route("/data/refresh/options", methods=["GET"])
+def refresh_options() -> tuple[Response, int]:
+    """Return the server-owned contract for the Data Hub refresh form."""
+    from tradingagents.astock.store.schema_defs import SUPPORTED_KLINE_INTERVALS
+
+    return jsonify({
+        "symbols": get_store().list_symbols(),
+        "intervals": sorted(SUPPORTED_KLINE_INTERVALS),
+        "default_interval": "1d",
+        "modes": ["incremental", "range"],
+        "include_valuation": True,
+    }), 200
 
 
 @bp.route("/data/jobs", methods=["GET"])
@@ -69,8 +104,21 @@ def create_refresh_job() -> tuple[Response, int]:
     if intervals is None:
         intervals = [body.get("interval", "1d")]
     intervals = [str(item) for item in _as_list(intervals) if item]
+    if not intervals:
+        return jsonify({"error": "at least one interval is required", "status": 400}), 400
+    from tradingagents.astock.store.schema_defs import SUPPORTED_KLINE_INTERVALS
+    invalid_intervals = sorted(set(intervals) - set(SUPPORTED_KLINE_INTERVALS))
+    if invalid_intervals:
+        return jsonify({"error": f"unsupported intervals: {', '.join(invalid_intervals)}", "status": 400}), 400
+    mode = str(body.get("mode", "range")).lower()
+    if mode not in {"incremental", "range"}:
+        return jsonify({"error": "mode must be incremental or range", "status": 400}), 400
+    if mode == "incremental" and body.get("start"):
+        return jsonify({"error": "start is server-derived in incremental mode", "status": 400}), 400
     start = body.get("start")
     end = body.get("end")
+    if start and end and str(start) > str(end):
+        return jsonify({"error": "start must not be after end", "status": 400}), 400
     include_valuation = _as_bool(body.get("include_valuation"), False)
     total = len(symbols) * len(intervals) + (len(symbols) if include_valuation else 0)
 
@@ -82,12 +130,17 @@ def create_refresh_job() -> tuple[Response, int]:
         kline_loader = KlineLoader(store, router)
         valuation_loader = ValuationLoader(store, router)
         completed = 0
-        results: dict[str, Any] = {"kline": {}, "valuations": {}}
+        results: dict[str, Any] = {"mode": mode, "kline": {}, "valuations": {}}
         for symbol in symbols:
             for interval in intervals:
                 update(message=f"refreshing kline {symbol} {interval}", completed=completed)
-                count = kline_loader.load(symbol, start=start, end=end, interval=interval)
-                results["kline"][f"{symbol}:{interval}"] = count
+                requested_start = _latest_kline_start(store, symbol, interval) if mode == "incremental" else start
+                count = kline_loader.load(symbol, start=requested_start, end=end, interval=interval)
+                results["kline"][f"{symbol}:{interval}"] = {
+                    "requested_start": requested_start,
+                    "requested_end": end,
+                    "rows_upserted": count,
+                }
                 completed += 1
                 update(completed=completed, result=results)
             if include_valuation:

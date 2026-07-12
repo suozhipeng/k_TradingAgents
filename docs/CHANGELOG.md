@@ -12,6 +12,7 @@
 - P0-B3：旧盯盘 URL 已以 `302` 深链接归并到 `/market_leaders` 的对应 tab；`momentum_dashboard` 的 localhost iframe 已下线。`/tv_chart` 保持独立的可选 TradingView Charting Library 集成，未纳入本次迁移。
 - P0-B4：默认 WebUI 不再暴露未安装专有 Charting Library 的 TV Pro 页面；`/tv_chart` 作为兼容 URL 以 `302` 保留股票代码并跳转到已支持的 `/kc_chart`。`/api/v1/tv/*` 与 Datafeed 兼容资产保留。
 - P0-B5（`9ba4e95`）：删除 4 份无路由渲染的重复盯盘模板；旧 URL 仍以 `302` 跳入 Market Leaders 对应 tab。Jinja2 当前为 22 个非共享页面模板与 2 个共享模板。
+- P2-D0：新增 Data Hub 服务端表单契约和 `incremental` 刷新模式；刷新任务持久化审计事件，返回真实的 `rows_upserted` 元数据。
 - 测试优化：`test_astock_ppt.py` 和 `test_astock_store.py` 的可选依赖 skip 逻辑已统一为模块级 `_HAS_PPTX` / `_HAS_PARQUET` 常量，消除重复的 `__import__` hack。
 
 ## Workspace Snapshot — 2026-07-08（local / unreleased）

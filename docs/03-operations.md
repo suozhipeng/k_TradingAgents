@@ -21,6 +21,13 @@
 
 本文定义 TradingAgents-Astock 的风险披露、投资建议边界、数据风险和交易责任边界。它用于支持商用场景下的产品说明、页面提示和实盘前合规检查。
 
+### 数据刷新与本地缓存
+
+- 正式 Data Hub 通过 `GET /api/v1/data/refresh/options` 获取标的、周期与模式，前端不得自行硬编码周期或增量规则。
+- `POST /api/v1/data/jobs/refresh` 支持 `range` 与 `incremental`：后者由服务端从本地该标的/周期的最新 bar 前推一个周期作为重叠刷新起点，再以 upsert 写入本地 Store。
+- 刷新任务会持久化状态事件用于审计；任务列表本身仍是进程内视图，服务重启后不承诺恢复为可轮询任务。
+- `rows_upserted` 是本次受影响行数，不等同于新增、更新或跳过的拆分计数；在没有数据库差分计数器前不得展示这些虚假明细。
+
 ### 产品性质
 
 TradingAgents-Astock 当前定位为：

@@ -67,7 +67,9 @@ def _build_store_config(app: Flask, db_path: str | None = None) -> None:
 
     # DataJobManager
     from tradingagents.astock.store.jobs import DataJobManager
-    app.config["DATA_JOB_MANAGER"] = DataJobManager()
+    # Persist refresh progress so the formal Data Hub can show durable task
+    # evidence rather than only process-local thread state.
+    app.config["DATA_JOB_MANAGER"] = DataJobManager(store=raw_store)
 
     # Data facade (router + loaders)
     try:

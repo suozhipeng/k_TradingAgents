@@ -90,10 +90,11 @@
 
 | Method | Path | 说明 |
 |--------|------|------|
+| `GET` | `/api/v1/data/refresh/options` | Data Hub 表单契约：本地标的、支持周期、模式与估值开关 |
 | `GET` | `/api/v1/data/jobs` | (无描述) |
 | `GET` | `/api/v1/data/jobs/<job_id>` | (无描述) |
 | `POST` | `/api/v1/data/jobs/import-database` | (无描述) |
-| `POST` | `/api/v1/data/jobs/refresh` | 创建刷新任务 |
+| `POST` | `/api/v1/data/jobs/refresh` | 创建刷新任务；`mode=incremental` 由服务端从本地最新 bar 推导刷新起点，返回 `rows_upserted` |
 
 ## `routes_data_query.py`
 

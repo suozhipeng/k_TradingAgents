@@ -355,6 +355,38 @@ class TestDataEndpoints:
         finally:
             Path(source_path).unlink(missing_ok=True)
 
+    def test_refresh_options_are_server_owned(self, app):
+        resp = app.get("/api/v1/data/refresh/options")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert "600519.SH" in data["symbols"]
+        assert data["default_interval"] in data["intervals"]
+        assert data["modes"] == ["incremental", "range"]
+
+    def test_refresh_job_rejects_invalid_contract(self, app):
+        invalid_interval = app.post(
+            "/api/v1/data/jobs/refresh",
+            json={"symbols": ["600519.SH"], "interval": "invalid"},
+        )
+        assert invalid_interval.status_code == 400
+        incremental_start = app.post(
+            "/api/v1/data/jobs/refresh",
+            json={"symbols": ["600519.SH"], "mode": "incremental", "start": "2024-01-01"},
+        )
+        assert incremental_start.status_code == 400
+        empty_intervals = app.post(
+            "/api/v1/data/jobs/refresh",
+            json={"symbols": ["600519.SH"], "intervals": []},
+        )
+        assert empty_intervals.status_code == 400
+
+    def test_incremental_refresh_uses_latest_persisted_bar(self, app):
+        from tradingagents.astock.api.routes_data_jobs import _latest_kline_start
+
+        start = _latest_kline_start(app.application.config["STORE"], "600519.SH", "1d")
+        assert start is not None
+        assert start.startswith("2024-01-02")
+
     def test_get_orderbook(self, app):
         resp = app.get("/api/v1/orderbook?symbol=600519.SH")
         assert resp.status_code == 200

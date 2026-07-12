@@ -45,6 +45,10 @@ astock-providers = [
 ui = [
     "streamlit>=1.37.0",
 ]
+astock-artifacts = [
+    "python-pptx>=1.0.2",
+    "pyarrow>=17.0.0",
+]
 
 [project.scripts]
 tradingagents = "cli.main:app"
