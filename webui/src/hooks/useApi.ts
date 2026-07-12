@@ -106,6 +106,28 @@ export interface AnalysisResult {
   [key: string]: unknown;
 }
 
+export interface BacktestRunResult {
+  run_id: string;
+  strategy: string;
+  symbol: string;
+  start_date: string;
+  end_date: string;
+  sharpe?: number;
+  max_drawdown?: number;
+  total_return?: number;
+  equity_curve?: Array<Record<string, unknown>>;
+  [key: string]: unknown;
+}
+
+export interface LeaderStock {
+  symbol: string;
+  name?: string;
+  sector?: string;
+  score?: number;
+  momentum?: number;
+  [key: string]: unknown;
+}
+
 /* ── Original types ──────────────────────────────────────────── */
 
 export class ApiError extends Error {
@@ -378,6 +400,23 @@ export function useApi() {
       });
     },
 
+    // ---- Backtest / Strategy -----------------------------------------
+
+    runBacktest(params: { symbol: string; strategy: string; start: string; end: string }): Promise<BacktestRunResult> {
+      return request<BacktestRunResult>("/api/v1/backtest/run", {
+        method: "POST",
+        body: JSON.stringify(params),
+      });
+    },
+
+    getBacktestResults(): Promise<{ results: Array<BacktestRunResult> }> {
+      return request<{ results: Array<BacktestRunResult> }>("/api/v1/backtest/results");
+    },
+
+    getMarketOverview(): Promise<{ leaders?: Array<LeaderStock> }> {
+      return request<{ leaders?: Array<LeaderStock> }>("/api/v1/market/overview");
+    },
+
     // ---- Cache / Store -------------------------------------------------
 
     cacheStatus() {
@@ -387,13 +426,6 @@ export function useApi() {
     },
 
     // ---- Backtest endpoints --------------------------------------------
-
-    runBacktest(params: BacktestRunParams) {
-      return request<Record<string, unknown>>("/api/v1/backtest/run", {
-        method: "POST",
-        body: JSON.stringify(params),
-      });
-    },
 
     fetchBacktestResults(strategy?: string) {
       const qs = strategy ? `?strategy=${encodeURIComponent(strategy)}` : "";

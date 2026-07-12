@@ -12,6 +12,7 @@ export const zh: Record<string, string> = {
   "nav.dashboard": "仪表盘",
   "nav.dataHub": "数据中心",
   "nav.research": "投研分析",
+  "nav.strategy": "策略实验室",
   "nav.moduleMap": "模块地图",
   "nav.agentFlow": "Agent 流程",
   "nav.taskCenter": "任务中心",
@@ -51,6 +52,11 @@ export const zh: Record<string, string> = {
   "section.research.kicker": "投研分析",
   "section.research.title": "报价 · K线 · F10 · 新闻 · 公告 · AI分析",
   "section.research.desc": "个股深度研究页面，聚合实时报价、K线图表、基本面(F10)、新闻资讯、公告和AI决策分析。",
+
+  /* ── Strategy section ── */
+  "section.strategy.kicker": "策略实验室",
+  "section.strategy.title": "回测运行 · 历史结果 · MC 龙头",
+  "section.strategy.desc": "策略回测工作台，支持 MA交叉/RSI反转/BOLL突破/Momentum 等策略，查看历史回测记录和动量龙头排行。",
 
   /* ── Agent Flow section ── */
   "section.agentFlow.kicker": "Agent 流程",

@@ -13,6 +13,7 @@ export const en: Record<string, string> = {
   "nav.dashboard": "Dashboard",
   "nav.dataHub": "Data Hub",
   "nav.research": "Research",
+  "nav.strategy": "Strategy Lab",
   "nav.moduleMap": "Module Map",
   "nav.agentFlow": "Agent Flow",
   "nav.taskCenter": "Task Center",
@@ -52,6 +53,11 @@ export const en: Record<string, string> = {
   "section.research.kicker": "Research",
   "section.research.title": "Quote · K-Line · F10 · News · Announcements · AI Analysis",
   "section.research.desc": "Deep stock research page aggregating real-time quotes, K-line charts, fundamentals (F10), news, announcements, and AI decision analysis.",
+
+  /* ── Strategy section ── */
+  "section.strategy.kicker": "Strategy Lab",
+  "section.strategy.title": "Backtest Runner · History · MC Leaders",
+  "section.strategy.desc": "Strategy backtesting workspace with MA cross, RSI reversal, Bollinger breakout, and Momentum rotation strategies. View historical results and momentum leader rankings.",
 
   /* ── Agent Flow section ── */
   "section.agentFlow.kicker": "Agent Flow",

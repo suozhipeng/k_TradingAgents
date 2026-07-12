@@ -15,6 +15,7 @@ import RiskPanel from "./components/RiskPanel";
 import DataHub from "./components/DataHub";
 import DashboardPage from "./components/Dashboard";
 import ResearchPage from "./components/ResearchPage";
+import StrategyLab from "./components/StrategyLab";
 import { LocaleProvider, useTranslation } from "./hooks/useTranslation";
 import { useApi } from "./hooks/useApi";
 import HealthCheck from "./components/HealthCheck";
@@ -43,6 +44,7 @@ function AppContent() {
     { id: "dashboard", label: t("nav.dashboard") },
     { id: "data-hub", label: t("nav.dataHub") },
     { id: "research", label: t("nav.research") },
+    { id: "strategy", label: t("nav.strategy") },
     { id: "module-map", label: t("nav.moduleMap") },
     { id: "agent-flow", label: t("nav.agentFlow") },
     { id: "task-center", label: t("nav.taskCenter") },
@@ -207,6 +209,17 @@ function AppContent() {
           />
           <div className="mt-5">
             <ResearchPage />
+          </div>
+        </section>
+
+        <section id="strategy" className="mt-5 panel p-5">
+          <SectionHeader
+            kicker={t("section.strategy.kicker")}
+            title={t("section.strategy.title")}
+            description={t("section.strategy.desc")}
+          />
+          <div className="mt-5">
+            <StrategyLab />
           </div>
         </section>
 
