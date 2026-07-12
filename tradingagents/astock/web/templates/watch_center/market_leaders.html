@@ -288,27 +288,38 @@
 // Tab switching
 // ════════════════════════════════════════════════════════════
 const loaded = {};
-document.querySelectorAll('.ml-tab').forEach(tab => {
-  tab.addEventListener('click', function() {
-    document.querySelectorAll('.ml-tab').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.ml-panel').forEach(p => p.classList.remove('active'));
-    this.classList.add('active');
-    const panel = document.getElementById('panel-' + this.dataset.tab);
-    if (panel) panel.classList.add('active');
-    // Lazy load
-    const name = this.dataset.tab;
-    if (!loaded[name]) {
-      loaded[name] = true;
-      switch (name) {
-        case 'momentum': loadMomentum(); break;
-        case 'sectors': loadSectors(); break;
-        case 'northbound': loadNorthbound(); break;
-        case 'dragon_tiger': loadDragonTiger(); break;
-        case 'rotation': /* manual trigger */ break;
-      }
-    }
+const VALID_TABS = new Set(['momentum', 'sectors', 'northbound', 'dragon_tiger', 'rotation']);
+
+function activateTab(name, { updateUrl = false } = {}) {
+  const selected = VALID_TABS.has(name) ? name : 'momentum';
+  document.querySelectorAll('.ml-tab').forEach(tab => {
+    tab.classList.toggle('active', tab.dataset.tab === selected);
   });
+  document.querySelectorAll('.ml-panel').forEach(panel => {
+    panel.classList.toggle('active', panel.id === 'panel-' + selected);
+  });
+  if (updateUrl) {
+    const url = new URL(window.location.href);
+    url.searchParams.set('tab', selected);
+    window.history.replaceState({}, '', url);
+  }
+  if (loaded[selected]) return;
+  loaded[selected] = true;
+  switch (selected) {
+    case 'momentum': loadMomentum(); break;
+    case 'sectors': loadSectors(); break;
+    case 'northbound': loadNorthbound(); break;
+    case 'dragon_tiger': loadDragonTiger(); break;
+    case 'rotation': /* manual trigger */ break;
+  }
+}
+
+document.querySelectorAll('.ml-tab').forEach(tab => {
+  tab.addEventListener('click', () => activateTab(tab.dataset.tab, { updateUrl: true }));
 });
+
+// Legacy routes deep-link into their corresponding consolidated panel.
+activateTab(new URLSearchParams(window.location.search).get('tab') || 'momentum');
 
 // ════════════════════════════════════════════════════════════
 // Momentum Dashboard  —  GET /api/v1/market/momentum

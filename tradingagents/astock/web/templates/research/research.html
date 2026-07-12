@@ -450,7 +450,7 @@ async function loadResearch() {
     const indicesEl = document.getElementById('kc-indices');
     if (info?.indices && info.indices.length > 0) {
       indicesEl.innerHTML = info.indices.map(idx =>
-        `<a href="/sectors?q=${encodeURIComponent(idx)}" target="_blank" class="kc-idx-tag">${idx}</a>`
+        `<a href="/market_leaders?tab=sectors" target="_blank" class="kc-idx-tag">${idx}</a>`
       ).join('');
     } else {
       indicesEl.innerHTML = '';

@@ -63,15 +63,9 @@ PAGE_ROUTES = [
     ("/reports", "portfolio/reports"),
     ("/screener", "watch_center/screener"),
     ("/daily", "dashboard/daily_review"),
-    ("/dragon_tiger", "watch_center/dragon_tiger"),
-    ("/sectors", "watch_center/sectors"),
-    ("/northbound", "watch_center/northbound"),
     ("/data_health", "ops/data_health"),
     ("/settings", "ops/settings"),
     ("/ai_agent", "research/ai_agent"),
-    ("/momentum_dashboard", "dashboard/momentum_dashboard"),
-    ("/momentum_rotation", "watch_center/momentum_rotation"),
-    ("/momentum_standalone", "dashboard/momentum_dashboard"),
     ("/tv_chart", "watch_center/tv_chart"),
     ("/kc_chart", "watch_center/kc_chart"),
     ("/market_leaders", "watch_center/market_leaders"),
@@ -79,6 +73,15 @@ PAGE_ROUTES = [
     ("/ops_audit", "ops/ops_audit"),
     ("/monitor", "watch_center/monitor"),
     ("/strategies/monitor", "strategy/strategy_monitor"),
+]
+
+LEGACY_REDIRECTS = [
+    ("/momentum_dashboard", "/market_leaders?tab=momentum"),
+    ("/momentum_standalone", "/market_leaders?tab=momentum"),
+    ("/dragon_tiger", "/market_leaders?tab=dragon_tiger"),
+    ("/sectors", "/market_leaders?tab=sectors"),
+    ("/northbound", "/market_leaders?tab=northbound"),
+    ("/momentum_rotation", "/market_leaders?tab=rotation"),
 ]
 
 
@@ -152,6 +155,12 @@ class TestWebPageRendering:
             assert "{% block content %}{% endblock %}" not in html, (
                 f"{route} appears to be using raw base.html without overriding content"
             )
+
+    @pytest.mark.parametrize("route,target", LEGACY_REDIRECTS)
+    def test_legacy_watch_pages_redirect_to_consolidated_tab(self, client, route, target):
+        resp = client.get(route, follow_redirects=False)
+        assert resp.status_code == 302
+        assert resp.headers["Location"].endswith(target)
 
 
 class TestWebSpecificPages:
@@ -266,8 +275,8 @@ class TestWebSpecificPages:
         assert "runScreener" in html
         assert "sc-results" in html
 
-    def test_dragon_tiger_has_inputs(self, client):
-        resp = client.get("/dragon_tiger")
+    def test_market_leaders_has_dragon_tiger_panel(self, client):
+        resp = client.get("/market_leaders?tab=dragon_tiger")
         html = resp.data.decode("utf-8")
         assert "dt-date" in html
         assert "dt-min-buy" in html
@@ -275,11 +284,11 @@ class TestWebSpecificPages:
         assert "chart-dt-top" in html
         assert "chart-dt-reason" in html
 
-    def test_sectors_has_heatmap(self, client):
-        resp = client.get("/sectors")
+    def test_market_leaders_has_sectors_panel(self, client):
+        resp = client.get("/market_leaders?tab=sectors")
         html = resp.data.decode("utf-8")
+        assert "panel-sectors" in html
         assert "chart-heatmap-treemap" in html
-        assert "tv-market-overview" in html
         assert "sec-topn" in html
         assert "chart-sector-bars" in html
         assert "loadSectors" in html
@@ -287,14 +296,20 @@ class TestWebSpecificPages:
         assert "sec-bottom-table" in html
         assert "echarts" in html
 
-    def test_northbound_has_flow_chart(self, client):
-        resp = client.get("/northbound")
+    def test_market_leaders_has_northbound_panel(self, client):
+        resp = client.get("/market_leaders?tab=northbound")
         html = resp.data.decode("utf-8")
         assert "nb-hgt" in html
         assert "nb-sgt" in html
         assert "nb-total" in html
         assert "chart-nb-flow" in html
         assert "nb-table" in html
+
+    def test_market_leaders_tab_deep_link_contract(self, client):
+        html = client.get("/market_leaders?tab=sectors").get_data(as_text=True)
+        assert "const VALID_TABS" in html
+        assert "activateTab(new URLSearchParams(window.location.search).get('tab') || 'momentum')" in html
+        assert "window.history.replaceState" in html
 
     def test_data_health_has_summary(self, client):
         resp = client.get("/data_health")

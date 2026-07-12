@@ -356,9 +356,9 @@ python scripts/smoke_structured_output.py
 | 受控执行 | WebUI → Trading → Managed / QMT | 需要 QMT 环境和人工确认 |
 | 批量回测 | API `POST /backtest/batch` | 多策略批量回测 |
 | 数据管理 | API `POST /data/refresh/*` + DuckDB CLI | 数据刷新、导入/导出 |
-| 龙虎榜/北向 | WebUI 独立页面 | 主力资金追踪、沪深股通资金流 |
-| 板块轮动 | WebUI screener + sectors | ECharts treemap 热力图 |
-| 动量轮动 | WebUI momentum_dashboard / momentum_rotation | 龙头股动量实时看板 |
+| 龙虎榜/北向 | WebUI → Market Leaders 对应 Tab | 主力资金追踪、沪深股通资金流；旧 URL 自动跳转 |
+| 板块轮动 | WebUI → Market Leaders → 板块强弱 | ECharts treemap 热力图；`/sectors` 自动跳转 |
+| 动量轮动 | WebUI → Market Leaders → 龙头决策 / 动量轮动 | 旧 `momentum_dashboard` / `momentum_rotation` URL 自动跳转 |
 
 ### 常见问题
 

@@ -9,7 +9,7 @@
 - P0-B1（`adbfcb0`）：默认启用 `ASTOCK_RESEARCH_ONLY`；执行页面重定向到 `/dashboard`，执行 API 返回 `410 research_only`，研究 UI 使用 `/api/v1/market/quote`。
 - P0-B2（`4f7b20a`）：新增 `DataQualityBanner`，为研究行情相关端点统一注入 `source`、`as_of`、`age_seconds`、`is_mock`、`is_stale`，区分 live、cache/store/fallback/duckdb 与 mock/synthetic 数据。
 - 验证：`PYTHONPATH="" .venv/bin/python -m pytest tests/ -q --tb=short` → `1136 passed, 10 skipped`。
-- P0-B3 正在进行：将旧盯盘 URL 归并到 `/market_leaders`，并下线 localhost iframe。
+- P0-B3：旧盯盘 URL 已以 `302` 深链接归并到 `/market_leaders` 的对应 tab；`momentum_dashboard` 的 localhost iframe 已下线。`/tv_chart` 保持独立的可选 TradingView Charting Library 集成，未纳入本次迁移。
 
 ## Workspace Snapshot — 2026-07-08（local / unreleased）
 

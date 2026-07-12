@@ -8,9 +8,7 @@ Templates live in templates/watch_center/
 
 from __future__ import annotations
 
-from datetime import datetime
-
-from flask import Blueprint, render_template, request
+from flask import Blueprint, redirect, render_template, request, url_for
 
 bp = Blueprint("web_watch_center", __name__)
 
@@ -53,23 +51,22 @@ def kc_chart() -> str:
     return render_template("watch_center/kc_chart.html", symbol=symbol, standalone=standalone)
 
 
-# Legacy redirects → /market_leaders
+# Legacy redirects → the corresponding /market_leaders tab.
 @bp.route("/dragon_tiger")
-def dragon_tiger() -> str:
-    return render_template("watch_center/dragon_tiger.html", today=datetime.now().strftime("%Y-%m-%d"),
-                           legacy_redirect="/market_leaders")
+def dragon_tiger():
+    return redirect(url_for("web.watch_center.market_leaders", tab="dragon_tiger"), code=302)
 
 
 @bp.route("/sectors")
-def sectors() -> str:
-    return render_template("watch_center/sectors.html", legacy_redirect="/market_leaders")
+def sectors():
+    return redirect(url_for("web.watch_center.market_leaders", tab="sectors"), code=302)
 
 
 @bp.route("/northbound")
-def northbound() -> str:
-    return render_template("watch_center/northbound.html", legacy_redirect="/market_leaders")
+def northbound():
+    return redirect(url_for("web.watch_center.market_leaders", tab="northbound"), code=302)
 
 
 @bp.route("/momentum_rotation")
-def momentum_rotation() -> str:
-    return render_template("watch_center/momentum_rotation.html", legacy_redirect="/market_leaders")
+def momentum_rotation():
+    return redirect(url_for("web.watch_center.market_leaders", tab="rotation"), code=302)

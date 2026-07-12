@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from flask import Blueprint, render_template
+from flask import Blueprint, redirect, render_template, url_for
 
 bp = Blueprint("web_dashboard", __name__)
 
@@ -24,10 +24,12 @@ def daily_review() -> str:
 
 
 @bp.route("/momentum_dashboard")
-def momentum_dashboard() -> str:
-    return render_template("dashboard/momentum_dashboard.html", legacy_redirect="/market_leaders")
+def momentum_dashboard():
+    """Keep the historic URL while routing to the consolidated workbench."""
+    return redirect(url_for("web.watch_center.market_leaders", tab="momentum"), code=302)
 
 
 @bp.route("/momentum_standalone")
-def momentum_standalone() -> str:
-    return render_template("dashboard/momentum_dashboard.html", legacy_redirect="/market_leaders")
+def momentum_standalone():
+    """Keep the historic URL while routing to the consolidated workbench."""
+    return redirect(url_for("web.watch_center.market_leaders", tab="momentum"), code=302)
