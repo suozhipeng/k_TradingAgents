@@ -2,6 +2,14 @@
 
 > 记录每个版本的架构变更、模块清单和关键决策。对应 `CHANGELOG.md`。
 
+## Local Release — 2026-07-13（analysis/backtest only）
+
+- 正式 Web 入口固定为 Flask/Jinja2：`.venv/bin/python scripts/run_astock_api.py --local-release --port 5860`。
+- `ASTOCK_LOCAL_RELEASE=true` 强制启用 research-only、关闭 PaperTradeScheduler，并拒绝交易、模拟盘、QMT、组合、调度和 paper SSE API；执行页面返回 404。
+- Jinja2 静态资源恢复由 `tradingagents/astock/web/static/` 提供；未知 Web 路由返回 404，不再返回 React shell。
+- React Data Hub 改为消费 `/api/v1/data/refresh/options`；新增 `npm run test:release` 契约检查。React 不属于本地正式发布物。
+- 验收：`scripts/verify_local_release.sh` → 155 passed；React 发布契约和生产构建通过。
+
 ## Workspace Snapshot — 2026-07-12（xg_dev）
 
 **React 正式工作台进展**
@@ -11,7 +19,7 @@
 - P2-R2（`81aa5de`）：`DashboardPage` 组件 — 正式首页，聚合市场概览/数据新鲜度/决策摘要/自选股/告警/最近回测，1分钟自动轮询
 - P2-R3（`437e4ba`）：`ResearchPage` 组件 — 报价/K线/F10/新闻/公告/AI分析 6 tab 闭环，SVG K线迷你图，AI分析触发
 - P2-R4（`1f3c7c3`）：`StrategyLab` 组件 — 回测运行(参数表单+结果卡片+SVG权益曲线)/历史结果/MC龙头排行 3 tab
-- P2-R5：Flask 静态文件服务切换为 React 构建产物（`webui/dist/`），SPA fallback 路由，Jinja2 模板保留但 React 为默认入口
+- P2-R5：历史尝试将 Flask 静态文件服务切换为 React 构建产物并启用 SPA fallback；该方案已于 2026-07-13 被本地正式版收敛策略取代，Jinja2 为默认入口
 - React 构建产物：52 modules, 266 KB JS, TypeScript 编译通过
 
 **Research-only 边界与行情可信度契约**

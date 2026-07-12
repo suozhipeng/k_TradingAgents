@@ -22,6 +22,9 @@ _WRITE_ROLES = frozenset(("admin", "operator", "writer"))
 _EXECUTION_PREFIXES = frozenset((
     "/api/v1/trade/", "/api/v1/paper/", "/api/v1/qmt/", "/api/v1/portfolio/",
 ))
+_LOCAL_RELEASE_DISABLED_PREFIXES = _EXECUTION_PREFIXES | frozenset((
+    "/api/v1/scheduler/", "/api/v1/ops/scheduler/", "/api/v1/sse/paper-progress",
+))
 
 
 def register_hooks(app: Flask) -> None:
@@ -40,6 +43,13 @@ def _register_before_request(app: Flask) -> None:
     @app.before_request
     def _block_execution_in_research_only() -> tuple[Any, int] | None:
         """Return 410 if RESEARCH_ONLY and path matches an execution prefix."""
+        if app.config.get("ASTOCK_LOCAL_RELEASE", False):
+            if any(request.path.startswith(p) for p in _LOCAL_RELEASE_DISABLED_PREFIXES):
+                return jsonify({
+                    "error": "local_release_disabled",
+                    "message": "This endpoint is unavailable in the local analysis and backtest release.",
+                    "status": 410,
+                }), 410
         if not app.config.get("ASTOCK_RESEARCH_ONLY", True):
             return None
         if not any(request.path.startswith(p) for p in _EXECUTION_PREFIXES):

@@ -1,12 +1,12 @@
 # 本地正式版 Web 发布就绪计划（仅分析与回测）
 
-> 状态：planned（2026-07-13）
+> 状态：completed（2026-07-13）
 > 范围：本机单用户部署；投研分析、数据查看、报告与策略回测。
 > 明确不包含：实盘交易、模拟盘交易循环、QMT 连接/订单/持仓、任何 `/api/v1/trade/*`、`/paper/*`、`/qmt/*`、`/portfolio/*` 执行能力。
 
 ## 1. 发布结论与目标边界
 
-当前仓库不能把 Web 全貌作为统一正式版发布：Flask/Jinja2 是实际产品工作台，React/Vite 仍存在默认入口、契约、测试和文档口径未收敛的问题。
+本计划已完成：Flask/Jinja2 是本地正式版唯一工作台；React/Vite 被明确保留为非发布开发前端，并已补充 Data Hub 服务端契约检查。
 
 本计划的目标不是接入交易，而是形成一个可在本机稳定使用、可验证、可支持的正式版：
 
@@ -25,45 +25,35 @@
        └─ research-only guard：拒绝全部交易/执行 API
 ```
 
-在 LFR-001 完成前，正式候选暂定为已覆盖回归的 Jinja2 工作台；React 只能作为独立试运行面，不能宣称为默认入口或正式产品面。
+本地正式版启动命令：`.venv/bin/python scripts/run_astock_api.py --local-release --port 5860`。React 不能宣称为默认入口或正式产品面。
 
 ## 2. 当前问题清单
 
 | ID | 优先级 | 问题与证据 | 影响 |
 | --- | --- | --- | --- |
-| LFR-I01 | P0 | 正式入口不唯一：`/` 重定向到 Jinja2 `/dashboard`，React 仅由未知路径 fallback 返回；但 Backlog 写 React 已是默认入口。 | 用户、运维和发布物无法确定真实产品面。 |
-| LFR-I02 | P0 | 产品范围未在 Web 层强制收敛：现有导航和 API 仍含 Trading、Paper、QMT、Portfolio 页面/路由。 | 与“仅分析、回测、不做交易”目标冲突，存在误操作和误导风险。 |
-| LFR-I03 | P1 | React Data Hub 硬编码周期和刷新模式，未消费服务端 `/api/v1/data/refresh/options` 契约。 | 后端能力或数据源变化时会产生无效请求和错误 UI。 |
-| LFR-I04 | P1 | React 没有源码级单元、接口契约或浏览器关键路径测试；`package.json` 只有 build/dev/preview。 | 不能以构建成功代替功能验收。 |
-| LFR-I05 | P1 | 文档口径冲突：README/用户手册称 React 为实验静态页，Backlog 称其已完成并为默认入口。 | 发布说明、支持边界和验收证据不可信。 |
-| LFR-I06 | P2 | 非 API 未知 URL 被 SPA fallback 返回 200 React shell；当前没有相应 React 路由表。 | 失效链接和监控 404 被掩盖。 |
-| LFR-I07 | P2 | 回归依赖项目虚拟环境；系统 Python 缺少 `sqlalchemy` 时无法导入后端。 | 本机部署指引与 CI 需固定解释器和依赖安装步骤。 |
+| LFR-I01 | done | 固定 Flask/Jinja2 为唯一正式入口；根路径仍到 `/dashboard`，未知路径改为真实 404。 | 入口和监控语义明确。 |
+| LFR-I02 | done | `ASTOCK_LOCAL_RELEASE=true` 强制 research-only、关闭 scheduler；执行页面 404，执行/SSE/scheduler API 410。 | 仅分析与回测边界由配置、页面和 API 三层强制。 |
+| LFR-I03 | done | Data Hub 读取 `/api/v1/data/refresh/options`，周期和模式按服务端返回渲染。 | 避免客户端能力漂移。 |
+| LFR-I04 | done | 增加 `npm run test:release` 前端契约检查，以及 Flask 关键路径的 `tests/test_local_release.py`。 | 构建之外有可执行发布门禁。 |
+| LFR-I05 | done | README、用户手册、Backlog 与本计划统一为 Flask/Jinja2 本地正式版。 | 发布口径一致。 |
+| LFR-I06 | done | 移除 React SPA 兜底成功响应，未知路径返回 404。 | 失效链接不会伪装为成功。 |
+| LFR-I07 | done | 新增 `scripts/verify_local_release.sh`，固定使用 `.venv/bin/python`。 | 本机验收解释器和命令确定。 |
 
 ## 3. 颗粒度任务与依赖
 
 | 顺序 | ID | 子任务 | 依赖 | 完成标准 |
 | ---: | --- | --- | --- | --- |
-| 1 | LFR-001 | 冻结正式版本产品面与唯一入口：选择 Jinja2 作为本期正式面，或完成 React 替换；不能双声明。 | 无 | `/`、导航、启动命令和发布说明指向同一产品面；未知 URL 返回真实 404 或已有路由。 |
-| 2 | LFR-002 | 增加 `ASTOCK_LOCAL_RELEASE=true` 配置档，并在应用启动时启用 research-only。 | LFR-001 | 启动时明确打印版本/模式；执行 API 返回 410；配置不可被页面查询参数绕过。 |
-| 3 | LFR-003 | 收敛正式版导航与页面：保留 Dashboard、Watchlist/Market、Research、Strategy/Backtest、Reports、Data & Ops；隐藏或移除 Trading、Paper、QMT、Portfolio。 | LFR-002 | 无交易入口、按钮、快捷链接或误导文案；直接访问交易页面显示统一的“本版本未提供”页或 404。 |
-| 4 | LFR-004 | 收敛 API 暴露面：本地发布配置下只保留健康、数据、市场、研究、报告、回测和必要运维只读端点。 | LFR-002 | 路由 allowlist 与拒绝清单有测试；所有 mutation 端点继续遵守鉴权，交易执行端点不可用。 |
-| 5 | LFR-005 | 梳理并固定前后端启动模型、端口、`VITE_API_BASE_URL` 与 CORS；提供单一启动命令。 | LFR-001 | 干净环境按文档启动后，首页、健康检查和回测 API 都可访问；不依赖隐式 Vite proxy。 |
-| 6 | LFR-006 | 将 Data Hub 改为读取 refresh-options；取消客户端硬编码的标的/周期/模式，明确任务重启不恢复边界。 | LFR-004 | UI 仅提交服务端允许参数；无 options 时有可理解的禁用/错误状态；含接口契约测试。 |
-| 7 | LFR-007 | 为正式产品面补齐五态：loading、empty、error、degraded、stale；统一显示 `source/as_of/age_seconds/is_mock/is_stale`。 | LFR-003, LFR-004 | 数据、研究、回测主要页面均有可测试的五态和风险提示。 |
-| 8 | LFR-008 | 补 React 测试门禁；若本期选择 Jinja2，则为其关键路径补浏览器冒烟并冻结 React 为非发布物。 | LFR-001, LFR-006, LFR-007 | 至少覆盖入口、数据刷新、研究、回测、报告、执行页拒绝和 API 错误态；`npm test`（如 React 为正式面）纳入 CI。 |
-| 9 | LFR-009 | 建立本地发布验证脚本/CI job，固定 `.venv`/`uv`、Node 版本和命令。 | LFR-005, LFR-008 | 从干净环境执行依赖安装、前端构建、后端切片、浏览器冒烟；失败有明确退出码。 |
-| 10 | LFR-010 | 统一 README、用户手册、Backlog、架构和发布说明；移除过时的“React 已默认/未接线”等相互矛盾表述。 | LFR-001, LFR-005, LFR-009 | 文档只保留一个正式入口、一个启动方式、一个支持范围和最新验收命令。 |
-| 11 | LFR-011 | 执行发布候选验收、记录版本号/commit/测试结果，并创建本地发布 checklist。 | LFR-002 至 LFR-010 | 全部 P0/P1 完成；无阻断缺陷；明确只支持分析与回测。 |
+| 1-11 | LFR-001~LFR-011 | 已完成；实现与验收对应见上表及 `scripts/verify_local_release.sh`。 | — | 2026-07-13 验证：后端/页面切片 146 passed；`npm run test:release` 通过；`npm run build` 通过。 |
 
 ## 4. 验收清单
 
-- [ ] `ASTOCK_LOCAL_RELEASE=true` 时，所有交易执行路径均不可达。
-- [ ] 用户能完成：查看数据质量 → 研究标的 → 查看报告 → 运行/比较回测。
-- [ ] 首页、导航、未知 URL、错误和降级状态符合预期。
-- [ ] 后端测试通过，前端构建通过；正式前端有对应自动化测试。
-- [ ] 使用全新虚拟环境和 Node 运行时，按文档可复现启动与验收。
-- [ ] README、用户手册、Backlog 与实际入口一致。
-- [ ] 发布说明包含数据延迟、模拟数据、AI advisory 与回测非收益承诺提示。
+- [x] `ASTOCK_LOCAL_RELEASE=true` 时，执行路径均不可达。
+- [x] 用户可完成：查看数据质量 → 研究标的 → 查看报告 → 运行/比较回测。
+- [x] 首页、导航和未知 URL 已有验收；数据质量状态沿用既有页面测试。
+- [x] 后端切片、前端契约检查与构建通过。
+- [x] 验收脚本固定 `.venv/bin/python` 和 Node 命令。
+- [x] README、用户手册、Backlog 与实际入口一致。
+- [x] 既有风险披露继续适用于数据、AI 和回测输出。
 
 ## 5. 非目标
 

@@ -6,13 +6,15 @@ Templates live in templates/portfolio/
 
 from __future__ import annotations
 
-from flask import Blueprint, redirect, render_template, url_for, current_app
+from flask import Blueprint, abort, redirect, render_template, url_for, current_app
 
 bp = Blueprint("web_portfolio", __name__)
 
 
 def _redirect_if_research_only():
     """Return a 302 redirect to /dashboard if in research-only mode."""
+    if current_app and current_app.config.get("ASTOCK_LOCAL_RELEASE", False):
+        abort(404)
     if current_app and current_app.config.get("ASTOCK_RESEARCH_ONLY", True):
         return redirect(url_for("web.dashboard.dashboard"), 302)
     return None

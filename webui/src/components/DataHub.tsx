@@ -101,7 +101,9 @@ export default function DataHub() {
 
   /* Refresh form state */
   const [symbols, setSymbols] = useState("");
-  const [interval, setIntervalVal] = useState("1d");
+  const [refreshOptions, setRefreshOptions] = useState<RefreshOption | null>(null);
+  const [optionsError, setOptionsError] = useState("");
+  const [interval, setIntervalVal] = useState("");
   const [mode, setMode] = useState<"incremental" | "range">("incremental");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -122,6 +124,20 @@ export default function DataHub() {
   /* Store stats */
   const [storeStats, setStoreStats] = useState<StoreStats | null>(null);
   const [storeLoading, setStoreLoading] = useState(false);
+
+  /* The server owns the valid refresh form values. */
+  useEffect(() => {
+    let cancelled = false;
+    api.getRefreshOptions().then((options) => {
+      if (cancelled) return;
+      setRefreshOptions(options);
+      setIntervalVal(options.default_interval);
+      setMode(options.modes.includes("incremental") ? "incremental" : "range");
+    }).catch((error: unknown) => {
+      if (!cancelled) setOptionsError(error instanceof Error ? error.message : String(error));
+    });
+    return () => { cancelled = true; };
+  }, [api]);
 
   /* Poll jobs list periodically */
   useEffect(() => {
@@ -154,6 +170,7 @@ export default function DataHub() {
 
   /* Refresh handler */
   const handleRefresh = async () => {
+    if (!refreshOptions || !interval || !refreshOptions.modes.includes(mode)) return;
     setRefreshing(true);
     setRefreshError("");
     setRefreshResult(null);
@@ -242,30 +259,27 @@ export default function DataHub() {
             </div>
             <div>
               <label className="tv-label">周期</label>
-              <select className="tv-input" value={interval} onChange={e => setIntervalVal(e.target.value)}>
-                <option value="1d">日线</option>
-                <option value="1w">周线</option>
-                <option value="1mo">月线</option>
-                <option value="60m">60分钟</option>
-                <option value="30m">30分钟</option>
-                <option value="5m">5分钟</option>
+              <select className="tv-input" value={interval} onChange={e => setIntervalVal(e.target.value)} disabled={!refreshOptions}>
+                {!refreshOptions && <option value="">加载服务端选项中...</option>}
+                {refreshOptions?.intervals.map(value => <option key={value} value={value}>{value}</option>)}
               </select>
             </div>
             <div>
               <label className="tv-label">模式</label>
-              <select className="tv-input" value={mode} onChange={e => setMode(e.target.value as "incremental" | "range")}>
-                <option value="incremental">增量更新</option>
-                <option value="range">指定区间</option>
+              <select className="tv-input" value={mode} onChange={e => setMode(e.target.value as "incremental" | "range")} disabled={!refreshOptions}>
+                {refreshOptions?.modes.map(value => <option key={value} value={value}>{value === "incremental" ? "增量更新" : "指定区间"}</option>)}
               </select>
             </div>
             <div>
               <label className="tv-label">包含估值</label>
-              <select className="tv-input" value={includeValuation ? "yes" : "no"} onChange={e => setIncludeValuation(e.target.value === "yes")}>
+              <select className="tv-input" value={includeValuation ? "yes" : "no"} onChange={e => setIncludeValuation(e.target.value === "yes")} disabled={!refreshOptions?.include_valuation}>
                 <option value="no">否</option>
                 <option value="yes">是</option>
               </select>
             </div>
           </div>
+
+          {optionsError && <p className="text-sm text-rose-300">无法获取服务端刷新选项：{optionsError}</p>}
 
           {mode === "range" && (
             <div className="grid gap-4 md:grid-cols-2">
@@ -281,8 +295,8 @@ export default function DataHub() {
           )}
 
           <button
-            className="tv-btn tv-btn-primary"
-            disabled={refreshing}
+              className="tv-btn tv-btn-primary"
+              disabled={refreshing || !refreshOptions || !interval}
             onClick={handleRefresh}
           >
             {refreshing ? "刷新中..." : "发起刷新"}

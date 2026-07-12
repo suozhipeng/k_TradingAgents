@@ -119,6 +119,14 @@ export interface BacktestRunResult {
   [key: string]: unknown;
 }
 
+export interface RefreshOptions {
+  symbols: string[];
+  intervals: string[];
+  default_interval: string;
+  modes: string[];
+  include_valuation: boolean;
+}
+
 export interface LeaderStock {
   symbol: string;
   name?: string;
@@ -282,16 +290,20 @@ export function useApi() {
       );
     },
 
+    getRefreshOptions() {
+      return request<RefreshOptions>("/api/v1/data/refresh/options");
+    },
+
     createRefreshJob(params: {
-      job_type: string;
       symbols?: string[];
-      markets?: string[];
+      interval?: string;
       intervals?: string[];
+      mode?: "incremental" | "range";
       start?: string;
       end?: string;
-      force_refresh?: boolean;
+      include_valuation?: boolean;
     }) {
-      return request<{ job_id: string; message: string }>(
+      return request<{ job: Record<string, unknown> }>(
         "/api/v1/data/jobs/refresh",
         {
           method: "POST",

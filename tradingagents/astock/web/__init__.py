@@ -30,7 +30,9 @@ bp = Blueprint(
     "web",
     __name__,
     template_folder=TEMPLATES_DIR,
-    static_folder=REACT_DIST if Path(REACT_DIST).exists() else STATIC_DIR,
+    # The local formal release serves the Jinja2 workbench.  Keep its legacy
+    # JavaScript and chart assets available even when a React build exists.
+    static_folder=STATIC_DIR,
     static_url_path="/web/static",
 )
 
@@ -51,11 +53,5 @@ def root():
 
 @bp.route("/<path:path>")
 def spa_fallback(path):
-    """SPA fallback: serve React index.html for non-static, non-API routes."""
-    # Don't intercept API routes — let them fall through to 404
-    if path.startswith("api/") or path.startswith("web/"):
-        abort(404)
-    react_index = Path(REACT_DIST) / "index.html"
-    if Path(REACT_DIST).exists():
-        return bp.send_static_file("index.html")
-    return redirect(f"/{path}", 302)
+    """Preserve HTTP 404 semantics for paths outside the Jinja2 workbench."""
+    abort(404)

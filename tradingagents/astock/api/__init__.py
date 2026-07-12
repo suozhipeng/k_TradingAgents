@@ -31,6 +31,11 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_CORS_ORIGIN = "http://localhost:5173"
 
+
+def _env_enabled(name: str) -> bool:
+    """Return True only for explicit enabled environment values."""
+    return os.environ.get(name, "").lower() in ("1", "true", "yes", "on")
+
 # Read version from pyproject.toml (works even when not installed as package)
 try:
     import tomllib
@@ -68,6 +73,7 @@ def create_app(
     """
     app = Flask(__name__)
     app.config.setdefault("ASTOCK_ENABLE_WEB_UI", True)
+    app.config.setdefault("ASTOCK_LOCAL_RELEASE", _env_enabled("ASTOCK_LOCAL_RELEASE"))
     # Network-facing deployments must opt in to anonymous mutation explicitly.
     # The test harness sets ASTOCK_TESTING=1 before importing the app factory.
     app.config.setdefault(
@@ -100,6 +106,12 @@ def create_app(
     # Override config for testing before components read app config.
     if test_config:
         app.config.update(test_config)
+
+    # The local formal release is analysis/backtest-only.  Apply this after
+    # test configuration as a non-bypassable product-scope guard.
+    if app.config.get("ASTOCK_LOCAL_RELEASE", False):
+        app.config["ASTOCK_RESEARCH_ONLY"] = True
+        app.config["ASTOCK_SCHEDULER_ENABLED"] = False
 
     # -- Scheduler ------------------------------------------------------------
     _build_scheduler_config(app)

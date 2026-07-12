@@ -54,8 +54,8 @@
 | P3 / 范围外 | 真实券商与真实 QMT 订单、委托、成交回报 reconciliation | 不接入；当前仅保留 managed mock/read-only 兼容语义 |
 | P2 | Iwencai live Provider 验证 | 依赖 `ASTOCK_IWENCAI_COOKIE`；缺失时按设计跳过 |
 | P2 | 可选测试依赖 | `python-pptx`、`pyarrow`/`fastparquet` 未安装时相关用例跳过（已优化为模块级 `_HAS_PPTX` / `_HAS_PARQUET` 常量）；不影响离线核心基线 |
-| P0 | 本地正式版 Web 收敛 | planned — LFR-001~LFR-011：唯一入口、research-only 强制隔离、分析/回测功能验收、测试与文档收口；详见 `LOCAL_RELEASE_READINESS_PLAN.md` |
-| P1 | React/TS 正式工作台 | planned — 当前不能宣称为默认入口；需完成路由、服务端刷新契约、前端测试、运行时基址和发布验收后再决定是否替换 Jinja2 |
+| P0 | 本地正式版 Web 收敛 | ✅ done — LFR-001~LFR-011 已完成：Flask/Jinja2 唯一入口、research-only 强制隔离、分析/回测验收、测试与文档收口；详见 `LOCAL_RELEASE_READINESS_PLAN.md` |
+| P1 | React/TS 正式工作台 | deferred — React 保留为非发布开发前端；若未来替换 Jinja2，仍需独立完成路由、端到端测试和发布验收 |
 | P3 / 范围外 | RBAC、多用户、SLA、故障分级与完整安全专项 | 已登记，尚未纳入当前 Research-only 产品范围 |
 
 ## 2. P0

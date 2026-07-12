@@ -29,9 +29,12 @@ logging.basicConfig(
 # Respect --no-web flag before app creation
 _parser = argparse.ArgumentParser(add_help=False)
 _parser.add_argument("--no-web", action="store_true")
+_parser.add_argument("--local-release", action="store_true")
 _parsed, remaining = _parser.parse_known_args()
 if _parsed.no_web:
     os.environ.setdefault("ASTOCK_ENABLE_WEB_UI", "false")
+if _parsed.local_release:
+    os.environ["ASTOCK_LOCAL_RELEASE"] = "true"
 
 app = create_app()
 
@@ -84,6 +87,11 @@ if __name__ == "__main__":
         help="Disable the Jinja2 WebUI (default: enabled)",
     )
     parser.add_argument(
+        "--local-release",
+        action="store_true",
+        help="Run the analysis-and-backtest-only local formal release",
+    )
+    parser.add_argument(
         "--port",
         type=int,
         default=5860,
@@ -95,6 +103,7 @@ if __name__ == "__main__":
         _start_scheduler(args.interval)
 
     if not args.no_web:
-        logging.getLogger("run_astock_api").info("Web UI enabled at http://localhost:%d", args.port)
+        mode = "local analysis/backtest release" if app.config.get("ASTOCK_LOCAL_RELEASE") else "standard"
+        logging.getLogger("run_astock_api").info("Web UI enabled at http://localhost:%d (%s)", args.port, mode)
 
-    app.run(host="0.0.0.0", port=args.port, debug=True)
+    app.run(host="0.0.0.0", port=args.port, debug=not app.config.get("ASTOCK_LOCAL_RELEASE", False))

@@ -73,9 +73,9 @@ TradingAgents is a multi-agent trading framework that mirrors the dynamics of re
 - **A 股文档入口**：详见 [`docs/README.md`](docs/README.md)，包含产品需求、技术架构、API 契约、数据字典、测试验收、风险披露等完整文档体系。
 - **快速上手**：参见 [`docs/02-user-guide.md`](docs/02-user-guide.md)。
 - **当前状态**：参见 [`docs/phase-archive.md`](docs/phase-archive.md) 和 [`docs/04-development.md`](docs/04-development.md)。
-- **WebUI 启动（Jinja2）**：`PORT=8080 python run_webui.py`（28 个页面，25 个模板）。
-- **API 启动**：`python scripts/run_astock_api.py`（默认端口 5860，57 个 REST 端点）。
-- **React/TS 实验前端**：`cd webui && npm install && npm run dev`（Vite 6 + TailwindCSS，需要 Node.js 18+；当前渲染静态 `modules.json`，API 客户端已就绪但未接线到 UI）。
+- **本地正式版（分析与回测）**：`.venv/bin/python scripts/run_astock_api.py --local-release --port 5860`；浏览器访问 `http://127.0.0.1:5860`。该模式强制关闭交易、模拟盘、QMT、组合执行和调度器。
+- **发布前验证**：`scripts/verify_local_release.sh`。
+- **React/TS 开发前端**：`cd webui && npm install && npm run dev`（Vite + TailwindCSS）；不是本地正式版入口，Data Hub 仅通过服务端刷新契约取值。
 - **环境配置**：参见 [`docs/03-operations.md`](docs/03-operations.md)。
 
 > A 股定制模块当前定位为投研分析 + 策略验证 + 模拟盘 + 受控执行试运行平台，不是完整自动实盘生产交易系统。当前产品范围明确 **不接入真实券商**。详见 [`docs/03-operations.md`](docs/03-operations.md) 与 [`docs/03-operations.md`](docs/03-operations.md)。

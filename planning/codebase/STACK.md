@@ -293,9 +293,9 @@ AStockDataRouter
 #### React/TS 实验前端（Phase 26+）
 | 模块 | 路径 | 职责 |
 |---|---|---|
-| App | `webui/src/App.tsx` | 6 个导航标签（Dashboard / Module Map / Agent Flow / Task Center / Reports / Settings） |
+| App | `webui/src/App.tsx` | 非发布开发前端；用于组件和 API 契约开发，不是本地正式版入口 |
 | Modules | `webui/src/data/modules.json` | 30 个模块静态记录 |
-| API Client | `webui/src/hooks/useApi.ts` | Flask REST API 客户端（已就绪但未接线到 UI） |
+| API Client | `webui/src/hooks/useApi.ts` | Flask REST API 客户端；Data Hub 从服务端读取刷新选项 |
 | Types | `webui/src/types.ts` | ModuleType / ModuleRecord / AStockGraphReport |
 
 #### 测试基础设施

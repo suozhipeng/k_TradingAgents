@@ -41,10 +41,10 @@ TradingAgents-Astock 是**投研分析 + 策略验证 + 模拟盘 + 受控执行
 #### 启动 WebUI
 
 ```bash
-PORT=8080 python run_webui.py
+.venv/bin/python scripts/run_astock_api.py --local-release --port 5860
 ```
 
-浏览器访问 http://localhost:8080。
+浏览器访问 http://127.0.0.1:5860。该模式只提供分析、数据查看、报告和回测；交易、模拟盘、QMT 与组合执行不可用。
 
 #### 启动 CLI
 
@@ -276,10 +276,10 @@ LLM_API_KEY=your_key_here
 ### 启动 WebUI
 
 ```bash
-PORT=8080 python run_webui.py
+.venv/bin/python scripts/run_astock_api.py --local-release --port 5860
 ```
 
-浏览器访问 http://localhost:8080
+浏览器访问 http://127.0.0.1:5860；这是本地正式版的唯一 Web 入口。
 
 ### 启动 CLI
 
@@ -308,6 +308,9 @@ python3 -m pytest -q
 ```bash
 # 默认端口 5860
 python scripts/run_astock_api.py
+
+# 本地正式版：只开放分析、报告、数据和回测（推荐）
+.venv/bin/python scripts/run_astock_api.py --local-release --port 5860
 
 # 禁用 WebUI
 python scripts/run_astock_api.py --no-web
@@ -369,13 +372,13 @@ python scripts/smoke_structured_output.py
   A: 确认 `.env` 中有有效的 API KEY，且 `TRADINGAGENTS_ASTOCK_RUNTIME_PROFILE` 设置为 `live_research`。
 
 - **Q: WebUI 打不开？**
-  A: 确认端口未被占用，或改用 `PORT=其他端口 python run_webui.py`。
+  A: 确认端口未被占用，或改用 `.venv/bin/python scripts/run_astock_api.py --local-release --port 其他端口`。
 
 - **Q: Flask API 启动失败？**
   A: 确认已安装 `pip install '.[astock-providers]'`，且 DuckDB 数据库文件路径可写。
 
 - **Q: React WebUI 实验前端？**
-  A: `webui/` 目录为实验性 React/TS 项目，当前渲染静态数据，API 客户端已就绪但未接线。需使用 Node.js 18+，运行 `cd webui && npm install && npm run dev`。
+  A: `webui/` 目录为非发布的 React/TS 开发前端。需使用 Node.js 18+；其 Data Hub 使用服务端刷新契约，但本地正式版仍以 Flask/Jinja2 为唯一入口。
 
 ### 下一步
 
@@ -650,8 +653,8 @@ pip install -e ".[astock-providers]"
 
 ### Q4: WebUI 启动后页面打不开？
 
-- 确认端口未被占用（默认 8080）
-- 尝试更换端口：`PORT=5000 python run_webui.py`
+- 确认端口未被占用（默认 5860）
+- 尝试更换端口：`.venv/bin/python scripts/run_astock_api.py --local-release --port 5000`
 - 确认防火墙未阻止本地端口
 
 ## 数据源
