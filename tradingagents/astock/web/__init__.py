@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from flask import Blueprint, redirect
+from flask import Blueprint, abort, redirect
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -52,8 +52,10 @@ def root():
 @bp.route("/<path:path>")
 def spa_fallback(path):
     """SPA fallback: serve React index.html for non-static, non-API routes."""
+    # Don't intercept API routes — let them fall through to 404
+    if path.startswith("api/") or path.startswith("web/"):
+        abort(404)
     react_index = Path(REACT_DIST) / "index.html"
-    if Path(REACT_DIST).exists() and path not in ("dashboard", "data-hub", "research", "strategy", "module-map", "agent-flow", "task-center", "risk-panel", "help"):
+    if Path(REACT_DIST).exists():
         return bp.send_static_file("index.html")
-    # Legacy Jinja2 routes
     return redirect(f"/{path}", 302)
