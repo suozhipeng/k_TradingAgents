@@ -11,7 +11,7 @@ Orchestration:
   task_gate_attempts: 1
 
 Phase: next
-Current Task Index: 5
+Current Task Index: 6
 Review Mode: gate-sequence
 Paused: false
 Blocked: false
@@ -114,5 +114,16 @@ Tasks:
     iteration_count: 1
     notes: 'tv_chart now preserves symbol through a 302 to KC Chart; unavailable template and Research TV Pro entry removed; targeted 136 passed, offline suite 1112 passed / 15 skipped.'
 
+  - id: 6
+    description: 'P0-B5 删除无路由渲染的重复盯盘模板并同步当前 Web 清单'
+    status: done
+    track: b
+    commit_sha: 9ba4e95
+    review_verdict: accept (independent review)
+    acceptance_verdict: accept (Codex)
+    execution_agent: codex
+    iteration_count: 1
+    notes: 'Deleted four unreachable duplicate Watch templates; legacy URLs/APIs remain; targeted 134 passed.'
+
 Next Actions:
-  - 'P0-B4 complete. Run a new Task Gate before selecting the next Web documentation and page-inventory closure task.'
+  - 'P0-B5 complete. Run a new Task Gate before selecting any further Web work; the supported Jinja product surface is now consolidated.'
