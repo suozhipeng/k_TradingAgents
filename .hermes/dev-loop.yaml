@@ -11,7 +11,7 @@ Orchestration:
   task_gate_attempts: 1
 
 Phase: next
-Current Task Index: 4
+Current Task Index: 5
 Review Mode: gate-sequence
 Paused: false
 Blocked: false
@@ -103,5 +103,16 @@ Tasks:
     iteration_count: 1
     notes: 'Six legacy Watch URLs now 302 to typed Market Leaders deep links; localhost iframe removed; targeted 136 passed, offline suite 1113 passed / 15 skipped.'
 
+  - id: 5
+    description: 'P0-B4 图表入口收敛：下线不可用 TV Pro 页面并统一 KC Chart'
+    status: done
+    track: b
+    commit_sha: fbfcd82
+    review_verdict: accept (independent review)
+    acceptance_verdict: accept (Codex)
+    execution_agent: codex
+    iteration_count: 1
+    notes: 'tv_chart now preserves symbol through a 302 to KC Chart; unavailable template and Research TV Pro entry removed; targeted 136 passed, offline suite 1112 passed / 15 skipped.'
+
 Next Actions:
-  - 'P0-B3 complete. Run a new Task Gate before selecting the next documented backlog-maintenance task.'
+  - 'P0-B4 complete. Run a new Task Gate before selecting the next Web documentation and page-inventory closure task.'
