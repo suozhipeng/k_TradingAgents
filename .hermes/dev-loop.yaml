@@ -5,13 +5,13 @@ Loop Level: l2
 Workflow Rev: 2
 
 Orchestration:
-  status: ready_for_execution
+  status: ready
   prd_path: .hermes/plans/2026-07-10_160251-research-only-p0.md
   track: c
   task_gate_attempts: 1
 
 Phase: next
-Current Task Index: 2
+Current Task Index: 4
 Review Mode: gate-sequence
 Paused: false
 Blocked: false
@@ -47,12 +47,12 @@ Review Routing:
 
 Gate Sequence:
   manual: true
-  review_agent: agnes
+  review_agent: independent-review
   acceptance_agent: codex
   current_gate: none
-  review_status: pending
-  acceptance_status: pending
-  review_verdict_agnes: accepted
+  review_status: accepted
+  acceptance_status: accepted
+  review_verdict_agnes: n/a
 
 Fuse:
   triggered: false
@@ -83,25 +83,25 @@ Tasks:
 
   - id: 3
     description: 'P0-B2 行情可信度统一契约与 Mock/Cache 隔离'
-    status: planning
+    status: done
     track: a
-    commit_sha: ~
-    review_verdict: ~
-    acceptance_verdict: ~
-    execution_agent: ~
-    iteration_count: 0
-    notes: 'Plan written: .hermes/plans/2026-07-10_192000-p0-b2-market-data-credibility.md'
+    commit_sha: 4f7b20a
+    review_verdict: historical completion
+    acceptance_verdict: historical completion
+    execution_agent: hermes
+    iteration_count: 1
+    notes: 'Data-quality contract delivered before this loop resume; status reconciled from current Git evidence.'
 
   - id: 4
     description: 'P0-B3 盯盘工作台归并、旧页面重定向与 localhost iframe 下线'
-    status: pending
+    status: done
     track: b
-    commit_sha: ~
-    review_verdict: ~
-    acceptance_verdict: ~
-    execution_agent: ~
-    iteration_count: 0
-    notes: '本轮先审计和拆分，不与 B1 混改。'
+    commit_sha: 24fc94f
+    review_verdict: accept (independent review)
+    acceptance_verdict: accept (Codex)
+    execution_agent: codex
+    iteration_count: 1
+    notes: 'Six legacy Watch URLs now 302 to typed Market Leaders deep links; localhost iframe removed; targeted 136 passed, offline suite 1113 passed / 15 skipped.'
 
 Next Actions:
-  - 'P0-B2: 行情可信度统一契约与 Mock/Cache 隔离 — 审计现有 quote/provider/cache/mock 链路，定义 source/as_of/age_seconds/is_mock/is_stale 统一契约'
+  - 'P0-B3 complete. Run a new Task Gate before selecting the next documented backlog-maintenance task.'
