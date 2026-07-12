@@ -192,7 +192,7 @@ export function useApi() {
       );
     },
 
-    getJob(jobId: string) {
+    getJob(jobId: string): Promise<{ job: Record<string, unknown> }> {
       return request<{ job: Record<string, unknown> }>(
         `/api/v1/data/jobs/${jobId}`,
       );
@@ -286,6 +286,12 @@ export function useApi() {
       return request<{ orders: Array<Record<string, unknown>>; mock_mode: boolean }>(
         "/api/v1/qmt/orders",
       );
+    },
+
+    // ---- Generic -----------------------------------------------------
+
+    request(path: string, options: RequestInit = {}) {
+      return request(path, options);
     },
 
     // ---- Health --------------------------------------------------------

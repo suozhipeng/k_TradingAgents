@@ -11,6 +11,7 @@ export const en: Record<string, string> = {
 
   /* ── Nav ── */
   "nav.dashboard": "Dashboard",
+  "nav.dataHub": "Data Hub",
   "nav.moduleMap": "Module Map",
   "nav.agentFlow": "Agent Flow",
   "nav.taskCenter": "Task Center",
@@ -41,6 +42,11 @@ export const en: Record<string, string> = {
   "dashboard.check.taskCenter": "Task Center section present",
   "dashboard.check.reports": "Reports section present",
   "dashboard.check.settings": "Settings section present",
+
+  /* ── Data Hub section ── */
+  "section.dataHub.kicker": "Data Hub",
+  "section.dataHub.title": "Real Market Data Download & Incremental Upsert",
+  "section.dataHub.desc": "Download K-line, valuation and other market data from providers, upsert into DuckDB, track async refresh job progress, and monitor data source health.",
 
   /* ── Agent Flow section ── */
   "section.agentFlow.kicker": "Agent Flow",

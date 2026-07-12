@@ -12,6 +12,7 @@ import ModuleDetail from "./components/ModuleDetail";
 import ModuleTree from "./components/ModuleTree";
 import ReportViewerWrapper from "./components/ReportViewer";
 import RiskPanel from "./components/RiskPanel";
+import DataHub from "./components/DataHub";
 import { LocaleProvider, useTranslation } from "./hooks/useTranslation";
 import { useApi } from "./hooks/useApi";
 import HealthCheck from "./components/HealthCheck";
@@ -38,6 +39,7 @@ function AppContent() {
 
   const sections = [
     { id: "dashboard", label: t("nav.dashboard") },
+    { id: "data-hub", label: t("nav.dataHub") },
     { id: "module-map", label: t("nav.moduleMap") },
     { id: "agent-flow", label: t("nav.agentFlow") },
     { id: "task-center", label: t("nav.taskCenter") },
@@ -196,6 +198,17 @@ function AppContent() {
                 <CheckItem ok label={t("dashboard.check.settings")} />
               </div>
             </div>
+          </div>
+        </section>
+
+        <section id="data-hub" className="mt-5 panel p-5">
+          <SectionHeader
+            kicker={t("section.dataHub.kicker")}
+            title={t("section.dataHub.title")}
+            description={t("section.dataHub.desc")}
+          />
+          <div className="mt-5">
+            <DataHub />
           </div>
         </section>
 

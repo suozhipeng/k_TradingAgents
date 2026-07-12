@@ -10,6 +10,7 @@ export const zh: Record<string, string> = {
 
   /* ── Nav ── */
   "nav.dashboard": "仪表盘",
+  "nav.dataHub": "数据中心",
   "nav.moduleMap": "模块地图",
   "nav.agentFlow": "Agent 流程",
   "nav.taskCenter": "任务中心",
@@ -39,6 +40,11 @@ export const zh: Record<string, string> = {
   "dashboard.check.taskCenter": "任务中心区域已加载",
   "dashboard.check.reports": "报告区域已加载",
   "dashboard.check.settings": "设置区域已加载",
+
+  /* ── Data Hub section ── */
+  "section.dataHub.kicker": "数据中心",
+  "section.dataHub.title": "真实市场数据下载与增量入库",
+  "section.dataHub.desc": "从数据源下载 K 线、估值等数据，写入 DuckDB，追踪异步刷新任务进度，监控数据源健康状态。",
 
   /* ── Agent Flow section ── */
   "section.agentFlow.kicker": "Agent 流程",
