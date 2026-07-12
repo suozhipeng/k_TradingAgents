@@ -8,10 +8,11 @@
 
 - P0-B1（`adbfcb0`）：默认启用 `ASTOCK_RESEARCH_ONLY`；执行页面重定向到 `/dashboard`，执行 API 返回 `410 research_only`，研究 UI 使用 `/api/v1/market/quote`。
 - P0-B2（`4f7b20a`）：新增 `DataQualityBanner`，为研究行情相关端点统一注入 `source`、`as_of`、`age_seconds`、`is_mock`、`is_stale`，区分 live、cache/store/fallback/duckdb 与 mock/synthetic 数据。
-- 当前离线验证：`env -u DEEPSEEK_API_KEY .venv/bin/python -m pytest -q` → `1112 passed, 15 skipped`。
+- 当前离线验证：`uv run python -m pytest -q` → `1112 passed, 15 skipped`（含 68 测试文件）。
 - P0-B3：旧盯盘 URL 已以 `302` 深链接归并到 `/market_leaders` 的对应 tab；`momentum_dashboard` 的 localhost iframe 已下线。`/tv_chart` 保持独立的可选 TradingView Charting Library 集成，未纳入本次迁移。
 - P0-B4：默认 WebUI 不再暴露未安装专有 Charting Library 的 TV Pro 页面；`/tv_chart` 作为兼容 URL 以 `302` 保留股票代码并跳转到已支持的 `/kc_chart`。`/api/v1/tv/*` 与 Datafeed 兼容资产保留。
 - P0-B5（`9ba4e95`）：删除 4 份无路由渲染的重复盯盘模板；旧 URL 仍以 `302` 跳入 Market Leaders 对应 tab。Jinja2 当前为 22 个非共享页面模板与 2 个共享模板。
+- 测试优化：`test_astock_ppt.py` 和 `test_astock_store.py` 的可选依赖 skip 逻辑已统一为模块级 `_HAS_PPTX` / `_HAS_PARQUET` 常量，消除重复的 `__import__` hack。
 
 ## Workspace Snapshot — 2026-07-08（local / unreleased）
 
@@ -95,23 +96,22 @@
 
 **模块快照（2026-07-08 实际值）**
 
-| 模块 | 文件数 | 说明 |
+|| 模块 | 文件数 | 说明 ||
 |------|--------|------|
-| llm_clients/ | 11 (核心) | OpenAI/Anthropic/Google/Azure/DeepSeek 客户端 + 工厂/能力/校验 |
-| dataflows/ | 16 | 全球市场数据管道（Yahoo/AV/Reddit/StockTwits） |
-| agents/ | 24 | 多智能体研究系统 |
-| graph/ | 8 (核心) | LangGraph 交易图 |
-| astock/data_sources/ | 15 (核心) | 7 供应商适配器 + 10 工具文件 |
-| astock/store/ | 8 + models/6 | DuckDB/PG/ClickHouse 三后端（33 ORM 模型） |
-| astock/execution/ | 18 (核心) | 10 单股策略 + 1 组合策略 + 回测/模拟/QMT/风控 |
-| astock/api/ | 27 蓝图 | 119 端点 REST API（110 唯一路径） |
-| astock/web/ | 24 HTML 文件 | Flask Jinja2 WebUI（22 个非共享页面模板 + `base.html` / macros；含 6 个页面 blueprint） |
-| astock/schemas/ | 7 | Pydantic 数据模型（API.md §5 已覆盖） |
+| llm_clients/ | 12 | OpenAI/Anthropic/Google/Azure/DeepSeek 客户端 + 工厂/能力/校验 |
+| dataflows/ | 17 | 全球市场数据管道（Yahoo/AV/Reddit/StockTwits） |
+| agents/ | 25 | 多智能体研究系统 |
+| graph/ | 9 (核心) | LangGraph 交易图 |
+| astock/data_sources/ | 32 | 7 供应商适配器 + 工具文件 |
+| astock/store/ | 23 + models/6 | DuckDB/PG/ClickHouse 三后端（33 ORM 模型） |
+| astock/execution/ | 63 | 10 单股策略 + 1 组合策略 + 回测/模拟/QMT/风控 |
+| astock/api/ | 40 | 119 端点 REST API（110 唯一路径） |
+| astock/web/ | 7 + 24 HTML | Flask Jinja2 WebUI（22 个非共享页面模板 + 2 个共享模板） |
+| astock/schemas/ | 8 | Pydantic 数据模型（API.md §5 已覆盖） |
 | astock/quality/ | 3 | 数据质量门控 |
 | astock/alert/ | 2 | 预警系统 |
 | astock/analysis/ | 2 | 市场分析 |
 | astock/reporting/ | 2 | PPT 报告生成 |
-| web/blueprints/ | 6 | WebUI 路由 blueprint |
 
 **关键数字（2026-07-08 实测）**
 
@@ -124,9 +124,9 @@
 | 索引 | 27 |
 | ORM 模型 | 33 |
 | API 端点 | 119 (110 唯一路径) |
-| WebUI 模板 | 30 HTML (25 功能页) |
-| WebUI 路由 | 34 |
-| 测试文件 | 64 |
+| WebUI 模板 | 24 HTML (22 非共享 + 2 共享) |
+| WebUI 路由 | 28 blueprint 文件 |
+| 测试文件 | 68 |
 
 ---
 

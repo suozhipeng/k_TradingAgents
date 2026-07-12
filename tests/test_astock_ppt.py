@@ -11,6 +11,7 @@ Verifies:
 
 from __future__ import annotations
 
+import importlib
 import os
 import sys
 import tempfile
@@ -22,6 +23,9 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
+
+# Module-level availability check (single source of truth)
+_HAS_PPTX = importlib.util.find_spec("pptx") is not None
 
 # ---------------------------------------------------------------------------
 # Sample report data
@@ -99,7 +103,7 @@ class TestReportGenerator:
                 ReportGenerator()
 
     @pytest.mark.skipif(
-        not __import__("importlib").util.find_spec("pptx"),
+        not _HAS_PPTX,
         reason="python-pptx not installed",
     )
     def test_to_pptx_creates_file(self):
@@ -125,7 +129,7 @@ class TestReportGenerator:
             Path(tmp_path).unlink(missing_ok=True)
 
     @pytest.mark.skipif(
-        not __import__("importlib").util.find_spec("pptx"),
+        not _HAS_PPTX,
         reason="python-pptx not installed",
     )
     def test_slide_count(self):
@@ -145,7 +149,7 @@ class TestReportGenerator:
             Path(tmp_path).unlink(missing_ok=True)
 
     @pytest.mark.skipif(
-        not __import__("importlib").util.find_spec("pptx"),
+        not _HAS_PPTX,
         reason="python-pptx not installed",
     )
     def test_slides_contain_expected_text(self):
@@ -202,11 +206,13 @@ class TestReportsAPI:
             assert data is not None
             assert "python-pptx" in data.get("error", "") or "python-pptx" in str(data)
 
+    @pytest.mark.skipif(
+        not _HAS_PPTX,
+        reason="python-pptx not installed",
+    )
     def test_pptx_endpoint_returns_pptx(self, client):
         """Should return a PPTX file when python-pptx is available."""
         resp = client.get("/api/v1/reports/pptx?symbol=600519.SH")
-        if resp.status_code == 501:
-            pytest.skip("python-pptx not installed on this system")
         assert resp.status_code == 200
         assert resp.mimetype == "application/vnd.openxmlformats-officedocument.presentationml.presentation"
         assert len(resp.data) > 1000
