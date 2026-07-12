@@ -9,6 +9,7 @@
 - 2026-07-08 已完成真实 live 验收：DeepSeek live API `1 passed`，live provider `7 passed, 1 skipped`，端到端 `live_research` pipeline `VERIFICATION PASSED`
 - 当前唯一未闭环 live 依赖为 `ASTOCK_IWENCAI_COOKIE`；未配置时 Iwencai 用例按设计跳过
 - 默认产品范围为 Research-only：投研分析 + 策略回测 + 市场盯盘；执行页面与 `/api/v1/trade/*`、`/paper/*`、`/qmt/*`、`/portfolio/*` API 默认不可用。`ASTOCK_RESEARCH_ONLY=false` 仅保留兼容模式；**不接入真实券商**。
+- 本地正式版（仅分析与回测）的当前问题、任务拆分和验收门槛见 [`LOCAL_RELEASE_READINESS_PLAN.md`](LOCAL_RELEASE_READINESS_PLAN.md)。在该计划完成前，React/Vite 不作为正式默认入口。
 - 行情响应统一包含 `source`、`as_of`、`age_seconds`、`is_mock`、`is_stale`，UI 与调用方必须据此区分实时、缓存、降级与模拟数据。
 - Jinja2 WebUI 已收敛为 22 个非共享页面模板与 2 个共享模板；旧盯盘 URL 以 `302` 跳转到 Market Leaders，唯一支持的图表入口为 KC Chart。
 
@@ -19,6 +20,7 @@ docs/
 ├── README.md              ← 你在这里
 ├── CHANGELOG.md           ← 版本白皮书
 ├── BACKLOG.md             ← 待完成任务清单
+├── LOCAL_RELEASE_READINESS_PLAN.md ← 本地正式版发布就绪计划（仅分析与回测）
 │
 ├── 01-architecture.md         ← 架构设计（API + ADR 整合）
 ├── 02-user-guide.md         ← 上手与使用（用户手册 + 快速入门 + 术语表 + 策略开发）
@@ -41,6 +43,7 @@ docs/
 |---------|---------|
 | 看当前状态 | [phase-archive.md](phase-archive.md) |
 | 看当前计划 | [BACKLOG.md](BACKLOG.md) |
+| 看本地正式版发布计划 | [LOCAL_RELEASE_READINESS_PLAN.md](LOCAL_RELEASE_READINESS_PLAN.md) |
 | 查版本变更 | [../CHANGELOG.md](../CHANGELOG.md) |
 | 全功能概览 | [full_function_documentation.md](full_function_documentation.md) |
 
