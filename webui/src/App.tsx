@@ -13,6 +13,7 @@ import ModuleTree from "./components/ModuleTree";
 import ReportViewerWrapper from "./components/ReportViewer";
 import RiskPanel from "./components/RiskPanel";
 import DataHub from "./components/DataHub";
+import DashboardPage from "./components/Dashboard";
 import { LocaleProvider, useTranslation } from "./hooks/useTranslation";
 import { useApi } from "./hooks/useApi";
 import HealthCheck from "./components/HealthCheck";
@@ -174,30 +175,14 @@ function AppContent() {
           </div>
         </header>
 
-        <section id="dashboard" className="panel p-5">
+        <section id="dashboard" className="mt-5 panel p-5">
           <SectionHeader
             kicker={t("section.dashboard.kicker")}
             title={t("section.dashboard.title")}
             description={t("section.dashboard.desc")}
           />
-          <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(280px,0.7fr)]">
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              <SummaryCard title={t("dashboard.analysts")} value={String(modules.filter((m) => m.type === "analyst").length)} />
-              <SummaryCard title={t("dashboard.researchers")} value={String(modules.filter((m) => m.type === "researcher").length)} />
-              <SummaryCard title={t("dashboard.dataflows")} value={String(modules.filter((m) => m.type === "dataflow").length)} />
-              <SummaryCard title={t("dashboard.configCli")} value={String(modules.filter((m) => m.type === "config" || m.type === "cli").length)} />
-            </div>
-            <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4">
-              <h3 className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">{t("dashboard.checklist")}</h3>
-              <div className="mt-4 space-y-2 text-sm text-slate-300">
-                <CheckItem ok label={t("dashboard.check.dashboard")} />
-                <CheckItem ok label={t("dashboard.check.moduleMap")} />
-                <CheckItem ok label={t("dashboard.check.agentFlow")} />
-                <CheckItem ok label={t("dashboard.check.taskCenter")} />
-                <CheckItem ok label={t("dashboard.check.reports")} />
-                <CheckItem ok label={t("dashboard.check.settings")} />
-              </div>
-            </div>
+          <div className="mt-5">
+            <DashboardPage />
           </div>
         </section>
 

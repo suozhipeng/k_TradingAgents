@@ -28,9 +28,8 @@ export const en: Record<string, string> = {
 
   /* ── Dashboard section ── */
   "section.dashboard.kicker": "Dashboard",
-  "section.dashboard.title": "Static snapshot at a glance",
-  "section.dashboard.desc":
-    "Quick health overview for the WebUI dataset, module types, and flow coverage.",
+  "section.dashboard.title": "Market Overview · Data Health · Freshness · Watchlist · Tasks · Reports · Alerts",
+  "section.dashboard.desc": "Daily research workspace powered by real APIs — market data, decision summary, paper positions, and alerts.",
   "dashboard.analysts": "Analysts",
   "dashboard.researchers": "Researchers",
   "dashboard.dataflows": "Dataflows",

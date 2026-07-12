@@ -13,6 +13,44 @@
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
 
+/* ── Dashboard types ─────────────────────────────────────────── */
+
+export interface DashboardOverview {
+  statistics?: Record<string, unknown>;
+  recent_backtests?: Array<Record<string, unknown>>;
+  latest_equity_curve?: Array<Record<string, unknown>>;
+  decision_summary?: Record<string, unknown>;
+  paper_positions_detail?: Array<Record<string, unknown>>;
+  recent_trades?: Array<Record<string, unknown>>;
+  paper_equity_curve?: Array<Record<string, unknown>>;
+}
+
+export interface MarketSummary {
+  indices?: Array<Record<string, unknown>>;
+  sector_ranking?: Array<Record<string, unknown>>;
+  northbound_flow?: Record<string, unknown>;
+  limit_up_down?: Record<string, unknown>;
+  timestamp?: string;
+}
+
+export interface DataFreshness {
+  kline_latest?: string;
+  valuation_latest?: string;
+  [key: string]: unknown;
+}
+
+export interface AlertItem {
+  id: string;
+  rule_id: string;
+  symbol?: string;
+  message: string;
+  severity?: string;
+  created_at: string;
+  acknowledged?: boolean;
+}
+
+/* ── Original types ──────────────────────────────────────────── */
+
 export class ApiError extends Error {
   status: number;
   body: unknown;
@@ -23,6 +61,12 @@ export class ApiError extends Error {
     this.status = status;
     this.body = body;
   }
+}
+
+export interface ApiResponse<T = unknown> {
+  data: T;
+  status: number;
+  message?: string;
 }
 
 async function request<T = unknown>(
@@ -196,6 +240,45 @@ export function useApi() {
       return request<{ job: Record<string, unknown> }>(
         `/api/v1/data/jobs/${jobId}`,
       );
+    },
+
+    // ---- Dashboard / Overview ------------------------------------------
+
+    getDashboardOverview(): Promise<DashboardOverview> {
+      return request<DashboardOverview>("/api/v1/dashboard/overview");
+    },
+
+    getMarketSummary(): Promise<MarketSummary> {
+      return request<MarketSummary>("/api/v1/market/summary");
+    },
+
+    getDataFreshness(): Promise<DataFreshness> {
+      return request<DataFreshness>("/api/v1/cache/status");
+    },
+
+    // ---- Watchlist -------------------------------------------------------
+
+    getWatchlist(): Promise<{ items: Array<Record<string, unknown>> }> {
+      return request<{ items: Array<Record<string, unknown>> }>("/api/v1/watchlist");
+    },
+
+    addWatchlistSymbol(symbol: string): Promise<Record<string, unknown>> {
+      return request<Record<string, unknown>>("/api/v1/watchlist", {
+        method: "POST",
+        body: JSON.stringify({ symbol }),
+      });
+    },
+
+    removeWatchlistSymbol(symbol: string): Promise<Record<string, unknown>> {
+      return request<Record<string, unknown>>(`/api/v1/watchlist/${encodeURIComponent(symbol)}`, {
+        method: "DELETE",
+      });
+    },
+
+    // ---- Alerts ----------------------------------------------------------
+
+    listAlerts(): Promise<{ alerts: Array<AlertItem> }> {
+      return request<{ alerts: Array<AlertItem> }>("/api/v1/alerts");
     },
 
     // ---- Cache / Store -------------------------------------------------

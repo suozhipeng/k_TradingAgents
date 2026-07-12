@@ -26,9 +26,9 @@ export const zh: Record<string, string> = {
   "stat.staticSource": "静态来源",
 
   /* ── Dashboard section ── */
-  "section.dashboard.kicker": "仪表盘",
-  "section.dashboard.title": "静态快照概览",
-  "section.dashboard.desc": "WebUI 数据集、模块类型和流程覆盖的快速健康概览。",
+  "section.dashboard.kicker": "正式工作台",
+  "section.dashboard.title": "市场概览 · 数据源健康 · 数据新鲜度 · 自选股 · 最近任务 · 报告 · 告警",
+  "section.dashboard.desc": "基于真实 API 的每日投研工作台首页，聚合市场数据、决策摘要、模拟持仓与告警。",
   "dashboard.analysts": "分析师",
   "dashboard.researchers": "研究员",
   "dashboard.dataflows": "数据流",
