@@ -52,7 +52,7 @@
 | P3 / 范围外 | 真实券商与真实 QMT 订单、委托、成交回报 reconciliation | 不接入；当前仅保留 managed mock/read-only 兼容语义 |
 | P2 | Iwencai live Provider 验证 | 依赖 `ASTOCK_IWENCAI_COOKIE`；缺失时按设计跳过 |
 | P2 | 可选测试依赖 | `python-pptx`、`pyarrow`/`fastparquet` 未安装时相关用例跳过（已优化为模块级 `_HAS_PPTX` / `_HAS_PARQUET` 常量）；不影响离线核心基线 |
-| P2 | React/TS 正式工作台 | ✅ 进行中 — P2-R1 + P2-D1 + P2-R2 + P2-R3 + P2-R4 已完成；P2-R5 质量与入口切换开发中 |
+| P2 | React/TS 正式工作台 | ✅ 已完成 — P2-R1 + P2-D1 + P2-R2 + P2-R3 + P2-R4 + P2-R5 全部完成；React 为默认入口，Jinja2 模板保留 |
 | P3 / 范围外 | RBAC、多用户、SLA、故障分级与完整安全专项 | 已登记，尚未纳入当前 Research-only 产品范围 |
 
 ## 2. P0

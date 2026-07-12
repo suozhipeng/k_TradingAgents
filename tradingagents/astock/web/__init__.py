@@ -23,13 +23,14 @@ from .blueprints.ops_bp import bp as ops_bp
 
 TEMPLATES_DIR = str(BASE_DIR / "templates")
 STATIC_DIR = str(BASE_DIR / "static")
+REACT_DIST = str(BASE_DIR.parent.parent / "webui" / "dist")
 
 # Create the aggregate web blueprint
 bp = Blueprint(
     "web",
     __name__,
     template_folder=TEMPLATES_DIR,
-    static_folder=STATIC_DIR,
+    static_folder=REACT_DIST if Path(REACT_DIST).exists() else STATIC_DIR,
     static_url_path="/web/static",
 )
 
@@ -41,7 +42,18 @@ bp.register_blueprint(strategy_bp, name="strategy")
 bp.register_blueprint(portfolio_bp, name="portfolio")
 bp.register_blueprint(ops_bp, name="ops")
 
-# Root redirect → /dashboard
+# Root redirect → React homepage (dashboard)
+# Jinja2 legacy pages still accessible via /web/dashboard etc.
 @bp.route("/")
 def root():
     return redirect("/dashboard", 302)
+
+
+@bp.route("/<path:path>")
+def spa_fallback(path):
+    """SPA fallback: serve React index.html for non-static, non-API routes."""
+    react_index = Path(REACT_DIST) / "index.html"
+    if Path(REACT_DIST).exists() and path not in ("dashboard", "data-hub", "research", "strategy", "module-map", "agent-flow", "task-center", "risk-panel", "help"):
+        return bp.send_static_file("index.html")
+    # Legacy Jinja2 routes
+    return redirect(f"/{path}", 302)
