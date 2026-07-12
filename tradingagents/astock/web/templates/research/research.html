@@ -281,7 +281,6 @@
   <div class="sep"></div>
   <span class="tb-btn outline" style="pointer-events:none;" title="当前研究模型">🤖 <span id="res-model-name">{{ current_model }}</span></span>
   <a href="/kc_chart?symbol=600519.SH" class="tb-btn outline" id="kc-link" target="_blank">📊 KC Chart</a>
-  <a href="/tv_chart?symbol=600519.SH" class="tb-btn outline" id="tv-link" target="_blank">📈 TV Pro</a>
   <span class="status" id="refresh-msg"></span>
 </div>
 
@@ -467,7 +466,6 @@ async function loadResearch() {
 
   // 3. 更新外链
   document.getElementById('kc-link').href = `/kc_chart?symbol=${encodeURIComponent(symbol)}`;
-  document.getElementById('tv-link').href = `/tv_chart?symbol=${encodeURIComponent(symbol)}`;
 
   // 4. 右侧面板占位
   document.getElementById('m-price').textContent = '--';

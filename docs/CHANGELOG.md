@@ -10,6 +10,7 @@
 - P0-B2（`4f7b20a`）：新增 `DataQualityBanner`，为研究行情相关端点统一注入 `source`、`as_of`、`age_seconds`、`is_mock`、`is_stale`，区分 live、cache/store/fallback/duckdb 与 mock/synthetic 数据。
 - 验证：`PYTHONPATH="" .venv/bin/python -m pytest tests/ -q --tb=short` → `1136 passed, 10 skipped`。
 - P0-B3：旧盯盘 URL 已以 `302` 深链接归并到 `/market_leaders` 的对应 tab；`momentum_dashboard` 的 localhost iframe 已下线。`/tv_chart` 保持独立的可选 TradingView Charting Library 集成，未纳入本次迁移。
+- P0-B4：默认 WebUI 不再暴露未安装专有 Charting Library 的 TV Pro 页面；`/tv_chart` 作为兼容 URL 以 `302` 保留股票代码并跳转到已支持的 `/kc_chart`。`/api/v1/tv/*` 与 Datafeed 兼容资产保留。
 
 ## Workspace Snapshot — 2026-07-08（local / unreleased）
 

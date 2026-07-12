@@ -66,7 +66,6 @@ PAGE_ROUTES = [
     ("/data_health", "ops/data_health"),
     ("/settings", "ops/settings"),
     ("/ai_agent", "research/ai_agent"),
-    ("/tv_chart", "watch_center/tv_chart"),
     ("/kc_chart", "watch_center/kc_chart"),
     ("/market_leaders", "watch_center/market_leaders"),
     ("/portfolio", "portfolio/portfolio"),
@@ -82,6 +81,7 @@ LEGACY_REDIRECTS = [
     ("/sectors", "/market_leaders?tab=sectors"),
     ("/northbound", "/market_leaders?tab=northbound"),
     ("/momentum_rotation", "/market_leaders?tab=rotation"),
+    ("/tv_chart", "/kc_chart?symbol=600519.SH"),
 ]
 
 
@@ -162,6 +162,11 @@ class TestWebPageRendering:
         assert resp.status_code == 302
         assert resp.headers["Location"].endswith(target)
 
+    def test_tv_chart_legacy_url_preserves_symbol(self, client):
+        resp = client.get("/tv_chart?symbol=000001.SZ", follow_redirects=False)
+        assert resp.status_code == 302
+        assert resp.headers["Location"].endswith("/kc_chart?symbol=000001.SZ")
+
 
 class TestWebSpecificPages:
     """Tests specific to individual page content."""
@@ -184,6 +189,9 @@ class TestWebSpecificPages:
         assert "tab-news" in html
         assert "tab-stocknews" in html
         assert "tab-analysis" in html
+        assert "TV Pro" not in html
+        assert "/tv_chart" not in html
+        assert "kc-link" in html
 
     def test_kc_chart_has_loader_race_guards(self, client):
         resp = client.get("/kc_chart")

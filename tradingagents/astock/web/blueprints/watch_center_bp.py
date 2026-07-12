@@ -1,7 +1,7 @@
 """Watch Center page routes — Phase 17.
 
 Pages: /watchlist, /batch-analyze, /screener, /market_leaders, /monitor,
-       /tv_chart, /kc_chart, /dragon_tiger, /sectors, /northbound,
+       /kc_chart, /dragon_tiger, /sectors, /northbound,
        /momentum_rotation
 Templates live in templates/watch_center/
 """
@@ -39,9 +39,10 @@ def monitor() -> str:
 
 
 @bp.route("/tv_chart")
-def tv_chart() -> str:
+def tv_chart():
+    """Keep the historic TV URL while routing to the supported KC Chart."""
     symbol = request.args.get("symbol", "600519.SH")
-    return render_template("watch_center/tv_chart.html", symbol=symbol)
+    return redirect(url_for("web.watch_center.kc_chart", symbol=symbol), code=302)
 
 
 @bp.route("/kc_chart")
