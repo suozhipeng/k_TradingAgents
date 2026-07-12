@@ -10,7 +10,8 @@
 - P2-D1（`6c2a970`）：`DataHub` 组件 — 数据刷新（自选标的/周期/模式/估值）、异步任务列表（实时进度轮询）、数据源健康探测（8 适配器 + DuckDB 状态）、数据库统计看板
 - P2-R2（`81aa5de`）：`DashboardPage` 组件 — 正式首页，聚合市场概览/数据新鲜度/决策摘要/自选股/告警/最近回测，1分钟自动轮询
 - P2-R3（`437e4ba`）：`ResearchPage` 组件 — 报价/K线/F10/新闻/公告/AI分析 6 tab 闭环，SVG K线迷你图，AI分析触发
-- React 构建产物：51 modules, 256 KB JS, TypeScript 编译通过
+- P2-R4（`1f3c7c3`）：`StrategyLab` 组件 — 回测运行(参数表单+结果卡片+SVG权益曲线)/历史结果/MC龙头排行 3 tab
+- React 构建产物：52 modules, 266 KB JS, TypeScript 编译通过
 
 **Research-only 边界与行情可信度契约**
 
