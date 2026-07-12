@@ -47,12 +47,12 @@
 
 以下是当前仍未闭环的项目；其中第一组属于已明确范围外，不应被误列为 WebUI 缺陷：
 
-| 优先级 | 项目 | 状态与边界 |
+|| 优先级 | 项目 | 状态与边界 ||
 |---|---|---|
 | P3 / 范围外 | 真实券商与真实 QMT 订单、委托、成交回报 reconciliation | 不接入；当前仅保留 managed mock/read-only 兼容语义 |
 | P2 | Iwencai live Provider 验证 | 依赖 `ASTOCK_IWENCAI_COOKIE`；缺失时按设计跳过 |
-|| P2 | 可选测试依赖 | `python-pptx`、`pyarrow`/`fastparquet` 未安装时相关用例跳过（已优化为模块级 `_HAS_PPTX` / `_HAS_PARQUET` 常量）；不影响离线核心基线 |
-| P2 | React/TS 实验前端 | API 客户端已存在，但尚未成为正式产品面；当前正式 WebUI 为 Jinja2 |
+| P2 | 可选测试依赖 | `python-pptx`、`pyarrow`/`fastparquet` 未安装时相关用例跳过（已优化为模块级 `_HAS_PPTX` / `_HAS_PARQUET` 常量）；不影响离线核心基线 |
+| P2 | React/TS 正式工作台 | ✅ 进行中 — P2-R1 (VITE_API_BASE_URL/Vite proxy/HealthCheck) + P2-D1 (Data Hub 数据中心 4 tab) 已完成；P2-R2 正式首页开发中 |
 | P3 / 范围外 | RBAC、多用户、SLA、故障分级与完整安全专项 | 已登记，尚未纳入当前 Research-only 产品范围 |
 
 ## 2. P0

@@ -4,6 +4,12 @@
 
 ## Workspace Snapshot — 2026-07-12（xg_dev）
 
+**React 正式工作台进展**
+
+- P2-R1（`e5087ba`）：`VITE_API_BASE_URL` 环境变量替代硬编码 localhost；Vite dev proxy `/api` → `localhost:5860`；`.env.example` 模板；`HealthCheck` 组件（版本/连接状态）；API 客户端新增 `createRefreshJob`/`listJobs`/`getJob`/`cacheStatus` 等方法
+- P2-D1（`6c2a970`）：`DataHub` 组件 — 数据刷新（自选标的/周期/模式/估值）、异步任务列表（实时进度轮询）、数据源健康探测（8 适配器 + DuckDB 状态）、数据库统计看板
+- React 构建产物：49 modules, 238 KB JS, TypeScript 编译通过
+
 **Research-only 边界与行情可信度契约**
 
 - P0-B1（`adbfcb0`）：默认启用 `ASTOCK_RESEARCH_ONLY`；执行页面重定向到 `/dashboard`，执行 API 返回 `410 research_only`，研究 UI 使用 `/api/v1/market/quote`。
