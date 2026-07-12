@@ -4,12 +4,13 @@
 
 ## 当前状态
 
-| 当前本地状态以 [`docs/phase-archive.md`](docs/phase-archive.md) 和 [`04-development.md`](04-development.md) 为准 |
-- 2026-07-10 本地离线验证基线：`1136 passed, 10 skipped`
+| 当前本地状态以 [`phase-archive.md`](phase-archive.md)、[`CHANGELOG.md`](CHANGELOG.md) 和 [`04-development.md`](04-development.md) 为准 |
+- 2026-07-12 本地离线验证基线：`1112 passed, 15 skipped`（未设置 `DEEPSEEK_API_KEY`，避免把无效凭证误当作 live 回归）
 - 2026-07-08 已完成真实 live 验收：DeepSeek live API `1 passed`，live provider `7 passed, 1 skipped`，端到端 `live_research` pipeline `VERIFICATION PASSED`
 - 当前唯一未闭环 live 依赖为 `ASTOCK_IWENCAI_COOKIE`；未配置时 Iwencai 用例按设计跳过
 - 默认产品范围为 Research-only：投研分析 + 策略回测 + 市场盯盘；执行页面与 `/api/v1/trade/*`、`/paper/*`、`/qmt/*`、`/portfolio/*` API 默认不可用。`ASTOCK_RESEARCH_ONLY=false` 仅保留兼容模式；**不接入真实券商**。
 - 行情响应统一包含 `source`、`as_of`、`age_seconds`、`is_mock`、`is_stale`，UI 与调用方必须据此区分实时、缓存、降级与模拟数据。
+- Jinja2 WebUI 已收敛为 22 个非共享页面模板与 2 个共享模板；旧盯盘 URL 以 `302` 跳转到 Market Leaders，唯一支持的图表入口为 KC Chart。
 
 ## 📂 文档结构
 
@@ -27,7 +28,7 @@ docs/
 
 │   ├── README.md          ← 阶段索引
 │   ├── TEMPLATE.md        ← 阶段模板
-│   └── docs/phase-archive.md   ← Phase 31-39 交付总结
+│   └── phase-archive.md   ← Phase 31-39 交付总结
 ├── database_module_whitepaper.md ← 数据库模块白皮书
 ├── full_function_documentation.md ← 全功能文档
 ```
@@ -38,7 +39,7 @@ docs/
 
 | 我想... | 打开... |
 |---------|---------|
-| 看当前状态 | [docs/phase-archive.md](docs/phase-archive.md) |
+| 看当前状态 | [phase-archive.md](phase-archive.md) |
 | 看当前计划 | [BACKLOG.md](BACKLOG.md) |
 | 查版本变更 | [../CHANGELOG.md](../CHANGELOG.md) |
 | 全功能概览 | [full_function_documentation.md](full_function_documentation.md) |
@@ -77,13 +78,12 @@ docs/
 
 | 我想... | 打开... |
 |---------|---------|
-| 阶段索引 | [docs/phase-archive.md](docs/phase-archive.md) |
-| 阶段模板 | [docs/phase-template.md](docs/phase-template.md) |
-| Phase 31-39 交付总结 | [docs/phase-archive.md](docs/phase-archive.md) |
+| 阶段索引 | [phase-archive.md](phase-archive.md) |
+| 阶段模板 | [phase-template.md](phase-template.md) |
+| Phase 31-39 交付总结 | [phase-archive.md](phase-archive.md) |
 
 ## ⚠️ 已知文档缺口
 
 | 代码模块 | 状态 |
 |---------|------|
 | `tradingagents/astock/schemas/` (7 个 Pydantic 模型) | 未记录 — API 层面的 schema 已在 `01-architecture.md` §5 覆盖，内部模型属于实现细节 |
-

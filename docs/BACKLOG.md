@@ -43,6 +43,18 @@
 | — | — | `FR-09` 页面级收口 | ✅ 已完成 — 旧入口 301/302 redirect + legacy_banner + 7 模块 sidebar 收敛 |
 | — | — | `FR-07` 受控执行边界 | ✅ 已完成 — RiskGate 全链路 + QMT mock/read-only 固定；真实 broker reconciliation 为 P3 范围外设计决策 |
 
+## 1.3 当前未完成项（2026-07-12）
+
+以下是当前仍未闭环的项目；其中第一组属于已明确范围外，不应被误列为 WebUI 缺陷：
+
+| 优先级 | 项目 | 状态与边界 |
+|---|---|---|
+| P3 / 范围外 | 真实券商与真实 QMT 订单、委托、成交回报 reconciliation | 不接入；当前仅保留 managed mock/read-only 兼容语义 |
+| P2 | Iwencai live Provider 验证 | 依赖 `ASTOCK_IWENCAI_COOKIE`；缺失时按设计跳过 |
+| P2 | 可选测试依赖 | `python-pptx`、`pyarrow`/`fastparquet` 未安装时相关用例跳过；不影响离线核心基线 |
+| P2 | React/TS 实验前端 | API 客户端已存在，但尚未成为正式产品面；当前正式 WebUI 为 Jinja2 |
+| P3 / 范围外 | RBAC、多用户、SLA、故障分级与完整安全专项 | 已登记，尚未纳入当前 Research-only 产品范围 |
+
 ## 2. P0
 
 ### BL-000 建立实盘准入清单
@@ -51,7 +63,7 @@
 
 | 验证项 | 结果 | 说明 |
 |--------|------|------|
-| 离线测试基线 | 1082 passed, 10 skipped | 零失败 |
+| 离线测试基线（历史，2026-07-08） | 1082 passed, 10 skipped | 零失败；当前离线基线见 §1.3 与文档首页 |
 | Live Provider (akshare) | 7 passed, 1 skipped | 全部 7 个 provider 测试通过；iwencai 需 cookie |
 | Live Provider (tencent) | 5/5 ok | order_book/trade_tape/turnover 全部 ok |
 | Live Provider (cninfo) | 2/2 ok | announcement_summary/full 全部 ok |
@@ -110,7 +122,7 @@
 验收证据：
 
 - `tests/test_astock_data_quality_banner.py` 覆盖来源分类、TTL、时区、空字典和非法输入边界。
-- 2026-07-10 全量回归：`1136 passed, 10 skipped`。
+- 历史回归（2026-07-10）：`1136 passed, 10 skipped`；当前离线基线见 §1.3 与文档首页。
 
 ### BL-004 为专业交易页建立正式归档
 

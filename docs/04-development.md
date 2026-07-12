@@ -645,13 +645,13 @@
 
 # A 股需求追踪矩阵
 
-| 更新时间：2026-07-08 |
+| 更新时间：2026-07-12 |
 
 本文用于把产品需求、模块边界、API/WebUI、测试和 phase 归档串成闭环。后续每个 phase 开发前，应先在本文确认需求 ID、模块归属和验收证据位置；开发完成后，更新状态和测试/phase 证据。
 
-当前本地验证基线（2026-07-08）：
-- `DEEPSEEK_API_KEY=placeholder pytest -q` → `1082 passed, 10 skipped`
-- 真实 live 验收已补跑：DeepSeek live API `1 passed`，live provider `7 passed, 1 skipped`
+当前本地验证基线（2026-07-12）：
+- `env -u DEEPSEEK_API_KEY .venv/bin/python -m pytest -q` → `1112 passed, 15 skipped`
+- 历史真实 live 验收：DeepSeek live API `1 passed`，live provider `7 passed, 1 skipped`
 - `scripts/verify_astock_live_pipeline.py` 在 `TRADINGAGENTS_LLM_PROVIDER=deepseek` + `live_research` 配置下返回 `VERIFICATION PASSED`
 - 当前未闭环项仅为 `ASTOCK_IWENCAI_COOKIE` 缺失时 Iwencai live 用例跳过
 
@@ -676,7 +676,7 @@
 | FR-06 | 回测与模拟盘 | Strategy Lab / Trading | `backtest_engine.py`, `paper_trader.py`, `metrics.py` | `routes_backtest.py`, `paper.html`, `strategy_hub.html` | `tests/test_astock_backtest.py`, `tests/test_astock_paper_trader.py` | 10, 14, 18-20 | ✅ done (持久化 + /backtest/results + 日期校验 + sanitize) |
 | FR-07 | 受控执行 | Trading & Execution | `qmt_bridge.py`, `qmt_execution.py`, `risk_gate.py` | `routes_qmt.py`, `routes_trade.py`, `trading.html`, `risk.html` | QMT/risk gate tests, Phase 11/29 归档 | 11, 29 | ✅ done (RiskGate 12 种约束 + ATR 止损 + kill switch 全链路落地；QMT 固定 mock/read-only；真实 broker reconciliation 为 P3 范围外设计决策，非遗漏) |
 | FR-08 | 本地存储与缓存 | Data & Ops | `store/`, cache, data refresh routes | `settings.html`, `data_health.html` | Phase 12/19/27 归档 | 12, 19, 27 | done |
-| FR-09 | WebUI 产品能力 | WebUI Shell | `tradingagents/astock/web/` | Dashboard / Research / Strategy / Leaders / Trading / Ops | WebUI/API slice tests | 13, 15-17, 22-29 | ✅ done (旧入口 301/302 redirect + legacy_banner 提示 + 7 模块 sidebar 收敛 + 所有模板继承 base.html) |
+| FR-09 | WebUI 产品能力 | WebUI Shell | `tradingagents/astock/web/` | Dashboard / Research / Strategy / Leaders / Trading / Ops | WebUI/API slice tests | 13, 15-17, 22-29 | ✅ done (旧入口 301/302 redirect + 7 模块 sidebar 收敛；重复盯盘页与不可用 TV Pro 已收口；除独立回测布局外页面继承 base) |
 | FR-10 | 测试与回归 | Test & Release | `tests/`, `tests/conftest.py` | N/A | Phase 21 归档、切片回归 | 21 | done |
 | FR-11 | Daily market review (DSA-01) — per trading day aggregated report | Data & Ops | `routes_daily.py` | `/daily` + `GET /api/v1/daily/review` | Web-P0 evidence + current local regression baseline (2026-07-08) | Web-P0 | ✅ done |
 | FR-12 | Watchlist batch analysis (DSA-02/DSA-04) — real research query | Watch Center / AI Research Center | `routes_watchlist.py` | Watch Center batch-analyze | DSA-02/04 归档 | Web-P4 | ✅ done (stub → real query) |
@@ -733,7 +733,7 @@
 - `FR-07` 受控执行已有 trade/QMT/UI 接线，schema/PaperTrader Order 返回、RiskGate、kill switch 均已落地；QMT API/UI 已固定 mock/read-only，`/api/v1/qmt/health?real=1` 不启用真实 bridge，`/api/v1/qmt/orders` 仅返回 mock account snapshot 且 `orders` 固定为空兼容字段；真实 QMT 订单/委托查询明确 P3 暂不接入。
 - `FR-09` WebUI 顶层信息架构已基本收敛到 7 个模块；主工作台与页面主链已落地，BL-201/BL-205/BL-204 已闭环。
 - `NFR-02` 可审计性已有 `audit_store.py` (内存+DuckDB)、`TaskRun`/`AuditEvent` schema、Ops routes 和 SSE events，标记为 `done`（底层已落地）。
-- 当前本地离线全量回归基线为 `1082 passed, 10 skipped`；真实 live 验收已补跑：DeepSeek `1 passed`、provider `7 passed, 1 skipped`、pipeline `VERIFICATION PASSED`；Iwencai 仍受 `ASTOCK_IWENCAI_COOKIE` 配置约束。
+- 当前本地离线全量回归基线为 `1112 passed, 15 skipped`（2026-07-12，未设置 `DEEPSEEK_API_KEY`）；历史 live 验收：DeepSeek `1 passed`、provider `7 passed, 1 skipped`、pipeline `VERIFICATION PASSED`；Iwencai 仍受 `ASTOCK_IWENCAI_COOKIE` 配置约束。
 - 已知缺口：`announcement_*` 路由优先级为 cninfo 但测试 facade 仅注册 akshare 属预期行为。
 - 已修复：`sector` 能力 — akshare 适配器新增 `get_sector_data()` 实现（基于 THS `stock_board_industry_summary_ths` + EM `stock_board_concept_spot_em`），路由策略与实际实现对齐。
 - 安全与隐私、SLA 与故障分级、用户角色/RBAC 当前只登记在 `README.md`，不进入本矩阵需求行。

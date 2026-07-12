@@ -2,15 +2,16 @@
 
 > 记录每个版本的架构变更、模块清单和关键决策。对应 `CHANGELOG.md`。
 
-## Workspace Snapshot — 2026-07-10（xg_dev）
+## Workspace Snapshot — 2026-07-12（xg_dev）
 
 **Research-only 边界与行情可信度契约**
 
 - P0-B1（`adbfcb0`）：默认启用 `ASTOCK_RESEARCH_ONLY`；执行页面重定向到 `/dashboard`，执行 API 返回 `410 research_only`，研究 UI 使用 `/api/v1/market/quote`。
 - P0-B2（`4f7b20a`）：新增 `DataQualityBanner`，为研究行情相关端点统一注入 `source`、`as_of`、`age_seconds`、`is_mock`、`is_stale`，区分 live、cache/store/fallback/duckdb 与 mock/synthetic 数据。
-- 验证：`PYTHONPATH="" .venv/bin/python -m pytest tests/ -q --tb=short` → `1136 passed, 10 skipped`。
+- 当前离线验证：`env -u DEEPSEEK_API_KEY .venv/bin/python -m pytest -q` → `1112 passed, 15 skipped`。
 - P0-B3：旧盯盘 URL 已以 `302` 深链接归并到 `/market_leaders` 的对应 tab；`momentum_dashboard` 的 localhost iframe 已下线。`/tv_chart` 保持独立的可选 TradingView Charting Library 集成，未纳入本次迁移。
 - P0-B4：默认 WebUI 不再暴露未安装专有 Charting Library 的 TV Pro 页面；`/tv_chart` 作为兼容 URL 以 `302` 保留股票代码并跳转到已支持的 `/kc_chart`。`/api/v1/tv/*` 与 Datafeed 兼容资产保留。
+- P0-B5（`9ba4e95`）：删除 4 份无路由渲染的重复盯盘模板；旧 URL 仍以 `302` 跳入 Market Leaders 对应 tab。Jinja2 当前为 22 个非共享页面模板与 2 个共享模板。
 
 ## Workspace Snapshot — 2026-07-08（local / unreleased）
 
@@ -104,7 +105,7 @@
 | astock/store/ | 8 + models/6 | DuckDB/PG/ClickHouse 三后端（33 ORM 模型） |
 | astock/execution/ | 18 (核心) | 10 单股策略 + 1 组合策略 + 回测/模拟/QMT/风控 |
 | astock/api/ | 27 蓝图 | 119 端点 REST API（110 唯一路径） |
-| astock/web/ | 30 模板 | Flask Jinja2 WebUI（含 6 模块 blueprint） |
+| astock/web/ | 24 HTML 文件 | Flask Jinja2 WebUI（22 个非共享页面模板 + `base.html` / macros；含 6 个页面 blueprint） |
 | astock/schemas/ | 7 | Pydantic 数据模型（API.md §5 已覆盖） |
 | astock/quality/ | 3 | 数据质量门控 |
 | astock/alert/ | 2 | 预警系统 |

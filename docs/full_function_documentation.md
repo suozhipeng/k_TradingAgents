@@ -44,7 +44,7 @@ TradingAgents 是一个面向 A 股市场的 AI 驱动量化研究与交易系�
 | **策略回测** | 12 种策略 + 遗传算法优化 + 滚动窗口分析 + T+1 结算约束 |
 | **模拟交易** | 完整模拟交易周期 + QMT managed mock/read-only 边界 |
 | **数据质量门禁** | 内置校验规则 + 自定义规则引擎 + 数据隔离区 |
-| **Web UI** | 30 个模板文件 / 36+ 条 Web route，Tailwind 暗色主题 |
+| **Web UI** | 24 个 HTML 文件（22 个非共享页面模板 + 2 个共享模板）；旧盯盘 URL 302 归并到 Market Leaders，KC Chart 为支持的图表入口 |
 | **REST API** | 118 条 `/api/v1` route decorators（27 个 API 蓝图，109 个唯一路径）；支持 Bearer Token + TokenBucket，默认保护所有状态变更请求，DuckDB 与 PostgreSQL 行为一致 |
 | **CLI** | Typer + Rich TUI 交互式终端 |
 
