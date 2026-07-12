@@ -14,6 +14,7 @@ import ReportViewerWrapper from "./components/ReportViewer";
 import RiskPanel from "./components/RiskPanel";
 import { LocaleProvider, useTranslation } from "./hooks/useTranslation";
 import { useApi } from "./hooks/useApi";
+import HealthCheck from "./components/HealthCheck";
 import { MarketProvider } from "./components/MarketSwitch";
 import rawModules from "./data/modules.json";
 import type { ModuleRecord, ModuleType } from "./types";
@@ -164,6 +165,7 @@ function AppContent() {
               ))}
             </nav>
             <div className="flex items-center gap-2">
+              <HealthCheck />
               <MarketSwitch />
               <LangSwitch />
             </div>
