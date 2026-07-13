@@ -135,11 +135,14 @@ def create_refresh_job() -> tuple[Response, int]:
     router = current_app.config.get("DATA_FACADE")
 
     def run(update: Any) -> dict[str, Any]:
-        from tradingagents.astock.store.loader import KlineLoader, ValuationLoader
+        from tradingagents.astock.store.loader import KlineLoader, ValuationLoader, BatchLoader
         kline_loader = KlineLoader(store, router)
         valuation_loader = ValuationLoader(store, router)
+        batch_loader = BatchLoader(store, router)
         completed = 0
         results: dict[str, Any] = {"mode": mode, "kline": {}, "valuations": {}}
+        use_concurrent = len(symbols) > 3
+
         for symbol in symbols:
             for interval in intervals:
                 update(message=f"refreshing kline {symbol} {interval}", completed=completed)
@@ -158,6 +161,20 @@ def create_refresh_job() -> tuple[Response, int]:
                 results["valuations"][symbol] = count
                 completed += 1
                 update(completed=completed, result=results)
+
+        # Concurrent batch refresh for large symbol sets
+        if use_concurrent:
+            update(message="switching to concurrent batch mode", completed=completed)
+            kline_results = batch_loader.load_kline_batch_concurrent(
+                symbols, start=start, end=end, interval=intervals[0]
+            )
+            results["kline"].update({
+                f"{sym}:batch": {"rows_upserted": cnt} for sym, cnt in kline_results.items()
+            })
+            if include_valuation:
+                val_results = batch_loader.load_valuations_batch_concurrent(symbols, start=start, end=end)
+                results["valuations"].update(val_results)
+
         return results
 
     job = _jobs().submit("refresh", run, total=total, message="queued refresh")

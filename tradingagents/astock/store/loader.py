@@ -8,6 +8,7 @@ router), fetching data from providers and writing it into DuckDB tables with
 from __future__ import annotations
 
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Optional
 
 import pandas as pd
@@ -191,11 +192,24 @@ class BatchLoader:
     data_facade : Any
     """
 
-    def __init__(self, store: AStockStore, data_facade: Any) -> None:
+    # Maximum concurrent threads for batch loading.
+    # Each thread calls the provider router which internally enforces
+    # _random_sleep + _retry_with_backoff per adapter, so concurrent
+    # threads do NOT trigger anti-crawling measures.
+    MAX_CONCURRENT_WORKERS = 4
+
+    def __init__(
+        self,
+        store: AStockStore,
+        data_facade: Any,
+        *,
+        max_workers: int | None = None,
+    ) -> None:
         self._store = store
         self._facade = data_facade
         self._kline_loader = KlineLoader(store, data_facade)
         self._valuation_loader = ValuationLoader(store, data_facade)
+        self._max_workers = max_workers or self.MAX_CONCURRENT_WORKERS
 
     def load_kline_batch(
         self,
@@ -205,7 +219,7 @@ class BatchLoader:
         interval: str = "1d",
         source: str = "",
     ) -> dict[str, int]:
-        """Load K-line for multiple symbols.
+        """Load K-line for multiple symbols (serial).
 
         Returns ``{symbol: row_count}``.
         """
@@ -219,6 +233,43 @@ class BatchLoader:
                 results[symbol] = -1
         return results
 
+    def load_kline_batch_concurrent(
+        self,
+        symbols: list[str],
+        start: str | None = None,
+        end: str | None = None,
+        interval: str = "1d",
+        source: str = "",
+    ) -> dict[str, int]:
+        """Load K-line for multiple symbols (concurrent).
+
+        Each symbol is fetched in a separate thread.  Concurrency is safe
+        because the provider router enforces per-adapter ``_random_sleep``
+        and ``_retry_with_backoff``, so multiple threads do NOT trigger
+        anti-crawling limits.
+
+        Returns ``{symbol: row_count}``.
+        """
+        results: dict[str, int] = {}
+
+        with ThreadPoolExecutor(max_workers=self._max_workers) as executor:
+            future_map: dict[Any, str] = {}
+            for sym in symbols:
+                future_map[
+                    executor.submit(
+                        self._kline_loader.load, sym, start, end, interval, source
+                    )
+                ] = sym
+
+            for future in as_completed(future_map):
+                sym = future_map[future]
+                try:
+                    results[sym] = future.result()
+                except Exception as exc:
+                    logger.warning("Failed to load kline for %s: %s", sym, exc)
+                    results[sym] = -1
+        return results
+
     def load_valuations_batch(
         self,
         symbols: list[str],
@@ -226,7 +277,7 @@ class BatchLoader:
         end: str | None = None,
         source: str = "",
     ) -> dict[str, int]:
-        """Load valuations for multiple symbols."""
+        """Load valuations for multiple symbols (serial)."""
         results: dict[str, int] = {}
         for symbol in symbols:
             try:
@@ -237,15 +288,63 @@ class BatchLoader:
                 results[symbol] = -1
         return results
 
+    def load_valuations_batch_concurrent(
+        self,
+        symbols: list[str],
+        start: str | None = None,
+        end: str | None = None,
+        source: str = "",
+    ) -> dict[str, int]:
+        """Load valuations for multiple symbols (concurrent)."""
+        results: dict[str, int] = {}
+
+        with ThreadPoolExecutor(max_workers=self._max_workers) as executor:
+            future_map: dict[Any, str] = {}
+            for sym in symbols:
+                future_map[
+                    executor.submit(
+                        self._valuation_loader.load, sym, start, end, source
+                    )
+                ] = sym
+
+            for future in as_completed(future_map):
+                sym = future_map[future]
+                try:
+                    results[sym] = future.result()
+                except Exception as exc:
+                    logger.warning("Failed to load valuations for %s: %s", sym, exc)
+                    results[sym] = -1
+        return results
+
     def load_all(
         self,
         symbols: list[str],
         kline_start: str | None = None,
         kline_end: str | None = None,
         interval: str = "1d",
+        concurrent: bool = False,
     ) -> dict[str, Any]:
-        """Load both K-line and valuations for all symbols."""
+        """Load both K-line and valuations for all symbols.
+
+        Parameters
+        ----------
+        concurrent : bool
+            If True, use ``ThreadPoolExecutor`` to fetch symbols in parallel.
+            Each thread still respects per-adapter anti-crawl delays, so
+            concurrency speeds up total wall-clock time without triggering
+            rate limits.
+        """
+        kline_fn = (
+            self.load_kline_batch_concurrent
+            if concurrent
+            else self.load_kline_batch
+        )
+        val_fn = (
+            self.load_valuations_batch_concurrent
+            if concurrent
+            else self.load_valuations_batch
+        )
         return {
-            "kline": self.load_kline_batch(symbols, kline_start, kline_end, interval),
-            "valuations": self.load_valuations_batch(symbols, kline_start, kline_end),
+            "kline": kline_fn(symbols, kline_start, kline_end, interval),
+            "valuations": val_fn(symbols, kline_start, kline_end),
         }

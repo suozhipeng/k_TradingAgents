@@ -105,7 +105,7 @@ class DataJobManager:
 
     def __init__(
         self,
-        max_workers: int = 2,
+        max_workers: int = 4,
         store: Any = None,  # AStockStore (avoid circular import at class level)
     ) -> None:
         self._executor = ThreadPoolExecutor(max_workers=max_workers)
