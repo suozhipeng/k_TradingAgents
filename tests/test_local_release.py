@@ -29,10 +29,12 @@ def test_local_release_enforces_scope_and_disables_scheduler(app):
 def test_local_release_serves_analysis_and_backtest_pages_only(app):
     client = app.test_client()
     assert client.get("/").status_code == 302
-    for path in ("/dashboard", "/research", "/strategy_hub", "/reports", "/data_health"):
+    for path in ("/dashboard", "/research", "/strategy_hub", "/reports", "/data_health", "/settings"):
         assert client.get(path).status_code == 200, path
-    for path in ("/trading", "/paper", "/qmt", "/risk", "/portfolio"):
+    for path in ("/trading", "/paper", "/qmt", "/risk", "/portfolio", "/ops_audit"):
         assert client.get(path).status_code == 404, path
+    assert "开发中" not in client.get("/settings").get_data(as_text=True)
+    assert "/ops_audit" not in client.get("/settings").get_data(as_text=True)
     assert client.get("/not-a-workbench-route").status_code == 404
     assert client.get("/web/static/js/api-client.js").status_code == 200
 

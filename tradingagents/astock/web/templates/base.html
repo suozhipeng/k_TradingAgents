@@ -540,7 +540,9 @@
         <div class="as-palette-item" data-url="/market_leaders"><span class="icon">⚡</span> 龙头股 Market Leaders <span class="path">/market_leaders</span></div>
         <div class="as-palette-item" data-url="/ai_agent"><span class="icon">🤖</span> AI Agent <span class="path">/ai_agent</span></div>
         <div class="as-palette-item" data-url="/reports"><span class="icon">📄</span> 报告中心 Reports <span class="path">/reports</span></div>
+        {% if not config.get('ASTOCK_LOCAL_RELEASE', false) %}
         <div class="as-palette-item" data-url="/ops_audit"><span class="icon">📋</span> 运维审计 <span class="path">/ops_audit</span></div>
+        {% endif %}
         <div class="as-palette-item" data-url="/data_health"><span class="icon">❤️</span> 数据健康 <span class="path">/data_health</span></div>
         <div class="as-palette-item" data-url="/settings"><span class="icon">⚙️</span> 系统设置 <span class="path">/settings</span></div>
         <div class="as-palette-item" data-url="/kc_chart?symbol=600519.SH"><span class="icon">📈</span> KLineChart 专业图 <span class="path">/kc_chart</span></div>

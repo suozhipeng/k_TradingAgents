@@ -30,13 +30,18 @@ logging.basicConfig(
 _parser = argparse.ArgumentParser(add_help=False)
 _parser.add_argument("--no-web", action="store_true")
 _parser.add_argument("--local-release", action="store_true")
+_parser.add_argument("--standard", action="store_true")
 _parsed, remaining = _parser.parse_known_args()
 if _parsed.no_web:
     os.environ.setdefault("ASTOCK_ENABLE_WEB_UI", "false")
-if _parsed.local_release:
+if _parsed.standard:
+    os.environ["ASTOCK_LOCAL_RELEASE"] = "false"
+elif _parsed.local_release or "ASTOCK_LOCAL_RELEASE" not in os.environ:
+    # The standalone launcher is the supported local formal-release entrypoint.
+    # Keep legacy execution-capable startup behind an explicit opt-out.
     os.environ["ASTOCK_LOCAL_RELEASE"] = "true"
 
-app = create_app()
+app = None
 
 
 def _start_scheduler(interval_minutes: int) -> None:
@@ -50,6 +55,8 @@ def _start_scheduler(interval_minutes: int) -> None:
     from tradingagents.astock.execution.scheduler import PaperTradeScheduler
     from tradingagents.astock.store.schema import AStockStore
 
+    if app is None:
+        raise RuntimeError("Application must be created before starting the scheduler")
     store: AStockStore = app.config.get("STORE")  # type: ignore[assignment]
     if store is None:
         print("ERROR: No store available; cannot start scheduler", file=sys.stderr)
@@ -86,10 +93,16 @@ if __name__ == "__main__":
         action="store_true",
         help="Disable the Jinja2 WebUI (default: enabled)",
     )
-    parser.add_argument(
+    release_mode = parser.add_mutually_exclusive_group()
+    release_mode.add_argument(
         "--local-release",
         action="store_true",
-        help="Run the analysis-and-backtest-only local formal release",
+        help="Run the analysis-and-backtest-only local formal release (default)",
+    )
+    release_mode.add_argument(
+        "--standard",
+        action="store_true",
+        help="Opt out of the local formal-release guard for legacy development only",
     )
     parser.add_argument(
         "--port",
@@ -97,7 +110,13 @@ if __name__ == "__main__":
         default=5860,
         help="Server port (default: 5860)",
     )
+    parser.add_argument(
+        "--host",
+        default="127.0.0.1",
+        help="Bind address (default: 127.0.0.1; use 0.0.0.0 only intentionally)",
+    )
     args = parser.parse_args()
+    app = create_app()
 
     if args.scheduler:
         _start_scheduler(args.interval)
@@ -106,4 +125,4 @@ if __name__ == "__main__":
         mode = "local analysis/backtest release" if app.config.get("ASTOCK_LOCAL_RELEASE") else "standard"
         logging.getLogger("run_astock_api").info("Web UI enabled at http://localhost:%d (%s)", args.port, mode)
 
-    app.run(host="0.0.0.0", port=args.port, debug=not app.config.get("ASTOCK_LOCAL_RELEASE", False))
+    app.run(host=args.host, port=args.port, debug=not app.config.get("ASTOCK_LOCAL_RELEASE", False))

@@ -7,9 +7,10 @@
 - 正式 Web 入口固定为 Flask/Jinja2：`.venv/bin/python scripts/run_astock_api.py --local-release --port 5860`。
 - `ASTOCK_LOCAL_RELEASE=true` 强制启用 research-only、关闭 PaperTradeScheduler，并拒绝交易、模拟盘、QMT、组合、调度和 paper SSE API；执行页面返回 404。
 - Jinja2 静态资源恢复由 `tradingagents/astock/web/static/` 提供；未知 Web 路由返回 404，不再返回 React shell。
+- 本地启动器默认进入 local-release 并仅绑定 `127.0.0.1`；`--standard` 仅用于遗留开发兼容。local-release 下 `/ops_audit` 返回 404，Settings 隐藏未完成的通知配置。
 - React Data Hub 改为消费 `/api/v1/data/refresh/options`；新增 `npm run test:release` 契约检查。React 不属于本地正式发布物。
 - 验收：`scripts/verify_local_release.sh` → 155 passed；React 发布契约和生产构建通过。
-- 全仓离线回归（69 个测试文件，按四组执行）：`env -u DEEPSEEK_API_KEY ASTOCK_TESTING=1 .venv/bin/python -m pytest -q` → `1130 passed, 9 skipped, 117 subtests passed`。当前 shell 的 DeepSeek key 被服务端返回 401，live structured-output 验收需使用有效凭据单独执行。
+- 全仓离线回归（69 个测试文件，按四组执行）：`env -u DEEPSEEK_API_KEY ASTOCK_TESTING=1 .venv/bin/python -m pytest -q` → `1130 passed, 9 skipped, 117 subtests passed`。使用运行环境注入的有效 DeepSeek key 后，live structured-output 验收已通过；凭据不写入版本库。
 
 ## Workspace Snapshot — 2026-07-12（xg_dev）
 

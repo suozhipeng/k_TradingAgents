@@ -65,6 +65,7 @@ document.addEventListener('DOMContentLoaded', function() {
 </div>
 
 <!-- ── Notification Settings ── -->
+{% if not local_release %}
 <div class="mt-6 card" id="notif-section">
   <h3 class="text-lg font-semibold text-white mb-4">🔔 推送通知设置</h3>
   <p class="text-xs text-gray-400 mb-4">配置报告完成、交易信号等事件的推送通知通道。</p>
@@ -122,7 +123,6 @@ document.addEventListener('DOMContentLoaded', function() {
       </div>
       <span class="tv-badge tv-badge-gray">开发中</span>
     </div>
-
     <!-- WeCom / DingTalk (placeholder) -->
     <div class="py-3 px-4 bg-dark-bg rounded-lg flex justify-between items-center opacity-60">
       <div>
@@ -154,6 +154,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
   <div id="notif-save-status" class="mt-3 text-xs text-gray-400"></div>
 </div>
+{% endif %}
 
 <!-- Data Refresh Panel -->
 <div class="mt-6 card">

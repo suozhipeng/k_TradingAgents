@@ -25,14 +25,14 @@
        └─ research-only guard：拒绝全部交易/执行 API
 ```
 
-本地正式版启动命令：`.venv/bin/python scripts/run_astock_api.py --local-release --port 5860`。React 不能宣称为默认入口或正式产品面。
+本地正式版启动命令：`.venv/bin/python scripts/run_astock_api.py --port 5860`（默认 local-release；`--local-release` 可显式声明）。服务默认仅绑定 `127.0.0.1`；`--standard` 仅供遗留开发兼容，不能作为发布入口。React 不能宣称为默认入口或正式产品面。
 
 ## 2. 当前问题清单
 
 | ID | 优先级 | 问题与证据 | 影响 |
 | --- | --- | --- | --- |
 | LFR-I01 | done | 固定 Flask/Jinja2 为唯一正式入口；根路径仍到 `/dashboard`，未知路径改为真实 404。 | 入口和监控语义明确。 |
-| LFR-I02 | done | `ASTOCK_LOCAL_RELEASE=true` 强制 research-only、关闭 scheduler；执行页面 404，执行/SSE/scheduler API 410。 | 仅分析与回测边界由配置、页面和 API 三层强制。 |
+| LFR-I02 | done | local-release 为启动器默认值，强制 research-only、关闭 scheduler；执行页面和未完成的 Ops Audit 页面 404，执行/SSE/scheduler API 410。 | 仅分析与回测边界由配置、页面和 API 三层强制。 |
 | LFR-I03 | done | Data Hub 读取 `/api/v1/data/refresh/options`，周期和模式按服务端返回渲染。 | 避免客户端能力漂移。 |
 | LFR-I04 | done | 增加 `npm run test:release` 前端契约检查，以及 Flask 关键路径的 `tests/test_local_release.py`。 | 构建之外有可执行发布门禁。 |
 | LFR-I05 | done | README、用户手册、Backlog 与本计划统一为 Flask/Jinja2 本地正式版。 | 发布口径一致。 |
@@ -47,7 +47,7 @@
 
 ## 4. 验收清单
 
-- [x] `ASTOCK_LOCAL_RELEASE=true` 时，执行路径均不可达。
+- [x] local-release 时，执行路径及未完成的 Ops Audit 页面均不可达；Settings 隐藏未完成通知渠道。
 - [x] 用户可完成：查看数据质量 → 研究标的 → 查看报告 → 运行/比较回测。
 - [x] 首页、导航和未知 URL 已有验收；数据质量状态沿用既有页面测试。
 - [x] 后端切片、前端契约检查与构建通过。
@@ -59,7 +59,7 @@
 
 本次已通过本地正式版的精确发布门禁（`scripts/verify_local_release.sh`），并于 2026-07-13 完成全仓离线回归：`env -u DEEPSEEK_API_KEY ASTOCK_TESTING=1 .venv/bin/python -m pytest -q`（按全部 69 个测试文件分四组执行以适配本地终端时限）→ `1130 passed, 9 skipped, 117 subtests passed`。
 
-当前 shell 中设置的 `DEEPSEEK_API_KEY` 被 DeepSeek 服务返回 401 invalid key；保留该值运行时，`tests/test_deepseek_reasoning.py::TestDeepSeekLiveStructuredOutput::test_v4_flash_returns_structured_output` 会失败。这是外部凭据失效，不属于离线回归或本地正式版代码缺陷；配置有效 key 后应单独执行 live 验收。
+已配置有效 `DEEPSEEK_API_KEY` 时，`tests/test_deepseek_reasoning.py::TestDeepSeekLiveStructuredOutput::test_v4_flash_returns_structured_output` 已于 2026-07-13 通过 live 验收。凭据只应由运行环境注入，禁止写入代码、文档或版本库。
 
 ## 5. 非目标
 
