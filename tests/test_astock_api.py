@@ -817,24 +817,30 @@ class TestMarketDataEndpoints:
             rm.em_industry_comparison = original_em
 
     def test_sectors_auto_fallback_returns_note(self, app):
-        """Test that when all real sources fail, mock data with _note is returned."""
+        """Test that mock data is returned when live and DuckDB fallbacks fail."""
         import tradingagents.astock.api.routes_market_data as rm
+
         original_em = rm.em_industry_comparison
         original_sina = rm.sina_industry_comparison
+        original_duckdb = rm.query_duckdb_valuations
+
         def _broken(*a, **kw):
             raise ConnectionError("Intentional test failure")
+
         rm.em_industry_comparison = _broken
         rm.sina_industry_comparison = _broken
+        rm.query_duckdb_valuations = lambda *a, **kw: None
         try:
             resp = app.get("/api/v1/market/sectors?top_n=5")
             assert resp.status_code == 200
             data = resp.get_json()
-            assert "_note" in data
+            assert data["source"] == "mock"
             assert "模拟数据" in data["_note"]
             assert len(data["top"]) > 0
         finally:
             rm.em_industry_comparison = original_em
             rm.sina_industry_comparison = original_sina
+            rm.query_duckdb_valuations = original_duckdb
 
     def test_northbound_mock(self, app):
         resp = app.get("/api/v1/market/northbound?mock=1")
