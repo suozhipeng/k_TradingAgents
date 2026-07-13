@@ -43,7 +43,7 @@
 
 | 顺序 | ID | 子任务 | 依赖 | 完成标准 |
 | ---: | --- | --- | --- | --- |
-| 1-11 | LFR-001~LFR-011 | 已完成；实现与验收对应见上表及 `scripts/verify_local_release.sh`。 | — | 2026-07-13 验证：后端/页面切片 146 passed；`npm run test:release` 通过；`npm run build` 通过。 |
+| 1-11 | LFR-001~LFR-011 | 已完成；实现与验收对应见上表及 `scripts/verify_local_release.sh`。 | — | 2026-07-13 验证：后端/页面/安全切片 155 passed；`npm run test:release` 通过；`npm run build` 通过。 |
 
 ## 4. 验收清单
 
@@ -54,6 +54,10 @@
 - [x] 验收脚本固定 `.venv/bin/python` 和 Node 命令。
 - [x] README、用户手册、Backlog 与实际入口一致。
 - [x] 既有风险披露继续适用于数据、AI 和回测输出。
+
+### 验证边界
+
+本次已通过本地正式版的精确发布门禁（`scripts/verify_local_release.sh`）。曾尝试全仓 `pytest -q`，但运行到约 24% 时未返回最终退出状态；因此没有将全仓回归标记为通过，后续应在可稳定完成的 CI 环境补充该证据。
 
 ## 5. 非目标
 
