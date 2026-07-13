@@ -31,61 +31,49 @@ def query_duckdb_valuations(
     symbol: str | None = None,
     top_n: int = 20,
 ) -> dict[str, Any] | None:
-    """Query recent valuation-like records from DuckDB as a fallback source."""
+    """Query recent valuation-like records from DuckDB as a fallback source.
+
+    Uses the store's existing DuckDB connection instead of opening a
+    separate ``duckdb.connect()`` to avoid double-connection conflicts.
+    """
     from flask import current_app
 
     store = current_app.config.get("STORE") if current_app else None
     if store is None:
         return None
     try:
-        import duckdb
-
-        db_path = store.db_path if hasattr(store, "db_path") else None
-        if not db_path:
-            db_path = getattr(store, "_db_path", None)
-        if not db_path:
-            conn = getattr(store, "_conn", None)
-            if conn:
-                db_path = ":memory:"
-            else:
-                return None
-
-        conn = duckdb.connect(db_path) if db_path != ":memory:" else None
+        conn = getattr(store, "conn", None) or getattr(store, "_conn", None)
         if conn is None:
             return None
 
         result = None
-        try:
-            if symbol:
-                rows = conn.execute(
-                    "SELECT symbol, trade_date, pe, pb, market_cap, source FROM valuations "
-                    "WHERE symbol = ? ORDER BY trade_date DESC LIMIT ?",
-                    [symbol, top_n],
-                ).fetchall()
-            else:
-                rows = conn.execute(
-                    "SELECT symbol, trade_date, pe, pb, market_cap, source FROM valuations "
-                    "ORDER BY trade_date DESC LIMIT ?",
-                    [top_n],
-                ).fetchall()
-            if rows:
-                result = {
-                    "source": "duckdb",
-                    "rows": [
-                        {
-                            "symbol": str(row[0]),
-                            "trade_date": str(row[1]),
-                            "pe": float(row[2]) if row[2] is not None else None,
-                            "pb": float(row[3]) if row[3] is not None else None,
-                            "market_cap": float(row[4]) if row[4] is not None else None,
-                            "data_source": str(row[5]),
-                        }
-                        for row in rows
-                    ],
-                }
-        finally:
-            if db_path != ":memory:" and conn:
-                conn.close()
+        if symbol:
+            rows = conn.execute(
+                "SELECT symbol, trade_date, pe, pb, market_cap, source FROM valuations "
+                "WHERE symbol = ? ORDER BY trade_date DESC LIMIT ?",
+                [symbol, top_n],
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT symbol, trade_date, pe, pb, market_cap, source FROM valuations "
+                "ORDER BY trade_date DESC LIMIT ?",
+                [top_n],
+            ).fetchall()
+        if rows:
+            result = {
+                "source": "duckdb",
+                "rows": [
+                    {
+                        "symbol": str(row[0]),
+                        "trade_date": str(row[1]),
+                        "pe": float(row[2]) if row[2] is not None else None,
+                        "pb": float(row[3]) if row[3] is not None else None,
+                        "market_cap": float(row[4]) if row[4] is not None else None,
+                        "data_source": str(row[5]),
+                    }
+                    for row in rows
+                ],
+            }
         return result
     except Exception as exc:
         logger.debug("DuckDB fallback query failed: %s", exc)
@@ -103,7 +91,11 @@ def fallback_note(source: str) -> str:
 
 
 def resolve_trade_date(raw_date: str | None = None) -> tuple[str, str, bool]:
-    """Resolve a trade date, falling back to the previous trading day."""
+    """Resolve a trade date, falling back to the previous trading day.
+
+    If ``is_trading_day()`` fails (network unavailable), tries DuckDB
+    valuations table for the most recent known trade date as a last resort.
+    """
     if raw_date:
         value = raw_date
     else:
@@ -117,6 +109,22 @@ def resolve_trade_date(raw_date: str | None = None) -> tuple[str, str, bool]:
         return prev.isoformat(), f"prev({value})", True
     except (ValueError, TypeError):
         return value, "invalid", False
+    except Exception:
+        # is_trading_day() failed (network) — fall back to DuckDB
+        try:
+            from flask import current_app
+            store = current_app.config.get("STORE") if current_app else None
+            if store and hasattr(store, "query_kline"):
+                # Try to get the latest trade_date from any symbol's kline
+                symbols = store.list_symbols()
+                if symbols:
+                    df = store.query_kline(symbols[0], interval="1d", limit=1)
+                    if df is not None and not df.empty and "bar_time" in df.columns:
+                        latest = df.iloc[-1]["bar_time"]
+                        return str(latest)[:10], "duckdb_fallback", True
+        except Exception:
+            pass
+        return value, "network_unavailable", False
 
 
 def get_current_leading_stocks() -> list[dict[str, Any]]:

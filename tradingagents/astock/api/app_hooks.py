@@ -92,7 +92,15 @@ def _register_before_request(app: Flask) -> None:
         if store and hasattr(store, "validate_api_key"):
             try:
                 if asyncio.iscoroutinefunction(store.validate_api_key):
-                    record = asyncio.run(store.validate_api_key(key_hash))
+                    # Run async validation in a new event loop to avoid
+                    # asyncio.run() creating a new policy that may conflict
+                    # with the current process.  We create/close the loop
+                    # manually so it doesn't block the request thread.
+                    loop = asyncio.new_event_loop()
+                    try:
+                        record = loop.run_until_complete(store.validate_api_key(key_hash))
+                    finally:
+                        loop.close()
                 else:
                     record = store.validate_api_key(key_hash)
             except Exception as exc:
