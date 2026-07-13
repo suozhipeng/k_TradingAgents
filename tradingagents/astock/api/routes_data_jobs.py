@@ -40,7 +40,14 @@ def _known_symbols_or_payload(body: dict[str, Any]) -> list[str]:
 
 
 def _latest_kline_start(store: Any, symbol: str, interval: str) -> str | None:
-    """Return a server-derived one-bar overlap start for an idempotent refresh."""
+    """Return a server-derived one-bar overlap start for an idempotent refresh.
+
+    Overlap window is computed dynamically per interval to avoid unnecessary
+    API requests while guaranteeing no missed bars:
+      - minute-level (e.g. 5m):  -interval * 2
+      - hourly (e.g. 60m):       -1 day
+      - daily and above:         -1 day
+    """
     bars = store.query_kline(symbol, interval=interval, limit=1)
     if bars is None or bars.empty or "bar_time" not in bars.columns:
         return None
@@ -50,9 +57,11 @@ def _latest_kline_start(store: Any, symbol: str, interval: str) -> str | None:
     try:
         timestamp = value.to_pydatetime() if hasattr(value, "to_pydatetime") else value
         if isinstance(timestamp, datetime):
+            # Minute-level intervals: overlap = interval * 2
             if interval.endswith("m") and interval != "1mo":
                 minutes = int(interval[:-1])
-                return (timestamp - timedelta(minutes=minutes)).isoformat()
+                return (timestamp - timedelta(minutes=minutes * 2)).isoformat()
+            # Daily and higher: overlap = 1 day
             return (timestamp - timedelta(days=1)).date().isoformat()
     except (TypeError, ValueError):
         pass
