@@ -73,6 +73,8 @@ EM_ADJUST_URL = "https://datacenter.eastmoney.com/securities/api/data/v1/get"
 def fetch_adjust_via_eastmoney(symbol: str) -> pd.DataFrame:
     """Fetch adjustment factors from EastMoney datacenter API.
 
+    Uses ``em_get()`` for rate-limiting and session reuse.
+
     Parameters
     ----------
     symbol : str
@@ -84,7 +86,7 @@ def fetch_adjust_via_eastmoney(symbol: str) -> pd.DataFrame:
         DataFrame with columns ``trade_date``, ``adjust_factor``.
         Empty DataFrame on failure.
     """
-    import requests
+    from .eastmoney import em_get
 
     # Extract raw code
     code = symbol.replace(".SH", "").replace(".SZ", "")
@@ -101,8 +103,8 @@ def fetch_adjust_via_eastmoney(symbol: str) -> pd.DataFrame:
         "client": "WEB",
     }
 
-    def _do_fetch():
-        resp = requests.get(
+    try:
+        resp = em_get(
             EM_ADJUST_URL,
             params=params,
             headers={
@@ -115,10 +117,7 @@ def fetch_adjust_via_eastmoney(symbol: str) -> pd.DataFrame:
             },
             timeout=15,
         )
-        return resp.json()
-
-    try:
-        data = _retry(_do_fetch, max_attempts=3, base_delay=1.0)
+        data = resp.json()
     except Exception:
         return pd.DataFrame()
 

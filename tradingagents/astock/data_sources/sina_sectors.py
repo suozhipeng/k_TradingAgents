@@ -16,10 +16,38 @@ so the frontend doesn't need to change.
 from __future__ import annotations
 
 import logging
+import random
+import time
 
 import re
 from typing import Any
 logger = logging.getLogger(__name__)
+
+# ── Sina-specific anti-crawl helpers ──────────────────────────────────────
+
+_SINA_LAST_CALL: list[float] = [0.0]
+_SINA_MIN_INTERVAL = 1.0  # min seconds between Sina calls
+
+
+def _sina_emulate_browser() -> None:
+    """Random delay before Sina requests to avoid rate limits."""
+    wait = _SINA_MIN_INTERVAL - (time.time() - _SINA_LAST_CALL[0])
+    if wait > 0:
+        time.sleep(wait + random.uniform(0.1, 0.5))
+
+
+def _sina_retry(fn, max_attempts: int = 3, base_delay: float = 1.0):
+    """Retry with exponential backoff for Sina requests."""
+    last_exc = None
+    for attempt in range(max_attempts):
+        try:
+            return fn()
+        except Exception as exc:
+            last_exc = exc
+            if attempt < max_attempts - 1:
+                delay = base_delay * (2 ** attempt) + random.uniform(0, 0.5)
+                time.sleep(delay)
+    raise last_exc
 
 try:
     import json
@@ -63,12 +91,17 @@ def _fetch_sina_industry() -> list[dict[str, Any]]:
             "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
             "Referer": "https://finance.sina.com.cn/",
         }
-        r = requests.get(url, headers=headers, timeout=10)
-        if r.status_code != 200 or len(r.text) < 200:
-            return []
 
-        # Parse "key":"value" pairs from JSONP response
-        pairs = re.findall(r'"([^"]+)":"([^"]*)"', r.text)
+        def _do_fetch():
+            _sina_emulate_browser()
+            r = requests.get(url, headers=headers, timeout=10)
+            if r.status_code != 200 or len(r.text) < 200:
+                return []
+            return re.findall(r'"([^"]+)":"([^"]*)"', r.text)
+
+        pairs = _sina_retry(_do_fetch, max_attempts=3, base_delay=1.0)
+        if not pairs:
+            return []
         if not pairs:
             return []
 

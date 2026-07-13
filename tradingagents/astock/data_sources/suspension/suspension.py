@@ -222,7 +222,7 @@ def fetch_suspension_via_eastmoney(
     if date is None:
         date = datetime.date.today().isoformat()
 
-    import requests
+    from .eastmoney import em_get
 
     params = {
         "reportName": "RPT_DMSK_FN_GKCP",
@@ -236,8 +236,8 @@ def fetch_suspension_via_eastmoney(
         "client": "WEB",
     }
 
-    def _fetch_em():
-        resp = requests.get(
+    try:
+        resp = em_get(
             EM_SUSPENSION_URL,
             params=params,
             headers={
@@ -250,24 +250,9 @@ def fetch_suspension_via_eastmoney(
             },
             timeout=15,
         )
-        return resp.json()
-
-    try:
-        data = _retry(_fetch_em, max_attempts=3, base_delay=1.0)
-    except requests.RequestException as exc:
-        raise AStockSourceUnavailableError(
-            "eastmoney", f"HTTP error fetching suspension data: {exc}",
-        )
-    except (json.JSONDecodeError, ValueError) as exc:
-        raise AStockSourceUnavailableError(
-            "eastmoney",
-            f"JSON decode error: {exc}",
-        )
-    except Exception as exc:
-        raise AStockSourceUnavailableError(
-            "eastmoney",
-            f"suspension fetch failed after retries: {exc}",
-        )
+        data = resp.json()
+    except Exception:
+        return []
 
     result_list = (
         data.get("result", {})

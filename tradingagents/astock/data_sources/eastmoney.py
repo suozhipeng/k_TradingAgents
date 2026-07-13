@@ -258,15 +258,14 @@ def hsgt_realtime() -> list[dict]:
     Returns a list of dicts with keys: ``time``, ``hgt_yi``, ``sgt_yi``.
     Units: 100 million CNY.
     """
-    hsgt_headers = {
-        "User-Agent": UA,
-        "Host": "data.hexin.cn",
-        "Referer": "https://data.hexin.cn/",
-    }
     try:
-        r = requests.get(
+        r = em_get(
             "https://data.hexin.cn/market/hsgtApi/method/dayChart/",
-            headers=hsgt_headers,
+            headers={
+                "User-Agent": UA,
+                "Host": "data.hexin.cn",
+                "Referer": "https://data.hexin.cn/",
+            },
             timeout=10,
         )
         d = r.json()

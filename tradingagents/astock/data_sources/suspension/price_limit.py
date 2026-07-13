@@ -133,7 +133,7 @@ def fetch_price_limit_via_eastmoney_push2(
     -------
     list[PriceLimitRecord]
     """
-    import requests
+    from .eastmoney import em_get
 
     # Market: 1=SH A, 0=SZ A. Fetch both.
     all_records: list[PriceLimitRecord] = []
@@ -155,24 +155,19 @@ def fetch_price_limit_via_eastmoney_push2(
         }
 
         try:
-
-            def _fetch_push2():
-                resp = requests.get(
-                    EM_PUSH2_QUOTE_URL,
-                    params=params,
-                    headers={
-                        "User-Agent": (
-                            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-                            "AppleWebKit/537.36 (KHTML, like Gecko) "
-                            "Chrome/120.0.0.0 Safari/537.36"
-                        ),
-                        "Referer": "https://quote.eastmoney.com/",
-                    },
-                    timeout=10,
-                )
-                return resp
-
-            resp = _retry(_fetch_push2, max_attempts=2, base_delay=0.5)
+            resp = em_get(
+                EM_PUSH2_QUOTE_URL,
+                params=params,
+                headers={
+                    "User-Agent": (
+                        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                        "AppleWebKit/537.36 (KHTML, like Gecko) "
+                        "Chrome/120.0.0.0 Safari/537.36"
+                    ),
+                    "Referer": "https://quote.eastmoney.com/",
+                },
+                timeout=10,
+            )
             data = resp.json()
         except Exception:
             continue
