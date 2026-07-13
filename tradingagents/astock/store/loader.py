@@ -13,9 +13,49 @@ from typing import Any, Optional
 
 import pandas as pd
 
+from tradingagents.astock.data_sources.errors import (
+    AStockDataError,
+    AStockNoDataError,
+    AStockSourceUnavailableError,
+)
 from .schema import AStockStore
 
 logger = logging.getLogger(__name__)
+
+
+def serialize_load_error(exc: Exception) -> dict[str, Any]:
+    """Return a stable, safe error envelope for async refresh clients."""
+    text = str(exc).lower()
+    if any(token in text for token in ("429", "rate limit", "too many request", "请求过于频繁", "访问频繁")):
+        code, retryable = "rate_limited", True
+    elif isinstance(exc, AStockNoDataError):
+        code, retryable = "no_data", False
+    elif isinstance(exc, AStockSourceUnavailableError):
+        code, retryable = "source_unavailable", True
+    elif isinstance(exc, (TimeoutError, ConnectionError)):
+        code, retryable = "network_error", True
+    elif isinstance(exc, AStockDataError):
+        code, retryable = str(exc.error_code).lower(), False
+    else:
+        code, retryable = "unexpected_error", False
+    message = str(exc).replace("\n", " ").strip()[:300]
+    return {"code": code, "message": message or code, "retryable": retryable}
+
+
+def _raise_response_error(response: Any, symbol: str, capability: str) -> None:
+    status = getattr(response, "status", None)
+    if status == "empty":
+        raise AStockNoDataError(
+            symbol,
+            detail=str(getattr(response, "error_message", None) or "provider returned no rows"),
+            source=getattr(response, "source", None),
+            capability=capability,
+        )
+    if status != "error":
+        return
+    source = getattr(response, "source", None) or "router"
+    detail = getattr(response, "error_message", None) or "provider request failed"
+    raise AStockSourceUnavailableError(str(source), str(detail), capability=capability)
 
 # ---------------------------------------------------------------------------
 # KlineLoader
@@ -70,6 +110,7 @@ class KlineLoader:
         if response is None:
             logger.warning("No kline response for %s", symbol)
             return 0
+        _raise_response_error(response, symbol, "kline")
 
         data = response
         if hasattr(response, "data"):
@@ -141,6 +182,7 @@ class ValuationLoader:
 
         if response is None:
             return 0
+        _raise_response_error(response, symbol, "valuation")
 
         data = response
         if hasattr(response, "data"):
@@ -192,10 +234,8 @@ class BatchLoader:
     data_facade : Any
     """
 
-    # Maximum concurrent threads for batch loading.
-    # Each thread calls the provider router which internally enforces
-    # _random_sleep + _retry_with_backoff per adapter, so concurrent
-    # threads do NOT trigger anti-crawling measures.
+    # Workers improve throughput; the router owns provider-wide request
+    # concurrency and pacing, so a batch cannot bypass anti-crawl limits.
     MAX_CONCURRENT_WORKERS = 4
 
     def __init__(
@@ -243,10 +283,8 @@ class BatchLoader:
     ) -> dict[str, int]:
         """Load K-line for multiple symbols (concurrent).
 
-        Each symbol is fetched in a separate thread.  Concurrency is safe
-        because the provider router enforces per-adapter ``_random_sleep``
-        and ``_retry_with_backoff``, so multiple threads do NOT trigger
-        anti-crawling limits.
+        Each symbol is fetched in a separate thread. The shared provider
+        governor applies the actual upstream concurrency and pacing limits.
 
         Returns ``{symbol: row_count}``.
         """
@@ -268,6 +306,45 @@ class BatchLoader:
                 except Exception as exc:
                     logger.warning("Failed to load kline for %s: %s", sym, exc)
                     results[sym] = -1
+        return results
+
+    def load_kline_requests(
+        self, requests: list[dict[str, Any]], *, concurrent: bool = False
+    ) -> dict[str, dict[str, Any]]:
+        """Execute distinct K-line requests and retain per-item failures.
+
+        This is intentionally separate from the legacy ``dict[str, int]``
+        batch APIs so existing callers retain their compatibility contract.
+        """
+        def execute(item: dict[str, Any]) -> tuple[str, dict[str, Any]]:
+            symbol = str(item["symbol"])
+            interval = str(item.get("interval", "1d"))
+            key = f"{symbol}:{interval}"
+            result = {
+                "requested_start": item.get("start"),
+                "requested_end": item.get("end"),
+                "rows_upserted": 0,
+                "status": "succeeded",
+            }
+            try:
+                result["rows_upserted"] = self._kline_loader.load(
+                    symbol, item.get("start"), item.get("end"), interval
+                )
+            except Exception as exc:
+                result.update({"status": "failed", "error": serialize_load_error(exc)})
+            return key, result
+
+        results: dict[str, dict[str, Any]] = {}
+        if not concurrent:
+            for item in requests:
+                key, result = execute(item)
+                results[key] = result
+            return results
+        with ThreadPoolExecutor(max_workers=self._max_workers) as executor:
+            futures = [executor.submit(execute, item) for item in requests]
+            for future in as_completed(futures):
+                key, result = future.result()
+                results[key] = result
         return results
 
     def load_valuations_batch(

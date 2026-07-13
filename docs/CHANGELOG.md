@@ -2,6 +2,11 @@
 
 > 记录每个版本的架构变更、模块清单和关键决策。对应 `CHANGELOG.md`。
 
+## Unreleased
+
+- 数据刷新改为逐个 `symbol:interval` 的单次计划执行：修复大批量任务先串行、后重复并发的重复请求问题，并保留每项各自的增量起点。
+- 数据源路由新增按 provider 共享的并发、节流与 429 冷却保护；批量刷新对单项异常返回结构化兼容结果，不再以 `-1` 丢失失败原因。
+
 ## Local Release — 2026-07-13（analysis/backtest only）
 
 - 正式 Web 入口固定为 Flask/Jinja2：`.venv/bin/python scripts/run_astock_api.py --local-release --port 5860`。

@@ -6,6 +6,8 @@ import os
 import sys
 import time
 import unittest
+from concurrent.futures import ThreadPoolExecutor
+import threading
 from unittest.mock import patch
 
 _REPO = __file__  # not needed for import but keeps pattern
@@ -17,6 +19,7 @@ from tradingagents.astock.data_sources.adapters import (
     _random_sleep,
     _retry_with_backoff,
 )
+from tradingagents.astock.data_sources.request_governor import ProviderRequestGovernor
 
 
 class TestRandomSleep(unittest.TestCase):
@@ -147,6 +150,44 @@ class TestCommonHeaders(unittest.TestCase):
         """自定义 referer 生效。"""
         headers = _common_headers(referer="https://quote.eastmoney.com/")
         self.assertEqual(headers["Referer"], "https://quote.eastmoney.com/")
+
+
+class TestProviderRequestGovernor(unittest.TestCase):
+    def test_same_provider_has_shared_concurrency_limit(self) -> None:
+        governor = ProviderRequestGovernor(max_concurrent=2, min_interval_seconds=0)
+        active = 0
+        peak = 0
+        lock = threading.Lock()
+
+        def request() -> None:
+            nonlocal active, peak
+            with lock:
+                active += 1
+                peak = max(peak, active)
+            time.sleep(0.02)
+            with lock:
+                active -= 1
+
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            futures = [executor.submit(governor.call, "akshare", request) for _ in range(4)]
+            for future in futures:
+                future.result()
+        self.assertEqual(peak, 2)
+
+    def test_rate_limit_opens_provider_cooldown(self) -> None:
+        now = [10.0]
+        waits: list[float] = []
+        governor = ProviderRequestGovernor(
+            max_concurrent=1,
+            min_interval_seconds=0,
+            cooldown_seconds=8,
+            clock=lambda: now[0],
+            sleeper=waits.append,
+        )
+        with self.assertRaises(RuntimeError):
+            governor.call("tencent", lambda: (_ for _ in ()).throw(RuntimeError("HTTP 429")))
+        governor.call("tencent", lambda: "ok")
+        self.assertEqual(waits, [8])
 
 
 if __name__ == "__main__":

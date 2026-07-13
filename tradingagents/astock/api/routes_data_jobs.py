@@ -129,52 +129,49 @@ def create_refresh_job() -> tuple[Response, int]:
     if start and end and str(start) > str(end):
         return jsonify({"error": "start must not be after end", "status": 400}), 400
     include_valuation = _as_bool(body.get("include_valuation"), False)
+    # Deduplicate at the API boundary: duplicate symbols/intervals must not
+    # create repeated provider requests or duplicate DB writes.
+    symbols = list(dict.fromkeys(symbols))
+    intervals = list(dict.fromkeys(intervals))
     total = len(symbols) * len(intervals) + (len(symbols) if include_valuation else 0)
 
     store = get_store()
     router = current_app.config.get("DATA_FACADE")
 
     def run(update: Any) -> dict[str, Any]:
-        from tradingagents.astock.store.loader import KlineLoader, ValuationLoader, BatchLoader
-        kline_loader = KlineLoader(store, router)
+        from tradingagents.astock.store.loader import BatchLoader, ValuationLoader, serialize_load_error
         valuation_loader = ValuationLoader(store, router)
         batch_loader = BatchLoader(store, router)
         completed = 0
-        results: dict[str, Any] = {"mode": mode, "kline": {}, "valuations": {}}
-        use_concurrent = len(symbols) > 3
+        results: dict[str, Any] = {"mode": mode, "kline": {}, "valuations": {}, "failure_count": 0}
+        kline_requests = [
+            {
+                "symbol": symbol,
+                "interval": interval,
+                "start": _latest_kline_start(store, symbol, interval) if mode == "incremental" else start,
+                "end": end,
+            }
+            for symbol in symbols for interval in intervals
+        ]
+        use_concurrent = len(kline_requests) > 3
+        update(message="refreshing kline data", completed=completed)
+        results["kline"] = batch_loader.load_kline_requests(kline_requests, concurrent=use_concurrent)
+        completed += len(kline_requests)
+        results["failure_count"] += sum(1 for item in results["kline"].values() if item["status"] == "failed")
+        update(completed=completed, result=results)
 
         for symbol in symbols:
-            for interval in intervals:
-                update(message=f"refreshing kline {symbol} {interval}", completed=completed)
-                requested_start = _latest_kline_start(store, symbol, interval) if mode == "incremental" else start
-                count = kline_loader.load(symbol, start=requested_start, end=end, interval=interval)
-                results["kline"][f"{symbol}:{interval}"] = {
-                    "requested_start": requested_start,
-                    "requested_end": end,
-                    "rows_upserted": count,
-                }
-                completed += 1
-                update(completed=completed, result=results)
             if include_valuation:
                 update(message=f"refreshing valuation {symbol}", completed=completed)
-                count = valuation_loader.load(symbol, start=start, end=end)
-                results["valuations"][symbol] = count
+                try:
+                    results["valuations"][symbol] = {"status": "succeeded", "rows_upserted": valuation_loader.load(symbol, start=start, end=end)}
+                except Exception as exc:
+                    results["valuations"][symbol] = {"status": "failed", "rows_upserted": 0, "error": serialize_load_error(exc)}
+                    results["failure_count"] += 1
                 completed += 1
                 update(completed=completed, result=results)
-
-        # Concurrent batch refresh for large symbol sets
-        if use_concurrent:
-            update(message="switching to concurrent batch mode", completed=completed)
-            kline_results = batch_loader.load_kline_batch_concurrent(
-                symbols, start=start, end=end, interval=intervals[0]
-            )
-            results["kline"].update({
-                f"{sym}:batch": {"rows_upserted": cnt} for sym, cnt in kline_results.items()
-            })
-            if include_valuation:
-                val_results = batch_loader.load_valuations_batch_concurrent(symbols, start=start, end=end)
-                results["valuations"].update(val_results)
-
+        if results["failure_count"]:
+            results["message"] = f"completed with {results['failure_count']} item failure(s)"
         return results
 
     job = _jobs().submit("refresh", run, total=total, message="queued refresh")

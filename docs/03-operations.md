@@ -25,6 +25,9 @@
 
 - 正式 Data Hub 通过 `GET /api/v1/data/refresh/options` 获取标的、周期与模式，前端不得自行硬编码周期或增量规则。
 - `POST /api/v1/data/jobs/refresh` 支持 `range` 与 `incremental`：后者由服务端从本地该标的/周期的最新 bar 前推一个周期作为重叠刷新起点，再以 upsert 写入本地 Store。
+- 刷新计划会对重复的 `symbols` 和 `intervals` 去重；每个 `symbol:interval` 在一次任务中只执行一次。超过 3 个 K 线请求时使用线程池并发拉取，但写入仍由 Store 的锁顺序化，避免破坏本地数据库一致性。
+- 所有 provider 调用经过进程内共享的按源治理器：默认单源最多 2 条在途请求、相邻请求最少间隔 0.25 秒；检测到 429/频率限制后，该源默认冷却 15 秒并继续尝试路由 fallback。可通过 `ASTOCK_PROVIDER_MAX_CONCURRENCY`、`ASTOCK_PROVIDER_MIN_INTERVAL_SECONDS` 和 `ASTOCK_PROVIDER_COOLDOWN_SECONDS` 调整；生产环境应从保守值逐步放宽。
+- 单个标的请求失败不会中止整批刷新。任务结果的 K 线项返回 `status`、`requested_start`、`requested_end`、`rows_upserted`；失败项额外返回稳定的 `error.code`、受限长度的 `error.message` 与 `error.retryable`。当前错误码包括 `rate_limited`、`source_unavailable`、`network_error`、`no_data` 和 `unexpected_error`。调用方应以 `failure_count` 判断部分失败，不应只根据任务总状态判断数据完整性。
 - 刷新任务会持久化状态事件用于审计；任务列表本身仍是进程内视图，服务重启后不承诺恢复为可轮询任务。
 - `rows_upserted` 是本次受影响行数，不等同于新增、更新或跳过的拆分计数；在没有数据库差分计数器前不得展示这些虚假明细。
 

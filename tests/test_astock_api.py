@@ -387,6 +387,59 @@ class TestDataEndpoints:
         assert start is not None
         assert start.startswith("2024-01-02")
 
+    def test_large_refresh_is_single_pass_and_keeps_partial_errors(self, app):
+        """Four symbols use the concurrent path without a duplicate batch pass."""
+        from tradingagents.astock.data_sources.errors import AStockSourceUnavailableError
+
+        calls = []
+
+        class FakeFacade:
+            def get_kline(self, symbol, **kwargs):
+                calls.append((symbol, kwargs["start_date"], kwargs["interval"]))
+                if symbol == "000004.SZ":
+                    raise AStockSourceUnavailableError("fake", "HTTP 429", capability="kline")
+                if symbol == "000002.SZ":
+                    from tradingagents.astock.data_sources.schema import AStockResponse
+                    return AStockResponse.empty_result(
+                        capability="kline", symbol=symbol, raw_symbol=symbol,
+                        error_code="NO_DATA_AVAILABLE", error_message="no bars",
+                    )
+                return {
+                    "bars": [{
+                        "date": "2024-01-04", "open": 10, "high": 11,
+                        "low": 9, "close": 10.5, "volume": 1000,
+                    }]
+                }
+
+        app.application.config["DATA_FACADE"] = FakeFacade()
+        response = app.post(
+            "/api/v1/data/jobs/refresh",
+            json={
+                "symbols": ["600519.SH", "000001.SZ", "000002.SZ", "000004.SZ", "000001.SZ"],
+                "interval": "1d",
+                "mode": "incremental",
+            },
+        )
+        assert response.status_code == 202
+        job_id = response.get_json()["job"]["job_id"]
+        job = None
+        for _ in range(40):
+            job = app.get(f"/api/v1/data/jobs/{job_id}").get_json()["job"]
+            if job["status"] in ("succeeded", "failed"):
+                break
+            time.sleep(0.02)
+
+        assert job is not None and job["status"] == "succeeded"
+        assert len(calls) == 4
+        assert {symbol for symbol, _start, _interval in calls} == {"600519.SH", "000001.SZ", "000002.SZ", "000004.SZ"}
+        result = job["result"]
+        assert ":batch" not in " ".join(result["kline"])
+        assert result["failure_count"] == 2
+        assert result["kline"]["000002.SZ:1d"]["error"]["code"] == "no_data"
+        assert result["kline"]["000004.SZ:1d"]["error"] == {
+            "code": "rate_limited", "message": "Source 'fake' unavailable: HTTP 429", "retryable": True,
+        }
+
     def test_get_orderbook(self, app):
         resp = app.get("/api/v1/orderbook?symbol=600519.SH")
         assert resp.status_code == 200

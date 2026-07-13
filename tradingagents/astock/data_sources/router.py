@@ -15,6 +15,7 @@ from .adapters.registry import build_default_adapters
 from .cache import FileAStockCache, InMemoryAStockCache
 from .errors import AStockDataError, AStockNoDataError, AStockSourceUnavailableError
 from .quality import DataQualityTag
+from .request_governor import ProviderRequestGovernor
 from .schema import AStockRequest, AStockResponse, normalize_capability_payload
 from .symbols import normalize_astock_symbol
 logger = logging.getLogger(__name__)
@@ -113,6 +114,7 @@ class AStockDataRouter(object):
         route_policy: Optional[Mapping[str, Sequence[str]]] = None,
         eliminated_sources: Optional[Iterable[str]] = None,
         default_adapter_configs: Optional[Mapping[str, Dict[str, Any]]] = None,
+        request_governor: Optional[ProviderRequestGovernor] = None,
     ):
         if adapters is None:
             adapter_configs = dict(default_adapter_configs or {})
@@ -123,6 +125,9 @@ class AStockDataRouter(object):
         self.cache = cache or InMemoryAStockCache()
         self.route_policy = dict(route_policy or DEFAULT_ROUTE_POLICY)
         self.eliminated_sources = frozenset(_normalize_source_id(source) for source in (eliminated_sources or DEFAULT_ELIMINATED_SOURCES))
+        # A router is shared by the API process; keep the governor on it so
+        # concurrent jobs use the same provider budget.
+        self.request_governor = request_governor or ProviderRequestGovernor()
 
     def _request(self, capability: str, symbol: str, **kwargs: Any) -> AStockRequest:
         normalized = normalize_astock_symbol(symbol)
@@ -239,7 +244,8 @@ class AStockDataRouter(object):
         method = getattr(adapter, method_name, None)
         if method is None:
             raise AStockSourceUnavailableError(str(getattr(adapter, "name", "unknown")), "method {0} missing".format(method_name), capability=request.capability)
-        return method(request)
+        source = str(getattr(adapter, "name", "unknown"))
+        return self.request_governor.call(source, lambda: method(request))
 
     @staticmethod
     def _quality_for_source(source: str, sources_tried: Sequence[str], capability: str) -> str:
