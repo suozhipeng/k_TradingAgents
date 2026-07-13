@@ -9,7 +9,7 @@
 - Jinja2 静态资源恢复由 `tradingagents/astock/web/static/` 提供；未知 Web 路由返回 404，不再返回 React shell。
 - React Data Hub 改为消费 `/api/v1/data/refresh/options`；新增 `npm run test:release` 契约检查。React 不属于本地正式发布物。
 - 验收：`scripts/verify_local_release.sh` → 155 passed；React 发布契约和生产构建通过。
-- 全仓 `pytest -q` 尚未取得最终退出结果，未作为本次发布通过依据；需由 CI 补充完整回归证据。
+- 全仓离线回归（69 个测试文件，按四组执行）：`env -u DEEPSEEK_API_KEY ASTOCK_TESTING=1 .venv/bin/python -m pytest -q` → `1130 passed, 9 skipped, 117 subtests passed`。当前 shell 的 DeepSeek key 被服务端返回 401，live structured-output 验收需使用有效凭据单独执行。
 
 ## Workspace Snapshot — 2026-07-12（xg_dev）
 

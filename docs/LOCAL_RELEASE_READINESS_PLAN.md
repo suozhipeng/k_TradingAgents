@@ -57,7 +57,9 @@
 
 ### 验证边界
 
-本次已通过本地正式版的精确发布门禁（`scripts/verify_local_release.sh`）。曾尝试全仓 `pytest -q`，但运行到约 24% 时未返回最终退出状态；因此没有将全仓回归标记为通过，后续应在可稳定完成的 CI 环境补充该证据。
+本次已通过本地正式版的精确发布门禁（`scripts/verify_local_release.sh`），并于 2026-07-13 完成全仓离线回归：`env -u DEEPSEEK_API_KEY ASTOCK_TESTING=1 .venv/bin/python -m pytest -q`（按全部 69 个测试文件分四组执行以适配本地终端时限）→ `1130 passed, 9 skipped, 117 subtests passed`。
+
+当前 shell 中设置的 `DEEPSEEK_API_KEY` 被 DeepSeek 服务返回 401 invalid key；保留该值运行时，`tests/test_deepseek_reasoning.py::TestDeepSeekLiveStructuredOutput::test_v4_flash_returns_structured_output` 会失败。这是外部凭据失效，不属于离线回归或本地正式版代码缺陷；配置有效 key 后应单独执行 live 验收。
 
 ## 5. 非目标
 
