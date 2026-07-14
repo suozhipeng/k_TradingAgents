@@ -11,6 +11,7 @@ execution.
 
 from __future__ import annotations
 
+import threading
 from datetime import datetime
 from typing import Any, Optional
 
@@ -69,6 +70,9 @@ class PaperTrader(QmtIntegrationMixin):
         self._t_plus_1 = t_plus_1
         # Phase 11: optional QMT execution engine
         self._qmt_engine: QmtExecutionEngine | None = qmt_execution_engine
+        # Thread safety: protect _state mutations from concurrent access
+        # (scheduler cycles + manual place_order from API threads)
+        self._lock = threading.Lock()
 
     # -- Standard paper trading (unchanged from Phase 10) -------------------
 
@@ -83,6 +87,9 @@ class PaperTrader(QmtIntegrationMixin):
         """Execute one trading cycle from signal dict.
 
         Every trade record carries ``"actionable": false`` in its metadata.
+
+        Thread-safe: acquires ``self._lock`` to prevent concurrent state
+        corruption from scheduler cycles and manual orders.
 
         Parameters
         ----------
@@ -101,44 +108,45 @@ class PaperTrader(QmtIntegrationMixin):
         PaperTradeState
             Updated state after this cycle.
         """
-        for symbol, signal in signals.items():
-            price = prices.get(symbol)
-            if price is None or price <= 0:
-                continue
+        with self._lock:
+            for symbol, signal in signals.items():
+                price = prices.get(symbol)
+                if price is None or price <= 0:
+                    continue
 
-            proposal: dict[str, Any] = {
-                "symbol": symbol,
-                "signal": signal,
-                "actionable": False,
-                "decision_scope": "paper_trading_only",
-            }
+                proposal: dict[str, Any] = {
+                    "symbol": symbol,
+                    "signal": signal,
+                    "actionable": False,
+                    "decision_scope": "paper_trading_only",
+                }
 
-            # Risk gate check
-            gate_result = self._risk_gate.check(
-                proposal=proposal,
-                constraints=risk_constraints,
-                position_cap_pct=position_cap_pct,
-                current_position=self._state.positions,
-            )
+                # Risk gate check
+                gate_result = self._risk_gate.check(
+                    proposal=proposal,
+                    constraints=risk_constraints,
+                    position_cap_pct=position_cap_pct,
+                    current_position=self._state.positions,
+                )
 
-            if not gate_result.allowed:
-                continue
+                if not gate_result.allowed:
+                    continue
 
-            if signal == 1:
-                self._execute_buy(symbol, price)
-            elif signal == -1:
-                self._execute_sell(symbol, price)
-            # signal == 0 → skip
+                if signal == 1:
+                    self._execute_buy(symbol, price)
+                elif signal == -1:
+                    self._execute_sell(symbol, price)
+                # signal == 0 → skip
 
-        # Mark-to-market
-        total_position_value = 0.0
-        for sym, shs in self._state.positions.items():
-            mkt_price = prices.get(sym, 0.0)
-            total_position_value += shs * mkt_price
+            # Mark-to-market
+            total_position_value = 0.0
+            for sym, shs in self._state.positions.items():
+                mkt_price = prices.get(sym, 0.0)
+                total_position_value += shs * mkt_price
 
-        self._state.total_value = round(self._state.cash + total_position_value, 2)
-        self._state.last_updated = datetime.utcnow().isoformat()
-        return self._state
+            self._state.total_value = round(self._state.cash + total_position_value, 2)
+            self._state.last_updated = datetime.utcnow().isoformat()
+            return self._state
 
     def _execute_buy(self, symbol: str, price: float) -> None:
         """Execute a buy trade with all available cash."""
@@ -238,8 +246,12 @@ class PaperTrader(QmtIntegrationMixin):
         })
 
     def get_state(self) -> PaperTradeState:
-        """Return a copy of the current portfolio state."""
-        return self._state.model_copy(deep=True)
+        """Return a copy of the current portfolio state.
+
+        Thread-safe: acquires lock to ensure consistent snapshot.
+        """
+        with self._lock:
+            return self._state.model_copy(deep=True)
 
     # -- Public accessors for portfolio risk (Phase 36) --------------------
 
@@ -267,6 +279,9 @@ class PaperTrader(QmtIntegrationMixin):
     ) -> Order:
         """Place an individual order with specified quantity.
 
+        Thread-safe: acquires ``self._lock`` to prevent concurrent state
+        corruption from scheduler cycles and manual orders.
+
         Parameters
         ----------
         symbol : str
@@ -288,18 +303,19 @@ class PaperTrader(QmtIntegrationMixin):
         ValueError
             Invalid side or insufficient cash/position.
         """
-        side = side.lower().strip()
-        if side not in ("buy", "sell"):
-            raise ValueError(f"Invalid side: {side!r}; expected 'buy' or 'sell'")
-        if quantity <= 0:
-            raise ValueError("quantity must be positive")
-        if price <= 0:
-            raise ValueError("price must be positive")
+        with self._lock:
+            side = side.lower().strip()
+            if side not in ("buy", "sell"):
+                raise ValueError(f"Invalid side: {side!r}; expected 'buy' or 'sell'")
+            if quantity <= 0:
+                raise ValueError("quantity must be positive")
+            if price <= 0:
+                raise ValueError("price must be positive")
 
-        if side == "buy":
-            return self._place_buy_order(symbol, price, quantity)
-        else:
-            return self._place_sell_order(symbol, price, quantity)
+            if side == "buy":
+                return self._place_buy_order(symbol, price, quantity)
+            else:
+                return self._place_sell_order(symbol, price, quantity)
 
     def _place_buy_order(self, symbol: str, price: float, quantity: int) -> Order:
         fees = calculate_fees(price, quantity, is_buy=True, config=self._fee_config)

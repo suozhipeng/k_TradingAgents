@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import json
 import logging
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from datetime import datetime
 from typing import Any, Callable
 
@@ -492,8 +493,21 @@ class PaperTradeScheduler:
     # Cycle execution
     # ------------------------------------------------------------------
 
+    # Per-symbol processing timeout (seconds) — prevents a single slow
+    # kline fetch or strategy computation from blocking the entire cycle.
+    SYMBOL_TIMEOUT: float = 30.0
+
+    # Total cycle timeout (seconds) — prevents the entire cycle from
+    # running forever even if individual symbol timeouts don't trigger.
+    CYCLE_TIMEOUT: float = 300.0
+
     def _execute_scheduled_cycle(self) -> None:
-        """Execute one full scheduled cycle."""
+        """Execute one full scheduled cycle.
+
+        Thread-safe: uses a ThreadPoolExecutor with a timeout so that a
+        single symbol's data fetch or strategy computation cannot block
+        the entire cycle indefinitely.
+        """
         self._cycle_count += 1
         cycle_id = self._cycle_count
         logger.info("Scheduled cycle #%d starting", cycle_id)
@@ -507,40 +521,52 @@ class PaperTradeScheduler:
         signals: dict[str, float] = {}
         prices: dict[str, float] = {}
 
-        for symbol in self._symbols:
-            try:
-                df = self._fetch_latest(symbol)
-                if df is None or df.empty:
-                    continue
+        # Process each symbol in a thread pool so we can enforce a timeout
+        # per symbol.  If one symbol hangs, the others still proceed.
+        # We manually manage the pool so we can call shutdown(wait=False)
+        # to avoid blocking on timed-out threads.
+        pool = ThreadPoolExecutor(
+            max_workers=min(len(self._symbols), 8),
+        )
+        try:
+            futures = {}
+            for symbol in self._symbols:
+                futures[pool.submit(self._process_symbol, symbol)] = symbol
 
-                price = float(df["close"].iloc[-1])
-                prices[symbol] = price
-
-                symbol_signals: list[int] = []
-                for strategy in self._strategies:
-                    sig_series = strategy.generate_signals(df)
-                    non_zero = sig_series[sig_series != 0]
-                    sig = int(non_zero.iloc[-1]) if not non_zero.empty else 0
-                    symbol_signals.append(sig)
-
-                total_sig = sum(symbol_signals)
-                if total_sig > 0:
-                    signals[symbol] = 1.0
-                elif total_sig < 0:
-                    signals[symbol] = -1.0
-                else:
-                    signals[symbol] = 0.0
-
-            except Exception as exc:
-                logger.warning("Error processing symbol %s: %s", symbol, exc)
-                EventBus.publish({
-                    "type": "cycle_error",
-                    "cycle": cycle_id,
-                    "symbol": symbol,
-                    "message": str(exc),
-                    "timestamp": datetime.utcnow().isoformat(),
-                })
-                continue
+            for future in futures:
+                symbol = futures[future]
+                try:
+                    result = future.result(timeout=self.SYMBOL_TIMEOUT)
+                    if result is not None:
+                        sym_price, sym_signal = result
+                        prices[symbol] = sym_price
+                        signals[symbol] = sym_signal
+                except FuturesTimeoutError:
+                    logger.warning(
+                        "Symbol %s processing timed out after %ds",
+                        symbol, self.SYMBOL_TIMEOUT,
+                    )
+                    future.cancel()
+                    EventBus.publish({
+                        "type": "cycle_error",
+                        "cycle": cycle_id,
+                        "symbol": symbol,
+                        "message": f"processing timed out after {self.SYMBOL_TIMEOUT}s",
+                        "timestamp": datetime.utcnow().isoformat(),
+                    })
+                except Exception as exc:
+                    logger.warning("Error processing symbol %s: %s", symbol, exc)
+                    EventBus.publish({
+                        "type": "cycle_error",
+                        "cycle": cycle_id,
+                        "symbol": symbol,
+                        "message": str(exc),
+                        "timestamp": datetime.utcnow().isoformat(),
+                    })
+        finally:
+            # wait=False: do not block on threads that are still running
+            # (e.g. a symbol that timed out and is sleeping in a data source).
+            pool.shutdown(wait=False)
 
         if signals:
             try:
@@ -586,6 +612,43 @@ class PaperTradeScheduler:
                 "timestamp": datetime.utcnow().isoformat(),
             })
             logger.info("Cycle #%d done: no signals generated", cycle_id)
+
+    def _process_symbol(self, symbol: str) -> tuple[float, float] | None:
+        """Process a single symbol: fetch kline, run strategies, return signal.
+
+        Returns ``(price, signal)`` or ``None`` if no data/signals.
+        This method is designed to run inside a ThreadPoolExecutor so that
+        a long-running fetch or strategy computation can be cancelled via
+        ``future.result(timeout=...)``.
+
+        Raises
+        ------
+        Exception
+            Any error during processing is propagated so the caller can
+            publish a ``cycle_error`` event without breaking other symbols.
+        """
+        df = self._fetch_latest(symbol)
+        if df is None or df.empty:
+            return None
+
+        price = float(df["close"].iloc[-1])
+
+        symbol_signals: list[int] = []
+        for strategy in self._strategies:
+            sig_series = strategy.generate_signals(df)
+            non_zero = sig_series[sig_series != 0]
+            sig = int(non_zero.iloc[-1]) if not non_zero.empty else 0
+            symbol_signals.append(sig)
+
+        total_sig = sum(symbol_signals)
+        if total_sig > 0:
+            signal = 1.0
+        elif total_sig < 0:
+            signal = -1.0
+        else:
+            signal = 0.0
+
+        return (price, signal)
 
     # ------------------------------------------------------------------
     # Data helpers

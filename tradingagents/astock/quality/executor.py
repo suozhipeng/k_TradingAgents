@@ -169,7 +169,7 @@ class QualityExecutor:
 
         insert_fn = self._store.insert_kline
         if asyncio.iscoroutinefunction(insert_fn):
-            rows = asyncio.run(insert_fn(symbol, df, interval, source))
+            rows = self._run_async(insert_fn(symbol, df, interval, source))
         else:
             rows = insert_fn(symbol, df, interval, source)
         return rows
@@ -279,7 +279,7 @@ class QualityExecutor:
 
         insert_fn = self._store.insert_valuations
         if asyncio.iscoroutinefunction(insert_fn):
-            rows = asyncio.run(insert_fn(symbol, df, source))
+            rows = self._run_async(insert_fn(symbol, df, source))
         else:
             rows = insert_fn(symbol, df, source)
         return rows
@@ -340,13 +340,13 @@ class QualityExecutor:
             if source_dataset == "kline_bars":
                 insert_fn = self._store.insert_kline
                 if asyncio.iscoroutinefunction(insert_fn):
-                    asyncio.run(insert_fn(symbol, df, interval=interval, source=""))
+                    self._run_async(insert_fn(symbol, df, interval=interval, source=""))
                 else:
                     insert_fn(symbol, df, interval=interval, source="")
             elif source_dataset == "valuations":
                 insert_fn = self._store.insert_valuations
                 if asyncio.iscoroutinefunction(insert_fn):
-                    asyncio.run(insert_fn(symbol, df, source=""))
+                    self._run_async(insert_fn(symbol, df, source=""))
                 else:
                     insert_fn(symbol, df, source="")
 
@@ -657,7 +657,7 @@ class QualityExecutor:
         try:
             insert_fn = self._store.insert_table_rows
             if asyncio.iscoroutinefunction(insert_fn):
-                asyncio.run(insert_fn("data_quarantine", quarantine_rows))
+                self._run_async(insert_fn("data_quarantine", quarantine_rows))
             else:
                 insert_fn("data_quarantine", quarantine_rows)
         except Exception as exc:
@@ -667,13 +667,60 @@ class QualityExecutor:
     # Internal helpers
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _run_async(coro):
+        """Run an async coroutine, safely handling already-running loops.
+
+        If we are already inside an event loop (e.g. Flask-SSE thread with
+        asyncio background tasks), we cannot call ``asyncio.run()`` because
+        it raises ``RuntimeError: This event loop is already running``.
+        Instead we schedule the coroutine on the running loop and wait for
+        it with ``loop.run_until_complete`` on a *copy* of the loop, or we
+        use ``asyncio.create_task`` + ``asyncio.wait``.
+
+        For simplicity and correctness we use ``anyio``-style dispatch:
+        - no running loop → ``asyncio.run(coro)``
+        - running loop → schedule + wait
+        """
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            # No running event loop — safe to use asyncio.run
+            return asyncio.run(coro)
+
+        # We're inside a running loop.  Create a new thread to run the
+        # coroutine, because we cannot nest ``run_until_complete`` on the
+        # same loop.
+        import threading
+
+        result: list[Any] = [None]
+        exception: list[Exception | None] = [None]
+
+        def _run_in_thread():
+            try:
+                new_loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(new_loop)
+                try:
+                    result[0] = new_loop.run_until_complete(coro)
+                finally:
+                    new_loop.close()
+            except Exception as exc:
+                exception[0] = exc
+
+        t = threading.Thread(target=_run_in_thread, daemon=True)
+        t.start()
+        t.join()
+        if exception[0]:
+            raise exception[0]
+        return result[0]
+
     def _call_store(self, method: str, *args: Any, **kwargs: Any) -> Any:
         """Call a method on the store, handling sync vs async dispatch."""
         fn = getattr(self._store, method, None)
         if fn is None:
             raise AttributeError(f"Store has no method {method!r}")
         if asyncio.iscoroutinefunction(fn):
-            return asyncio.run(fn(*args, **kwargs))
+            return self._run_async(fn(*args, **kwargs))
         return fn(*args, **kwargs)
 
     def _exec_sql(
@@ -682,7 +729,7 @@ class QualityExecutor:
         """Execute arbitrary SQL against the store (sync or async)."""
         if asyncio.iscoroutinefunction(getattr(self._store, "insert_table_rows", None)):
             # PGStore async path
-            return asyncio.run(self._exec_sql_async(sql, params or []))
+            return self._run_async(self._exec_sql_async(sql, params or []))
         # DuckDB sync path
         try:
             if params:

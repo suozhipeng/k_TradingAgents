@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import threading
 from typing import Any, Callable
 
 from tradingagents.astock.quality.executor import (
@@ -26,10 +27,43 @@ logger = logging.getLogger(__name__)
 def _sync_run(fn: Callable, *args: Any, **kwargs: Any) -> Any:
     """Execute a function whether it is sync or async, returning the
     result directly.  This is a module-level helper so that ``ValidatedStore``
-    methods stay synchronous (callers like Flask routes are sync)."""
-    if asyncio.iscoroutinefunction(fn):
-        return asyncio.run(fn(*args, **kwargs))
-    return fn(*args, **kwargs)
+    methods stay synchronous (callers like Flask routes are sync).
+
+    Safely handles the case where we're already inside an event loop
+    (e.g. Flask-SSE thread with asyncio background tasks).
+    """
+    if not asyncio.iscoroutinefunction(fn):
+        return fn(*args, **kwargs)
+
+    coro = fn(*args, **kwargs)
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        # No running event loop — safe to use asyncio.run
+        return asyncio.run(coro)
+
+    # Inside a running loop — dispatch in a new thread to avoid
+    # "cannot run_until_complete on a running loop" error.
+    result: list[Any] = [None]
+    exception: list[Exception | None] = [None]
+
+    def _run():
+        try:
+            new_loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(new_loop)
+            try:
+                result[0] = new_loop.run_until_complete(coro)
+            finally:
+                new_loop.close()
+        except Exception as exc:
+            exception[0] = exc
+
+    t = threading.Thread(target=_run, daemon=True)
+    t.start()
+    t.join()
+    if exception[0]:
+        raise exception[0]
+    return result[0]
 
 
 class ValidatedStore:
@@ -141,10 +175,10 @@ class ValidatedStore:
         if attr is None:
             raise AttributeError(f"'{type(self._store).__name__}' has no attribute '{name}'")
         # If the underlying method is a coroutine function but we're being
-        # called synchronously, wrap in asyncio.run
+        # called synchronously, use _sync_run to handle event loop conflicts
         if asyncio.iscoroutinefunction(attr):
             def _sync_wrapper(*args: Any, **kwargs: Any) -> Any:
-                return asyncio.run(attr(*args, **kwargs))
+                return _sync_run(attr, *args, **kwargs)
             return _sync_wrapper
         return attr
 

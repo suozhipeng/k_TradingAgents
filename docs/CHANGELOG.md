@@ -10,6 +10,9 @@
 - 2026-07-14 验证：`ASTOCK_TESTING=1 pytest tests/ -q --tb=short` → `1133 passed, 13 skipped`；AStock 专项 → `723 passed, 13 skipped`。
 - 数据刷新改为逐个 `symbol:interval` 的单次计划执行：修复大批量任务先串行、后重复并发的重复请求问题，并保留每项各自的增量起点。
 - 数据源路由新增按 provider 共享的并发、节流与 429 冷却保护；批量刷新对单项异常返回结构化兼容结果，不再以 `-1` 丢失失败原因。
+- 模拟盘状态变更和快照读取由同一实例锁保护，避免调度周期与手动订单并发时损坏内存状态；计划周期将各标的处理置于线程池中，并为单标的处理设置 30 秒超时，超时标的发布 `cycle_error` 而不阻塞其他标的。
+- 质量执行器和 `ValidatedStore` 的异步 Store 调用兼容已运行的事件循环：无运行循环时直接执行；有运行循环时由专用线程执行，避免嵌套 `asyncio.run()` 异常。
+- 2026-07-14 验证：`env -u PYTHONPATH -u VIRTUAL_ENV PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 ASTOCK_TESTING=1 .venv/bin/python -m pytest -q tests/test_production_readiness_fixes.py --tb=short` → `13 passed in 3.28s`。
 
 ## Local Release — 2026-07-13（analysis/backtest only）
 

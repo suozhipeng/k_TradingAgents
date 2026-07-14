@@ -569,7 +569,7 @@ TRADINGAGENTS_TEMPERATURE=0.0
 
 通知渠道只允许公网 HTTP(S) 或 SMTP 目标，禁止私网/回环/保留地址，HTTP 请求不跟随重定向。渠道列表和创建/更新响应会移除密码、token、secret、API key 及 URL 查询参数；凭据只应通过受控写接口提交。
 
-模拟盘展示以应用级 `PaperTrader` 为唯一状态源：`/trade/state`、`/paper/state`、`/paper/trades` 和首页概览读取同一份状态。无可验证市场报价时，持仓按成本价估值并返回 `price_source=cost_basis`，不得伪造实时价格或浮盈亏。动量榜同时返回价格来源和龙头池来源，默认池/回退数据不得标记为实时行情。
+模拟盘展示以应用级 `PaperTrader` 为唯一状态源：`/trade/state`、`/paper/state`、`/paper/trades` 和首页概览读取同一份状态。状态变更（计划周期或手动订单）及快照读取必须受同一实例锁保护。计划周期按标的在线程池中处理，单标的处理默认 30 秒超时；超时必须发布 `cycle_error` 并继续处理其他标的。无可验证市场报价时，持仓按成本价估值并返回 `price_source=cost_basis`，不得伪造实时价格或浮盈亏。动量榜同时返回价格来源和龙头池来源，默认池/回退数据不得标记为实时行情。上述并发与异步 Store 调用回归由 2026-07-14 `tests/test_production_readiness_fixes.py` 验证（`13 passed in 3.28s`）。
 
 1. 如有需要，复制环境变量模板：
 
