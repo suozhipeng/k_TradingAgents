@@ -13,7 +13,7 @@ import os
 from datetime import datetime
 from typing import Any
 
-from flask import Blueprint, current_app, has_app_context
+from flask import Blueprint, current_app, has_app_context, request
 
 from tradingagents.astock.data_sources.cleaner import (
     clean_records,
@@ -89,6 +89,20 @@ def _as_bool(val: Any, default: bool = False) -> bool:
     if not text:
         return default
     return text.lower() in ("true", "1", "yes", "on")
+
+
+def bounded_int_arg(name: str, default: int, *, minimum: int = 0, maximum: int = 1000) -> int:
+    """Read an integer query parameter with a consistent client error."""
+    raw = request.args.get(name)
+    if raw is None or raw == "":
+        return default
+    try:
+        value = int(raw)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{name} must be an integer") from exc
+    if not minimum <= value <= maximum:
+        raise ValueError(f"{name} must be between {minimum} and {maximum}")
+    return value
 
 
 def _bool_env(key: str, default: bool = False) -> bool:

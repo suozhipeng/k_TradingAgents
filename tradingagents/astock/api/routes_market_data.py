@@ -44,7 +44,7 @@ from ._market_data_helpers import (
     resolve_trade_date,
     router,
 )
-from ._helpers import _as_bool, mock_data_enabled
+from ._helpers import _as_bool, bounded_int_arg, mock_data_enabled
 
 bp = Blueprint("market_data", __name__)
 logger = logging.getLogger(__name__)
@@ -189,7 +189,10 @@ def stock_blocks() -> tuple[Response, int]:
     symbol = request.args.get("symbol", "")
     if not symbol:
         return jsonify({"error": "symbol is required", "status": 400}), 400
-    limit = int(request.args.get("limit", 10))
+    try:
+        limit = bounded_int_arg("limit", 10, minimum=1, maximum=100)
+    except ValueError as exc:
+        return jsonify({"error": str(exc), "status": 400}), 400
     if mock_data_enabled() or _as_bool(request.args.get("mock"), False):
         data = mock_stock_blocks(symbol)
         data["items"] = data["items"][:limit]
@@ -216,12 +219,7 @@ def stock_blocks() -> tuple[Response, int]:
 
 @bp.route("/market/leading-pool", methods=["GET"])
 def leading_pool() -> tuple[Response, int]:
-    """Get leading stock pool summary with real-time data."""
-    if request.args.get("refresh", "0") == "1":
-        try:
-            refresh_leading_pool()
-        except Exception as exc:
-            logger.warning("Failed to refresh leading pool: %s", exc)
+    """Get the cached leading stock pool summary (read-only)."""
 
     try:
         summary = get_leading_pool_summary()
@@ -229,6 +227,19 @@ def leading_pool() -> tuple[Response, int]:
         return jsonify(summary), 200
     except Exception as exc:
         return jsonify({"error": str(exc), "status": 500}), 500
+
+
+@bp.route("/market/leading-pool/refresh", methods=["POST"])
+def refresh_leading_pool_endpoint() -> tuple[Response, int]:
+    """Refresh the leading pool; POST keeps this provider write behind auth."""
+    try:
+        refresh_leading_pool()
+        summary = get_leading_pool_summary()
+        summary["trade_date"] = resolve_trade_date()[0]
+        return jsonify(summary), 200
+    except Exception as exc:
+        logger.warning("Failed to refresh leading pool: %s", exc)
+        return jsonify({"error": "leading_pool_refresh_failed", "status": 503}), 503
 
 
 @bp.route("/market/momentum-rotation", methods=["POST"])
@@ -278,12 +289,6 @@ def momentum_rotation() -> tuple[Response, int]:
 def momentum_realtime() -> tuple[Response, int]:
     """Return live momentum data for leading stocks."""
     from datetime import datetime as _dt
-    if request.args.get("refresh", "0") == "1":
-        try:
-            refresh_leading_pool()
-        except Exception as exc:
-            logger.warning("Failed to refresh leading pool: %s", exc)
-
     stocks = compute_momentum_scores(fetch_real_momentum())
     trade_date = resolve_trade_date()[0]
     has_real = any(stock["source"] == "real" for stock in stocks)

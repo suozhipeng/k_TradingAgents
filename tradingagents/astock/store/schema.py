@@ -1969,7 +1969,8 @@ class AStockStore:
         backup_path = str(dest) if dest.suffix == ".duckdb" else str(dest) + ".duckdb"
 
         # Use DuckDB ATTACH for hot backup
-        self.conn.execute(f"ATTACH '{backup_path}' AS backup_db")
+        escaped_backup_path = backup_path.replace("'", "''")
+        self.conn.execute(f"ATTACH '{escaped_backup_path}' AS backup_db")
         try:
             for table_name in ALL_TABLE_DEFS:
                 if self.table_exists(table_name):
@@ -2017,20 +2018,38 @@ class AStockStore:
                     shutil.copyfileobj(f_in, f_out)
             source_path = str(decompressed)
 
-        # Attach the backup database
-        self.conn.execute(f"ATTACH '{source_path}' AS backup_db")
+        source = Path(source_path)
+        if not source.exists() or not source.is_file():
+            raise FileNotFoundError(f"backup file does not exist: {source}")
+
+        # Validate the complete source before touching the live tables.
+        escaped_source_path = str(source).replace("'", "''")
+        self.conn.execute(f"ATTACH '{escaped_source_path}' AS backup_db")
         try:
-            count = 0
+            available = []
             for table_name in ALL_TABLE_DEFS:
                 try:
                     self.conn.execute(f'SELECT 1 FROM backup_db."{table_name}" LIMIT 0')
+                    available.append(table_name)
+                except Exception:
+                    continue
+            if not available:
+                raise ValueError("backup contains no managed tables")
+
+            # DuckDB DDL is transactional.  If any table copy fails, rollback
+            # leaves the active database untouched instead of half-restored.
+            self.conn.execute("BEGIN TRANSACTION")
+            try:
+                for table_name in available:
                     self.conn.execute(f'DROP TABLE IF EXISTS "{table_name}"')
                     self.conn.execute(
                         f'CREATE TABLE "{table_name}" AS SELECT * FROM backup_db."{table_name}"'
                     )
-                    count += 1
-                except Exception:
-                    pass
+                self.conn.execute("COMMIT")
+            except Exception:
+                self.conn.execute("ROLLBACK")
+                raise
+            count = len(available)
             self.conn.execute("CHECKPOINT")
         finally:
             self.conn.execute("DETACH backup_db")

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import AgentFlow from "./components/AgentFlow";
 import BacktestChart from "./components/BacktestChart";
@@ -12,10 +12,6 @@ import ModuleDetail from "./components/ModuleDetail";
 import ModuleTree from "./components/ModuleTree";
 import ReportViewerWrapper from "./components/ReportViewer";
 import RiskPanel from "./components/RiskPanel";
-import DataHub from "./components/DataHub";
-import DashboardPage from "./components/Dashboard";
-import ResearchPage from "./components/ResearchPage";
-import StrategyLab from "./components/StrategyLab";
 import { LocaleProvider, useTranslation } from "./hooks/useTranslation";
 import { useApi } from "./hooks/useApi";
 import HealthCheck from "./components/HealthCheck";
@@ -24,6 +20,14 @@ import rawModules from "./data/modules.json";
 import type { ModuleRecord, ModuleType } from "./types";
 
 const modules = rawModules as ModuleRecord[];
+const DashboardPage = lazy(() => import("./components/Dashboard"));
+const DataHub = lazy(() => import("./components/DataHub"));
+const ResearchPage = lazy(() => import("./components/ResearchPage"));
+const StrategyLab = lazy(() => import("./components/StrategyLab"));
+
+function SectionLoading() {
+  return <div className="py-8 text-sm text-slate-400">Loading module…</div>;
+}
 
 function AppContent() {
   const { t } = useTranslation();
@@ -187,7 +191,7 @@ function AppContent() {
             description={t("section.dashboard.desc")}
           />
           <div className="mt-5">
-            <DashboardPage />
+            {activeSection === "dashboard" && <Suspense fallback={<SectionLoading />}><DashboardPage /></Suspense>}
           </div>
         </section>
 
@@ -198,7 +202,7 @@ function AppContent() {
             description={t("section.dataHub.desc")}
           />
           <div className="mt-5">
-            <DataHub />
+            {activeSection === "data-hub" && <Suspense fallback={<SectionLoading />}><DataHub /></Suspense>}
           </div>
         </section>
 
@@ -209,7 +213,7 @@ function AppContent() {
             description={t("section.research.desc")}
           />
           <div className="mt-5">
-            <ResearchPage />
+            {activeSection === "research" && <Suspense fallback={<SectionLoading />}><ResearchPage /></Suspense>}
           </div>
         </section>
 
@@ -220,7 +224,7 @@ function AppContent() {
             description={t("section.strategy.desc")}
           />
           <div className="mt-5">
-            <StrategyLab />
+            {activeSection === "strategy" && <Suspense fallback={<SectionLoading />}><StrategyLab /></Suspense>}
           </div>
         </section>
 

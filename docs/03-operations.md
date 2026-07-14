@@ -41,6 +41,9 @@
 - 历史回测默认不会访问外部停牌/涨跌停接口，确保本地数据可复现；需要该附加校验时，在回测请求中传入 `enable_external_constraints=true`，同一运行内会按标的和日期缓存。Alpha Vantage 使用共享连接与 Provider 限流器，超时由 `ASTOCK_ALPHA_VANTAGE_TIMEOUT_SECONDS` 控制（默认 15 秒）。
 - 进程内 SSE、任务队列和 LLM 报告缓存仅适用于单 API worker。设置 `WEB_CONCURRENCY>1` 会输出告警；横向扩展前须提供共享 Redis/PostgreSQL 协调后端，避免事件和任务状态分裂。
 - 已归档的分钟 K 写入按月 Parquet，并在热库创建 `kline_bars_cold` DuckDB 视图供审计和冷数据查询；永久回测库不清理这些分钟 K。
+- 市场领先池刷新仅允许 `POST /api/v1/market/leading-pool/refresh`；`GET /market/leading-pool` 与 `GET /market/momentum` 保持只读，不再由 `refresh=1` 改变服务端状态。健康探针分为 `/api/v1/health/live`（进程存活）与 `/api/v1/health/ready`（实际探测热库和永久库）；旧 `/health` 保持为 readiness 兼容别名。
+- 每个 API 响应携带 `X-Request-ID` 与 `X-Response-Time-Ms`。`GET /api/v1/ops/metrics` 可查看进程内请求量、平均延迟和数据任务状态。它用于单进程本地运维；横向扩展请接入集中式指标系统。
+- DuckDB 恢复会先验证备份中存在受管表，再在单个事务内重建；任一表失败即回滚，不再出现部分恢复状态。CI 位于 `.github/workflows/ci.yml`，执行无外部密钥的后端测试与前端构建。
 
 ### 产品性质
 

@@ -11,6 +11,7 @@ import asyncio
 import hashlib
 import logging
 import time
+import uuid
 from typing import Any
 
 from flask import Flask, g, jsonify, request
@@ -43,6 +44,8 @@ def _register_before_request(app: Flask) -> None:
     @app.before_request
     def _start_request_timer() -> None:
         g.request_started_at = time.perf_counter()
+        supplied = request.headers.get("X-Request-ID", "").strip()
+        g.request_id = supplied[:128] if supplied else uuid.uuid4().hex
 
     @app.before_request
     def _block_execution_in_research_only() -> tuple[Any, int] | None:
@@ -139,15 +142,18 @@ def _register_after_request(app: Flask) -> None:
             return response
         elapsed_ms = (time.perf_counter() - started) * 1000.0
         response.headers["X-Response-Time-Ms"] = f"{elapsed_ms:.1f}"
+        response.headers["X-Request-ID"] = getattr(g, "request_id", "")
+        from .metrics import record_request
+        record_request(request.method, request.path, response.status_code, elapsed_ms)
         if elapsed_ms >= float(app.config.get("ASTOCK_SLOW_REQUEST_MS", 1000)):
             logger.warning(
-                "Slow API request %.1fms: %s %s -> %s",
-                elapsed_ms, request.method, request.path, response.status_code,
+                "Slow API request %.1fms request_id=%s: %s %s -> %s",
+                elapsed_ms, getattr(g, "request_id", ""), request.method, request.path, response.status_code,
             )
         else:
             logger.debug(
-                "API request %.1fms: %s %s -> %s",
-                elapsed_ms, request.method, request.path, response.status_code,
+                "API request %.1fms request_id=%s: %s %s -> %s",
+                elapsed_ms, getattr(g, "request_id", ""), request.method, request.path, response.status_code,
             )
         return response
 

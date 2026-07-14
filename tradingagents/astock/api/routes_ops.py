@@ -174,6 +174,24 @@ def ops_stats() -> tuple[Response, int]:
         return jsonify({"error": str(exc), "status": 500}), 500
 
 
+@bp.route("/ops/metrics")
+def ops_metrics() -> tuple[Response, int]:
+    """Return request counts/latency plus in-process data-job state."""
+    from flask import current_app
+    from .metrics import snapshot
+
+    payload = snapshot()
+    manager = current_app.config.get("DATA_JOB_MANAGER")
+    if manager is not None:
+        jobs = manager.list(limit=1000)
+        payload["data_jobs"] = {
+            "queued": sum(job.status == "queued" for job in jobs),
+            "running": sum(job.status == "running" for job in jobs),
+            "failed": sum(job.status == "failed" for job in jobs),
+        }
+    return jsonify(payload), 200
+
+
 # ---------------------------------------------------------------------------
 # GET /api/v1/ops/scheduler/status — PaperTradeScheduler lifecycle status
 # ---------------------------------------------------------------------------
