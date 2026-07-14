@@ -19,7 +19,7 @@ from flask import Blueprint, Response, current_app, jsonify, request
 
 from ._helpers import df_to_json, get_store, sanitise_records
 
-bp = Blueprint("data_query", __name__)
+bp = Blueprint("market_data_query", __name__)
 logger = logging.getLogger(__name__)
 
 
@@ -57,7 +57,7 @@ def _with_meta(payload: dict, resp: Any) -> dict:
 # ---------------------------------------------------------------------------
 
 
-@bp.route("/kline")
+@bp.route("/market/kline")
 def get_kline() -> tuple[Response, int]:
     symbol = request.args.get("symbol", "")
     if not symbol:
@@ -106,8 +106,11 @@ def get_kline() -> tuple[Response, int]:
                             if limit > 0 and len(bars) > limit:
                                 bars = bars[-limit:]
                                 has_more = True
-                except Exception:
-                    logger.warning("live kline fetch failed for %s interval=%s", symbol, interval, exc_info=True)
+                except Exception as exc:
+                    logger.warning("live kline fetch failed for %s interval=%s: %s", symbol, interval, exc)
+                    # 检查是否是超时异常，如果是则提供更友好的错误信息
+                    if "timeout" in str(exc).lower() or "timed out" in str(exc).lower():
+                        logger.info("kline data not found in store and live fetch timed out, returning empty result")
 
         bar_count = len(bars)
         date_range: dict[str, str | None] = {"start": None, "end": None}
@@ -130,7 +133,7 @@ def get_kline() -> tuple[Response, int]:
 # ---------------------------------------------------------------------------
 
 
-@bp.route("/valuation")
+@bp.route("/market/valuation")
 def get_valuation() -> tuple[Response, int]:
     symbol = request.args.get("symbol", "")
     if not symbol:
@@ -179,7 +182,7 @@ def get_valuation() -> tuple[Response, int]:
 # ---------------------------------------------------------------------------
 
 
-@bp.route("/orderbook")
+@bp.route("/market/orderbook")
 def get_orderbook() -> tuple[Response, int]:
     symbol = request.args.get("symbol", "")
     if not symbol:
@@ -196,7 +199,7 @@ def get_orderbook() -> tuple[Response, int]:
 # ---------------------------------------------------------------------------
 
 
-@bp.route("/news")
+@bp.route("/market/news")
 def get_news() -> tuple[Response, int]:
     symbol = request.args.get("symbol", "")
     if not symbol:
@@ -210,7 +213,7 @@ def get_news() -> tuple[Response, int]:
         return jsonify({"error": str(exc), "status": 500}), 500
 
 
-@bp.route("/news/live")
+@bp.route("/market/news/live")
 def get_news_live() -> tuple[Response, int]:
     symbol = request.args.get("symbol", "")
     if not symbol:
@@ -239,7 +242,7 @@ def get_news_live() -> tuple[Response, int]:
         return jsonify({"error": str(exc), "status": 500}), 500
 
 
-@bp.route("/news/stock")
+@bp.route("/market/news/stock")
 def get_stock_news_route() -> tuple[Response, int]:
     symbol = request.args.get("symbol", "")
     if not symbol:
@@ -266,7 +269,7 @@ def get_stock_news_route() -> tuple[Response, int]:
 # ---------------------------------------------------------------------------
 
 
-@bp.route("/trade_tape")
+@bp.route("/market/trade_tape")
 def get_trade_tape() -> tuple[Response, int]:
     symbol = request.args.get("symbol", "")
     if not symbol:
@@ -292,7 +295,7 @@ def get_trade_tape() -> tuple[Response, int]:
 # ---------------------------------------------------------------------------
 
 
-@bp.route("/research")
+@bp.route("/market/research")
 def get_research() -> tuple[Response, int]:
     symbol = request.args.get("symbol", "")
     if not symbol:
@@ -306,7 +309,7 @@ def get_research() -> tuple[Response, int]:
         return jsonify({"error": str(exc), "status": 500}), 500
 
 
-@bp.route("/research/pdf")
+@bp.route("/market/research/pdf")
 def get_research_pdf() -> tuple[Response, int]:
     symbol = request.args.get("symbol", "")
     if not symbol:
@@ -331,7 +334,7 @@ def get_research_pdf() -> tuple[Response, int]:
         return jsonify({"error": str(exc), "status": 500}), 500
 
 
-@bp.route("/research/expectation")
+@bp.route("/market/research/expectation")
 def get_research_expectation() -> tuple[Response, int]:
     symbol = request.args.get("symbol", "")
     if not symbol:
@@ -353,7 +356,7 @@ def get_research_expectation() -> tuple[Response, int]:
         return jsonify({"error": str(exc), "status": 500}), 500
 
 
-@bp.route("/research/search")
+@bp.route("/market/research/search")
 def get_research_search() -> tuple[Response, int]:
     symbol = request.args.get("symbol", "")
     query = request.args.get("query", "")
@@ -383,7 +386,7 @@ def get_research_search() -> tuple[Response, int]:
 # ---------------------------------------------------------------------------
 
 
-@bp.route("/fundamentals")
+@bp.route("/market/fundamentals")
 def get_fundamentals() -> tuple[Response, int]:
     symbol = request.args.get("symbol", "")
     if not symbol:
@@ -404,7 +407,7 @@ def get_fundamentals() -> tuple[Response, int]:
         return jsonify({"error": str(exc), "status": 500}), 500
 
 
-@bp.route("/f10")
+@bp.route("/market/f10")
 def get_f10() -> tuple[Response, int]:
     symbol = request.args.get("symbol", "")
     if not symbol:
@@ -427,7 +430,7 @@ def get_f10() -> tuple[Response, int]:
 # ---------------------------------------------------------------------------
 
 
-@bp.route("/announcements")
+@bp.route("/market/announcements")
 def get_announcements() -> tuple[Response, int]:
     symbol = request.args.get("symbol", "")
     if not symbol:
@@ -446,7 +449,7 @@ def get_announcements() -> tuple[Response, int]:
 # ---------------------------------------------------------------------------
 
 
-@bp.route("/store/stats")
+@bp.route("/market/store/stats")
 def get_store_stats() -> tuple[Response, int]:
     try:
         stats = get_store().get_table_stats()

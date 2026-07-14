@@ -22,9 +22,14 @@ def _router() -> Any:
 def cache_status() -> tuple[Response, int]:
     try:
         router = _router()
-        if not router or not hasattr(router, 'router'):
-            return jsonify({"cache": {"enabled": False}}), 200
-        cache = router.router.cache if hasattr(router, 'router') else None
+        if not router:
+            return jsonify({"cache": {"enabled": False, "reason": "no router"}}), 200
+        if not hasattr(router, 'router'):
+            return jsonify({"cache": {"enabled": False, "reason": "router has no inner router"}}), 200
+        inner_router = router.router
+        if not hasattr(inner_router, 'cache'):
+            return jsonify({"cache": {"enabled": False, "reason": "router has no cache"}}), 200
+        cache = inner_router.cache
         if cache is None:
             return jsonify({"cache": {"enabled": False}}), 200
         info = {"enabled": True, "type": type(cache).__name__}
@@ -36,7 +41,8 @@ def cache_status() -> tuple[Response, int]:
             info["summaries"] = len(cache._summaries)
         return jsonify({"cache": info}), 200
     except Exception as exc:
-        return jsonify({"error": str(exc), "status": 500}), 500
+        logger.warning("Cache status failed: %s", exc)
+        return jsonify({"cache": {"enabled": False, "error": str(exc)}}), 200
 
 
 @bp.route("/cache/clear", methods=["POST"])
@@ -45,10 +51,16 @@ def cache_clear() -> tuple[Response, int]:
         router = _router()
         if not router:
             return jsonify({"status": "ok", "cleared": False, "reason": "no router"}), 200
-        cache = router.router.cache if hasattr(router, 'router') else None
+        if not hasattr(router, 'router'):
+            return jsonify({"status": "ok", "cleared": False, "reason": "router has no inner router"}), 200
+        inner_router = router.router
+        if not hasattr(inner_router, 'cache'):
+            return jsonify({"status": "ok", "cleared": False, "reason": "router has no cache"}), 200
+        cache = inner_router.cache
         if cache and hasattr(cache, "clear"):
             cache.clear()
             return jsonify({"status": "ok", "cleared": True}), 200
         return jsonify({"status": "ok", "cleared": False, "reason": "cache has no clear()"}), 200
     except Exception as exc:
-        return jsonify({"error": str(exc), "status": 500}), 500
+        logger.warning("Cache clear failed: %s", exc)
+        return jsonify({"status": "error", "cleared": False, "error": str(exc)}), 200

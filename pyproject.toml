@@ -64,6 +64,8 @@ cli = ["static/*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra --strict-markers"
+faulthandler_timeout = 90
+faulthandler_exit_on_timeout = true
 markers = [
     "unit: fast isolated unit tests",
     "integration: tests requiring external services",

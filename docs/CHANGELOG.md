@@ -4,6 +4,12 @@
 
 ## Unreleased
 
+- 数据刷新并发安全加固：`KlineLoader` / `ValuationLoader` 拆出 `fetch_response()`（可在线程池中并发执行）与 `write_response()`（确保 DB 写入仅发生在调用方线程）；`BatchLoader.load_kline_requests` / `load_all` / `execute` 路径同步改造，`insert_kline` / `insert_valuations` 调用固定由发起线程执行，避免多线程竞争 DuckDB 写入。测试 `tests/test_astock_anti_crawl.py::TestProviderRequestGovernor::test_concurrent_refresh_writes_only_from_calling_thread` 与 `test_concurrent_load_all_writes_valuations_from_calling_thread` 验证了该契约。
+- 数据查询路由规范化：`routes_data_query.py` 蓝图更名为 `market_data_query`，所有端点前缀 `/market/`（如 `/kline` → `/market/kline`、`/valuation` → `/market/valuation`、`/orderbook` → `/market/orderbook`、`/news` → `/market/news`、`/trade_tape` → `/market/trade_tape`、`/research` → `/market/research`、`/fundamentals` → `/market/fundamentals`、`/f10` → `/market/f10`、`/announcements` → `/market/announcements`、`/store/stats` → `/market/store/stats`）。
+- `routes_data_query.py` — 修复 live kline fetch 异常日志（记录 `exc` 而非 `exc_info=True`），超时场景输出更清晰的警告信息。
+- `pyproject.toml` — 新增 `faulthandler_timeout = 90` 与 `faulthandler_exit_on_timeout = true`，防止测试挂死。
+
+
 - `tradingagents/astock/web/__init__.py` — 修复 React SPA 静态资源服务：`REACT_DIST` 路径修正（增加一层 `.parent` 到达 `webui/dist`）；新增 `/assets/<path>` 和 `/react/<path>` 路由分别服务 React 构建产物中的 JS/CSS 和其他文件；Jinja2 静态文件夹固定为 `STATIC_DIR` 以保证 legacy 资源始终可用；SPA fallback 排除 `/api/*` 路径避免吞没 API 404。
 - `tradingagents/astock/web/__init__.py` — 强化 local release 边界：SPA fallback 在 `ASTOCK_LOCAL_RELEASE=true` 时拒绝所有非 API 路由返回 404，确保分析/回测以外页面不可达。
 - 数据刷新支持手动设置 1～5 条并发（默认 5）和任务超时；全局网络并发、单 provider 并发、节流与 429 冷却使用同一进程级治理器。

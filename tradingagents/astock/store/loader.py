@@ -108,6 +108,30 @@ class KlineLoader:
         self._store = store
         self._facade = data_facade
 
+    def fetch_response(
+        self,
+        symbol: str,
+        start: str | None = None,
+        end: str | None = None,
+        interval: str = "1d",
+    ) -> Any:
+        """Fetch a K-line response without touching the shared DuckDB store."""
+        try:
+            return self._facade.fetch(
+                capability="kline",
+                symbol=symbol,
+                start_date=start,
+                end_date=end,
+                interval=interval,
+            )
+        except AttributeError:
+            return self._facade.get_kline(
+                symbol=symbol,
+                start_date=start,
+                end_date=end,
+                interval=interval,
+            )
+
     def load(
         self,
         symbol: str,
@@ -123,23 +147,21 @@ class KlineLoader:
         """
         if deadline is not None and time.monotonic() >= deadline:
             raise TimeoutError("kline load deadline exceeded before provider request")
-        try:
-            response = self._facade.fetch(
-                capability="kline",
-                symbol=symbol,
-                start_date=start,
-                end_date=end,
-                interval=interval,
-            )
-        except AttributeError:
-            # Fallback: try get_kline directly
-            response = self._facade.get_kline(
-                symbol=symbol,
-                start_date=start,
-                end_date=end,
-                interval=interval,
-            )
+        response = self.fetch_response(symbol, start, end, interval)
+        return self.write_response(
+            symbol, response, interval=interval, source=source, deadline=deadline
+        )
 
+    def write_response(
+        self,
+        symbol: str,
+        response: Any,
+        *,
+        interval: str = "1d",
+        source: str = "",
+        deadline: float | None = None,
+    ) -> int:
+        """Persist an already-fetched response from the caller thread only."""
         if deadline is not None and time.monotonic() >= deadline:
             raise TimeoutError("kline load deadline exceeded before database write")
         if response is None:
@@ -147,44 +169,29 @@ class KlineLoader:
             return 0
         _raise_response_error(response, symbol, "kline")
 
-        data = response
-        if hasattr(response, "data"):
-            data = response.data
-
-        bars = None
+        data = response.data if hasattr(response, "data") else response
         if isinstance(data, dict):
-            bars = data.get("bars") or data.get("items")
-            if bars is None:
-                # try direct dict with date keys
-                bars = data.get("kline")
+            bars = data.get("bars") or data.get("items") or data.get("kline")
         elif isinstance(data, pd.DataFrame):
             bars = data
-
+        else:
+            bars = None
         if bars is None:
             logger.warning("No kline bars in response for %s", symbol)
             return 0
 
-        df: pd.DataFrame | None = None
         if isinstance(bars, pd.DataFrame):
             df = bars
-        elif isinstance(bars, list) and len(bars) > 0:
-            if isinstance(bars[0], dict):
-                df = pd.DataFrame(bars)
-
+        elif isinstance(bars, list) and bars and isinstance(bars[0], dict):
+            df = pd.DataFrame(bars)
+        else:
+            df = None
         if df is None or df.empty:
             return 0
 
-        # Ensure source
         if not source:
-            try:
-                if hasattr(response, "source") and response.source:
-                    source = response.source
-            except Exception:
-                pass
-
-        return self._store.insert_kline(
-            symbol, df, interval=interval, source=source
-        )
+            source = getattr(response, "source", "") or ""
+        return self._store.insert_kline(symbol, df, interval=interval, source=source)
 
 
 # ---------------------------------------------------------------------------
@@ -199,59 +206,61 @@ class ValuationLoader:
         self._store = store
         self._facade = data_facade
 
-    def load(
-        self, symbol: str, start: str | None = None, end: str | None = None, source: str = ""
-    ) -> int:
-        """Fetch valuation data for *symbol* and insert into DuckDB."""
+    def fetch_response(
+        self, symbol: str, start: str | None = None, end: str | None = None
+    ) -> Any:
+        """Fetch a valuation response without touching the shared DuckDB store."""
         try:
-            response = self._facade.fetch(
+            return self._facade.fetch(
                 capability="valuation",
                 symbol=symbol,
                 start_date=start,
                 end_date=end,
             )
         except AttributeError:
-            response = self._facade.get_valuation(
+            return self._facade.get_valuation(
                 symbol=symbol, start_date=start, end_date=end
             )
 
+    def load(
+        self, symbol: str, start: str | None = None, end: str | None = None, source: str = ""
+    ) -> int:
+        """Fetch valuation data for *symbol* and insert into DuckDB."""
+        response = self.fetch_response(symbol, start, end)
+        return self.write_response(symbol, response, source=source)
+
+    def write_response(self, symbol: str, response: Any, *, source: str = "") -> int:
+        """Persist an already-fetched response from the caller thread only."""
         if response is None:
             return 0
         _raise_response_error(response, symbol, "valuation")
 
-        data = response
-        if hasattr(response, "data"):
-            data = response.data
-
-        items = None
+        data = response.data if hasattr(response, "data") else response
         if isinstance(data, dict):
             items = data.get("items") or data.get("valuations")
-            # Flat dict (single snapshot) — wrap as single-row list
             if items is None and any(
-                k in data for k in ("pe", "pb", "market_cap", "price", "symbol")
+                key in data for key in ("pe", "pb", "market_cap", "price", "symbol")
             ):
                 items = [data]
         elif isinstance(data, pd.DataFrame):
             items = data
-
+        else:
+            items = None
         if items is None:
             return 0
 
-        df: pd.DataFrame | None = None
         if isinstance(items, pd.DataFrame):
             df = items
-        elif isinstance(items, list) and len(items) > 0:
-            if isinstance(items[0], dict):
-                df = pd.DataFrame(items)
-
+        elif isinstance(items, list) and items and isinstance(items[0], dict):
+            df = pd.DataFrame(items)
+        else:
+            df = None
         if df is None or df.empty:
             return 0
 
-        # Flat-snapshot records may not have trade_date — add today's date
         if "trade_date" not in df.columns and "date" not in df.columns:
             from datetime import date
             df["trade_date"] = date.today()
-
         return self._store.insert_valuations(symbol, df, source=source)
 
 
@@ -327,18 +336,19 @@ class BatchLoader:
         results: dict[str, int] = {}
 
         with ThreadPoolExecutor(max_workers=self._max_workers) as executor:
-            future_map: dict[Any, str] = {}
-            for sym in symbols:
-                future_map[
-                    executor.submit(
-                        self._kline_loader.load, sym, start, end, interval, source
-                    )
-                ] = sym
-
+            future_map = {
+                executor.submit(
+                    self._kline_loader.fetch_response, sym, start, end, interval
+                ): sym
+                for sym in symbols
+            }
             for future in as_completed(future_map):
                 sym = future_map[future]
                 try:
-                    results[sym] = future.result()
+                    response = future.result()
+                    results[sym] = self._kline_loader.write_response(
+                        sym, response, interval=interval, source=source
+                    )
                 except Exception as exc:
                     logger.warning("Failed to load kline for %s: %s", sym, exc)
                     results[sym] = -1
@@ -357,7 +367,7 @@ class BatchLoader:
         deadline = time.monotonic() + timeout
         retries = int(timeout_retries if timeout_retries is not None else os.getenv("ASTOCK_KLINE_TIMEOUT_RETRIES", "3"))
 
-        def execute(item: dict[str, Any]) -> tuple[str, dict[str, Any]]:
+        def execute(item: dict[str, Any]) -> tuple[str, dict[str, Any], Any | None]:
             symbol = str(item["symbol"])
             interval = str(item.get("interval", "1d"))
             key = f"{symbol}:{interval}"
@@ -368,16 +378,16 @@ class BatchLoader:
                 "status": "succeeded",
             }
             try:
-                result["rows_upserted"], result["retry_count"] = run_with_timeout_retries(
-                    lambda: self._kline_loader.load(
-                        symbol, item.get("start"), item.get("end"), interval,
-                        deadline=deadline,
+                response, result["retry_count"] = run_with_timeout_retries(
+                    lambda: self._kline_loader.fetch_response(
+                        symbol, item.get("start"), item.get("end"), interval
                     ),
                     retries=retries, deadline=deadline,
                 )
+                return key, result, response
             except Exception as exc:
                 result.update({"status": "failed", "retry_count": getattr(exc, "retry_count", 0), "error": serialize_load_error(exc)})
-            return key, result
+                return key, result, None
 
         results: dict[str, dict[str, Any]] = {}
         # Even a one-symbol refresh uses this bounded executor so a provider
@@ -394,7 +404,21 @@ class BatchLoader:
                     return_when=FIRST_COMPLETED,
                 )
                 for future in done:
-                    key, result = future.result()
+                    key, result, response = future.result()
+                    if result["status"] == "succeeded":
+                        item = futures[future]
+                        try:
+                            result["rows_upserted"] = self._kline_loader.write_response(
+                                str(item["symbol"]),
+                                response,
+                                interval=str(item.get("interval", "1d")),
+                                deadline=deadline,
+                            )
+                        except Exception as exc:
+                            result.update({
+                                "status": "failed",
+                                "error": serialize_load_error(exc),
+                            })
                     results[key] = result
             for future in pending:
                 item = futures[future]
@@ -441,18 +465,17 @@ class BatchLoader:
         results: dict[str, int] = {}
 
         with ThreadPoolExecutor(max_workers=self._max_workers) as executor:
-            future_map: dict[Any, str] = {}
-            for sym in symbols:
-                future_map[
-                    executor.submit(
-                        self._valuation_loader.load, sym, start, end, source
-                    )
-                ] = sym
-
+            future_map = {
+                executor.submit(self._valuation_loader.fetch_response, sym, start, end): sym
+                for sym in symbols
+            }
             for future in as_completed(future_map):
                 sym = future_map[future]
                 try:
-                    results[sym] = future.result()
+                    response = future.result()
+                    results[sym] = self._valuation_loader.write_response(
+                        sym, response, source=source
+                    )
                 except Exception as exc:
                     logger.warning("Failed to load valuations for %s: %s", sym, exc)
                     results[sym] = -1

@@ -228,7 +228,16 @@ def leading_pool() -> tuple[Response, int]:
         summary["trade_date"] = resolve_trade_date()[0]
         return jsonify(summary), 200
     except Exception as exc:
-        return jsonify({"error": str(exc), "status": 500}), 500
+        logger.warning("Leading pool summary failed: %s", exc)
+        # 提供友好的降级响应
+        return jsonify({
+            "error": "leading_pool_unavailable",
+            "message": "龙头股池数据暂不可用",
+            "trade_date": resolve_trade_date()[0],
+            "count": 0,
+            "sectors": {},
+            "stocks": [],
+        }), 200
 
 
 @bp.route("/market/momentum-rotation", methods=["POST"])

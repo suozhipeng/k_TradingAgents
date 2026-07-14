@@ -35,12 +35,23 @@ def refresh_kline() -> tuple[Response, int]:
         from tradingagents.astock.store.loader import KlineLoader
         store = get_store()
         router = current_app.config.get("DATA_FACADE")
+        if not router:
+            return jsonify({"error": "data router not available", "status": 503}), 503
         loader = KlineLoader(store, router)
         count = loader.load(symbol, start=start, end=end, interval=interval)
         return jsonify({"symbol": symbol, "rows_inserted": count, "status": "ok"}), 200
     except Exception as exc:
-        logger.warning("Refresh kline failed for %s: %s", symbol, exc)
-        return jsonify({"error": str(exc), "status": 500}), 500
+        error_msg = str(exc)
+        # 提供更有意义的错误信息
+        if "timeout" in error_msg.lower() or "timed out" in error_msg.lower():
+            logger.warning("Refresh kline timed out for %s: %s", symbol, exc)
+            return jsonify({"error": "request_timed_out", "message": "数据请求超时，请稍后重试", "status": 408}), 408
+        elif "network" in error_msg.lower() or "connection" in error_msg.lower():
+            logger.warning("Refresh kline network error for %s: %s", symbol, exc)
+            return jsonify({"error": "network_error", "message": "网络连接异常，请稍后重试", "status": 503}), 503
+        else:
+            logger.warning("Refresh kline failed for %s: %s", symbol, exc)
+            return jsonify({"error": "refresh_failed", "message": error_msg, "status": 500}), 500
 
 
 @bp.route("/data/refresh/valuation", methods=["POST"])
@@ -53,12 +64,22 @@ def refresh_valuation() -> tuple[Response, int]:
         from tradingagents.astock.store.loader import ValuationLoader
         store = get_store()
         router = current_app.config.get("DATA_FACADE")
+        if not router:
+            return jsonify({"error": "data router not available", "status": 503}), 503
         loader = ValuationLoader(store, router)
         count = loader.load(symbol)
         return jsonify({"symbol": symbol, "rows_inserted": count, "status": "ok"}), 200
     except Exception as exc:
-        logger.warning("Refresh valuation failed for %s: %s", symbol, exc)
-        return jsonify({"error": str(exc), "status": 500}), 500
+        error_msg = str(exc)
+        if "timeout" in error_msg.lower() or "timed out" in error_msg.lower():
+            logger.warning("Refresh valuation timed out for %s: %s", symbol, exc)
+            return jsonify({"error": "request_timed_out", "message": "数据请求超时，请稍后重试", "status": 408}), 408
+        elif "network" in error_msg.lower() or "connection" in error_msg.lower():
+            logger.warning("Refresh valuation network error for %s: %s", symbol, exc)
+            return jsonify({"error": "network_error", "message": "网络连接异常，请稍后重试", "status": 503}), 503
+        else:
+            logger.warning("Refresh valuation failed for %s: %s", symbol, exc)
+            return jsonify({"error": "refresh_failed", "message": error_msg, "status": 500}), 500
 
 
 @bp.route("/data/refresh/all", methods=["POST"])
@@ -74,12 +95,22 @@ def refresh_all() -> tuple[Response, int]:
         from tradingagents.astock.store.loader import BatchLoader
         store = get_store()
         router = current_app.config.get("DATA_FACADE")
+        if not router:
+            return jsonify({"error": "data router not available", "status": 503}), 503
         loader = BatchLoader(store, router)
         results = loader.load_all(symbols, kline_start=start, kline_end=end, interval=interval)
         return jsonify({"results": results, "status": "ok"}), 200
     except Exception as exc:
-        logger.warning("Refresh all failed: %s", exc)
-        return jsonify({"error": str(exc), "status": 500}), 500
+        error_msg = str(exc)
+        if "timeout" in error_msg.lower() or "timed out" in error_msg.lower():
+            logger.warning("Refresh all timed out: %s", exc)
+            return jsonify({"error": "request_timed_out", "message": "数据请求超时，请稍后重试", "status": 408}), 408
+        elif "network" in error_msg.lower() or "connection" in error_msg.lower():
+            logger.warning("Refresh all network error: %s", exc)
+            return jsonify({"error": "network_error", "message": "网络连接异常，请稍后重试", "status": 503}), 503
+        else:
+            logger.warning("Refresh all failed: %s", exc)
+            return jsonify({"error": "refresh_failed", "message": error_msg, "status": 500}), 500
 
 
 # ---------------------------------------------------------------------------

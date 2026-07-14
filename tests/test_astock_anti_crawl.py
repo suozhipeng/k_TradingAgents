@@ -263,6 +263,69 @@ class TestProviderRequestGovernor(unittest.TestCase):
         time.sleep(0.3)
         self.assertEqual(store.writes, 0)
 
+    def test_concurrent_refresh_writes_only_from_calling_thread(self) -> None:
+        class Store:
+            write_thread_ids: list[int] = []
+
+            def insert_kline(self, *args, **kwargs) -> int:
+                self.write_thread_ids.append(threading.get_ident())
+                return 1
+
+        class Facade:
+            def fetch(self, **kwargs):
+                return SimpleNamespace(
+                    status="ok",
+                    source="fake",
+                    data=pd.DataFrame([
+                        {"date": "2024-01-02", "open": 10, "high": 11, "low": 9, "close": 10.5}
+                    ]),
+                )
+
+        caller_thread_id = threading.get_ident()
+        store = Store()
+        result = BatchLoader(cast(Any, store), cast(Any, Facade()), max_workers=2).load_kline_requests(
+            [
+                {"symbol": "600519.SH", "interval": "1d"},
+                {"symbol": "000001.SZ", "interval": "1d"},
+            ],
+            concurrent=True,
+            timeout_seconds=2,
+            timeout_retries=0,
+        )
+
+        self.assertTrue(all(item["status"] == "succeeded" for item in result.values()))
+        self.assertEqual(store.write_thread_ids, [caller_thread_id, caller_thread_id])
+
+    def test_concurrent_load_all_writes_valuations_from_calling_thread(self) -> None:
+        class Store:
+            valuation_write_thread_ids: list[int] = []
+
+            def insert_kline(self, *args, **kwargs) -> int:
+                return 1
+
+            def insert_valuations(self, *args, **kwargs) -> int:
+                self.valuation_write_thread_ids.append(threading.get_ident())
+                return 1
+
+        class Facade:
+            def fetch(self, **kwargs):
+                return SimpleNamespace(
+                    status="ok",
+                    source="fake",
+                    data=pd.DataFrame([
+                        {"date": "2024-01-02", "open": 10, "high": 11, "low": 9, "close": 10.5}
+                    ]),
+                )
+
+        caller_thread_id = threading.get_ident()
+        store = Store()
+        result = BatchLoader(cast(Any, store), cast(Any, Facade()), max_workers=2).load_all(
+            ["600519.SH", "000001.SZ"], concurrent=True
+        )
+
+        self.assertEqual(result["valuations"], {"600519.SH": 1, "000001.SZ": 1})
+        self.assertEqual(store.valuation_write_thread_ids, [caller_thread_id, caller_thread_id])
+
 
 if __name__ == "__main__":
     unittest.main()
