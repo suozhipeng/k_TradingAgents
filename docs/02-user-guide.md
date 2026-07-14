@@ -378,7 +378,7 @@ python scripts/smoke_structured_output.py
   A: 确认已安装 `pip install '.[astock-providers]'`，且 DuckDB 数据库文件路径可写。
 
 - **Q: React WebUI 实验前端？**
-  A: `webui/` 目录为非发布的 React/TS 开发前端。需使用 Node.js 18+；其 Data Hub 使用服务端刷新契约，但本地正式版仍以 Flask/Jinja2 为唯一入口。
+  A: `webui/` 目录为 React/TS 开发前端。需使用 Node.js 18+；构建产物位于 `webui/dist/`，由 Flask 通过 `/assets/<path>` 和 `/react/<path>` 路由 serve；SPA fallback 对非 API 路径返回 `index.html`。本地正式版同时支持 Jinja2 模板页面（`/dashboard`, `/backtest` 等）和 React SPA。
 
 ### 下一步
 

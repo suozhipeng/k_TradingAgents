@@ -58,7 +58,17 @@
 | 影响 | 后续 WebUI 重构优先收敛 Flask 产品导航；Streamlit 继续作为只读 viewer |
 | 关联文档 | `02-user-guide.md`, `03-operations.md` |
 
-### ADR-003 所有交易能力必须标注 capability
+### ADR-003 Flask 同时服务 Jinja2 模板页面和 React SPA
+
+| 字段 | 内容 |
+|---|---|
+| 状态 | `accepted` |
+| 背景 | 项目同时存在 Jinja2 模板页面（`web/templates/`）和 React 构建产物（`webui/dist/`），需要统一入口 |
+| 决策 | Flask `web` blueprint 同时注册两类页面：Jinja2 路由（`/dashboard`, `/backtest` 等）优先匹配；非 API 路径由 `spa_fallback` 返回 `webui/dist/index.html`；React 静态资源通过 `/assets/<path>` 单独路由。`/api/*` 路径不被 SPA fallback 吞没，未匹配时返回 404 |
+| 影响 | 新增 Jinja2 页面需注册到对应 blueprint；新增 React 路由由前端自行处理；API 路由不受影响 |
+| 关联文档 | `02-user-guide.md`, `CHANGELOG.md` |
+
+### ADR-004 所有交易能力必须标注 capability
 
 | 字段 | 内容 |
 |---|---|
@@ -68,7 +78,7 @@
 | 影响 | live-ready 声明必须通过准入 checklist；mock/paper 不得被描述为真实账户或真实订单 |
 | 关联文档 | `01-architecture.md`, `03-operations.md`, `03-operations.md` |
 
-### ADR-004 Strategy Lab 收敛策略、回测、优化、绩效和对比
+### ADR-005 Strategy Lab 收敛策略、回测、优化、绩效和对比
 
 | 字段 | 内容 |
 |---|---|
@@ -78,7 +88,7 @@
 | 影响 | 新增策略必须遵守策略开发规范；动量轮动可保留 standalone 组合策略模式 |
 | 关联文档 | `BACKLOG.md`, `02-user-guide.md` |
 
-### ADR-005 AI Research Center 保持 advisory-only
+### ADR-006 AI Research Center 保持 advisory-only
 
 | 字段 | 内容 |
 |---|---|
@@ -88,7 +98,7 @@
 | 影响 | 必须记录模型、prompt、输入快照和引用；LLM 不可用时 fail closed 或 degraded |
 | 关联文档 | `03-operations.md` |
 
-### ADR-006 Market Leaders 顶层最多一个入口
+### ADR-007 Market Leaders 顶层最多一个入口
 
 | 字段 | 内容 |
 |---|---|
@@ -98,7 +108,7 @@
 | 影响 | 旧入口需要迁移、跳转或降级提示；候选池必须展示来源、刷新时间和入池/出池理由 |
 | 关联文档 | `02-user-guide.md` |
 
-### ADR-007 数据 schema 变化必须先有迁移策略
+### ADR-008 数据 schema 变化必须先有迁移策略
 
 | 字段 | 内容 |
 |---|---|
@@ -108,7 +118,7 @@
 | 影响 | 不能只改代码或页面；必须补迁移前后 schema、cache 重建、API/WebUI 回归 |
 | 关联文档 | `04-development.md`, `BACKLOG.md`, `database_module_whitepaper.md` |
 
-### ADR-008 Phase 证据是交付事实来源
+### ADR-009 Phase 证据是交付事实来源
 
 | 字段 | 内容 |
 |---|---|
