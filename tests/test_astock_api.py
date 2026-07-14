@@ -169,47 +169,47 @@ def test_health_endpoint(app):
 
 class TestDataEndpoints:
     def test_get_kline(self, app):
-        resp = app.get("/api/v1/kline?symbol=600519.SH")
+        resp = app.get("/api/v1/market/kline?symbol=600519.SH")
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["symbol"] == "600519.SH"
         assert len(data["bars"]) == 2
 
     def test_get_kline_with_limit(self, app):
-        resp = app.get("/api/v1/kline?symbol=600519.SH&limit=1")
+        resp = app.get("/api/v1/market/kline?symbol=600519.SH&limit=1")
         assert resp.status_code == 200
         data = resp.get_json()
         assert len(data["bars"]) == 1
 
     def test_get_kline_missing_symbol(self, app):
-        resp = app.get("/api/v1/kline")
+        resp = app.get("/api/v1/market/kline")
         assert resp.status_code == 400
         data = resp.get_json()
         assert "error" in data
 
     def test_get_kline_with_dates(self, app):
         resp = app.get(
-            "/api/v1/kline?symbol=600519.SH&start=2024-01-01&end=2024-01-10"
+            "/api/v1/market/kline?symbol=600519.SH&start=2024-01-01&end=2024-01-10"
         )
         assert resp.status_code == 200
         data = resp.get_json()
         assert len(data["bars"]) == 2
 
     def test_get_valuation(self, app):
-        resp = app.get("/api/v1/valuation?symbol=600519.SH")
+        resp = app.get("/api/v1/market/valuation?symbol=600519.SH")
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["symbol"] == "600519.SH"
         assert len(data["valuations"]) == 1
 
     def test_get_valuation_with_limit(self, app):
-        resp = app.get("/api/v1/valuation?symbol=600519.SH&limit=1")
+        resp = app.get("/api/v1/market/valuation?symbol=600519.SH&limit=1")
         assert resp.status_code == 200
         data = resp.get_json()
         assert len(data["valuations"]) == 1
 
     def test_get_valuation_missing_symbol(self, app):
-        resp = app.get("/api/v1/valuation")
+        resp = app.get("/api/v1/market/valuation")
         assert resp.status_code == 400
 
     def test_manual_insert_kline(self, app):
@@ -233,7 +233,7 @@ class TestDataEndpoints:
         data = resp.get_json()
         assert data["rows_inserted"] == 1
 
-        check = app.get("/api/v1/kline?symbol=000001.SZ")
+        check = app.get("/api/v1/market/kline?symbol=000001.SZ")
         assert check.status_code == 200
         bars = check.get_json()["bars"]
         assert len(bars) == 1
@@ -349,7 +349,7 @@ class TestDataEndpoints:
             assert job["status"] == "succeeded"
             assert job["progress"] == 1.0
 
-            check = app.get("/api/v1/kline?symbol=000002.SZ")
+            check = app.get("/api/v1/market/kline?symbol=000002.SZ")
             assert check.status_code == 200
             assert check.get_json()["bars"][0]["source"] == "sqlite"
         finally:
@@ -453,20 +453,20 @@ class TestDataEndpoints:
         }
 
     def test_get_orderbook(self, app):
-        resp = app.get("/api/v1/orderbook?symbol=600519.SH")
+        resp = app.get("/api/v1/market/orderbook?symbol=600519.SH")
         assert resp.status_code == 200
         data = resp.get_json()
         assert "snapshots" in data
 
     def test_get_news(self, app):
-        resp = app.get("/api/v1/news?symbol=600519.SH&limit=10")
+        resp = app.get("/api/v1/market/news?symbol=600519.SH&limit=10")
         assert resp.status_code == 200
         data = resp.get_json()
         assert len(data["news"]) == 1
         assert data["news"][0]["title"] == "Test news article"
 
     def test_get_research(self, app):
-        resp = app.get("/api/v1/research?symbol=600519.SH&limit=10")
+        resp = app.get("/api/v1/market/research?symbol=600519.SH&limit=10")
         assert resp.status_code == 200
         data = resp.get_json()
         assert len(data["reports"]) == 1
@@ -480,13 +480,13 @@ class TestDataEndpoints:
         assert data["items"][0]["name"] == "白酒"
 
     def test_get_announcements(self, app):
-        resp = app.get("/api/v1/announcements?symbol=600519.SH&limit=10")
+        resp = app.get("/api/v1/market/announcements?symbol=600519.SH&limit=10")
         assert resp.status_code == 200
         data = resp.get_json()
         assert len(data["announcements"]) == 1
 
     def test_get_store_stats(self, app):
-        resp = app.get("/api/v1/store/stats")
+        resp = app.get("/api/v1/market/store/stats")
         assert resp.status_code == 200
         data = resp.get_json()
         stats = data["stats"]
@@ -968,7 +968,7 @@ def test_404_not_found(app):
 
 def test_kline_returns_count_limit_has_more(app):
     """Kline response includes count/limit/has_more/range metadata."""
-    resp = app.get("/api/v1/kline?symbol=600519.SH")
+    resp = app.get("/api/v1/market/kline?symbol=600519.SH")
     assert resp.status_code == 200
     data = resp.get_json()
     assert isinstance(data.get("count"), int)
@@ -982,7 +982,7 @@ def test_kline_returns_count_limit_has_more(app):
 
 def test_kline_default_limit_is_500(app):
     """Default limit is 500 (not 0 = unlimited)."""
-    resp = app.get("/api/v1/kline?symbol=600519.SH")
+    resp = app.get("/api/v1/market/kline?symbol=600519.SH")
     assert resp.status_code == 200
     data = resp.get_json()
     assert data["limit"] == 500
@@ -990,7 +990,7 @@ def test_kline_default_limit_is_500(app):
 
 def test_kline_limit_zero_returns_all(app):
     """Passing limit=0 returns all rows (backward compat)."""
-    resp = app.get("/api/v1/kline?symbol=600519.SH&limit=0")
+    resp = app.get("/api/v1/market/kline?symbol=600519.SH&limit=0")
     assert resp.status_code == 200
     data = resp.get_json()
     assert data["count"] == 2
@@ -1015,7 +1015,7 @@ def test_announcements_returns_latest_first(app):
     }])
     store.insert_announcements("600519.SH", newer_df)
 
-    resp = app.get("/api/v1/announcements?symbol=600519.SH&limit=10")
+    resp = app.get("/api/v1/market/announcements?symbol=600519.SH&limit=10")
     assert resp.status_code == 200
     data = resp.get_json()
     assert len(data["announcements"]) == 2
@@ -1053,13 +1053,13 @@ def test_paper_trades_with_limit(app):
 
 def test_all_errors_use_int_status(app):
     """All endpoints return error status as int, not string."""
-    resp = app.get("/api/v1/kline")  # missing symbol → 400
+    resp = app.get("/api/v1/market/kline")  # missing symbol → 400
     assert resp.status_code == 400
     data = resp.get_json()
     assert isinstance(data["status"], int)
     assert data["status"] == 400
 
-    resp = app.get("/api/v1/valuation")  # missing symbol → 400
+    resp = app.get("/api/v1/market/valuation")  # missing symbol → 400
     assert resp.status_code == 400
     data = resp.get_json()
     assert isinstance(data["status"], int)

@@ -100,21 +100,21 @@
 
 | Method | Path | 说明 |
 |--------|------|------|
-| `GET` | `/api/v1/announcements` | (无描述) |
-| `GET` | `/api/v1/f10` | (无描述) |
-| `GET` | `/api/v1/fundamentals` | (无描述) |
-| `GET` | `/api/v1/kline` | (无描述) |
-| `GET` | `/api/v1/news` | 获取新闻资讯 |
-| `GET` | `/api/v1/news/live` | (无描述) |
-| `GET` | `/api/v1/news/stock` | (无描述) |
-| `GET` | `/api/v1/orderbook` | (无描述) |
-| `GET` | `/api/v1/research` | (无描述) |
-| `GET` | `/api/v1/research/expectation` | 获取机构预期 |
-| `GET` | `/api/v1/research/pdf` | 获取研报 PDF 元数据 |
-| `GET` | `/api/v1/research/search` | (无描述) |
-| `GET` | `/api/v1/store/stats` | (无描述) |
-| `GET` | `/api/v1/trade_tape` | (无描述) |
-| `GET` | `/api/v1/valuation` | (无描述) |
+| `GET` | `/api/v1/market/announcements` | (无描述) |
+| `GET` | `/api/v1/market/f10` | (无描述) |
+| `GET` | `/api/v1/market/fundamentals` | (无描述) |
+| `GET` | `/api/v1/market/kline` | (无描述) |
+| `GET` | `/api/v1/market/news` | 获取新闻资讯 |
+| `GET` | `/api/v1/market/news/live` | (无描述) |
+| `GET` | `/api/v1/market/news/stock` | (无描述) |
+| `GET` | `/api/v1/market/orderbook` | (无描述) |
+| `GET` | `/api/v1/market/research` | (无描述) |
+| `GET` | `/api/v1/market/research/expectation` | 获取机构预期 |
+| `GET` | `/api/v1/market/research/pdf` | 获取研报 PDF 元数据 |
+| `GET` | `/api/v1/market/research/search` | (无描述) |
+| `GET` | `/api/v1/market/store/stats` | (无描述) |
+| `GET` | `/api/v1/market/trade_tape` | (无描述) |
+| `GET` | `/api/v1/market/valuation` | (无描述) |
 
 ## `routes_health.py`
 

@@ -100,7 +100,7 @@ def test_api_5xx_responses_do_not_expose_exception_text() -> None:
     app = _app(require_auth=False)
     with patch("tradingagents.astock.api.routes_data_query.get_store", side_effect=RuntimeError("secret detail")):
         with app.test_client() as client:
-            response = client.get("/api/v1/kline?symbol=600519.SH")
+            response = client.get("/api/v1/market/kline?symbol=600519.SH")
     assert response.status_code == 500
     assert response.get_json() == {"error": "internal_server_error", "status": 500}
 
