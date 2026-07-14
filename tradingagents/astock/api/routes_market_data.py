@@ -228,16 +228,7 @@ def leading_pool() -> tuple[Response, int]:
         summary["trade_date"] = resolve_trade_date()[0]
         return jsonify(summary), 200
     except Exception as exc:
-        logger.warning("Leading pool summary failed: %s", exc)
-        # 提供友好的降级响应
-        return jsonify({
-            "error": "leading_pool_unavailable",
-            "message": "龙头股池数据暂不可用",
-            "trade_date": resolve_trade_date()[0],
-            "count": 0,
-            "sectors": {},
-            "stocks": [],
-        }), 200
+        return jsonify({"error": str(exc), "status": 500}), 500
 
 
 @bp.route("/market/momentum-rotation", methods=["POST"])
@@ -252,19 +243,14 @@ def momentum_rotation() -> tuple[Response, int]:
             k=int(body.get("k", 5)),
             l=int(body.get("l", 5)),
         )
-        leading_info = []
-        try:
-            leading_info = [
-                {
-                    "symbol": stock.get("symbol", ""),
-                    "name": stock.get("name", ""),
-                    "sector": stock.get("sector", ""),
-                }
-                for stock in get_current_leading_stocks()
-            ]
-        except Exception as exc:
-            logger.warning("Failed to get current leading stocks: %s", exc)
-            leading_info = []
+        leading_info = [
+            {
+                "symbol": stock.get("symbol", ""),
+                "name": stock.get("name", ""),
+                "sector": stock.get("sector", ""),
+            }
+            for stock in get_current_leading_stocks()
+        ]
         return jsonify(
             {
                 "total_return": result.total_return,
@@ -285,27 +271,7 @@ def momentum_rotation() -> tuple[Response, int]:
             }
         ), 200
     except Exception as exc:
-        logger.warning("Momentum rotation failed: %s", exc)
-        # 提供友好的降级响应
-        return jsonify({
-            "error": "momentum_rotation_failed",
-            "message": "动量旋转策略计算失败",
-            "total_return": 0,
-            "annualized_return": 0,
-            "sharpe_ratio": 0,
-            "max_drawdown": 0,
-            "win_rate": 0,
-            "total_trades": 0,
-            "benchmark_return": 0,
-            "equal_weight_return": 0,
-            "periods": [],
-            "trades": [],
-            "stock_selection_freq": {},
-            "dates": [],
-            "params": {},
-            "leading_stocks": [],
-            "leading_source": "fallback",
-        }), 200
+        return jsonify({"error": str(exc), "status": 500}), 500
 
 
 @bp.route("/market/momentum", methods=["GET"])
