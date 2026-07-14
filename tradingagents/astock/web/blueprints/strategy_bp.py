@@ -33,10 +33,10 @@ def backtest_console() -> str:
 
 @bp.route("/comparison")
 @bp.route("/compare")
-def comparison_redirect() -> str:
-    return redirect(url_for("web_strategy.strategy_hub"), 301)
+def comparison_redirect():
+    return redirect(url_for("web.strategy.strategy_hub"), 301)
 
 
 @bp.route("/performance")
-def performance_redirect() -> str:
-    return redirect(url_for("web_strategy.strategy_hub"), 301)
+def performance_redirect():
+    return redirect(url_for("web.strategy.strategy_hub"), 301)

@@ -922,6 +922,34 @@ class TestMarketDataEndpoints:
         assert "summary" in data
         assert data["summary"]["total"] > 0
 
+    def test_dragon_tiger_live_failure_returns_non_mock_fallback(self, app, monkeypatch):
+        import tradingagents.astock.api.routes_market_data as market_routes
+
+        monkeypatch.setattr(
+            market_routes,
+            "daily_dragon_tiger",
+            lambda **_kwargs: (_ for _ in ()).throw(ConnectionError("upstream unavailable")),
+        )
+        response = app.get("/api/v1/market/dragon-tiger")
+
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["source"] == "fallback"
+        assert data["is_mock"] is False
+        assert data["stocks"] == []
+        assert data["total_records"] == 0
+
+
+class TestCacheEndpoints:
+    def test_cache_status_and_clear_are_available(self, app):
+        status = app.get("/api/v1/cache/status")
+        assert status.status_code == 200
+        assert "cache" in status.get_json()
+
+        cleared = app.post("/api/v1/cache/clear")
+        assert cleared.status_code == 200
+        assert cleared.get_json()["status"] == "ok"
+
 
 # ---------------------------------------------------------------------------
 # Test: error handling

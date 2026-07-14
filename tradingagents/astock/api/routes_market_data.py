@@ -109,7 +109,15 @@ def dragon_tiger() -> tuple[Response, int]:
             result["_note"] = f"今日非交易日，展示 {source_label} 数据"
         return jsonify(result), 200
     except Exception as exc:
-        return jsonify({"error": str(exc), "status": 500}), 500
+        logger.warning("Dragon-tiger live request failed for %s: %s", trade_date, exc)
+        fallback = {
+            "date": trade_date,
+            "total_records": 0,
+            "stocks": [],
+            "note": "龙虎榜实时数据暂不可用",
+        }
+        banner = DataQualityBanner.banner(source="fallback", ts=_dt.now())
+        return jsonify({**fallback, **banner}), 200
 
 
 @bp.route("/market/sectors")

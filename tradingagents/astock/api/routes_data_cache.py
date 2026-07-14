@@ -8,7 +8,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from flask import Blueprint, Response, jsonify
+from flask import Blueprint, Response, current_app, jsonify
 
 bp = Blueprint("data_cache", __name__)
 logger = logging.getLogger(__name__)
