@@ -667,6 +667,20 @@ def test_concurrent_writes(store: AStockStore) -> None:
     assert total.iloc[0]["cnt"] == n_threads * rows_per_thread
 
 
+def test_kline_field_aliases_and_bad_rows_are_compatible(store: AStockStore) -> None:
+    rows = pd.DataFrame([
+        {"日期": "2024-01-02", "开盘": "10", "最高": "11", "最低": "9", "收盘": "10.5", "成交量": "100"},
+        {"日期": "not-a-date", "开盘": "bad", "最高": "11", "最低": "9", "收盘": "10.5"},
+    ])
+    assert store.insert_kline("000001.SZ", rows) == 1
+    saved = store.query_kline("000001.SZ")
+    assert len(saved) == 1
+    assert saved.iloc[0]["close"] == 10.5
+    quarantined = store.query_quarantine(severity="error")
+    assert len(quarantined) == 1
+    assert "incompatible required K-line field" in quarantined.iloc[0]["reason"]
+
+
 # ===================================================================
 # 15. init_astock_db factory
 # ===================================================================

@@ -59,37 +59,9 @@ def _load_from_duckdb(store: Any) -> list[dict[str, Any]]:
 def _save_to_duckdb(store: Any, items: list[dict[str, Any]]) -> None:
     """Save watchlist to DuckDB watchlist table."""
     try:
-        if store is None:
+        if store is None or not hasattr(store, "replace_watchlist"):
             return
-        import duckdb
-        conn = duckdb.connect(store.db_path) if hasattr(store, "db_path") else None
-        if conn is None:
-            # Try using store's internal connection
-            conn = store._conn if hasattr(store, "_conn") else None
-        if conn is None:
-            return
-
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS watchlist (
-                symbol VARCHAR PRIMARY KEY,
-                name VARCHAR,
-                added_at TIMESTAMP,
-                source VARCHAR DEFAULT 'manual'
-            )
-        """)
-        conn.execute("DELETE FROM watchlist")
-        for item in items:
-            conn.execute(
-                "INSERT INTO watchlist (symbol, name, added_at, source) VALUES (?, ?, ?, ?)",
-                [
-                    item["symbol"],
-                    item.get("name", item["symbol"]),
-                    item.get("added_at", datetime.now().isoformat()),
-                    item.get("source", "manual"),
-                ],
-            )
-        conn.commit()
-        conn.close()
+        store.replace_watchlist(items)
     except Exception as exc:
         logger.warning("DuckDB watchlist save failed, falling back to JSON: %s", exc)
         _save_json(items)

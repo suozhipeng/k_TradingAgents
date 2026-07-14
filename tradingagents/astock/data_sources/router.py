@@ -15,7 +15,7 @@ from .adapters.registry import build_default_adapters
 from .cache import FileAStockCache, InMemoryAStockCache
 from .errors import AStockDataError, AStockNoDataError, AStockSourceUnavailableError
 from .quality import DataQualityTag
-from .request_governor import ProviderRequestGovernor
+from .request_governor import ProviderRequestGovernor, get_provider_request_governor
 from .schema import AStockRequest, AStockResponse, normalize_capability_payload
 from .symbols import normalize_astock_symbol
 logger = logging.getLogger(__name__)
@@ -127,7 +127,7 @@ class AStockDataRouter(object):
         self.eliminated_sources = frozenset(_normalize_source_id(source) for source in (eliminated_sources or DEFAULT_ELIMINATED_SOURCES))
         # A router is shared by the API process; keep the governor on it so
         # concurrent jobs use the same provider budget.
-        self.request_governor = request_governor or ProviderRequestGovernor()
+        self.request_governor = request_governor or get_provider_request_governor()
 
     def _request(self, capability: str, symbol: str, **kwargs: Any) -> AStockRequest:
         normalized = normalize_astock_symbol(symbol)

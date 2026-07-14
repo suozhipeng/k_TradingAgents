@@ -8,7 +8,11 @@ import time
 import unittest
 from concurrent.futures import ThreadPoolExecutor
 import threading
+from types import SimpleNamespace
+from typing import Any, cast
 from unittest.mock import patch
+
+import pandas as pd
 
 _REPO = __file__  # not needed for import but keeps pattern
 # Import the anti-crawling functions directly from adapters
@@ -19,7 +23,11 @@ from tradingagents.astock.data_sources.adapters import (
     _random_sleep,
     _retry_with_backoff,
 )
-from tradingagents.astock.data_sources.request_governor import ProviderRequestGovernor
+from tradingagents.astock.data_sources.request_governor import (
+    ProviderRequestGovernor,
+    ProviderRequestTimeoutError,
+)
+from tradingagents.astock.store.loader import BatchLoader, run_with_timeout_retries
 
 
 class TestRandomSleep(unittest.TestCase):
@@ -154,7 +162,9 @@ class TestCommonHeaders(unittest.TestCase):
 
 class TestProviderRequestGovernor(unittest.TestCase):
     def test_same_provider_has_shared_concurrency_limit(self) -> None:
-        governor = ProviderRequestGovernor(max_concurrent=2, min_interval_seconds=0)
+        governor = ProviderRequestGovernor(
+            max_concurrent=2, provider_max_concurrent=2, min_interval_seconds=0
+        )
         active = 0
         peak = 0
         lock = threading.Lock()
@@ -188,6 +198,70 @@ class TestProviderRequestGovernor(unittest.TestCase):
             governor.call("tencent", lambda: (_ for _ in ()).throw(RuntimeError("HTTP 429")))
         governor.call("tencent", lambda: "ok")
         self.assertEqual(waits, [8])
+
+    def test_global_capacity_wait_has_a_deadline(self) -> None:
+        governor = ProviderRequestGovernor(
+            max_concurrent=1, provider_max_concurrent=1,
+            min_interval_seconds=0, request_timeout_seconds=0.02,
+        )
+        started = threading.Event()
+        release = threading.Event()
+
+        def blocked_request() -> None:
+            started.set()
+            release.wait(timeout=1)
+
+        holder = threading.Thread(target=lambda: governor.call("akshare", blocked_request))
+        holder.start()
+        self.assertTrue(started.wait(timeout=0.2))
+        with self.assertRaises(ProviderRequestTimeoutError):
+            governor.call("tencent", lambda: None)
+        release.set()
+        holder.join(timeout=0.2)
+
+    def test_timeout_retries_are_bounded_and_recover(self) -> None:
+        attempts = [0]
+
+        def eventually_succeeds() -> str:
+            attempts[0] += 1
+            if attempts[0] < 3:
+                raise TimeoutError("socket timed out")
+            return "ok"
+
+        value, retry_count = run_with_timeout_retries(eventually_succeeds, retries=3)
+        self.assertEqual(value, "ok")
+        self.assertEqual(retry_count, 2)
+
+    def test_timed_out_kline_request_does_not_write_late_rows(self) -> None:
+        class Store:
+            writes = 0
+
+            def insert_kline(self, *args, **kwargs) -> int:
+                self.writes += 1
+                return 1
+
+        class Facade:
+            def fetch(self, **kwargs):
+                time.sleep(1.2)
+                return SimpleNamespace(
+                    status="ok",
+                    source="fake",
+                    data=pd.DataFrame([
+                        {"date": "2024-01-02", "open": 10, "high": 11, "low": 9, "close": 10.5}
+                    ]),
+                )
+
+        store = Store()
+        result = BatchLoader(cast(Any, store), cast(Any, Facade()), max_workers=1).load_kline_requests(
+            [{"symbol": "600519.SH", "interval": "1d"}],
+            timeout_seconds=1,
+            timeout_retries=0,
+        )
+        self.assertEqual(result["600519.SH:1d"]["status"], "failed")
+        self.assertEqual(result["600519.SH:1d"]["error"]["code"], "timeout")
+        self.assertEqual(result["600519.SH:1d"]["retry_count"], 0)
+        time.sleep(0.3)
+        self.assertEqual(store.writes, 0)
 
 
 if __name__ == "__main__":

@@ -141,9 +141,10 @@
 
 本文定义 TradingAgents-Astock 的生产级 API 契约要求。当前代码中的具体端点以实现为准；本文用于约束后续接口口径、能力等级、错误语义和验收要求。
 
-当前本地验证基线（2026-07-08）：
-- `DEEPSEEK_API_KEY=placeholder pytest -q` → `1082 passed, 10 skipped`
-- 真实 live 验收已补跑：`tests/test_deepseek_reasoning.py -k live -m integration` → `1 passed`
+当前本地验证基线（2026-07-14）：
+- `ASTOCK_TESTING=1 pytest tests/ -q --tb=short` → `1133 passed, 13 skipped`
+- AStock 专项：`ASTOCK_TESTING=1 pytest tests/test_astock*.py -q --tb=short` → `723 passed, 13 skipped`
+- 真实 live 验收沿用 2026-07-08 结果：`tests/test_deepseek_reasoning.py -k live -m integration` → `1 passed`
 - 真实 live provider 验收已补跑：`tests/test_astock_live_providers.py -m integration` → `7 passed, 1 skipped`
 - 当前未闭环项仅为 `ASTOCK_IWENCAI_COOKIE` 缺失时 Iwencai live 用例跳过
 

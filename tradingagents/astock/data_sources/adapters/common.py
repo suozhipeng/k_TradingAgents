@@ -250,7 +250,7 @@ def _random_sleep(min_s: float = 0.3, max_s: float = 1.5) -> None:
 
 def _retry_with_backoff(
     func, max_retries: int = 3, base_delay: float = 1.0,
-    name: str = "request",
+    name: str = "request", deadline: float | None = None,
 ):
     """带指数退避的重试包装器。
 
@@ -268,6 +268,8 @@ def _retry_with_backoff(
     """
     last_exc = None
     for attempt in range(max_retries + 1):
+        if deadline is not None and time.monotonic() >= deadline:
+            raise TimeoutError("{0} deadline exceeded before attempt {1}".format(name, attempt + 1))
         try:
             return func()
         except Exception as exc:
@@ -276,6 +278,11 @@ def _retry_with_backoff(
                 # 测试环境中不延迟
                 if os.environ.get("ASTOCK_TESTING") != "1":
                     delay = base_delay * (2 ** attempt) + random.uniform(0, 0.5)
+                    if deadline is not None:
+                        remaining = deadline - time.monotonic()
+                        if remaining <= 0:
+                            raise TimeoutError("{0} deadline exceeded during retry".format(name))
+                        delay = min(delay, remaining)
                     time.sleep(delay)
     raise last_exc  # type: ignore[misc]
 

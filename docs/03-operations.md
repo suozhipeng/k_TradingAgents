@@ -26,8 +26,11 @@
 - 正式 Data Hub 通过 `GET /api/v1/data/refresh/options` 获取标的、周期与模式，前端不得自行硬编码周期或增量规则。
 - `POST /api/v1/data/jobs/refresh` 支持 `range` 与 `incremental`：后者由服务端从本地该标的/周期的最新 bar 前推一个周期作为重叠刷新起点，再以 upsert 写入本地 Store。
 - 刷新计划会对重复的 `symbols` 和 `intervals` 去重；每个 `symbol:interval` 在一次任务中只执行一次。超过 3 个 K 线请求时使用线程池并发拉取，但写入仍由 Store 的锁顺序化，避免破坏本地数据库一致性。
-- 所有 provider 调用经过进程内共享的按源治理器：默认单源最多 2 条在途请求、相邻请求最少间隔 0.25 秒；检测到 429/频率限制后，该源默认冷却 15 秒并继续尝试路由 fallback。可通过 `ASTOCK_PROVIDER_MAX_CONCURRENCY`、`ASTOCK_PROVIDER_MIN_INTERVAL_SECONDS` 和 `ASTOCK_PROVIDER_COOLDOWN_SECONDS` 调整；生产环境应从保守值逐步放宽。
-- 单个标的请求失败不会中止整批刷新。任务结果的 K 线项返回 `status`、`requested_start`、`requested_end`、`rows_upserted`；失败项额外返回稳定的 `error.code`、受限长度的 `error.message` 与 `error.retryable`。当前错误码包括 `rate_limited`、`source_unavailable`、`network_error`、`no_data` 和 `unexpected_error`。调用方应以 `failure_count` 判断部分失败，不应只根据任务总状态判断数据完整性。
+- 所有 provider 调用经过进程内共享的按源治理器：默认全局最多 5 条在途网络请求、单源最多 1 条、相邻请求最少间隔 0.25 秒；检测到 429/频率限制后，该源默认冷却 15 秒并继续尝试路由 fallback。可通过 `ASTOCK_NETWORK_MAX_CONCURRENCY`、`ASTOCK_PROVIDER_MAX_CONCURRENCY`、`ASTOCK_PROVIDER_MIN_INTERVAL_SECONDS` 和 `ASTOCK_PROVIDER_COOLDOWN_SECONDS` 调整；生产环境应从保守值逐步放宽。
+- Data Hub 刷新请求可传入 `max_concurrency`（1～5，默认 5）与 `timeout_seconds`（1～3600，默认 300）。等待网络槽位、节流和整批刷新均有截止时间；到期的未完成项返回可重试的 `timeout`，不再无限等待；超时后迟到的 K 线结果不会再写入本地库。第三方 HTTP/SDK adapter 仍必须保留自身连接/读取超时。
+- provider 主动返回超时时，刷新会在 deadline 内做指数退避重试：K 线默认最多重试 3 次，估值默认最多重试 2 次；可通过 `timeout_retries`（0～3）覆盖 K 线次数，或通过 `ASTOCK_KLINE_TIMEOUT_RETRIES`、`ASTOCK_VALUATION_TIMEOUT_RETRIES` 配置默认值。任务结果以 `retry_count` 记录实际重试次数。
+- 单个标的请求失败不会中止整批刷新。任务结果的 K 线项返回 `status`、`requested_start`、`requested_end`、`rows_upserted`；失败项额外返回稳定的 `error.code`、受限长度的 `error.message` 与 `error.retryable`。当前错误码包括 `rate_limited`、`timeout`、`source_unavailable`、`network_error`、`no_data` 和 `unexpected_error`。调用方应以 `failure_count` 判断部分失败，不应只根据任务总状态判断数据完整性。
+- 本地 DuckDB 是单写入分析库：网络和计算可并发，写入由 Store 锁批处理；需要多进程/多用户高并发写入时必须切换 PostgreSQL/TimescaleDB（连接池由 `PG_POOL_SIZE` 配置）。入库层兼容常见中英文行情字段和数值字符串；无法解析日期或 OHLC 的行会写入 `data_quarantine`（`rule_id=field_compatibility`、`severity=error`）并输出 `KLINE_FIELD_EXCEPTION` 结构化错误日志，同批有效数据继续写入，管理员可通过隔离记录手动修复和关闭。
 - 刷新任务会持久化状态事件用于审计；任务列表本身仍是进程内视图，服务重启后不承诺恢复为可轮询任务。
 - `rows_upserted` 是本次受影响行数，不等同于新增、更新或跳过的拆分计数；在没有数据库差分计数器前不得展示这些虚假明细。
 

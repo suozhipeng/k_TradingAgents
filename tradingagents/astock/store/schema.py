@@ -60,6 +60,20 @@ KLINE_COLUMN_MAP: dict[str, str] = {
     "source": "source",
 }
 
+# Common provider / CSV field variants.  Normalisation is deliberately kept at
+# the Store boundary so manual import, concurrent refresh and local recovery
+# all receive the same compatibility behaviour.
+FIELD_ALIASES: dict[str, str] = {
+    "日期": "bar_time", "交易日期": "trade_date", "时间": "bar_time",
+    "开盘": "open", "最高": "high", "最低": "low", "收盘": "close",
+    "成交量": "volume", "成交额": "amount", "换手率": "turnover_rate",
+    "市盈率": "pe", "市净率": "pb", "总市值": "market_cap",
+    "datetime": "bar_time", "timestamp": "bar_time", "date": "bar_time",
+    "trade_date": "trade_date", "open_price": "open", "high_price": "high",
+    "low_price": "low", "close_price": "close", "vol": "volume",
+    "turnover": "turnover_rate", "market_value": "market_cap",
+}
+
 VALUATION_COLUMN_MAP: dict[str, str] = {
     "symbol": "symbol",
     "date": "trade_date",
@@ -646,24 +660,19 @@ class AStockStore:
         """Move anomalous data into the quarantine zone. Returns quarantine_id."""
         import uuid, json
         quarantine_id = uuid.uuid4().hex
-        self.conn.execute(
-            "INSERT INTO data_quarantine "
-            "(quarantine_id, source_dataset, symbol, interval, bar_time, trade_date, "
-            " reason, rule_id, original_values_json, severity) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            [
-                quarantine_id,
-                source_dataset,
-                symbol or None,
-                interval or None,
-                bar_time,
-                trade_date,
-                reason,
-                rule_id,
-                json.dumps(original_values, ensure_ascii=False) if original_values else "{}",
-                severity,
-            ],
-        )
+        with self._lock:
+            self.conn.execute(
+                "INSERT INTO data_quarantine "
+                "(quarantine_id, source_dataset, symbol, interval, bar_time, trade_date, "
+                " reason, rule_id, original_values_json, severity) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                [
+                    quarantine_id, source_dataset, symbol or None, interval or None,
+                    bar_time, trade_date, reason, rule_id,
+                    json.dumps(original_values, ensure_ascii=False, default=str) if original_values else "{}",
+                    severity,
+                ],
+            )
         return quarantine_id
 
     def resolve_quarantine(
@@ -706,11 +715,25 @@ class AStockStore:
             df = pd.DataFrame(rows)
         else:
             return pd.DataFrame()
-        # Rename known columns
+        # Normalise whitespace/case and well-known provider/CSV aliases before
+        # applying the table-specific map.
         rename = {}
         for src_col in df.columns:
-            if src_col in column_map:
-                rename[src_col] = column_map[src_col]
+            raw = str(src_col).strip()
+            normalized = raw.lower().replace(" ", "_").replace("-", "_")
+            # A table-specific exact mapping (notably valuation ``date``) has
+            # precedence over generic aliases.
+            if raw in column_map:
+                rename[src_col] = column_map[raw]
+                continue
+            if normalized in column_map:
+                rename[src_col] = column_map[normalized]
+                continue
+            canonical = FIELD_ALIASES.get(raw, FIELD_ALIASES.get(normalized, normalized))
+            if canonical in column_map:
+                rename[src_col] = column_map[canonical]
+            elif canonical in column_map.values():
+                rename[src_col] = canonical
         if rename:
             df = df.rename(columns=rename)
         # Drop duplicate columns after rename (e.g. ``date`` + ``datetime`` both → ``bar_time``)
@@ -719,6 +742,36 @@ class AStockStore:
         target_cols = set(column_map.values())
         cols_to_keep = [c for c in df.columns if c in target_cols]
         df = df[cols_to_keep]
+        return df
+
+    def _coerce_kline_write_rows(
+        self, df: pd.DataFrame, *, symbol: str, interval: str, source: str
+    ) -> pd.DataFrame:
+        """Quarantine incompatible K-line rows while retaining valid rows."""
+        df = df.copy()
+        for column in ("open", "high", "low", "close", "volume", "amount", "turnover_rate"):
+            if column in df.columns:
+                df[column] = pd.to_numeric(df[column], errors="coerce")
+        required = [column for column in ("bar_time", "open", "high", "low", "close") if column in df.columns]
+        if required:
+            invalid = df[required].isna().any(axis=1)
+            for _, row in df.loc[invalid].iterrows():
+                bad_fields = [field for field in required if pd.isna(row.get(field))]
+                reason = "incompatible required K-line field(s): {0}".format(", ".join(bad_fields))
+                bar_time = row.get("bar_time")
+                trade_date = row.get("trade_date")
+                quarantine_id = self.store_quarantine(
+                    source_dataset="kline_bars", symbol=symbol, interval=interval,
+                    bar_time=None if pd.isna(bar_time) else str(bar_time),
+                    trade_date=None if pd.isna(trade_date) else str(trade_date),
+                    reason=reason, rule_id="field_compatibility",
+                    original_values={**row.to_dict(), "source": source}, severity="error",
+                )
+                logger.error(
+                    "KLINE_FIELD_EXCEPTION quarantine_id=%s symbol=%s interval=%s reason=%s row=%s",
+                    quarantine_id, symbol, interval, reason, row.to_dict(),
+                )
+            df = df.loc[~invalid].copy()
         return df
 
     @staticmethod
@@ -870,6 +923,26 @@ class AStockStore:
             self.conn.unregister("_tmp_manual_df")
         return row_count[0] if row_count else 0
 
+    def replace_watchlist(self, items: list[dict[str, Any]]) -> int:
+        """Atomically replace the local Watchlist through the Store lock."""
+        with self._lock:
+            self.conn.execute(
+                """CREATE TABLE IF NOT EXISTS watchlist (
+                    symbol VARCHAR PRIMARY KEY, name VARCHAR, added_at TIMESTAMP,
+                    source VARCHAR DEFAULT 'manual'
+                )"""
+            )
+            self.conn.execute("DELETE FROM watchlist")
+            for item in items:
+                self.conn.execute(
+                    "INSERT INTO watchlist (symbol, name, added_at, source) VALUES (?, ?, ?, ?)",
+                    [
+                        item["symbol"], item.get("name", item["symbol"]),
+                        item.get("added_at"), item.get("source", "manual"),
+                    ],
+                )
+        return len(items)
+
     # ---- kline -----------------------------------------------------------
 
     def insert_kline(
@@ -878,7 +951,9 @@ class AStockStore:
         """Batch insert/replace kline bars for *symbol*."""
         if df.empty:
             return 0
-        df = df.copy()
+        df = self._df_from_rows(df, KLINE_COLUMN_MAP)
+        if df.empty:
+            return 0
         interval = self._normalise_interval(interval)
         if "symbol" not in df.columns:
             df["symbol"] = symbol
@@ -893,6 +968,9 @@ class AStockStore:
         if "source" not in df.columns:
             df["source"] = source
         df = self._normalise_kline_times(df)
+        df = self._coerce_kline_write_rows(df, symbol=symbol, interval=interval, source=source)
+        if df.empty:
+            return 0
         return self._insert_df("kline_bars", df, KLINE_COLUMN_MAP)
 
     def query_kline(
@@ -938,7 +1016,9 @@ class AStockStore:
         """Batch insert/replace valuation data for *symbol*."""
         if df.empty:
             return 0
-        df = df.copy()
+        df = self._df_from_rows(df, VALUATION_COLUMN_MAP)
+        if df.empty:
+            return 0
         if "symbol" not in df.columns:
             df["symbol"] = symbol
         if "source" not in df.columns:

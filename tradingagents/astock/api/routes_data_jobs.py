@@ -6,6 +6,8 @@ Routes: /data/jobs*, /data/import-database
 from __future__ import annotations
 
 import logging
+import os
+import time
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -84,6 +86,10 @@ def refresh_options() -> tuple[Response, int]:
         "default_interval": "1d",
         "modes": ["incremental", "range"],
         "include_valuation": True,
+        "default_max_concurrency": min(5, max(1, int(os.getenv("ASTOCK_NETWORK_MAX_CONCURRENCY", "5")))),
+        "max_concurrency_limit": 5,
+        "default_timeout_seconds": max(1, int(float(os.getenv("ASTOCK_JOB_TIMEOUT_SECONDS", "300")))),
+        "timeout_retries": {"kline": 3, "valuation": 2, "maximum": 3},
     }), 200
 
 
@@ -129,6 +135,24 @@ def create_refresh_job() -> tuple[Response, int]:
     if start and end and str(start) > str(end):
         return jsonify({"error": "start must not be after end", "status": 400}), 400
     include_valuation = _as_bool(body.get("include_valuation"), False)
+    try:
+        max_concurrency = int(body.get("max_concurrency", os.getenv("ASTOCK_NETWORK_MAX_CONCURRENCY", "5")))
+    except (TypeError, ValueError):
+        return jsonify({"error": "max_concurrency must be an integer", "status": 400}), 400
+    if not 1 <= max_concurrency <= 5:
+        return jsonify({"error": "max_concurrency must be between 1 and 5", "status": 400}), 400
+    try:
+        timeout_seconds = float(body.get("timeout_seconds", os.getenv("ASTOCK_JOB_TIMEOUT_SECONDS", "300")))
+    except (TypeError, ValueError):
+        return jsonify({"error": "timeout_seconds must be a number", "status": 400}), 400
+    if not 1 <= timeout_seconds <= 3600:
+        return jsonify({"error": "timeout_seconds must be between 1 and 3600", "status": 400}), 400
+    try:
+        timeout_retries = int(body.get("timeout_retries", os.getenv("ASTOCK_KLINE_TIMEOUT_RETRIES", "3")))
+    except (TypeError, ValueError):
+        return jsonify({"error": "timeout_retries must be an integer", "status": 400}), 400
+    if not 0 <= timeout_retries <= 3:
+        return jsonify({"error": "timeout_retries must be between 0 and 3", "status": 400}), 400
     # Deduplicate at the API boundary: duplicate symbols/intervals must not
     # create repeated provider requests or duplicate DB writes.
     symbols = list(dict.fromkeys(symbols))
@@ -139,9 +163,9 @@ def create_refresh_job() -> tuple[Response, int]:
     router = current_app.config.get("DATA_FACADE")
 
     def run(update: Any) -> dict[str, Any]:
-        from tradingagents.astock.store.loader import BatchLoader, ValuationLoader, serialize_load_error
+        from tradingagents.astock.store.loader import BatchLoader, ValuationLoader, run_with_timeout_retries, serialize_load_error
         valuation_loader = ValuationLoader(store, router)
-        batch_loader = BatchLoader(store, router)
+        batch_loader = BatchLoader(store, router, max_workers=max_concurrency)
         completed = 0
         results: dict[str, Any] = {"mode": mode, "kline": {}, "valuations": {}, "failure_count": 0}
         kline_requests = [
@@ -155,7 +179,10 @@ def create_refresh_job() -> tuple[Response, int]:
         ]
         use_concurrent = len(kline_requests) > 3
         update(message="refreshing kline data", completed=completed)
-        results["kline"] = batch_loader.load_kline_requests(kline_requests, concurrent=use_concurrent)
+        results["kline"] = batch_loader.load_kline_requests(
+            kline_requests, concurrent=use_concurrent, timeout_seconds=timeout_seconds
+            , timeout_retries=timeout_retries
+        )
         completed += len(kline_requests)
         results["failure_count"] += sum(1 for item in results["kline"].values() if item["status"] == "failed")
         update(completed=completed, result=results)
@@ -164,14 +191,22 @@ def create_refresh_job() -> tuple[Response, int]:
             if include_valuation:
                 update(message=f"refreshing valuation {symbol}", completed=completed)
                 try:
-                    results["valuations"][symbol] = {"status": "succeeded", "rows_upserted": valuation_loader.load(symbol, start=start, end=end)}
+                    count, retry_count = run_with_timeout_retries(
+                        lambda: valuation_loader.load(symbol, start=start, end=end),
+                        retries=int(os.getenv("ASTOCK_VALUATION_TIMEOUT_RETRIES", "2")),
+                        deadline=time.monotonic() + timeout_seconds,
+                    )
+                    results["valuations"][symbol] = {"status": "succeeded", "rows_upserted": count, "retry_count": retry_count}
                 except Exception as exc:
-                    results["valuations"][symbol] = {"status": "failed", "rows_upserted": 0, "error": serialize_load_error(exc)}
+                    results["valuations"][symbol] = {"status": "failed", "rows_upserted": 0, "retry_count": getattr(exc, "retry_count", 0), "error": serialize_load_error(exc)}
                     results["failure_count"] += 1
                 completed += 1
                 update(completed=completed, result=results)
         if results["failure_count"]:
             results["message"] = f"completed with {results['failure_count']} item failure(s)"
+        results["max_concurrency"] = max_concurrency
+        results["timeout_seconds"] = timeout_seconds
+        results["timeout_retries"] = timeout_retries
         return results
 
     job = _jobs().submit("refresh", run, total=total, message="queued refresh")

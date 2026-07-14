@@ -362,6 +362,8 @@ class TestDataEndpoints:
         assert "600519.SH" in data["symbols"]
         assert data["default_interval"] in data["intervals"]
         assert data["modes"] == ["incremental", "range"]
+        assert data["default_max_concurrency"] == 5
+        assert data["max_concurrency_limit"] == 5
 
     def test_refresh_job_rejects_invalid_contract(self, app):
         invalid_interval = app.post(
@@ -379,6 +381,16 @@ class TestDataEndpoints:
             json={"symbols": ["600519.SH"], "intervals": []},
         )
         assert empty_intervals.status_code == 400
+        invalid_concurrency = app.post(
+            "/api/v1/data/jobs/refresh",
+            json={"symbols": ["600519.SH"], "max_concurrency": 6},
+        )
+        assert invalid_concurrency.status_code == 400
+        invalid_timeout = app.post(
+            "/api/v1/data/jobs/refresh",
+            json={"symbols": ["600519.SH"], "timeout_seconds": 0},
+        )
+        assert invalid_timeout.status_code == 400
 
     def test_incremental_refresh_uses_latest_persisted_bar(self, app):
         from tradingagents.astock.api.routes_data_jobs import _latest_kline_start

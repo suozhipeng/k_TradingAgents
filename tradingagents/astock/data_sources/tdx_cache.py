@@ -25,6 +25,7 @@ import json
 import logging
 import os
 import sqlite3
+import threading
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -74,9 +75,10 @@ def _default_max_age(capability: str, interval: str = "") -> float:
 def _init_sqlite(db_path: Path) -> sqlite3.Connection:
     """Create/open the SQLite database and ensure the schema exists."""
     db_path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(db_path))
+    conn = sqlite3.connect(str(db_path), check_same_thread=False, timeout=5)
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA synchronous=NORMAL")
+    conn.execute("PRAGMA busy_timeout=5000")
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS {0} (
@@ -147,6 +149,7 @@ class TdxCache:
         self._db_path = self._base_dir / _DB_FILENAME
         self._conn: Optional[sqlite3.Connection] = None
         self._use_csv = False
+        self._lock = threading.RLock()
 
         # Try initialising SQLite
         try:
@@ -170,10 +173,10 @@ class TdxCache:
         """
         key = self._cache_key(capability, interval)
 
-        if self._use_csv:
-            return self._get_csv(symbol, capability, interval, key)
-
-        return self._get_sqlite(symbol, capability, interval, key)
+        with self._lock:
+            if self._use_csv:
+                return self._get_csv(symbol, capability, interval, key)
+            return self._get_sqlite(symbol, capability, interval, key)
 
     def set(
         self,
@@ -200,10 +203,11 @@ class TdxCache:
         """
         now = datetime.utcnow().isoformat() + "Z"
 
-        if self._use_csv:
-            self._set_csv(symbol, capability, interval, data, source, now)
-        else:
-            self._set_sqlite(symbol, capability, interval, data, source, now)
+        with self._lock:
+            if self._use_csv:
+                self._set_csv(symbol, capability, interval, data, source, now)
+            else:
+                self._set_sqlite(symbol, capability, interval, data, source, now)
 
     def is_stale(
         self, symbol: str, capability: str, interval: str = "1d"
@@ -221,21 +225,21 @@ class TdxCache:
 
     def clear(self, symbol: Optional[str] = None) -> None:
         """Clear all cache entries, or entries for a specific symbol."""
-        if self._use_csv:
-            self._clear_csv(symbol)
-        else:
-            self._clear_sqlite(symbol)
+        with self._lock:
+            if self._use_csv:
+                self._clear_csv(symbol)
+            else:
+                self._clear_sqlite(symbol)
 
     def close(self) -> None:
         """Close the SQLite connection if open."""
-        if self._conn is not None:
-            try:
-                self._conn.close()
-            except Exception as e:
-
-                logger.debug("Operation failed: {0}", e)
-
-            self._conn = None
+        with self._lock:
+            if self._conn is not None:
+                try:
+                    self._conn.close()
+                except Exception as e:
+                    logger.debug("Operation failed: {0}", e)
+                self._conn = None
 
     # ── Internal helpers ──────────────────────────────────────────────
 
