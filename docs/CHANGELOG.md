@@ -5,6 +5,7 @@
 ## Unreleased
 
 - `tradingagents/astock/web/__init__.py` — 修复 React SPA 静态资源服务：`REACT_DIST` 路径修正（增加一层 `.parent` 到达 `webui/dist`）；新增 `/assets/<path>` 和 `/react/<path>` 路由分别服务 React 构建产物中的 JS/CSS 和其他文件；Jinja2 静态文件夹固定为 `STATIC_DIR` 以保证 legacy 资源始终可用；SPA fallback 排除 `/api/*` 路径避免吞没 API 404。
+- `tradingagents/astock/web/__init__.py` — 强化 local release 边界：SPA fallback 在 `ASTOCK_LOCAL_RELEASE=true` 时拒绝所有非 API 路由返回 404，确保分析/回测以外页面不可达。
 - 数据刷新支持手动设置 1～5 条并发（默认 5）和任务超时；全局网络并发、单 provider 并发、节流与 429 冷却使用同一进程级治理器。
 - K 线超时默认最多重试 3 次，估值超时默认最多重试 2 次；退避重试受任务 deadline 限制并在结果中记录实际次数。
 - K 线入库兼容常见中英文字段和数值字符串；无法解析日期或 OHLC 的行写入 `data_quarantine`，同批有效行继续入库。任务超时后迟到的 K 线结果不会再写入本地库。

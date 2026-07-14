@@ -76,8 +76,14 @@ def spa_fallback(path: str):
 
     API routes (/api/*) must still return 404 when unmatched — we don't
     want the React fallback swallowing API errors.
+
+    In local release mode the React SPA is not exposed; unknown routes
+    must return 404 so the analysis-and-backtest-only surface is enforced.
     """
     if path.startswith("api/") or path.startswith("api:") or path.startswith("api?"):
+        abort(404)
+    from flask import current_app
+    if current_app and current_app.config.get("ASTOCK_LOCAL_RELEASE", False):
         abort(404)
     if REACT_DIST and os.path.isdir(REACT_DIST):
         return send_from_directory(REACT_DIST, "index.html")
