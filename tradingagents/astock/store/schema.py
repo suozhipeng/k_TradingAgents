@@ -675,6 +675,32 @@ class AStockStore:
             )
         return quarantine_id
 
+    def store_quarantine_batch(self, rows: list[dict[str, Any]]) -> int:
+        """Persist quarantine rows in one transaction for malformed imports."""
+        if not rows:
+            return 0
+        import json
+        import uuid
+
+        values = [
+            [
+                uuid.uuid4().hex, item.get("source_dataset", ""), item.get("symbol") or None,
+                item.get("interval") or None, item.get("bar_time"), item.get("trade_date"),
+                item.get("reason", ""), item.get("rule_id"),
+                json.dumps(item.get("original_values") or {}, ensure_ascii=False, default=str),
+                item.get("severity", "warn"),
+            ]
+            for item in rows
+        ]
+        with self._lock:
+            self.conn.executemany(
+                "INSERT INTO data_quarantine "
+                "(quarantine_id, source_dataset, symbol, interval, bar_time, trade_date, "
+                " reason, rule_id, original_values_json, severity) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", values,
+            )
+        return len(values)
+
     def resolve_quarantine(
         self, quarantine_id: str, *, resolved_by: str = "system"
     ) -> None:
@@ -755,21 +781,24 @@ class AStockStore:
         required = [column for column in ("bar_time", "open", "high", "low", "close") if column in df.columns]
         if required:
             invalid = df[required].isna().any(axis=1)
+            quarantine_rows = []
             for _, row in df.loc[invalid].iterrows():
                 bad_fields = [field for field in required if pd.isna(row.get(field))]
                 reason = "incompatible required K-line field(s): {0}".format(", ".join(bad_fields))
                 bar_time = row.get("bar_time")
                 trade_date = row.get("trade_date")
-                quarantine_id = self.store_quarantine(
-                    source_dataset="kline_bars", symbol=symbol, interval=interval,
-                    bar_time=None if pd.isna(bar_time) else str(bar_time),
-                    trade_date=None if pd.isna(trade_date) else str(trade_date),
-                    reason=reason, rule_id="field_compatibility",
-                    original_values={**row.to_dict(), "source": source}, severity="error",
-                )
+                quarantine_rows.append({
+                    "source_dataset": "kline_bars", "symbol": symbol, "interval": interval,
+                    "bar_time": None if pd.isna(bar_time) else str(bar_time),
+                    "trade_date": None if pd.isna(trade_date) else str(trade_date),
+                    "reason": reason, "rule_id": "field_compatibility",
+                    "original_values": {**row.to_dict(), "source": source}, "severity": "error",
+                })
+            quarantined = self.store_quarantine_batch(quarantine_rows)
+            if quarantined:
                 logger.error(
-                    "KLINE_FIELD_EXCEPTION quarantine_id=%s symbol=%s interval=%s reason=%s row=%s",
-                    quarantine_id, symbol, interval, reason, row.to_dict(),
+                    "KLINE_FIELD_EXCEPTION symbol=%s interval=%s quarantined_rows=%d",
+                    symbol, interval, quarantined,
                 )
             df = df.loc[~invalid].copy()
         return df

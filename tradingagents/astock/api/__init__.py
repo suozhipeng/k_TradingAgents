@@ -86,6 +86,45 @@ def create_app(
         "ASTOCK_RESEARCH_ONLY",
         os.environ.get("ASTOCK_RESEARCH_ONLY", "true").lower() not in ("0", "false", "no", "off"),
     )
+    # Every interactive K-line query refreshes the daily series first.  Keep
+    # isolated test runs offline unless the test explicitly opts in.
+    app.config.setdefault(
+        "ASTOCK_AUTO_REFRESH_DAILY_KLINE",
+        os.environ.get("ASTOCK_AUTO_REFRESH_DAILY_KLINE", "").lower()
+        in ("1", "true", "yes", "on")
+        if "ASTOCK_AUTO_REFRESH_DAILY_KLINE" in os.environ
+        else not _env_enabled("ASTOCK_TESTING"),
+    )
+    app.config.setdefault(
+        "ASTOCK_DAILY_KLINE_REFRESH_TIMEOUT_SECONDS",
+        float(os.environ.get("ASTOCK_DAILY_KLINE_REFRESH_TIMEOUT_SECONDS", "8")),
+    )
+    app.config.setdefault(
+        "ASTOCK_MAIN_ANALYSIS_TIMEOUT_SECONDS",
+        float(os.environ.get("ASTOCK_MAIN_ANALYSIS_TIMEOUT_SECONDS", "45")),
+    )
+    app.config.setdefault("ASTOCK_SLOW_REQUEST_MS", float(os.environ.get("ASTOCK_SLOW_REQUEST_MS", "1000")))
+    app.config.setdefault("ASTOCK_LLM_REPORT_TTL_SECONDS", float(os.environ.get("ASTOCK_LLM_REPORT_TTL_SECONDS", "600")))
+    app.config.setdefault("ASTOCK_AUTO_REFRESH_INTRADAY_KLINE", _env_enabled("ASTOCK_AUTO_REFRESH_INTRADAY_KLINE") if "ASTOCK_AUTO_REFRESH_INTRADAY_KLINE" in os.environ else True)
+    app.config.setdefault("ASTOCK_INTRADAY_KLINE_INTERVAL", os.environ.get("ASTOCK_INTRADAY_KLINE_INTERVAL", "5m"))
+    app.config.setdefault("ASTOCK_INTRADAY_KLINE_REFRESH_TIMEOUT_SECONDS", float(os.environ.get("ASTOCK_INTRADAY_KLINE_REFRESH_TIMEOUT_SECONDS", "5")))
+    app.config.setdefault(
+        "ASTOCK_PERMANENT_KLINE_ENABLED",
+        _env_enabled("ASTOCK_PERMANENT_KLINE_ENABLED") if "ASTOCK_PERMANENT_KLINE_ENABLED" in os.environ else not _env_enabled("ASTOCK_TESTING"),
+    )
+    # Batch imports and request-time incremental refreshes share one canonical
+    # local warehouse so backtests have a complete source of truth.
+    app.config.setdefault("ASTOCK_PERMANENT_KLINE_DB_PATH", os.environ.get("ASTOCK_PERMANENT_KLINE_DB_PATH", "kline/kline.duckdb"))
+    app.config.setdefault("ASTOCK_BACKTEST_ALLOW_LIVE_FALLBACK", _env_enabled("ASTOCK_BACKTEST_ALLOW_LIVE_FALLBACK"))
+    app.config.setdefault("ASTOCK_DATA_JOB_MAX_QUEUED", int(os.environ.get("ASTOCK_DATA_JOB_MAX_QUEUED", "100")))
+    app.config.setdefault("ASTOCK_DASHBOARD_STATS_TTL_SECONDS", float(os.environ.get("ASTOCK_DASHBOARD_STATS_TTL_SECONDS", "30")))
+    worker_count = int(os.environ.get("WEB_CONCURRENCY", "1"))
+    if worker_count > 1:
+        app.logger.warning(
+            "WEB_CONCURRENCY=%d: in-process SSE, job and report-cache state is not shared; "
+            "run one API worker or deploy a shared Redis/PostgreSQL coordination backend.",
+            worker_count,
+        )
 
     # -- CORS -----------------------------------------------------------------
     origin = cors_origin or os.environ.get("CORS_ORIGIN", DEFAULT_CORS_ORIGIN)

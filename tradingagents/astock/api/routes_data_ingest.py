@@ -22,6 +22,53 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 
+@bp.route("/data/lifecycle/intraday", methods=["POST"])
+def manage_intraday_lifecycle() -> tuple[Response, int]:
+    """Preview or explicitly archive old minute K-lines into Parquet.
+
+    ``confirm_delete`` defaults to false, so callers can inspect the exact
+    partitions and row counts before any hot-store rows are removed.
+    """
+    body = request.get_json(force=True, silent=True) or {}
+    try:
+        retention_days = min(max(int(body.get("retention_days", 180)), 1), 3650)
+        archive_dir = str(body.get("archive_dir", "kline/archive"))
+        confirm_delete = bool(body.get("confirm_delete", False))
+        from tradingagents.astock.store.intraday_lifecycle import archive_intraday_kline
+        result = archive_intraday_kline(
+            get_store(), retention_days=retention_days, archive_dir=archive_dir,
+            delete_hot_rows=confirm_delete,
+        )
+        result["mode"] = "archive_and_delete" if confirm_delete else "preview"
+        return jsonify(result), 200
+    except Exception as exc:
+        logger.warning("Intraday lifecycle operation failed: %s", exc)
+        return jsonify({"error": "intraday_lifecycle_failed", "message": str(exc), "status": 500}), 500
+
+
+@bp.route("/data/maintenance", methods=["POST"])
+def maintain_local_databases() -> tuple[Response, int]:
+    """Checkpoint and analyze the hot and canonical local DuckDB stores."""
+    try:
+        stores = [("hot", get_store())]
+        if current_app.config.get("ASTOCK_PERMANENT_KLINE_ENABLED", True):
+            from tradingagents.astock.store.permanent_kline import get_permanent_kline_store
+            permanent = get_permanent_kline_store(
+                current_app.config.get("ASTOCK_PERMANENT_KLINE_DB_PATH", "kline/kline.duckdb")
+            )
+            if permanent is not stores[0][1]:
+                stores.append(("permanent", permanent))
+        completed: list[str] = []
+        for name, store in stores:
+            if hasattr(store, "vacuum"):
+                store.vacuum()
+                completed.append(name)
+        return jsonify({"status": "ok", "maintained": completed}), 200
+    except Exception as exc:
+        logger.warning("Local database maintenance failed: %s", exc)
+        return jsonify({"error": "maintenance_failed", "message": str(exc), "status": 500}), 500
+
+
 @bp.route("/data/refresh/kline", methods=["POST"])
 def refresh_kline() -> tuple[Response, int]:
     body = request.get_json(force=True, silent=True) or {}

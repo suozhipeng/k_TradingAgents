@@ -209,7 +209,10 @@ def create_refresh_job() -> tuple[Response, int]:
         results["timeout_retries"] = timeout_retries
         return results
 
-    job = _jobs().submit("refresh", run, total=total, message="queued refresh")
+    try:
+        job = _jobs().submit("refresh", run, total=total, message="queued refresh")
+    except RuntimeError as exc:
+        return jsonify({"error": str(exc), "status": 429}), 429
     return jsonify({"job": job.to_dict()}), 202
 
 

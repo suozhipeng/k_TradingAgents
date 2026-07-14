@@ -128,7 +128,8 @@ async function ackAlert(id) {
 
 loadAlerts();
 loadRules();
-// Auto-refresh every 30s
-setInterval(loadAlerts, 30000);
+// Avoid polling while the page is not visible.
+setInterval(() => { if (!document.hidden) loadAlerts(); }, 30000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) loadAlerts(); });
 </script>
 {% endblock %}

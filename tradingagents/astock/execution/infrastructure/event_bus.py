@@ -26,7 +26,7 @@ class EventBus:
 
     _lock = threading.Lock()
     _buffer: deque[dict[str, Any]] = deque(maxlen=1000)
-    _subscribers: list[str] = []  # subscriber IDs (for future use)
+    _subscribers: dict[str, deque[dict[str, Any]]] = {}
 
     MAX_EVENTS: int = 1000
 
@@ -40,7 +40,34 @@ class EventBus:
             Arbitrary JSON-serialisable event payload.
         """
         with cls._lock:
-            cls._buffer.append(dict(event))
+            item = dict(event)
+            cls._buffer.append(item)
+            for queue in cls._subscribers.values():
+                queue.append(dict(item))
+
+    @classmethod
+    def subscribe(cls) -> str:
+        """Create an independent event cursor for one SSE client."""
+        import uuid
+
+        subscriber_id = uuid.uuid4().hex
+        with cls._lock:
+            # New clients receive the current retained context once, then only
+            # their own subsequent events.  The bounded deque prevents a slow
+            # browser from consuming unbounded process memory.
+            cls._subscribers[subscriber_id] = deque(cls._buffer, maxlen=cls.MAX_EVENTS)
+        return subscriber_id
+
+    @classmethod
+    def poll_subscriber(cls, subscriber_id: str) -> dict[str, Any] | None:
+        with cls._lock:
+            queue = cls._subscribers.get(subscriber_id)
+            return queue.popleft() if queue else None
+
+    @classmethod
+    def unsubscribe(cls, subscriber_id: str) -> None:
+        with cls._lock:
+            cls._subscribers.pop(subscriber_id, None)
 
     @classmethod
     def poll(cls) -> dict[str, Any] | None:
@@ -73,6 +100,8 @@ class EventBus:
         """Clear all buffered events."""
         with cls._lock:
             cls._buffer.clear()
+            for queue in cls._subscribers.values():
+                queue.clear()
 
     @classmethod
     def size(cls) -> int:

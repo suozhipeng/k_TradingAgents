@@ -246,8 +246,19 @@ export default function Dashboard() {
 
   useEffect(() => {
     loadData();
-    const timer = setInterval(loadData, 60_000); /* 1 min poll */
-    return () => clearInterval(timer);
+    const poll = () => {
+      // Do not consume provider/API capacity while this dashboard is hidden.
+      if (!document.hidden) loadData();
+    };
+    const onVisibilityChange = () => {
+      if (!document.hidden) loadData();
+    };
+    const timer = setInterval(poll, 60_000); /* 1 min poll */
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
   }, [loadData]);
 
   /* Watchlist actions */

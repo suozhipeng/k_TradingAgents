@@ -119,19 +119,39 @@ def screener() -> tuple[Response, int]:
     """
     try:
         store = get_store()
-        limit = int(request.args.get("limit", 50))
+        limit = min(max(int(request.args.get("limit", 50)), 1), 200)
+        scan_limit = min(max(int(request.args.get("scan_limit", 2000)), 1), 5000)
         use_mock = mock_data_enabled() or _as_bool(request.args.get("mock"), False)
 
         # Get symbols to scan
         if use_mock:
             symbols = ["600519.SH", "000858.SZ", "601318.SH", "000333.SZ", "600036.SH",
                        "002415.SZ", "601166.SH", "000651.SZ", "600887.SH", "002594.SZ"]
+            kline_by_symbol: dict[str, Any] = {}
         else:
             try:
-                df = store.query_sql("SELECT DISTINCT symbol FROM kline_bars ORDER BY symbol")
-                symbols = df["symbol"].tolist() if not df.empty else []
+                # One window query replaces N individual ``query_kline`` calls.
+                # The scan cap makes a full-market request bounded even if a
+                # user has imported every A-share history locally.
+                df = store.query_sql(
+                    f"""WITH selected AS (
+                           SELECT symbol FROM kline_bars WHERE "interval" = '1d'
+                           GROUP BY symbol ORDER BY symbol LIMIT {scan_limit}
+                       ), ranked AS (
+                           SELECT k.*, row_number() OVER (
+                               PARTITION BY k.symbol ORDER BY k.bar_time DESC
+                           ) AS rn
+                           FROM kline_bars k JOIN selected s USING (symbol)
+                           WHERE k."interval" = '1d'
+                       )
+                       SELECT * EXCLUDE (rn) FROM ranked WHERE rn <= 120
+                       ORDER BY symbol, bar_time""",
+                )
+                symbols = df["symbol"].drop_duplicates().tolist() if not df.empty else []
+                kline_by_symbol = {symbol: frame for symbol, frame in df.groupby("symbol", sort=False)}
             except Exception:
                 symbols = []
+                kline_by_symbol = {}
 
         if not symbols:
             return jsonify({"results": [], "total": 0, "message": "No symbols found in store."}), 200
@@ -160,7 +180,7 @@ def screener() -> tuple[Response, int]:
                         closes.append(closes[-1] * (1 + random.uniform(-0.03, 0.03)))
                     volumes = [random.randint(500000, 5000000) for _ in range(n)]
                 else:
-                    kline_df = store.query_kline(symbol, limit=120)
+                    kline_df = kline_by_symbol.get(symbol)
                     if kline_df is None or kline_df.empty:
                         continue
                     closes = kline_df["close"].tolist() if "close" in kline_df.columns else []
@@ -246,9 +266,6 @@ def screener() -> tuple[Response, int]:
             except Exception:
                 continue
 
-            if len(results) >= limit:
-                break
-
         # Sort by score descending
         results.sort(key=lambda r: r["score"], reverse=True)
 
@@ -263,6 +280,7 @@ def screener() -> tuple[Response, int]:
                 "macd_golden": macd_golden,
                 "macd_death": macd_death,
                 "volume_ratio_min": vol_ratio_min,
+                "scan_limit": scan_limit,
             },
         }), 200
 

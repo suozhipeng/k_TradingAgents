@@ -104,26 +104,30 @@ def paper_progress_sse() -> Response:
     poll_interval = current_app.config.get(
         "SSE_POLL_INTERVAL", _DEFAULT_POLL_INTERVAL
     )
+    subscriber_id = EventBus.subscribe()
 
     def generate() -> Generator[str, None, None]:
-        while True:
-            events_sent = 0
-            while events_sent < _MAX_EVENTS_PER_POLL:
-                event = EventBus.poll()
-                if event is None:
-                    break
-                normalized = _to_task_run(event)
-                yield f"data: {json.dumps(normalized, ensure_ascii=False)}\n\n"
-                events_sent += 1
+        try:
+            while True:
+                events_sent = 0
+                while events_sent < _MAX_EVENTS_PER_POLL:
+                    event = EventBus.poll_subscriber(subscriber_id)
+                    if event is None:
+                        break
+                    normalized = _to_task_run(event)
+                    yield f"data: {json.dumps(normalized, ensure_ascii=False)}\n\n"
+                    events_sent += 1
 
-            if events_sent == 0:
-                heartbeat = _to_task_run({
-                    "type": "idle",
-                    "timestamp": time.time(),
-                })
-                yield f"data: {json.dumps(heartbeat, ensure_ascii=False)}\n\n"
+                if events_sent == 0:
+                    heartbeat = _to_task_run({
+                        "type": "idle",
+                        "timestamp": time.time(),
+                    })
+                    yield f"data: {json.dumps(heartbeat, ensure_ascii=False)}\n\n"
 
-            time.sleep(poll_interval)
+                time.sleep(poll_interval)
+        finally:
+            EventBus.unsubscribe(subscriber_id)
 
     return Response(generate(), mimetype="text/event-stream")
 
@@ -163,4 +167,3 @@ def clear_events() -> tuple[Response, int]:
         ),
         200,
     )
-

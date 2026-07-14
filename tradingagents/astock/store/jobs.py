@@ -106,12 +106,20 @@ class DataJobManager:
     def __init__(
         self,
         max_workers: int = 4,
+        max_queued: int = 100,
         store: Any = None,  # AStockStore (avoid circular import at class level)
     ) -> None:
-        self._executor = ThreadPoolExecutor(max_workers=max_workers)
+        workers = max(1, int(max_workers))
+        # Keep one lane available for interactive refreshes.  A long-running
+        # backfill must not occupy every worker and make the UI wait behind it.
+        self._interactive_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="astock-interactive")
+        self._bulk_executor = ThreadPoolExecutor(max_workers=max(1, workers - 1), thread_name_prefix="astock-bulk")
         self._jobs: dict[str, DataJob] = {}
         self._lock = threading.Lock()
         self._store = store
+        # ``ThreadPoolExecutor`` itself has an unbounded work queue.  Reserve
+        # capacity for currently running workers plus a bounded waiting room.
+        self._admission = threading.BoundedSemaphore(workers + max(0, int(max_queued)))
 
     # ── submit ─────────────────────────────────────────────────────────
 
@@ -148,6 +156,8 @@ class DataJobManager:
         DataJob
             The job record (reference; status updates are mutable).
         """
+        if not self._admission.acquire(blocking=False):
+            raise RuntimeError("data job queue is full; retry after active jobs finish")
         job = DataJob(
             job_id=uuid.uuid4().hex,
             kind=kind,
@@ -159,8 +169,18 @@ class DataJobManager:
         with self._lock:
             self._jobs[job.job_id] = job
         self._persist_event(job, "queued")
-        self._executor.submit(self._run, job.job_id, fn)
+        executor = self._interactive_executor if priority > 0 else self._bulk_executor
+        try:
+            executor.submit(self._run_limited, job.job_id, fn)
+        except Exception:
+            self._admission.release()
+            raise
         return job
+
+    def shutdown(self, *, wait: bool = False) -> None:
+        """Release both execution lanes during controlled application shutdown."""
+        self._interactive_executor.shutdown(wait=wait, cancel_futures=True)
+        self._bulk_executor.shutdown(wait=wait, cancel_futures=True)
 
     # ── accessors ──────────────────────────────────────────────────────
 
@@ -204,6 +224,14 @@ class DataJobManager:
         return kinds
 
     # ── internal ───────────────────────────────────────────────────────
+
+    def _run_limited(
+        self, job_id: str, fn: Callable[[Callable[..., None]], dict[str, Any]]
+    ) -> None:
+        try:
+            self._run(job_id, fn)
+        finally:
+            self._admission.release()
 
     def _update(self, job_id: str, **updates: Any) -> None:
         with self._lock:

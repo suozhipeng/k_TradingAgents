@@ -59,10 +59,17 @@ def get_optimizer_cls() -> Any:
     return StrategyOptimizer
 
 
-def create_backtest_engine(use_mock_data: bool = False) -> Any:
+def create_backtest_engine(
+    use_mock_data: bool = False, *, store: Any = None, allow_live_fallback: bool = True,
+    enable_external_constraints: bool = False,
+) -> Any:
     from tradingagents.astock.execution.backtest_engine import BacktestEngine
 
-    return BacktestEngine(use_mock_data=use_mock_data)
+    return BacktestEngine(
+        use_mock_data=use_mock_data, store=store,
+        allow_live_fallback=allow_live_fallback,
+        enable_external_constraints=enable_external_constraints,
+    )
 
 
 def sanitize_nan(records: list[dict[str, Any]]) -> None:

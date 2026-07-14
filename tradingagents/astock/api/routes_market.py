@@ -93,7 +93,14 @@ def market_summary() -> tuple[Response, int]:
 
     try:
         store = get_store()
-        kline_df = store.query_kline(symbol)
+        # Summary views only need a bounded recent window.  Loading an entire
+        # intraday history here would inflate both DuckDB work and JSON output.
+        try:
+            kline_limit = int(request.args.get("kline_limit", 120))
+        except (TypeError, ValueError):
+            kline_limit = 120
+        kline_limit = min(max(kline_limit, 1), 500)
+        kline_df = store.query_kline(symbol, interval="1d", limit=kline_limit)
         val_df = store.query_valuations(symbol)
         indicators_df = store.query_market_indicators(symbol)
 
@@ -133,6 +140,7 @@ def market_summary() -> tuple[Response, int]:
                 "source": source_tag,
                 "updated_at": _resolve_updated_at(kline_bars, valuations),
                 "kline_bars": kline_bars,
+                "kline_limit": kline_limit,
                 "valuations": valuations[-10:] if len(valuations) > 10 else valuations,
                 "indicators": indicators[-10:] if len(indicators) > 10 else indicators,
                 "pe": latest_val.get("pe", 0),

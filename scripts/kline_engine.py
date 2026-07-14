@@ -36,7 +36,9 @@ DEFAULT_DUCKDB_PATH = KLINE_DIR / "kline.duckdb"
 DEFAULT_SQLITE_PATH = KLINE_DIR / "kline.sqlite"
 
 # Baostock K 线字段（日/分钟通用）
-BAOSTOCK_FIELDS = "date,open,high,low,close,volume,amount"
+# ``time`` is empty for daily bars but essential for minute bars.  Omitting it
+# collapses every intraday bar onto the trade date when written to DuckDB.
+BAOSTOCK_FIELDS = "date,time,open,high,low,close,volume,amount"
 
 # 频率映射：CLI 参数 → baostock frequency 值 → 归一化 interval
 FREQUENCY_MAP: dict[str, tuple[str, str]] = {
@@ -46,12 +48,20 @@ FREQUENCY_MAP: dict[str, tuple[str, str]] = {
     "daily":("d",  "1d"),
     "5m":   ("5",  "5m"),
     "5min": ("5",  "5m"),
+    # Internal callers pass Baostock's native minute values after the CLI has
+    # already normalised the user-facing frequency (for example, ``5m`` →
+    # ``5``).  Accept them too so backfill and incremental paths share the
+    # same resolver.
+    "5":    ("5",  "5m"),
     "15m":  ("15", "15m"),
     "15min":("15", "15m"),
+    "15":   ("15", "15m"),
     "30m":  ("30", "30m"),
     "30min":("30", "30m"),
+    "30":   ("30", "30m"),
     "60m":  ("60", "60m"),
     "60min":("60", "60m"),
+    "60":   ("60", "60m"),
 }
 
 
@@ -66,6 +76,31 @@ def resolve_frequency(freq: str) -> tuple[str, str]:
 def is_daily_freq(freq: str) -> bool:
     """判断是否为日线频率。"""
     return freq in ("d", "1d", "day", "daily")
+
+
+def _rows_to_kline_frame(
+    rows: list[list[str]], *, frequency: str, include_symbol: bool = False
+) -> pd.DataFrame:
+    """Convert Baostock rows into a store-ready K-line DataFrame.
+
+    Baostock returns intraday timestamps as ``YYYYMMDDHHMMSSmmm`` in its
+    ``time`` field.  Preserve them in ``bar_time`` before the generic store
+    normalisation so minute bars remain distinct.
+    """
+    columns = ["date", "time", "open", "high", "low", "close", "volume", "amount"]
+    if include_symbol:
+        columns.insert(0, "symbol")
+    df = pd.DataFrame(rows, columns=columns)
+    for col in ["open", "high", "low", "close", "volume", "amount"]:
+        df[col] = pd.to_numeric(df[col], errors="coerce")
+    df = df.dropna(subset=["close"])
+    df = df[df["volume"] > 0]
+    if not is_daily_freq(frequency):
+        compact_time = df["time"].astype(str).str.slice(0, 14)
+        df["bar_time"] = pd.to_datetime(
+            compact_time, format="%Y%m%d%H%M%S", errors="coerce"
+        )
+    return df
 
 
 # SQLite schema — 加入 freq 列以区分日/分钟数据
@@ -586,14 +621,7 @@ class BaostockSync:
             logger.info("无新数据（可能非交易日）")
             return 0
 
-        df = pd.DataFrame(
-            all_rows,
-            columns=["symbol", "date", "open", "high", "low", "close", "volume", "turnover"],
-        )
-        for col in ["open", "high", "low", "close", "volume", "turnover"]:
-            df[col] = pd.to_numeric(df[col], errors="coerce")
-        df = df.dropna(subset=["close"])
-        df = df[df["volume"] > 0]
+        df = _rows_to_kline_frame(all_rows, frequency=bs_freq, include_symbol=True)
 
         if df.empty:
             return 0
@@ -602,7 +630,7 @@ class BaostockSync:
 
         total = 0
         for symbol, group in df.groupby("symbol"):
-            g = group.rename(columns={"turnover": "amount"}).copy()
+            g = group.copy()
             rows = self.store.insert_kline(
                 symbol, g, interval=interval, source="baostock",
                 write_duckdb=write_duckdb, write_sqlite=write_sqlite,
@@ -778,20 +806,15 @@ class BaostockSync:
                     self._log_progress(i, len(symbols), success, skipped, failed)
                     continue
 
-                df = pd.DataFrame(rows, columns=["date", "open", "high", "low", "close", "volume", "turnover"])
-                for col in ["open", "high", "low", "close", "volume", "turnover"]:
-                    df[col] = pd.to_numeric(df[col], errors="coerce")
-                df = df.dropna(subset=["close"])
-                df = df[df["volume"] > 0]
+                df = _rows_to_kline_frame(rows, frequency=bs_freq)
 
                 if df.empty:
                     skipped += 1
                     self._log_progress(i, len(symbols), success, skipped, failed)
                     continue
 
-                insert_df = df.rename(columns={"turnover": "amount"}).copy()
                 written = self.store.insert_kline(
-                    sym, insert_df, interval=interval, source="baostock",
+                    sym, df, interval=interval, source="baostock",
                     write_duckdb=write_duckdb, write_sqlite=write_sqlite,
                 )
                 total_written += written
@@ -869,18 +892,9 @@ class BaostockSync:
                     logger.info("[%s] 无数据", sym)
                     continue
 
-                df = pd.DataFrame(
-                    rows,
-                    columns=["date", "open", "high", "low", "close", "volume", "turnover"],
-                )
-                for col in ["open", "high", "low", "close", "volume", "turnover"]:
-                    df[col] = pd.to_numeric(df[col], errors="coerce")
-                df = df.dropna(subset=["close"])
-                df = df[df["volume"] > 0]
-
-                insert_df = df.rename(columns={"turnover": "amount"}).copy()
+                df = _rows_to_kline_frame(rows, frequency=frequency)
                 written = self.store.insert_kline(
-                    sym, insert_df, interval=interval, source="baostock",
+                    sym, df, interval=interval, source="baostock",
                     write_duckdb=write_duckdb, write_sqlite=write_sqlite,
                 )
                 total += written

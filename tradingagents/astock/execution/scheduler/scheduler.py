@@ -23,7 +23,8 @@ from __future__ import annotations
 
 import json
 import logging
-from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
+import time
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from datetime import datetime
 from typing import Any, Callable
 
@@ -521,48 +522,71 @@ class PaperTradeScheduler:
         signals: dict[str, float] = {}
         prices: dict[str, float] = {}
 
+        if not self._symbols:
+            EventBus.publish({
+                "type": "cycle_complete", "cycle": cycle_id,
+                "total_value": 0.0, "cash": 0.0, "trade_count": 0,
+                "symbol_count": 0, "note": "no_symbols",
+                "timestamp": datetime.utcnow().isoformat(),
+            })
+            logger.info("Cycle #%d skipped: no symbols configured", cycle_id)
+            return
+
         # Process each symbol in a thread pool so we can enforce a timeout
         # per symbol.  If one symbol hangs, the others still proceed.
         # We manually manage the pool so we can call shutdown(wait=False)
         # to avoid blocking on timed-out threads.
         pool = ThreadPoolExecutor(
-            max_workers=min(len(self._symbols), 8),
+            max_workers=max(1, min(len(self._symbols), 8)),
         )
         try:
             futures = {}
             for symbol in self._symbols:
                 futures[pool.submit(self._process_symbol, symbol)] = symbol
 
-            for future in futures:
-                symbol = futures[future]
-                try:
-                    result = future.result(timeout=self.SYMBOL_TIMEOUT)
-                    if result is not None:
-                        sym_price, sym_signal = result
-                        prices[symbol] = sym_price
-                        signals[symbol] = sym_signal
-                except FuturesTimeoutError:
-                    logger.warning(
-                        "Symbol %s processing timed out after %ds",
-                        symbol, self.SYMBOL_TIMEOUT,
-                    )
+            submitted_at = {future: time.monotonic() for future in futures}
+            pending = set(futures)
+            cycle_deadline = time.monotonic() + self.CYCLE_TIMEOUT
+            while pending and time.monotonic() < cycle_deadline:
+                done, pending = wait(
+                    pending,
+                    timeout=min(0.25, max(0.0, cycle_deadline - time.monotonic())),
+                    return_when=FIRST_COMPLETED,
+                )
+                for future in done:
+                    symbol = futures[future]
+                    try:
+                        result = future.result()
+                        if result is not None:
+                            sym_price, sym_signal = result
+                            prices[symbol] = sym_price
+                            signals[symbol] = sym_signal
+                    except Exception as exc:
+                        logger.warning("Error processing symbol %s: %s", symbol, exc)
+                        EventBus.publish({
+                            "type": "cycle_error", "cycle": cycle_id, "symbol": symbol,
+                            "message": str(exc), "timestamp": datetime.utcnow().isoformat(),
+                        })
+                now = time.monotonic()
+                expired = [future for future in pending if now - submitted_at[future] >= self.SYMBOL_TIMEOUT]
+                for future in expired:
+                    pending.remove(future)
+                    symbol = futures[future]
                     future.cancel()
+                    logger.warning("Symbol %s processing timed out after %ds", symbol, self.SYMBOL_TIMEOUT)
                     EventBus.publish({
-                        "type": "cycle_error",
-                        "cycle": cycle_id,
-                        "symbol": symbol,
+                        "type": "cycle_error", "cycle": cycle_id, "symbol": symbol,
                         "message": f"processing timed out after {self.SYMBOL_TIMEOUT}s",
                         "timestamp": datetime.utcnow().isoformat(),
                     })
-                except Exception as exc:
-                    logger.warning("Error processing symbol %s: %s", symbol, exc)
-                    EventBus.publish({
-                        "type": "cycle_error",
-                        "cycle": cycle_id,
-                        "symbol": symbol,
-                        "message": str(exc),
-                        "timestamp": datetime.utcnow().isoformat(),
-                    })
+            for future in pending:
+                symbol = futures[future]
+                future.cancel()
+                EventBus.publish({
+                    "type": "cycle_error", "cycle": cycle_id, "symbol": symbol,
+                    "message": f"cycle deadline exceeded after {self.CYCLE_TIMEOUT}s",
+                    "timestamp": datetime.utcnow().isoformat(),
+                })
         finally:
             # wait=False: do not block on threads that are still running
             # (e.g. a symbol that timed out and is sleeping in a data source).
@@ -661,7 +685,7 @@ class PaperTradeScheduler:
         if not hasattr(self._store, "query_kline"):
             return pd.DataFrame()
         try:
-            df = self._store.query_kline(symbol=symbol)
+            df = self._store.query_kline(symbol=symbol, interval="1d", limit=lookback)
             if not isinstance(df, pd.DataFrame) or df.empty:
                 return df if isinstance(df, pd.DataFrame) else pd.DataFrame()
             df = df.copy()

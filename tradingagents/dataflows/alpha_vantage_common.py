@@ -6,6 +6,7 @@ from datetime import datetime
 from io import StringIO
 
 API_BASE_URL = "https://www.alphavantage.co/query"
+_session = requests.Session()
 
 
 class AlphaVantageNotConfiguredError(ValueError):
@@ -76,7 +77,15 @@ def _make_api_request(function_name: str, params: dict) -> dict | str:
         # Remove entitlement if it's None or empty
         api_params.pop("entitlement", None)
     
-    response = requests.get(API_BASE_URL, params=api_params)
+    # Keep direct Alpha Vantage flows inside the same process-wide provider
+    # budget as the A-share router, with connection reuse and a hard timeout.
+    from tradingagents.astock.data_sources.request_governor import get_provider_request_governor
+    timeout = max(1.0, float(os.getenv("ASTOCK_ALPHA_VANTAGE_TIMEOUT_SECONDS", "15")))
+    response = get_provider_request_governor().call(
+        "alpha_vantage",
+        lambda: _session.get(API_BASE_URL, params=api_params, timeout=timeout),
+        timeout_seconds=timeout,
+    )
     response.raise_for_status()
 
     response_text = response.text

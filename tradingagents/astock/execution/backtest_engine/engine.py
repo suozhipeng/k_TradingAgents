@@ -26,16 +26,45 @@ class BacktestEngine:
         Custom fee configuration.  Falls back to defaults.
     """
 
-    def __init__(self, fee_config: AStockFeeConfig | None = None, use_mock_data: bool = False) -> None:
+    def __init__(
+        self, fee_config: AStockFeeConfig | None = None, use_mock_data: bool = False,
+        store: object | None = None, allow_live_fallback: bool = True,
+        enable_external_constraints: bool = False,
+    ) -> None:
         self.fee_config = fee_config or AStockFeeConfig()
         self._facade: Any = None  # lazy import
         self._use_mock_data = use_mock_data
+        self._store = store
+        self._allow_live_fallback = allow_live_fallback
+        self._enable_external_constraints = enable_external_constraints
+        self._external_suspension_cache: dict[tuple[str, str], tuple[bool, str]] = {}
+        self._external_price_limit_cache: dict[tuple[str, str], tuple[bool, str]] = {}
+        self._last_data_source = "mock_deterministic" if use_mock_data else "unavailable"
 
     def _fetch_data(self, symbol: str, start_date: str, end_date: str) -> pd.DataFrame:
         """Fetch OHLCV data, falling back to mock data if facade unavailable."""
         # use_mock_data=True -> skip real data, go straight to mock
         if self._use_mock_data:
             return _mock_fallback(symbol, start_date, end_date)
+
+        # Backtests must prefer the immutable local warehouse: this makes a
+        # result reproducible and prevents a historical run from silently
+        # changing with a provider response.
+        if self._store is not None:
+            try:
+                df = self._store.query_kline(symbol, start=start_date, end=end_date, interval="1d")
+                if df is not None and not df.empty:
+                    time_col = "bar_time" if "bar_time" in df.columns else "trade_date"
+                    df[time_col] = pd.to_datetime(df[time_col])
+                    df = df.set_index(time_col).sort_index()
+                    self._last_data_source = "permanent_local_duckdb"
+                    return df
+            except Exception as exc:
+                logger.warning("Permanent K-line warehouse read failed for %s: %s", symbol, exc)
+
+        if not self._allow_live_fallback:
+            self._last_data_source = "permanent_local_duckdb_empty"
+            return pd.DataFrame()
 
         # Try AStockDataFacade first (uses baostock as primary default)
         try:
@@ -63,6 +92,7 @@ class BacktestEngine:
             logger.warning("Data load failed for %s, falling back to mock data", symbol)
 
         # Fallback to mock data
+        self._last_data_source = "mock_fallback"
         return _mock_fallback(symbol, start_date, end_date)
 
     def _detect_bias(self, df: pd.DataFrame, start_date: str, end_date: str) -> dict[str, bool]:
@@ -175,15 +205,23 @@ class BacktestEngine:
         """
         if self._use_mock_data:
             return False, ""
+        key = (symbol, trade_date)
+        if key in self._external_suspension_cache:
+            return self._external_suspension_cache[key]
         try:
             from tradingagents.astock.data_sources.suspension import is_suspended
             suspended, reason = is_suspended(symbol, source="akshare", date=trade_date)
             if suspended:
                 if reason:
-                    return True, f"suspended_external_{reason}"
-                return True, "suspended_external"
+                    result = (True, f"suspended_external_{reason}")
+                    self._external_suspension_cache[key] = result
+                    return result
+                result = (True, "suspended_external")
+                self._external_suspension_cache[key] = result
+                return result
         except Exception:
             logger.debug("External suspension check unavailable for %s", symbol)
+        self._external_suspension_cache[key] = (False, "")
         return False, ""
 
     def _check_external_price_limit(
@@ -198,13 +236,19 @@ class BacktestEngine:
         """
         if self._use_mock_data:
             return False, ""
+        key = (symbol, trade_date)
+        if key in self._external_price_limit_cache:
+            return self._external_price_limit_cache[key]
         try:
             from tradingagents.astock.data_sources.suspension import is_at_price_limit_external
             limited, direction = is_at_price_limit_external(symbol, trade_date)
             if limited:
-                return True, f"external_{direction}"
+                result = (True, f"external_{direction}")
+                self._external_price_limit_cache[key] = result
+                return result
         except Exception:
             logger.debug("External price limit check unavailable for %s", symbol)
+        self._external_price_limit_cache[key] = (False, "")
         return False, ""
 
     def run(
@@ -292,13 +336,15 @@ class BacktestEngine:
             bias_risks = self._detect_bias(df, start_date, end_date)
             st_delisted = self._detect_st_delisted(df, symbol, start_date, end_date)
             data_assumption = BacktestDataAssumption(
-                data_source="real_facade",
+                data_source=self._last_data_source,
                 data_quality="normal",
                 survivorship_bias_risk=bias_risks["survivorship_bias_risk"],
                 look_ahead_bias_risk=bias_risks["look_ahead_bias_risk"],
                 st_stock=st_delisted["st_stock"],
                 delisted=st_delisted["delisted"],
             ).to_dict()
+            if not self._enable_external_constraints:
+                data_assumption["notes"].append("external_constraints_disabled_for_reproducibility")
 
         # Validate trading calendar
         try:
@@ -404,12 +450,12 @@ class BacktestEngine:
                 suspended, suspend_reason = self._is_suspended(period_data)
                 trade_date_str = str(period_data.index[-1].date()) if hasattr(period_data.index[-1], 'date') else str(period_data.index[-1])
                 # Also check external suspension data source
-                if not suspended:
+                if self._enable_external_constraints and not suspended:
                     ext_susp, ext_reason = self._check_external_suspension(symbol, trade_date_str)
                     if ext_susp:
                         suspended, suspend_reason = ext_susp, ext_reason
                 # Also check external price limit data source (akshare 涨停/跌停 pools)
-                if not price_limit:
+                if self._enable_external_constraints and not price_limit:
                     ext_pl, ext_pl_reason = self._check_external_price_limit(symbol, trade_date_str)
                     if ext_pl:
                         price_limit, limit_reason = ext_pl, ext_pl_reason
@@ -477,12 +523,12 @@ class BacktestEngine:
                 suspended, suspend_reason = self._is_suspended(period_data)
                 trade_date_str = str(period_data.index[-1].date()) if hasattr(period_data.index[-1], 'date') else str(period_data.index[-1])
                 # Also check external suspension data source
-                if not suspended:
+                if self._enable_external_constraints and not suspended:
                     ext_susp, ext_reason = self._check_external_suspension(symbol, trade_date_str)
                     if ext_susp:
                         suspended, suspend_reason = ext_susp, ext_reason
                 # Also check external price limit data source (akshare 涨停/跌停 pools)
-                if not price_limit:
+                if self._enable_external_constraints and not price_limit:
                     ext_pl, ext_pl_reason = self._check_external_price_limit(symbol, trade_date_str)
                     if ext_pl:
                         price_limit, limit_reason = ext_pl, ext_pl_reason

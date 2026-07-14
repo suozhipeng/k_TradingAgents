@@ -988,6 +988,43 @@ def test_kline_default_limit_is_500(app):
     assert data["limit"] == 500
 
 
+def test_kline_query_incrementally_refreshes_daily_data(app):
+    """Normal API queries refresh from the latest local daily bar first."""
+    from types import SimpleNamespace
+
+    class Facade:
+        calls: list[dict[str, Any]] = []
+
+        def fetch(self, **kwargs):
+            self.calls.append(kwargs)
+            return SimpleNamespace(
+                status="ok",
+                source="test-refresh",
+                data={"bars": [{
+                    "date": "2024-01-04", "open": 103.0, "high": 105.0,
+                    "low": 102.0, "close": 104.0, "volume": 800_000,
+                    "amount": 83_200_000,
+                }]},
+            )
+
+    facade = Facade()
+    flask_app = app.application
+    flask_app.config["DATA_FACADE"] = facade
+    flask_app.config["ASTOCK_AUTO_REFRESH_DAILY_KLINE"] = True
+    flask_app.config["ASTOCK_DAILY_KLINE_REFRESH_TIMEOUT_SECONDS"] = 2
+
+    response = app.get("/api/v1/market/kline?symbol=600519.SH")
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert facade.calls == [{
+        "capability": "kline", "symbol": "600519.SH", "start_date": "2024-01-03",
+        "end_date": None, "interval": "1d",
+    }]
+    assert payload["daily_refresh"]["status"] == "succeeded"
+    assert payload["daily_refresh"]["mode"] == "incremental"
+    assert payload["count"] == 3
+
+
 def test_kline_limit_zero_returns_all(app):
     """Passing limit=0 returns all rows (backward compat)."""
     resp = app.get("/api/v1/market/kline?symbol=600519.SH&limit=0")

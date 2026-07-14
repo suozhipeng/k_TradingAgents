@@ -82,7 +82,19 @@ def run_backtest() -> tuple[Response, int]:
     try:
         strategy_cls = registry[strategy_name]
         strategy = strategy_cls()
-        engine = create_backtest_engine(use_mock_data=use_mock)
+        permanent_store = None
+        if not use_mock and current_app.config.get("ASTOCK_PERMANENT_KLINE_ENABLED", True):
+            from tradingagents.astock.store.permanent_kline import get_permanent_kline_store
+
+            permanent_store = get_permanent_kline_store(
+                current_app.config.get("ASTOCK_PERMANENT_KLINE_DB_PATH", "kline/kline.duckdb")
+            )
+        engine = create_backtest_engine(
+            use_mock_data=use_mock,
+            store=permanent_store,
+            allow_live_fallback=current_app.config.get("ASTOCK_BACKTEST_ALLOW_LIVE_FALLBACK", False),
+            enable_external_constraints=_as_bool(data.get("enable_external_constraints"), False),
+        )
         result = engine.run(symbol, start_date, end_date, strategy, rebalance_freq)
         result.strategy_name = strategy_name
 
@@ -165,21 +177,31 @@ def get_backtest_results() -> tuple[Response, int]:
         strategy (str) — optional filter by strategy name.
     """
     strategy_name = request.args.get("strategy")
+    limit = min(max(request.args.get("limit", 50, type=int) or 50, 1), 200)
+    offset = max(request.args.get("offset", 0, type=int) or 0, 0)
+    # Preserve the established API response by default; list views should opt
+    # into the lightweight summary with ``include_curve=false``.
+    include_curve = _as_bool(request.args.get("include_curve"), True)
     try:
         df = get_store().get_backtest_results(strategy_name=strategy_name)
         if df is not None and not df.empty and "params_json" in df.columns:
             rows = expand_params_json_rows(df)
         else:
             rows = df.to_dict(orient="records") if df is not None and not df.empty else []
+        total = len(rows)
+        rows = rows[offset:offset + limit]
         sanitize_nan(rows)
         for row in rows:
+            if not include_curve:
+                row.pop("equity_curve", None)
+                continue
             if isinstance(row.get("equity_curve"), list):
                 continue
             params = row.get("params")
             periods = params.get("periods") if isinstance(params, dict) else None
             if isinstance(periods, list):
                 row["equity_curve"] = build_equity_curve(periods)
-        return jsonify({"results": rows}), 200
+        return jsonify({"results": rows, "total": total, "limit": limit, "offset": offset}), 200
     except Exception as exc:
         return jsonify({"error": str(exc), "status": 500}), 500
 

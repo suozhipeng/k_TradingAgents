@@ -41,6 +41,10 @@ def register_hooks(app: Flask) -> None:
 
 def _register_before_request(app: Flask) -> None:
     @app.before_request
+    def _start_request_timer() -> None:
+        g.request_started_at = time.perf_counter()
+
+    @app.before_request
     def _block_execution_in_research_only() -> tuple[Any, int] | None:
         """Return 410 if RESEARCH_ONLY and path matches an execution prefix."""
         if app.config.get("ASTOCK_LOCAL_RELEASE", False):
@@ -128,6 +132,25 @@ def _register_before_request(app: Flask) -> None:
 # ---------------------------------------------------------------------------
 
 def _register_after_request(app: Flask) -> None:
+    @app.after_request
+    def _record_request_timing(response: Any) -> Any:
+        started = getattr(g, "request_started_at", None)
+        if started is None:
+            return response
+        elapsed_ms = (time.perf_counter() - started) * 1000.0
+        response.headers["X-Response-Time-Ms"] = f"{elapsed_ms:.1f}"
+        if elapsed_ms >= float(app.config.get("ASTOCK_SLOW_REQUEST_MS", 1000)):
+            logger.warning(
+                "Slow API request %.1fms: %s %s -> %s",
+                elapsed_ms, request.method, request.path, response.status_code,
+            )
+        else:
+            logger.debug(
+                "API request %.1fms: %s %s -> %s",
+                elapsed_ms, request.method, request.path, response.status_code,
+            )
+        return response
+
     @app.after_request
     def _audit_write_operations(response: Any) -> Any:
         """Non-blocking audit for all POST/PUT/DELETE/PATCH operations."""

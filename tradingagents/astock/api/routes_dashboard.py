@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import json
 import logging
+import threading
+import time
 from datetime import date as date_type
 from datetime import datetime
 from decimal import Decimal
@@ -24,6 +26,34 @@ from ._paper_service import get_paper_trader, serialize_paper_state, serialize_p
 logger = logging.getLogger(__name__)
 
 bp = Blueprint("dashboard", __name__)
+_stats_lock = threading.Lock()
+_stats_cache: dict[int, tuple[float, dict[str, Any], int]] = {}
+_paper_curve_cache: tuple[float, int, list[dict]] | None = None
+
+
+def _cached_store_statistics(store: Any) -> tuple[dict[str, Any], int]:
+    """Avoid repeatedly counting every managed table for dashboard polling."""
+    key = id(store)
+    now = time.monotonic()
+    ttl = float(current_app.config.get("ASTOCK_DASHBOARD_STATS_TTL_SECONDS", 30))
+    with _stats_lock:
+        cached = _stats_cache.get(key)
+        if cached and now - cached[0] < ttl:
+            return cached[1], cached[2]
+
+    stats = store.get_table_stats() if hasattr(store, "get_table_stats") else {}
+    symbols_tracked = 0
+    for table in ("kline_bars", "valuations"):
+        t_stats = stats.get(table, {})
+        if t_stats.get("rows", 0) > 0:
+            try:
+                df = store.query_sql(f'SELECT count(DISTINCT symbol) as cnt FROM "{table}"')
+                symbols_tracked += int(df.iloc[0]["cnt"]) if not df.empty else 0
+            except Exception:
+                symbols_tracked += 1
+    with _stats_lock:
+        _stats_cache[key] = (now, stats, symbols_tracked)
+    return stats, symbols_tracked
 
 
 def _get_paper_state() -> dict[str, Any]:
@@ -100,17 +130,7 @@ def _get_latest_equity_curve(recent_backtests: list[dict]) -> list[dict]:
 def dashboard_overview() -> tuple[Response, int]:
     try:
         store = get_store()
-        stats = store.get_table_stats() if hasattr(store, "get_table_stats") else {}
-
-        symbols_tracked = 0
-        for table in ("kline_bars", "valuations"):
-            t_stats = stats.get(table, {})
-            if t_stats.get("rows", 0) > 0:
-                try:
-                    df = store.query_sql(f'SELECT count(DISTINCT symbol) as cnt FROM "{table}"')
-                    symbols_tracked += int(df.iloc[0]["cnt"]) if not df.empty else 0
-                except Exception:
-                    symbols_tracked += 1 if t_stats.get("rows", 0) > 0 else 0
+        stats, symbols_tracked = _cached_store_statistics(store)
 
         backtests_total = stats.get("backtest_results", {}).get("rows", 0) if stats else 0
 
@@ -197,7 +217,11 @@ def dashboard_overview() -> tuple[Response, int]:
 
 def _compute_paper_equity_curve(store: Any) -> list[dict]:
     import pandas as pd
+    global _paper_curve_cache
     try:
+        now = time.monotonic()
+        if _paper_curve_cache and _paper_curve_cache[1] == id(store) and now - _paper_curve_cache[0] < 10:
+            return list(_paper_curve_cache[2])
         live_trades = serialize_paper_trades()
         if live_trades:
             initial_cash = 100000.0
@@ -222,7 +246,9 @@ def _compute_paper_equity_curve(store: Any) -> list[dict]:
                     positions[symbol] = max(0, positions.get(symbol, 0) - quantity)
                 total_value = cash + sum(qty * latest_prices.get(sym, 0) for sym, qty in positions.items())
                 curve.append({"period": str(trade.get("timestamp", ""))[:10], "value": round(total_value, 2)})
-            return curve[-60:]
+            result = curve[-60:]
+            _paper_curve_cache = (now, id(store), result)
+            return result
 
         df = store.get_paper_trades()
         if df is None or df.empty:
@@ -263,7 +289,9 @@ def _compute_paper_equity_curve(store: Any) -> list[dict]:
             pos_value = sum(positions[s] * latest_prices.get(s, 0) for s in list(positions.keys()))
             total_value = cash + pos_value
             curve.append({"period": date_str, "value": round(total_value, 2)})
-        return curve[-60:]
+        result = curve[-60:]
+        _paper_curve_cache = (now, id(store), result)
+        return result
     except Exception:
         return []
 

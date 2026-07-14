@@ -11,6 +11,10 @@ from __future__ import annotations
 
 import logging
 import math
+import threading
+from concurrent.futures import Future, TimeoutError as FuturesTimeoutError
+from datetime import date
+from pathlib import Path
 from typing import Any
 
 import pandas as pd
@@ -21,6 +25,14 @@ from ._helpers import df_to_json, get_store, sanitise_records
 
 bp = Blueprint("market_data_query", __name__)
 logger = logging.getLogger(__name__)
+
+# Coalesce concurrent refreshes for the same symbol.  A chart page can issue
+# multiple K-line requests while it loads; without this guard each one would
+# independently hit the upstream provider and contend for the same DuckDB
+# write lock.
+_daily_refresh_lock = threading.Lock()
+_daily_refresh_flights: dict[str, Future[dict[str, Any]]] = {}
+_permanent_write_lock = threading.Lock()
 
 
 def _router() -> Any:
@@ -52,6 +64,157 @@ def _with_meta(payload: dict, resp: Any) -> dict:
     return payload
 
 
+def _refresh_daily_kline_incrementally(symbol: str) -> dict[str, Any]:
+    """Refresh a symbol's daily bars without letting a provider stall a query.
+
+    The refresh begins at the newest locally stored daily bar so provider data
+    is upserted incrementally (including a replacement for today's partial
+    bar).  ``BatchLoader`` owns a bounded worker and reports timeout/failure
+    per request; consequently the API can still return the last good local
+    data if one upstream module is slow or unavailable.
+    """
+    if not current_app.config.get("ASTOCK_AUTO_REFRESH_DAILY_KLINE", True):
+        return {"status": "disabled", "rows_upserted": 0}
+
+    timeout = float(current_app.config.get("ASTOCK_DAILY_KLINE_REFRESH_TIMEOUT_SECONDS", 8))
+    with _daily_refresh_lock:
+        existing = _daily_refresh_flights.get(symbol)
+        if existing is None:
+            flight: Future[dict[str, Any]] = Future()
+            _daily_refresh_flights[symbol] = flight
+            is_leader = True
+        else:
+            flight = existing
+            is_leader = False
+
+    if not is_leader:
+        try:
+            result = dict(flight.result(timeout=max(0.1, timeout)))
+            result["coalesced"] = True
+            return result
+        except FuturesTimeoutError:
+            return {
+                "status": "pending", "rows_upserted": 0, "mode": "incremental",
+                "coalesced": True, "reason": "another refresh is still running",
+            }
+
+    try:
+        result = _perform_daily_kline_incremental_refresh(symbol, timeout)
+        flight.set_result(result)
+        return result
+    except Exception as exc:
+        result = {"status": "failed", "rows_upserted": 0, "mode": "incremental", "error": str(exc)[:300]}
+        flight.set_result(result)
+        return result
+    finally:
+        with _daily_refresh_lock:
+            _daily_refresh_flights.pop(symbol, None)
+
+
+def _perform_daily_kline_incremental_refresh(symbol: str, timeout: float) -> dict[str, Any]:
+    """Perform the leader side of a coalesced daily K-line refresh."""
+    router = _router()
+    if router is None:
+        return {"status": "unavailable", "rows_upserted": 0, "reason": "data router not available"}
+
+    store = get_store()
+    start = None
+    try:
+        latest = store.query_kline(symbol, interval="1d", limit=1)
+        if not latest.empty and "bar_time" in latest.columns:
+            value = latest.iloc[-1]["bar_time"]
+            start = pd.Timestamp(value).date().isoformat()
+    except Exception as exc:
+        logger.warning("could not determine local K-line watermark for %s: %s", symbol, exc)
+
+    try:
+        from tradingagents.astock.store.loader import BatchLoader
+
+        result = BatchLoader(store, router, max_workers=1).load_kline_requests(
+            [{"symbol": symbol, "start": start, "interval": "1d"}],
+            timeout_seconds=timeout,
+            timeout_retries=0,
+        )[f"{symbol}:1d"]
+        result["mode"] = "incremental"
+        result["permanent_store"] = _mirror_kline_to_permanent(store, symbol, "1d", start)
+        result["intraday_refresh"] = _refresh_intraday_for_current_daily_bar(
+            store, router, symbol, timeout
+        )
+        return result
+    except Exception as exc:
+        logger.warning("daily K-line refresh failed for %s: %s", symbol, exc)
+        return {"status": "failed", "rows_upserted": 0, "mode": "incremental", "error": str(exc)[:300]}
+
+
+def _refresh_intraday_for_current_daily_bar(
+    store: Any, router: Any, symbol: str, daily_timeout: float
+) -> dict[str, Any]:
+    """Cache intraday bars only when the latest stored daily bar is today."""
+    if not current_app.config.get("ASTOCK_AUTO_REFRESH_INTRADAY_KLINE", True):
+        return {"status": "disabled", "rows_upserted": 0}
+    try:
+        latest = store.query_kline(symbol, interval="1d", limit=1)
+        if latest.empty or "bar_time" not in latest.columns:
+            return {"status": "skipped", "rows_upserted": 0, "reason": "no daily bar"}
+        latest_day = pd.Timestamp(latest.iloc[-1]["bar_time"]).date()
+        if latest_day != date.today():
+            return {"status": "skipped", "rows_upserted": 0, "reason": "latest daily bar is not today"}
+
+        from tradingagents.astock.store.loader import BatchLoader
+
+        interval = str(current_app.config.get("ASTOCK_INTRADAY_KLINE_INTERVAL", "5m"))
+        timeout = min(
+            max(1.0, float(current_app.config.get("ASTOCK_INTRADAY_KLINE_REFRESH_TIMEOUT_SECONDS", 5))),
+            max(1.0, daily_timeout),
+        )
+        result = BatchLoader(store, router, max_workers=1).load_kline_requests(
+            [{"symbol": symbol, "start": latest_day.isoformat(), "interval": interval}],
+            timeout_seconds=timeout,
+            timeout_retries=0,
+        )[f"{symbol}:{interval}"]
+        result["mode"] = "current_day_intraday"
+        result["permanent_store"] = _mirror_kline_to_permanent(store, symbol, interval, latest_day.isoformat())
+        return result
+    except Exception as exc:
+        logger.warning("intraday K-line refresh failed for %s: %s", symbol, exc)
+        return {"status": "failed", "rows_upserted": 0, "error": str(exc)[:300]}
+
+
+def _mirror_kline_to_permanent(store: Any, symbol: str, interval: str, start: str | None) -> dict[str, Any]:
+    """Synchronize a K-line series into the permanent local warehouse.
+
+    The warehouse watermark, rather than the request's hot-store watermark,
+    controls the copy range.  This makes its first creation a full local
+    backfill and lets it recover automatically if an earlier mirror failed.
+    """
+    if not current_app.config.get("ASTOCK_PERMANENT_KLINE_ENABLED", True):
+        return {"status": "disabled", "rows_upserted": 0}
+    try:
+        configured = str(current_app.config.get("ASTOCK_PERMANENT_KLINE_DB_PATH", "kline/kline.duckdb"))
+        from tradingagents.astock.store.permanent_kline import get_permanent_kline_store
+
+        permanent = get_permanent_kline_store(configured)
+        path = Path(configured)
+        if not path.is_absolute():
+            path = Path(__file__).resolve().parents[3] / path
+        # DuckDB permits concurrent reads, while refreshes for separate symbols
+        # can otherwise overlap writes on this long-lived local connection.
+        with _permanent_write_lock:
+            latest = permanent.query_kline(symbol, interval=interval, limit=1)
+            mirror_start = None
+            if not latest.empty and "bar_time" in latest.columns:
+                mirror_start = pd.Timestamp(latest.iloc[-1]["bar_time"]).isoformat()
+            df = store.query_kline(symbol, interval=interval, start=mirror_start)
+            rows = permanent.insert_kline(symbol, df, interval=interval, source="incremental_mirror") if not df.empty else 0
+        return {
+            "status": "ok", "rows_upserted": rows, "path": str(path),
+            "mode": "full_local_backfill" if mirror_start is None else "incremental",
+        }
+    except Exception as exc:
+        logger.warning("permanent K-line mirror failed for %s %s: %s", symbol, interval, exc)
+        return {"status": "failed", "rows_upserted": 0, "error": str(exc)[:300]}
+
+
 # ---------------------------------------------------------------------------
 # Kline bars
 # ---------------------------------------------------------------------------
@@ -69,6 +232,7 @@ def get_kline() -> tuple[Response, int]:
     _FETCH_LIMIT = 400
 
     try:
+        daily_refresh = _refresh_daily_kline_incrementally(symbol)
         store = get_store()
         store_limit = limit + 1 if limit > 0 else None
         df = store.query_kline(symbol, start=start, end=end, interval=interval, limit=store_limit)
@@ -123,6 +287,7 @@ def get_kline() -> tuple[Response, int]:
         return jsonify({
             "symbol": symbol, "interval": interval, "bars": bars,
             "count": bar_count, "limit": limit, "has_more": has_more, "range": date_range,
+            "daily_refresh": daily_refresh,
         }), 200
     except Exception as exc:
         return jsonify({"error": str(exc), "status": 500}), 500

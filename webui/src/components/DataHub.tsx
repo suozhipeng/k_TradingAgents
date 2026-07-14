@@ -159,13 +159,19 @@ export default function DataHub() {
   useEffect(() => {
     if (!selectedJob || selectedJob.status !== "running") return;
     const poll = () => {
+      if (document.hidden) return;
       api.getJob(selectedJob.id).then((res) => {
         const job = (res as unknown as { job: JobInfo }).job;
         if (job) setSelectedJob(job);
       }).catch(() => {});
     };
     const id = setInterval(poll, 2000);
-    return () => clearInterval(id);
+    const onVisibilityChange = () => { if (!document.hidden) poll(); };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
   }, [selectedJob, api]);
 
   /* Refresh handler */

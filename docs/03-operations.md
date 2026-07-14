@@ -33,6 +33,14 @@
 - 本地 DuckDB 是单写入分析库：网络和计算可并发，写入由 Store 锁批处理；需要多进程/多用户高并发写入时必须切换 PostgreSQL/TimescaleDB（连接池由 `PG_POOL_SIZE` 配置）。入库层兼容常见中英文行情字段和数值字符串；无法解析日期或 OHLC 的行会写入 `data_quarantine`（`rule_id=field_compatibility`、`severity=error`）并输出 `KLINE_FIELD_EXCEPTION` 结构化错误日志，同批有效数据继续写入，管理员可通过隔离记录手动修复和关闭。
 - 刷新任务会持久化状态事件用于审计；任务列表本身仍是进程内视图，服务重启后不承诺恢复为可轮询任务。
 - `rows_upserted` 是本次受影响行数，不等同于新增、更新或跳过的拆分计数；在没有数据库差分计数器前不得展示这些虚假明细。
+- 用于回测的永久 K 线仓库默认是项目根目录的 `kline/kline.duckdb`（可用 `ASTOCK_PERMANENT_KLINE_DB_PATH` 覆盖）。交互查询完成日线增量刷新后会同步该仓库；若当日有日 K，则同样同步当日 5 分钟 K。首次同步会把热库中该标的/周期的完整已有序列回填，之后按永久库自身的最新 bar 重叠 upsert，因此短暂失败后的下一次查询能自动补齐。
+- 分钟 K 的归档/清理只针对应用热库，默认仅预览；永久仓库不参与清理。只有在已确认永久库同步成功且归档文件校验通过时，才应以 `confirm_delete=true` 删除热库历史数据。可用 `ASTOCK_PERMANENT_KLINE_ENABLED=false` 显式关闭永久镜像（不建议用于回测环境）。
+- 回测默认只读永久仓库，结果会记录 `permanent_local_duckdb` 数据来源；如确有需要才设置 `ASTOCK_BACKTEST_ALLOW_LIVE_FALLBACK=true` 允许网络回补。回测历史接口支持 `limit`、`offset`，列表页可使用 `include_curve=false` 避免传输完整净值曲线。
+- `GET /api/v1/market/screener` 以单次窗口查询读取最近 120 根日 K，默认最多扫描 2,000 个标的（`scan_limit` 最大 5,000）。`/api/v1/tv/history` 单次最多返回 5,000 根 bar。
+- 后台数据任务有有界等待队列（默认 `ASTOCK_DATA_JOB_MAX_QUEUED=100`）；队列饱和返回 HTTP 429。仪表盘表统计默认缓存 30 秒（`ASTOCK_DASHBOARD_STATS_TTL_SECONDS`）。可通过 `POST /api/v1/data/maintenance` 对热库和永久库执行 `CHECKPOINT + ANALYZE`。
+- 历史回测默认不会访问外部停牌/涨跌停接口，确保本地数据可复现；需要该附加校验时，在回测请求中传入 `enable_external_constraints=true`，同一运行内会按标的和日期缓存。Alpha Vantage 使用共享连接与 Provider 限流器，超时由 `ASTOCK_ALPHA_VANTAGE_TIMEOUT_SECONDS` 控制（默认 15 秒）。
+- 进程内 SSE、任务队列和 LLM 报告缓存仅适用于单 API worker。设置 `WEB_CONCURRENCY>1` 会输出告警；横向扩展前须提供共享 Redis/PostgreSQL 协调后端，避免事件和任务状态分裂。
+- 已归档的分钟 K 写入按月 Parquet，并在热库创建 `kline_bars_cold` DuckDB 视图供审计和冷数据查询；永久回测库不清理这些分钟 K。
 
 ### 产品性质
 

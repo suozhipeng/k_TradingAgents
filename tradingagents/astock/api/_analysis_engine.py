@@ -96,13 +96,16 @@ def analyze_stock_symbol(symbol: str, name: str) -> dict[str, Any]:
         from flask import current_app
         if current_app:
             store = current_app.config.get("STORE")
-        kline_df = store.query_kline(symbol) if store else pd.DataFrame()
+        # RSI/MA20 only need a bounded recent window; never materialise a
+        # symbol's complete minute-history for a technical decision card.
+        kline_df = store.query_kline(symbol, interval="1d", limit=250) if store else pd.DataFrame()
 
         # If store has no data, try live facade
         if kline_df.empty:
             try:
-                from tradingagents.astock.data_sources import AStockDataFacade
-                facade = AStockDataFacade()
+                facade = current_app.config.get("DATA_FACADE")
+                if facade is None:
+                    raise RuntimeError("data facade unavailable")
                 resp = facade.get_kline(symbol=symbol, interval="1d", limit=120)
                 if resp.status == "ok" and resp.data and resp.data.get("bars"):
                     bars = resp.data["bars"]

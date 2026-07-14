@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import AgentFlow from "./components/AgentFlow";
 import BacktestChart from "./components/BacktestChart";
@@ -78,6 +78,7 @@ function AppContent() {
   const [klData, setKlData] = useState<OHLCV[]>([]);
   const [klLoading, setKlLoading] = useState(false);
   const [klError, setKlError] = useState("");
+  const klAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     setHydrated(true);
@@ -398,10 +399,13 @@ function AppContent() {
               className="tv-btn tv-btn-primary"
               disabled={klLoading}
               onClick={async () => {
+                klAbortRef.current?.abort();
+                const controller = new AbortController();
+                klAbortRef.current = controller;
                 setKlLoading(true);
                 setKlError("");
                 try {
-                  const res = await api.fetchKline(klSymbol, undefined, undefined, klInterval);
+                  const res = await api.fetchKline(klSymbol, undefined, undefined, klInterval, controller.signal);
                   const bars = (res.bars ?? []) as Record<string, unknown>[];
                   const ohlcv: OHLCV[] = bars.map(b => ({
                     trade_date: (b.trade_date ?? b.bar_time ?? b.date ?? "") as string,
@@ -413,9 +417,10 @@ function AppContent() {
                   }));
                   setKlData(ohlcv);
                 } catch (e: unknown) {
+                  if (e instanceof DOMException && e.name === "AbortError") return;
                   setKlError(t("marketData.error", { msg: e instanceof Error ? e.message : String(e) }));
                 } finally {
-                  setKlLoading(false);
+                  if (klAbortRef.current === controller) setKlLoading(false);
                 }
               }}
             >

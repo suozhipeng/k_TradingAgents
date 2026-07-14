@@ -428,17 +428,20 @@ def tv_history() -> tuple[Response, int]:
         return jsonify({"s": "error", "errmsg": "symbol required"}), 400
 
     interval = _tv_resolution(resolution)
+    # Bound response work before converting a potentially huge local range to
+    # JSON.  TradingView will request adjacent ranges as the user pans.
+    max_bars = min(max(request.args.get("countback", 2000, type=int) or 2000, 1), 5000)
 
     try:
         store = get_store()
         start_str = __import__("datetime").datetime.utcfromtimestamp(from_ts).strftime("%Y-%m-%d") if from_ts else None  # noqa: E501
         end_str = __import__("datetime").datetime.utcfromtimestamp(to_ts).strftime("%Y-%m-%d") if to_ts else None
-        df = store.query_kline(symbol, interval=interval, start=start_str, end=end_str)
+        df = store.query_kline(symbol, interval=interval, start=start_str, end=end_str, limit=max_bars)
         bars = _df_to_json(df)
 
         # Weekly/Monthly/Yearly: aggregate from daily data
         if not bars and interval in ("1w", "1mo", "1y"):
-            df_daily = store.query_kline(symbol, interval="1d", start=start_str, end=end_str)
+            df_daily = store.query_kline(symbol, interval="1d", start=start_str, end=end_str, limit=max_bars)
             daily_bars = _df_to_json(df_daily)
             if daily_bars:
                 bars = _aggregate_bars(daily_bars, interval)
@@ -457,7 +460,15 @@ def tv_history() -> tuple[Response, int]:
                                 for item in items:
                                     if "date" in item and "trade_date" not in item:
                                         item["trade_date"] = item.pop("date")
-                                bars = items
+                            # Provider fallback is a cache fill, not a
+                            # throwaway chart response: persist it so zooming
+                            # or reopening the same range stays local.
+                            try:
+                                import pandas as pd
+                                store.insert_kline(symbol, pd.DataFrame(items), interval=interval, source=resp.source or "mootdx")
+                            except Exception as exc:
+                                logger.warning("TV fallback cache write failed for %s: %s", symbol, exc)
+                            bars = items
                 except Exception:
                     logger.warning("TV intraday fetch failed for %s", symbol, exc_info=True)
 

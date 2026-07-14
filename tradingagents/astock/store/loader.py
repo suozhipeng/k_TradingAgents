@@ -333,30 +333,21 @@ class BatchLoader:
 
         Returns ``{symbol: row_count}``.
         """
-        results: dict[str, int] = {}
-
-        with ThreadPoolExecutor(max_workers=self._max_workers) as executor:
-            future_map = {
-                executor.submit(
-                    self._kline_loader.fetch_response, sym, start, end, interval
-                ): sym
-                for sym in symbols
-            }
-            for future in as_completed(future_map):
-                sym = future_map[future]
-                try:
-                    response = future.result()
-                    results[sym] = self._kline_loader.write_response(
-                        sym, response, interval=interval, source=source
-                    )
-                except Exception as exc:
-                    logger.warning("Failed to load kline for %s: %s", sym, exc)
-                    results[sym] = -1
-        return results
+        details = self.load_kline_requests(
+            [{"symbol": symbol, "start": start, "end": end, "interval": interval} for symbol in symbols],
+            concurrent=True,
+            source=source,
+        )
+        return {
+            symbol: int(details[f"{symbol}:{interval}"].get("rows_upserted", -1))
+            if details[f"{symbol}:{interval}"].get("status") == "succeeded" else -1
+            for symbol in symbols
+        }
 
     def load_kline_requests(
         self, requests: list[dict[str, Any]], *, concurrent: bool = False,
         timeout_seconds: float | None = None, timeout_retries: int | None = None,
+        source: str = "",
     ) -> dict[str, dict[str, Any]]:
         """Execute distinct K-line requests and retain per-item failures.
 
@@ -412,6 +403,7 @@ class BatchLoader:
                                 str(item["symbol"]),
                                 response,
                                 interval=str(item.get("interval", "1d")),
+                                source=source,
                                 deadline=deadline,
                             )
                         except Exception as exc:

@@ -198,12 +198,14 @@ export function useApi() {
       start?: string,
       end?: string,
       interval = "1d",
+      signal?: AbortSignal,
     ) {
       const params = new URLSearchParams({ symbol, interval });
       if (start) params.set("start", start);
       if (end) params.set("end", end);
       return request<{ symbol: string; interval: string; bars: Array<Record<string, unknown>> }>(
         `/api/v1/kline?${params}`,
+        { signal },
       );
     },
 

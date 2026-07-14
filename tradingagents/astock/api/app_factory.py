@@ -69,7 +69,10 @@ def _build_store_config(app: Flask, db_path: str | None = None) -> None:
     from tradingagents.astock.store.jobs import DataJobManager
     # Persist refresh progress so the formal Data Hub can show durable task
     # evidence rather than only process-local thread state.
-    app.config["DATA_JOB_MANAGER"] = DataJobManager(store=raw_store)
+    app.config["DATA_JOB_MANAGER"] = DataJobManager(
+        store=raw_store,
+        max_queued=int(app.config.get("ASTOCK_DATA_JOB_MAX_QUEUED", 100)),
+    )
 
     # Data facade (router + loaders)
     try:

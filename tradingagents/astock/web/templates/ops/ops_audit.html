@@ -101,6 +101,7 @@ async function clearEvents() {
 }
 
 loadEvents();
-setInterval(loadEvents, 3000);
+setInterval(() => { if (!document.hidden) loadEvents(); }, 3000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) loadEvents(); });
 </script>
 {% endblock %}
