@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import logging
+import re
 import time
 import uuid
 from typing import Any
@@ -20,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 _WRITE_METHODS = frozenset(("POST", "PUT", "DELETE", "PATCH"))
 _WRITE_ROLES = frozenset(("admin", "operator", "writer"))
+_REQUEST_ID_RE = re.compile(r"^[A-Za-z0-9_-]{8,128}$")
 _EXECUTION_PREFIXES = frozenset((
     "/api/v1/trade/", "/api/v1/paper/", "/api/v1/qmt/", "/api/v1/portfolio/",
 ))
@@ -45,7 +47,7 @@ def _register_before_request(app: Flask) -> None:
     def _start_request_timer() -> None:
         g.request_started_at = time.perf_counter()
         supplied = request.headers.get("X-Request-ID", "").strip()
-        g.request_id = supplied[:128] if supplied else uuid.uuid4().hex
+        g.request_id = supplied if _REQUEST_ID_RE.fullmatch(supplied) else uuid.uuid4().hex
 
     @app.before_request
     def _block_execution_in_research_only() -> tuple[Any, int] | None:
@@ -144,7 +146,8 @@ def _register_after_request(app: Flask) -> None:
         response.headers["X-Response-Time-Ms"] = f"{elapsed_ms:.1f}"
         response.headers["X-Request-ID"] = getattr(g, "request_id", "")
         from .metrics import record_request
-        record_request(request.method, request.path, response.status_code, elapsed_ms)
+        route = getattr(getattr(request, "url_rule", None), "rule", request.path)
+        record_request(request.method, route, response.status_code, elapsed_ms)
         if elapsed_ms >= float(app.config.get("ASTOCK_SLOW_REQUEST_MS", 1000)):
             logger.warning(
                 "Slow API request %.1fms request_id=%s: %s %s -> %s",

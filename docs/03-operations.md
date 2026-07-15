@@ -44,6 +44,8 @@
 - 市场领先池刷新仅允许 `POST /api/v1/market/leading-pool/refresh`；`GET /market/leading-pool` 与 `GET /market/momentum` 保持只读，不再由 `refresh=1` 改变服务端状态。健康探针分为 `/api/v1/health/live`（进程存活）与 `/api/v1/health/ready`（实际探测热库和永久库）；旧 `/health` 保持为 readiness 兼容别名。
 - 每个 API 响应携带 `X-Request-ID` 与 `X-Response-Time-Ms`。`GET /api/v1/ops/metrics` 可查看进程内请求量、平均延迟和数据任务状态。它用于单进程本地运维；横向扩展请接入集中式指标系统。
 - DuckDB 恢复会先验证备份中存在受管表，再在单个事务内重建；任一表失败即回滚，不再出现部分恢复状态。CI 位于 `.github/workflows/ci.yml`，执行无外部密钥的后端测试与前端构建。
+- 所有 API K 线写入路径（单标的刷新、Data Hub 批量任务、查询 fallback、TradingView fallback）均通过 Loader 同步到永久仓库；不再依赖某个查询接口的事后镜像。`GET /api/v1/kline` 与 `/api/v1/tv/history` 可传 `include_cold=true` 合并读取热库和 `kline_bars_cold` Parquet 视图。
+- AI 主链与展示 LLM 使用进程级有界执行器，容量饱和会返回可重试错误；报告缓存通过 `ASTOCK_LLM_REPORT_CACHE_MAX_ENTRIES`（默认 100）限制容量并按 TTL 清理。`/ops/metrics` 以路由模板聚合，避免动态 ID 导致指标基数膨胀，且在启用认证时仅管理员可访问。
 
 ### 产品性质
 

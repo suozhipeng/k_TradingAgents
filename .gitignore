@@ -136,6 +136,7 @@ celerybeat.pid
 
 # DuckDB binary database files
 *.duckdb
+/600227.SH
 *.aof
 *.pid
 

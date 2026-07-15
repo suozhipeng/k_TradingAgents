@@ -105,6 +105,7 @@ def create_app(
     )
     app.config.setdefault("ASTOCK_SLOW_REQUEST_MS", float(os.environ.get("ASTOCK_SLOW_REQUEST_MS", "1000")))
     app.config.setdefault("ASTOCK_LLM_REPORT_TTL_SECONDS", float(os.environ.get("ASTOCK_LLM_REPORT_TTL_SECONDS", "600")))
+    app.config.setdefault("ASTOCK_LLM_REPORT_CACHE_MAX_ENTRIES", int(os.environ.get("ASTOCK_LLM_REPORT_CACHE_MAX_ENTRIES", "100")))
     app.config.setdefault("ASTOCK_AUTO_REFRESH_INTRADAY_KLINE", _env_enabled("ASTOCK_AUTO_REFRESH_INTRADAY_KLINE") if "ASTOCK_AUTO_REFRESH_INTRADAY_KLINE" in os.environ else True)
     app.config.setdefault("ASTOCK_INTRADAY_KLINE_INTERVAL", os.environ.get("ASTOCK_INTRADAY_KLINE_INTERVAL", "5m"))
     app.config.setdefault("ASTOCK_INTRADAY_KLINE_REFRESH_TIMEOUT_SECONDS", float(os.environ.get("ASTOCK_INTRADAY_KLINE_REFRESH_TIMEOUT_SECONDS", "5")))

@@ -130,7 +130,13 @@ def _perform_daily_kline_incremental_refresh(symbol: str, timeout: float) -> dic
     try:
         from tradingagents.astock.store.loader import BatchLoader
 
-        result = BatchLoader(store, router, max_workers=1).load_kline_requests(
+        permanent = None
+        if current_app.config.get("ASTOCK_PERMANENT_KLINE_ENABLED", True):
+            from tradingagents.astock.store.permanent_kline import get_permanent_kline_store
+            permanent = get_permanent_kline_store(
+                current_app.config.get("ASTOCK_PERMANENT_KLINE_DB_PATH", "kline/kline.duckdb")
+            )
+        result = BatchLoader(store, router, max_workers=1, permanent_store=permanent).load_kline_requests(
             [{"symbol": symbol, "start": start, "interval": "1d"}],
             timeout_seconds=timeout,
             timeout_retries=0,
@@ -167,7 +173,13 @@ def _refresh_intraday_for_current_daily_bar(
             max(1.0, float(current_app.config.get("ASTOCK_INTRADAY_KLINE_REFRESH_TIMEOUT_SECONDS", 5))),
             max(1.0, daily_timeout),
         )
-        result = BatchLoader(store, router, max_workers=1).load_kline_requests(
+        permanent = None
+        if current_app.config.get("ASTOCK_PERMANENT_KLINE_ENABLED", True):
+            from tradingagents.astock.store.permanent_kline import get_permanent_kline_store
+            permanent = get_permanent_kline_store(
+                current_app.config.get("ASTOCK_PERMANENT_KLINE_DB_PATH", "kline/kline.duckdb")
+            )
+        result = BatchLoader(store, router, max_workers=1, permanent_store=permanent).load_kline_requests(
             [{"symbol": symbol, "start": latest_day.isoformat(), "interval": interval}],
             timeout_seconds=timeout,
             timeout_retries=0,
@@ -228,6 +240,7 @@ def get_kline() -> tuple[Response, int]:
     start = request.args.get("start")
     end = request.args.get("end")
     interval = request.args.get("interval", "1d")
+    include_cold = request.args.get("include_cold", "0").lower() in ("1", "true", "yes")
     limit = _int_param("limit", 500, max_val=5000)
     _FETCH_LIMIT = 400
 
@@ -235,7 +248,7 @@ def get_kline() -> tuple[Response, int]:
         daily_refresh = _refresh_daily_kline_incrementally(symbol)
         store = get_store()
         store_limit = limit + 1 if limit > 0 else None
-        df = store.query_kline(symbol, start=start, end=end, interval=interval, limit=store_limit)
+        df = store.query_kline(symbol, start=start, end=end, interval=interval, limit=store_limit, include_cold=include_cold)
         bars = df_to_json(df)
 
         has_more = False
@@ -264,6 +277,14 @@ def get_kline() -> tuple[Response, int]:
                             )
                             if date_col_present:
                                 store.insert_kline(symbol, df_live, interval=interval, source=source_str)
+                                if current_app.config.get("ASTOCK_PERMANENT_KLINE_ENABLED", True):
+                                    from tradingagents.astock.store.permanent_kline import (
+                                        get_permanent_kline_store, mirror_kline_frame,
+                                    )
+                                    mirror_kline_frame(
+                                        get_permanent_kline_store(current_app.config.get("ASTOCK_PERMANENT_KLINE_DB_PATH", "kline/kline.duckdb")),
+                                        symbol, df_live, interval=interval, source=source_str,
+                                    )
                             df2 = store.query_kline(symbol, start=start, end=end, interval=interval, limit=store_limit)
                             bars = df_to_json(df2)
                             has_more = False

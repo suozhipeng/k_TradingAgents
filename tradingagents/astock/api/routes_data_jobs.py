@@ -161,11 +161,20 @@ def create_refresh_job() -> tuple[Response, int]:
 
     store = get_store()
     router = current_app.config.get("DATA_FACADE")
+    permanent_store = None
+    if current_app.config.get("ASTOCK_PERMANENT_KLINE_ENABLED", True):
+        from tradingagents.astock.store.permanent_kline import get_permanent_kline_store
+        permanent_store = get_permanent_kline_store(
+            current_app.config.get("ASTOCK_PERMANENT_KLINE_DB_PATH", "kline/kline.duckdb")
+        )
 
     def run(update: Any) -> dict[str, Any]:
         from tradingagents.astock.store.loader import BatchLoader, ValuationLoader, run_with_timeout_retries, serialize_load_error
         valuation_loader = ValuationLoader(store, router)
-        batch_loader = BatchLoader(store, router, max_workers=max_concurrency)
+        batch_loader = BatchLoader(
+            store, router, max_workers=max_concurrency,
+            permanent_store=permanent_store,
+        )
         completed = 0
         results: dict[str, Any] = {"mode": mode, "kline": {}, "valuations": {}, "failure_count": 0}
         kline_requests = [

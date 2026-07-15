@@ -8,6 +8,7 @@ from typing import Any
 
 _lock = threading.Lock()
 _stores: dict[str, Any] = {}
+_write_lock = threading.Lock()
 
 
 def get_permanent_kline_store(db_path: str = "kline/kline.duckdb") -> Any:
@@ -25,3 +26,11 @@ def get_permanent_kline_store(db_path: str = "kline/kline.duckdb") -> Any:
             store = init_astock_db(key)
             _stores[key] = store
         return store
+
+
+def mirror_kline_frame(store: Any, symbol: str, frame: Any, *, interval: str, source: str) -> int:
+    """Serialize canonical warehouse upserts from any ingestion path."""
+    if frame is None or getattr(frame, "empty", False):
+        return 0
+    with _write_lock:
+        return store.insert_kline(symbol, frame, interval=interval, source=source or "mirror")

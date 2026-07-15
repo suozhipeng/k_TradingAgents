@@ -1009,6 +1009,7 @@ class AStockStore:
         end: str | None = None,
         interval: str = "1d",
         limit: int | None = None,
+        include_cold: bool = False,
     ) -> pd.DataFrame:
         """Return kline bars as a DataFrame, sorted by bar_time (ascending).
 
@@ -1018,7 +1019,14 @@ class AStockStore:
         of whether a pushdown limit was applied.
         """
         interval = self._normalise_interval(interval)
-        inner = 'SELECT * FROM kline_bars WHERE symbol = ? AND "interval" = ?'
+        source = "kline_bars"
+        if include_cold:
+            try:
+                self.conn.execute("SELECT 1 FROM kline_bars_cold LIMIT 0")
+                source = "(SELECT * FROM kline_bars UNION ALL SELECT * FROM kline_bars_cold) AS all_kline_bars"
+            except Exception:
+                pass
+        inner = f'SELECT * FROM {source} WHERE symbol = ? AND "interval" = ?'
         params: list[Any] = [symbol, interval]
         if start:
             inner += " AND bar_time >= ?"

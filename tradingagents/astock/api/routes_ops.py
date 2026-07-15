@@ -13,7 +13,7 @@ import logging
 import threading
 from typing import Any
 
-from flask import Blueprint, Response, jsonify, request
+from flask import Blueprint, Response, current_app, g, jsonify, request
 logger = logging.getLogger(__name__)
 
 bp = Blueprint("ops", __name__)
@@ -177,7 +177,8 @@ def ops_stats() -> tuple[Response, int]:
 @bp.route("/ops/metrics")
 def ops_metrics() -> tuple[Response, int]:
     """Return request counts/latency plus in-process data-job state."""
-    from flask import current_app
+    if current_app.config.get("ASTOCK_REQUIRE_AUTH", True) and getattr(g, "role", "public") != "admin":
+        return jsonify({"error": "forbidden", "status": 403}), 403
     from .metrics import snapshot
 
     payload = snapshot()

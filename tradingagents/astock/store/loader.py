@@ -104,9 +104,10 @@ class KlineLoader:
         or ``get_kline()`` capabilities.
     """
 
-    def __init__(self, store: AStockStore, data_facade: Any) -> None:
+    def __init__(self, store: AStockStore, data_facade: Any, *, permanent_store: Any = None) -> None:
         self._store = store
         self._facade = data_facade
+        self._permanent_store = permanent_store
 
     def fetch_response(
         self,
@@ -191,7 +192,11 @@ class KlineLoader:
 
         if not source:
             source = getattr(response, "source", "") or ""
-        return self._store.insert_kline(symbol, df, interval=interval, source=source)
+        rows = self._store.insert_kline(symbol, df, interval=interval, source=source)
+        if self._permanent_store is not None and self._permanent_store is not self._store:
+            from .permanent_kline import mirror_kline_frame
+            mirror_kline_frame(self._permanent_store, symbol, df, interval=interval, source=source)
+        return rows
 
 
 # ---------------------------------------------------------------------------
@@ -288,10 +293,11 @@ class BatchLoader:
         data_facade: Any,
         *,
         max_workers: int | None = None,
+        permanent_store: Any = None,
     ) -> None:
         self._store = store
         self._facade = data_facade
-        self._kline_loader = KlineLoader(store, data_facade)
+        self._kline_loader = KlineLoader(store, data_facade, permanent_store=permanent_store)
         self._valuation_loader = ValuationLoader(store, data_facade)
         configured_workers = max_workers or int(os.getenv("ASTOCK_NETWORK_MAX_CONCURRENCY", str(self.MAX_CONCURRENT_WORKERS)))
         self._max_workers = max(1, min(configured_workers, 5))

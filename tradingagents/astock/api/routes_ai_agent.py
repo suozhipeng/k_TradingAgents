@@ -25,6 +25,8 @@ logger = logging.getLogger(__name__)
 _report_cache_lock = threading.Lock()
 _report_cache: dict[tuple[str, str, str], tuple[float, dict[str, Any]]] = {}
 _report_flights: dict[tuple[str, str, str], Future[dict[str, Any]]] = {}
+_analysis_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="astock-analysis")
+_analysis_slots = threading.BoundedSemaphore(8)
 
 bp = Blueprint("ai_agent", __name__)
 
@@ -144,7 +146,28 @@ def _get_cached_report(key: tuple[str, str, str]) -> dict[str, Any] | None:
 
 def _set_cached_report(key: tuple[str, str, str], payload: dict[str, Any]) -> None:
     with _report_cache_lock:
+        now = time.monotonic()
+        for expired_key, (expires_at, _) in list(_report_cache.items()):
+            if expires_at <= now:
+                _report_cache.pop(expired_key, None)
+        maximum = max(1, int(current_app.config.get("ASTOCK_LLM_REPORT_CACHE_MAX_ENTRIES", 100)))
+        while len(_report_cache) >= maximum and key not in _report_cache:
+            oldest = min(_report_cache, key=lambda item: _report_cache[item][0])
+            _report_cache.pop(oldest, None)
         _report_cache[key] = (time.monotonic() + _report_cache_ttl_seconds(), copy.deepcopy(payload))
+
+
+def _submit_analysis(fn: Any) -> Future[Any]:
+    """Submit to the process-wide bounded pool without creating request threads."""
+    if not _analysis_slots.acquire(blocking=False):
+        raise RuntimeError("analysis capacity is saturated; retry shortly")
+    try:
+        future = _analysis_executor.submit(fn)
+    except Exception:
+        _analysis_slots.release()
+        raise
+    future.add_done_callback(lambda _future: _analysis_slots.release())
+    return future
 
 
 def _run_analysis_singleflight(
@@ -297,8 +320,7 @@ def _run_main_pipeline(symbol: str, *, daily_refresh: dict[str, Any] | None = No
     interface = AStockInterface(facade=facade) if facade is not None else None
     daily_refresh = daily_refresh or _refresh_daily_kline_incrementally(symbol)
     timeout = max(1.0, float(current_app.config.get("ASTOCK_MAIN_ANALYSIS_TIMEOUT_SECONDS", 45)))
-    executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="astock-main-analysis")
-    future = executor.submit(
+    future = _submit_analysis(
         lambda: AStockGraphRuntime(
             symbol=symbol, interface=interface, source="ai_indicator_query"
         ).run().to_dict()
@@ -323,24 +345,18 @@ def _run_main_pipeline(symbol: str, *, daily_refresh: dict[str, Any] | None = No
             "status": "failed", "timeout_seconds": timeout,
             "daily_refresh": daily_refresh, "error": str(exc)[:300],
         }
-    finally:
-        # Never make the request thread wait for a stalled provider worker.
-        executor.shutdown(wait=False, cancel_futures=True)
 
 
 def _run_llm_analysis_bounded(
     symbol: str, context: ResearchContext, analysis_type: str
 ) -> dict[str, str]:
     timeout = min(20.0, max(1.0, float(current_app.config.get("ASTOCK_MAIN_ANALYSIS_TIMEOUT_SECONDS", 45))))
-    executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="astock-presentation-llm")
-    future = executor.submit(_try_llm_analysis, symbol, context, analysis_type)
+    future = _submit_analysis(lambda: _try_llm_analysis(symbol, context, analysis_type))
     try:
         return future.result(timeout=timeout)
     except FuturesTimeoutError as exc:
         future.cancel()
         raise TimeoutError(f"LLM presentation deadline exceeded after {timeout:.0f}s") from exc
-    finally:
-        executor.shutdown(wait=False, cancel_futures=True)
 
 
 def _gather_context(symbol: str, main_pipeline: dict[str, Any]) -> dict[str, Any]:

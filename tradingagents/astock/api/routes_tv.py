@@ -428,6 +428,7 @@ def tv_history() -> tuple[Response, int]:
         return jsonify({"s": "error", "errmsg": "symbol required"}), 400
 
     interval = _tv_resolution(resolution)
+    include_cold = request.args.get("include_cold", "0").lower() in ("1", "true", "yes")
     # Bound response work before converting a potentially huge local range to
     # JSON.  TradingView will request adjacent ranges as the user pans.
     max_bars = min(max(request.args.get("countback", 2000, type=int) or 2000, 1), 5000)
@@ -436,7 +437,7 @@ def tv_history() -> tuple[Response, int]:
         store = get_store()
         start_str = __import__("datetime").datetime.utcfromtimestamp(from_ts).strftime("%Y-%m-%d") if from_ts else None  # noqa: E501
         end_str = __import__("datetime").datetime.utcfromtimestamp(to_ts).strftime("%Y-%m-%d") if to_ts else None
-        df = store.query_kline(symbol, interval=interval, start=start_str, end=end_str, limit=max_bars)
+        df = store.query_kline(symbol, interval=interval, start=start_str, end=end_str, limit=max_bars, include_cold=include_cold)
         bars = _df_to_json(df)
 
         # Weekly/Monthly/Yearly: aggregate from daily data
@@ -466,6 +467,14 @@ def tv_history() -> tuple[Response, int]:
                             try:
                                 import pandas as pd
                                 store.insert_kline(symbol, pd.DataFrame(items), interval=interval, source=resp.source or "mootdx")
+                                if current_app.config.get("ASTOCK_PERMANENT_KLINE_ENABLED", True):
+                                    from tradingagents.astock.store.permanent_kline import (
+                                        get_permanent_kline_store, mirror_kline_frame,
+                                    )
+                                    mirror_kline_frame(
+                                        get_permanent_kline_store(current_app.config.get("ASTOCK_PERMANENT_KLINE_DB_PATH", "kline/kline.duckdb")),
+                                        symbol, pd.DataFrame(items), interval=interval, source=resp.source or "mootdx",
+                                    )
                             except Exception as exc:
                                 logger.warning("TV fallback cache write failed for %s: %s", symbol, exc)
                             bars = items

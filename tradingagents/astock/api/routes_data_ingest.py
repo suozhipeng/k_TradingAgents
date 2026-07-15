@@ -15,6 +15,14 @@ bp = Blueprint("data_ingest", __name__)
 logger = logging.getLogger(__name__)
 
 
+def _permanent_kline_store() -> Any:
+    if not current_app.config.get("ASTOCK_PERMANENT_KLINE_ENABLED", True):
+        return None
+    from tradingagents.astock.store.permanent_kline import get_permanent_kline_store
+    return get_permanent_kline_store(
+        current_app.config.get("ASTOCK_PERMANENT_KLINE_DB_PATH", "kline/kline.duckdb")
+    )
+
 
 
 # ---------------------------------------------------------------------------
@@ -84,7 +92,7 @@ def refresh_kline() -> tuple[Response, int]:
         router = current_app.config.get("DATA_FACADE")
         if not router:
             return jsonify({"error": "data router not available", "status": 503}), 503
-        loader = KlineLoader(store, router)
+        loader = KlineLoader(store, router, permanent_store=_permanent_kline_store())
         count = loader.load(symbol, start=start, end=end, interval=interval)
         return jsonify({"symbol": symbol, "rows_inserted": count, "status": "ok"}), 200
     except Exception as exc:
@@ -144,7 +152,7 @@ def refresh_all() -> tuple[Response, int]:
         router = current_app.config.get("DATA_FACADE")
         if not router:
             return jsonify({"error": "data router not available", "status": 503}), 503
-        loader = BatchLoader(store, router)
+        loader = BatchLoader(store, router, permanent_store=_permanent_kline_store())
         results = loader.load_all(symbols, kline_start=start, kline_end=end, interval=interval)
         return jsonify({"results": results, "status": "ok"}), 200
     except Exception as exc:
