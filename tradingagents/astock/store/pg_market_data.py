@@ -72,6 +72,7 @@ class PGMarketDataMixin:
         end: str | None = None,
         interval: str = "1d",
         limit: int | None = None,
+        include_cold: bool = False,
     ) -> pd.DataFrame:
         """Return kline bars as a DataFrame, sorted by bar_time (ascending).
 
@@ -80,6 +81,9 @@ class PGMarketDataMixin:
         that the caller always receives chronologically ordered data regardless
         of whether a pushdown limit was applied.
         """
+        # PostgreSQL keeps its K-line table online; cold Parquet archives are
+        # a DuckDB-only feature.  Accept the flag for API parity rather than
+        # failing an otherwise valid query during a backend switch.
         interval = self._normalise_interval(interval)
         inner = 'SELECT * FROM kline_bars WHERE symbol = :symbol AND "interval" = :interval'
         params: dict[str, Any] = {"symbol": symbol, "interval": interval}

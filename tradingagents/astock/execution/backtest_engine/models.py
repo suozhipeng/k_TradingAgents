@@ -185,6 +185,8 @@ class BacktestResult(BaseModel):
     decision_scope: str = "backtest_only"
     run_id: str = ""
     data_assumption: dict = Field(default_factory=dict)
+    data_lineage: dict = Field(default_factory=dict)
+    reproducibility: dict = Field(default_factory=dict)
     benchmark_symbol: str = ""
     benchmark_return: float = 0.0
     benchmark_max_drawdown: float = 0.0

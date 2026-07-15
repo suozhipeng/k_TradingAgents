@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import json
+import hmac
+import hashlib
 import logging
 import smtplib
 import socket
 import ssl
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from html import escape
 from ipaddress import ip_address
 from typing import Any
 from urllib.parse import urlsplit
@@ -55,19 +58,29 @@ def dispatch_event(channel: dict[str, Any], event: dict[str, Any]) -> None:
 
     if kind == "dingtalk":
         payload = build_dingtalk_payload(event)
-        safe_http_request(url, json=payload, headers={"Content-Type": "application/json"})
+        _post_webhook(url, payload, channel.get("signing_secret", ""))
     elif kind == "feishu":
         payload = build_feishu_payload(event)
-        safe_http_request(url, json=payload, headers={"Content-Type": "application/json"})
+        _post_webhook(url, payload, channel.get("signing_secret", ""))
     elif kind == "work_weixin":
         payload = build_work_weixin_payload(event)
-        safe_http_request(url, json=payload, headers={"Content-Type": "application/json"})
+        _post_webhook(url, payload, channel.get("signing_secret", ""))
     elif kind == "email":
         send_email(channel, event)
     elif kind == "desktop":
         send_desktop(channel, event)
     else:
-        safe_http_request(url, json=event, headers={"Content-Type": "application/json"})
+        _post_webhook(url, event, channel.get("signing_secret", ""))
+
+
+def _post_webhook(url: str, payload: dict[str, Any], signing_secret: str = "") -> None:
+    """POST canonical JSON and optionally attach an HMAC for receiver verification."""
+    body = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    headers = {"Content-Type": "application/json"}
+    if signing_secret:
+        digest = hmac.new(str(signing_secret).encode("utf-8"), body, hashlib.sha256).hexdigest()
+        headers["X-AStock-Signature"] = f"sha256={digest}"
+    safe_http_request(url, data=body, headers=headers)
 
 
 def send_email(channel: dict[str, Any], event: dict[str, Any]) -> None:
@@ -126,8 +139,8 @@ def build_email_subject(event: dict[str, Any]) -> str:
 
 
 def build_email_body(event: dict[str, Any]) -> str:
-    evt_type = event.get("type", "unknown")
-    ts = event.get("timestamp", "")
+    evt_type = str(event.get("type", "unknown"))
+    ts = str(event.get("timestamp", ""))
     html = f"""
     <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
       <h2 style="color: {'#dc2626' if evt_type == 'error' else '#16a34a'};">
@@ -138,14 +151,14 @@ def build_email_body(event: dict[str, Any]) -> str:
       </h2>
       <table style="border-collapse: collapse; width: 100%;">
         <tr><td style="padding: 6px 10px; border: 1px solid #ddd; font-weight: bold;">Type</td>
-            <td style="padding: 6px 10px; border: 1px solid #ddd;">{evt_type}</td></tr>
+            <td style="padding: 6px 10px; border: 1px solid #ddd;">{escape(evt_type)}</td></tr>
         <tr><td style="padding: 6px 10px; border: 1px solid #ddd; font-weight: bold;">Time</td>
-            <td style="padding: 6px 10px; border: 1px solid #ddd;">{ts}</td></tr>
+            <td style="padding: 6px 10px; border: 1px solid #ddd;">{escape(ts)}</td></tr>
     """
     if evt_type == "cycle_complete":
         html += f"""
         <tr><td style="padding: 6px 10px; border: 1px solid #ddd; font-weight: bold;">Cycle</td>
-            <td style="padding: 6px 10px; border: 1px solid #ddd;">{event.get('cycle', '?')}</td></tr>
+            <td style="padding: 6px 10px; border: 1px solid #ddd;">{escape(str(event.get('cycle', '?')))}</td></tr>
         <tr><td style="padding: 6px 10px; border: 1px solid #ddd; font-weight: bold;">Trades</td>
             <td style="padding: 6px 10px; border: 1px solid #ddd;">{event.get('trade_count', 0)}</td></tr>
         <tr><td style="padding: 6px 10px; border: 1px solid #ddd; font-weight: bold;">Total Value</td>
@@ -154,7 +167,7 @@ def build_email_body(event: dict[str, Any]) -> str:
     if evt_type == "error":
         html += f"""
         <tr><td style="padding: 6px 10px; border: 1px solid #ddd; font-weight: bold;">Message</td>
-            <td style="padding: 6px 10px; border: 1px solid #ddd;">{event.get('message', 'N/A')}</td></tr>
+            <td style="padding: 6px 10px; border: 1px solid #ddd;">{escape(str(event.get('message', 'N/A')))}</td></tr>
         """
     html += """
       </table>

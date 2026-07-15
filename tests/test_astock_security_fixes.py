@@ -160,6 +160,43 @@ def test_outbound_requests_reject_private_hosts_and_disable_redirects() -> None:
     assert request.call_args.kwargs["allow_redirects"] is False
 
 
+def test_webhook_signature_uses_canonical_json() -> None:
+    from tradingagents.astock.api._notification_delivery import dispatch_event
+
+    with patch("tradingagents.astock.api._notification_delivery.http_requests.request") as request:
+        dispatch_event(
+            {"kind": "generic", "url": "https://8.8.8.8/hook", "signing_secret": "secret"},
+            {"b": 2, "a": 1},
+        )
+    kwargs = request.call_args.kwargs
+    assert kwargs["headers"]["X-AStock-Signature"].startswith("sha256=")
+    assert kwargs["data"] == b'{"a":1,"b":2}'
+
+
+def test_email_body_escapes_event_content() -> None:
+    from tradingagents.astock.api._notification_delivery import build_email_body
+
+    body = build_email_body({"type": "error", "message": "<script>alert(1)</script>"})
+    assert "<script>" not in body
+    assert "&lt;script&gt;" in body
+
+
+def test_idempotency_key_replays_completed_write_response() -> None:
+    app = _app(require_auth=False)
+    payload = {
+        "symbol": "000001.SZ", "trade_date": "2024-01-02",
+        "record": {"open": 10.0, "high": 11.0, "low": 9.0, "close": 10.5},
+    }
+    headers = {"Idempotency-Key": "manual-kline-retry-001"}
+    with app.test_client() as client:
+        first = client.post("/api/v1/data/manual/kline_bars", json=payload, headers=headers)
+        second = client.post("/api/v1/data/manual/kline_bars", json=payload, headers=headers)
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert second.headers["Idempotency-Replayed"] == "true"
+    assert second.get_json() == first.get_json()
+
+
 def test_macos_desktop_notification_passes_untrusted_text_as_arguments() -> None:
     from tradingagents.astock.api._notification_delivery import send_desktop_macos
 

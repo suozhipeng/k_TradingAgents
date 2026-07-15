@@ -46,6 +46,17 @@
 - DuckDB 恢复会先验证备份中存在受管表，再在单个事务内重建；任一表失败即回滚，不再出现部分恢复状态。CI 位于 `.github/workflows/ci.yml`，执行无外部密钥的后端测试与前端构建。
 - 所有 API K 线写入路径（单标的刷新、Data Hub 批量任务、查询 fallback、TradingView fallback）均通过 Loader 同步到永久仓库；不再依赖某个查询接口的事后镜像。`GET /api/v1/kline` 与 `/api/v1/tv/history` 可传 `include_cold=true` 合并读取热库和 `kline_bars_cold` Parquet 视图。
 - AI 主链与展示 LLM 使用进程级有界执行器，容量饱和会返回可重试错误；报告缓存通过 `ASTOCK_LLM_REPORT_CACHE_MAX_ENTRIES`（默认 100）限制容量并按 TTL 清理。`/ops/metrics` 以路由模板聚合，避免动态 ID 导致指标基数膨胀，且在启用认证时仅管理员可访问。
+- 所有会产生副作用的 HTTP 写请求均可带 `Idempotency-Key`（8～128 位字母、数字、`. _ : -`）。同一 API 进程在 `ASTOCK_IDEMPOTENCY_TTL_SECONDS`（默认 300 秒）内对相同调用方、相同 key、相同请求体仅执行一次，并以原始响应重放；若同 key 对应不同请求或仍在执行中，返回 `409`。该保护是进程内机制，多 worker 部署前应替换为 Redis 之类的共享存储。
+- 回测响应和持久化历史新增 `data_lineage` 与 `reproducibility`：记录数据源/质量、区间、bar 数、市场时区、回补与 mock 状态、策略类与状态、费用配置、运行版本和 `input_fingerprint`。使用相同输入指纹可定位同一可重现实验；没有设置 `GIT_SHA` 时版本字段为 `unknown`，生产发布应注入提交 SHA。
+- 市场日期统一按 `Asia/Shanghai` 计算（可用 `ASTOCK_MARKET_TIMEZONE` 标注运行配置），避免海外服务器跨日后错误触发“当日”日线与 5 分钟线刷新。
+- API 默认返回 CSP、`nosniff`、`no-referrer` 与最小权限 `Permissions-Policy` 响应头；会话 Cookie 使用 `HttpOnly` 与 `SameSite=Lax`，HTTPS 部署设置 `ASTOCK_COOKIE_SECURE=true`。通知 webhook 禁止私网/回环地址与重定向，并支持在 channel 配置 `signing_secret` 时发送 canonical JSON 的 `X-AStock-Signature: sha256=…`。邮件通知会 HTML 转义事件字段。
+
+### 备份、恢复与发布演练
+
+- 永久回测仓库 `kline/kline.duckdb` 与应用热库必须分别备份；分钟 Parquet 归档目录也必须纳入同一保留策略。恢复后先运行 `/api/v1/health/ready`，随机核对一个标的的日线、5 分钟线行数与最新时间，再恢复对外流量。
+- 数据库结构变更应先在备份副本演练升级和回滚。迁移前记录版本与校验和；若回滚不可逆，使用恢复到迁移前备份而不是手工删表。
+- 发布采用单实例灰度：先验证 readiness、`/ops/metrics`、日线增量刷新、回测输入指纹和 webhook 签名，再逐步扩容。出现 provider 错误率、队列饱和或延迟异常时，停止扩容并回滚到上一构建。
+- 进行压测时使用 mock/provider stub 与独立数据库；重点覆盖并发 K 线查询、带相同 `Idempotency-Key` 的重试、数据任务队列饱和和回测超时，禁止以第三方免费行情源作为压测目标。
 
 ### 产品性质
 

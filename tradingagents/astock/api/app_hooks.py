@@ -15,13 +15,15 @@ import time
 import uuid
 from typing import Any
 
-from flask import Flask, g, jsonify, request
+from flask import Flask, Response, g, jsonify, request
+from .idempotency import IdempotencyRegistry
 
 logger = logging.getLogger(__name__)
 
 _WRITE_METHODS = frozenset(("POST", "PUT", "DELETE", "PATCH"))
 _WRITE_ROLES = frozenset(("admin", "operator", "writer"))
 _REQUEST_ID_RE = re.compile(r"^[A-Za-z0-9_-]{8,128}$")
+_IDEMPOTENCY_KEY_RE = re.compile(r"^[A-Za-z0-9._:-]{8,128}$")
 _EXECUTION_PREFIXES = frozenset((
     "/api/v1/trade/", "/api/v1/paper/", "/api/v1/qmt/", "/api/v1/portfolio/",
 ))
@@ -33,6 +35,10 @@ _LOCAL_RELEASE_DISABLED_PREFIXES = _EXECUTION_PREFIXES | frozenset((
 def register_hooks(app: Flask) -> None:
     """Attach before_request / after_request / errorhandler callbacks."""
 
+    app.extensions["astock_idempotency"] = IdempotencyRegistry(
+        app.config.get("ASTOCK_IDEMPOTENCY_TTL_SECONDS", 300),
+        app.config.get("ASTOCK_IDEMPOTENCY_MAX_ENTRIES", 1000),
+    )
     _register_before_request(app)
     _register_after_request(app)
     _register_error_handlers(app)
@@ -131,12 +137,60 @@ def _register_before_request(app: Flask) -> None:
             }), 403
         return None
 
+    @app.before_request
+    def _claim_idempotency_key() -> Response | tuple[Any, int] | None:
+        if request.method not in _WRITE_METHODS:
+            return None
+        supplied = request.headers.get("Idempotency-Key", "").strip()
+        if not supplied:
+            return None
+        if not _IDEMPOTENCY_KEY_RE.fullmatch(supplied):
+            return jsonify({"error": "invalid_idempotency_key", "status": 400}), 400
+        body = request.get_data(cache=True) or b""
+        fingerprint = hashlib.sha256(
+            b"\0".join((request.method.encode(), request.path.encode(), body))
+        ).hexdigest()
+        registry: IdempotencyRegistry = app.extensions["astock_idempotency"]
+        registry_key = f"{getattr(g, 'actor', 'anonymous')}:{supplied}"
+        state, replay = registry.claim(registry_key, fingerprint)
+        if state == "replay" and replay:
+            status, cached_body, content_type = replay
+            response = Response(cached_body, status=status, content_type=content_type)
+            response.headers["Idempotency-Replayed"] = "true"
+            return response
+        if state == "conflict":
+            return jsonify({"error": "idempotency_key_reused_with_different_request", "status": 409}), 409
+        if state == "pending":
+            return jsonify({"error": "idempotency_request_in_progress", "status": 409}), 409
+        g.idempotency_registry_key = registry_key
+        return None
+
 
 # ---------------------------------------------------------------------------
 # after_request
 # ---------------------------------------------------------------------------
 
 def _register_after_request(app: Flask) -> None:
+    @app.after_request
+    def _security_and_idempotency(response: Any) -> Any:
+        response.headers.setdefault(
+            "Content-Security-Policy",
+            "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; "
+            "img-src 'self' data:; style-src 'self' 'unsafe-inline'; connect-src 'self'",
+        )
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("Referrer-Policy", "no-referrer")
+        response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+        key = getattr(g, "idempotency_registry_key", None)
+        if key:
+            registry: IdempotencyRegistry = app.extensions["astock_idempotency"]
+            if response.status_code < 500 and not response.is_streamed:
+                registry.complete(key, response.status_code, response.get_data(), response.content_type)
+                response.headers["Idempotency-Replayed"] = "false"
+            else:
+                registry.abandon(key)
+        return response
+
     @app.after_request
     def _record_request_timing(response: Any) -> Any:
         started = getattr(g, "request_started_at", None)

@@ -11,6 +11,7 @@ import uuid
 from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
+from tradingagents.astock.time_utils import market_today
 
 _INTRADAY = ("1m", "5m", "15m", "30m", "60m")
 _SAFE_SYMBOL = re.compile(r"[^A-Za-z0-9._-]")
@@ -35,7 +36,7 @@ def archive_intraday_kline(
     conn = getattr(raw, "conn", None)
     if conn is None:
         raise RuntimeError("intraday lifecycle requires a DuckDB-backed store")
-    cutoff = (today or date.today()) - timedelta(days=max(1, int(retention_days)))
+    cutoff = (today or market_today()) - timedelta(days=max(1, int(retention_days)))
     partitions = conn.execute(
         '''SELECT symbol, "interval", date_trunc('month', bar_time) AS month, count(*) AS rows
            FROM kline_bars

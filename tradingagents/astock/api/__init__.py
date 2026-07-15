@@ -119,6 +119,12 @@ def create_app(
     app.config.setdefault("ASTOCK_BACKTEST_ALLOW_LIVE_FALLBACK", _env_enabled("ASTOCK_BACKTEST_ALLOW_LIVE_FALLBACK"))
     app.config.setdefault("ASTOCK_DATA_JOB_MAX_QUEUED", int(os.environ.get("ASTOCK_DATA_JOB_MAX_QUEUED", "100")))
     app.config.setdefault("ASTOCK_DASHBOARD_STATS_TTL_SECONDS", float(os.environ.get("ASTOCK_DASHBOARD_STATS_TTL_SECONDS", "30")))
+    app.config.setdefault("ASTOCK_IDEMPOTENCY_TTL_SECONDS", float(os.environ.get("ASTOCK_IDEMPOTENCY_TTL_SECONDS", "300")))
+    app.config.setdefault("ASTOCK_IDEMPOTENCY_MAX_ENTRIES", int(os.environ.get("ASTOCK_IDEMPOTENCY_MAX_ENTRIES", "1000")))
+    app.config.setdefault("ASTOCK_MARKET_TIMEZONE", os.environ.get("ASTOCK_MARKET_TIMEZONE", "Asia/Shanghai"))
+    app.config.setdefault("SESSION_COOKIE_HTTPONLY", True)
+    app.config.setdefault("SESSION_COOKIE_SAMESITE", "Lax")
+    app.config.setdefault("SESSION_COOKIE_SECURE", _env_enabled("ASTOCK_COOKIE_SECURE"))
     worker_count = int(os.environ.get("WEB_CONCURRENCY", "1"))
     if worker_count > 1:
         app.logger.warning(

@@ -22,6 +22,7 @@ import pandas as pd
 from flask import Blueprint, Response, current_app, jsonify, request
 
 from ._helpers import df_to_json, get_store, sanitise_records
+from tradingagents.astock.time_utils import market_today
 
 bp = Blueprint("market_data_query", __name__)
 logger = logging.getLogger(__name__)
@@ -163,7 +164,7 @@ def _refresh_intraday_for_current_daily_bar(
         if latest.empty or "bar_time" not in latest.columns:
             return {"status": "skipped", "rows_upserted": 0, "reason": "no daily bar"}
         latest_day = pd.Timestamp(latest.iloc[-1]["bar_time"]).date()
-        if latest_day != date.today():
+        if latest_day != market_today():
             return {"status": "skipped", "rows_upserted": 0, "reason": "latest daily bar is not today"}
 
         from tradingagents.astock.store.loader import BatchLoader
@@ -349,7 +350,7 @@ def get_valuation() -> tuple[Response, int]:
                             )
                             if not date_col_present:
                                 from datetime import date
-                                df_live["trade_date"] = date.today()
+                                df_live["trade_date"] = market_today()
                             store.insert_valuations(symbol, df_live, source=source_str)
                             df = store.query_valuations(symbol)
                             valuations = df_to_json(df)

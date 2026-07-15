@@ -9,6 +9,10 @@ dependency chain at module load time.
 from __future__ import annotations
 
 import logging
+import hashlib
+import json
+import os
+import platform
 from datetime import datetime
 from typing import Any
 
@@ -31,6 +35,32 @@ from ._helpers import _as_bool, get_store, mock_data_enabled
 
 bp = Blueprint("backtest", __name__)
 logger = logging.getLogger(__name__)
+
+
+def _reproducibility_metadata(result: Any, strategy: Any, *, requested: dict[str, Any], use_mock: bool) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Create a stable run fingerprint and explain exactly what was replayed."""
+    lineage = {
+        "data_source": result.data_assumption.get("data_source", "unknown"),
+        "data_quality": result.data_assumption.get("data_quality", "unknown"),
+        "symbol": result.symbol,
+        "start_date": result.start_date,
+        "end_date": result.end_date,
+        "bar_count": len(result.periods),
+        "market_timezone": current_app.config.get("ASTOCK_MARKET_TIMEZONE", "Asia/Shanghai"),
+        "live_fallback_enabled": current_app.config.get("ASTOCK_BACKTEST_ALLOW_LIVE_FALLBACK", False),
+        "mock_data": use_mock,
+    }
+    payload = {
+        "request": requested,
+        "strategy_class": f"{strategy.__class__.__module__}.{strategy.__class__.__qualname__}",
+        "strategy_state": getattr(strategy, "__dict__", {}),
+        "data_lineage": lineage,
+        "fee_config": result.fee_config_used,
+        "python": platform.python_version(),
+        "release": os.environ.get("GIT_SHA", os.environ.get("APP_VERSION", "unknown")),
+    }
+    encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str, separators=(",", ":"))
+    return lineage, {"input_fingerprint": hashlib.sha256(encoded.encode()).hexdigest(), **payload}
 
 
 # ---------------------------------------------------------------------------
@@ -97,6 +127,12 @@ def run_backtest() -> tuple[Response, int]:
         )
         result = engine.run(symbol, start_date, end_date, strategy, rebalance_freq)
         result.strategy_name = strategy_name
+        result.data_lineage, result.reproducibility = _reproducibility_metadata(
+            result, strategy,
+            requested={"symbol": symbol, "strategy": strategy_name, "start": start_date,
+                       "end": end_date, "rebalance_freq": rebalance_freq},
+            use_mock=use_mock,
+        )
 
         # Generate clean timestamp ID before persisting
         run_id = datetime.now().strftime("%Y%m%d%H%M%S")
@@ -122,6 +158,8 @@ def run_backtest() -> tuple[Response, int]:
             "fee_config_used": result.fee_config_used,
             "execution_signal": result.execution_signal,
             "data_assumption": result.data_assumption,
+            "data_lineage": result.data_lineage,
+            "reproducibility": result.reproducibility,
             "benchmark_symbol": result.benchmark_symbol,
             "benchmark_return": result.benchmark_return,
             "benchmark_max_drawdown": result.benchmark_max_drawdown,
