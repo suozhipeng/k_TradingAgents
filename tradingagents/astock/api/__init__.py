@@ -72,6 +72,7 @@ def create_app(
         Configured Flask application instance.
     """
     app = Flask(__name__)
+    app.config.setdefault("MAX_CONTENT_LENGTH", int(os.environ.get("ASTOCK_MAX_REQUEST_BYTES", str(1024 * 1024))))
     app.config.setdefault("ASTOCK_ENABLE_WEB_UI", True)
     app.config.setdefault("ASTOCK_LOCAL_RELEASE", _env_enabled("ASTOCK_LOCAL_RELEASE"))
     # Network-facing deployments must opt in to anonymous mutation explicitly.
@@ -121,6 +122,9 @@ def create_app(
     app.config.setdefault("ASTOCK_DASHBOARD_STATS_TTL_SECONDS", float(os.environ.get("ASTOCK_DASHBOARD_STATS_TTL_SECONDS", "30")))
     app.config.setdefault("ASTOCK_IDEMPOTENCY_TTL_SECONDS", float(os.environ.get("ASTOCK_IDEMPOTENCY_TTL_SECONDS", "300")))
     app.config.setdefault("ASTOCK_IDEMPOTENCY_MAX_ENTRIES", int(os.environ.get("ASTOCK_IDEMPOTENCY_MAX_ENTRIES", "1000")))
+    app.config.setdefault("ASTOCK_RATE_LIMIT_PER_MINUTE", int(os.environ.get("ASTOCK_RATE_LIMIT_PER_MINUTE", "300")))
+    app.config.setdefault("ASTOCK_RATE_LIMIT_MAX_KEYS", int(os.environ.get("ASTOCK_RATE_LIMIT_MAX_KEYS", "10000")))
+    app.config.setdefault("ASTOCK_SSE_MAX_CLIENTS", int(os.environ.get("ASTOCK_SSE_MAX_CLIENTS", "50")))
     app.config.setdefault("ASTOCK_MARKET_TIMEZONE", os.environ.get("ASTOCK_MARKET_TIMEZONE", "Asia/Shanghai"))
     app.config.setdefault("SESSION_COOKIE_HTTPONLY", True)
     app.config.setdefault("SESSION_COOKIE_SAMESITE", "Lax")

@@ -31,4 +31,4 @@ COPY --from=builder --chown=appuser:appuser /build .
 
 # Start Flask API via gunicorn
 EXPOSE 5001
-CMD ["gunicorn", "--bind", "0.0.0.0:5001", "--workers", "4", "--timeout", "120", "tradingagents.astock.api:create_app()"]
+CMD ["gunicorn", "--bind", "0.0.0.0:5001", "--workers", "1", "--timeout", "120", "--limit-request-line", "8190", "--limit-request-field_size", "8190", "tradingagents.astock.api:create_app()"]

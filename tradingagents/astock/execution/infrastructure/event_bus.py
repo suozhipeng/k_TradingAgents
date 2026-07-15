@@ -29,6 +29,7 @@ class EventBus:
     _subscribers: dict[str, deque[dict[str, Any]]] = {}
 
     MAX_EVENTS: int = 1000
+    MAX_SUBSCRIBERS: int = 50
 
     @classmethod
     def publish(cls, event: dict[str, Any]) -> None:
@@ -46,12 +47,15 @@ class EventBus:
                 queue.append(dict(item))
 
     @classmethod
-    def subscribe(cls) -> str:
+    def subscribe(cls, max_subscribers: int | None = None) -> str | None:
         """Create an independent event cursor for one SSE client."""
         import uuid
 
         subscriber_id = uuid.uuid4().hex
         with cls._lock:
+            limit = cls.MAX_SUBSCRIBERS if max_subscribers is None else max(1, int(max_subscribers))
+            if len(cls._subscribers) >= limit:
+                return None
             # New clients receive the current retained context once, then only
             # their own subsequent events.  The bounded deque prevents a slow
             # browser from consuming unbounded process memory.
@@ -108,6 +112,11 @@ class EventBus:
         """Return the number of buffered events."""
         with cls._lock:
             return len(cls._buffer)
+
+    @classmethod
+    def subscriber_count(cls) -> int:
+        with cls._lock:
+            return len(cls._subscribers)
 
     @classmethod
     def to_json_list(cls) -> str:

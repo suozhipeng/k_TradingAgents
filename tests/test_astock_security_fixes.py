@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from unittest.mock import patch
 
 
@@ -170,7 +171,9 @@ def test_webhook_signature_uses_canonical_json() -> None:
         )
     kwargs = request.call_args.kwargs
     assert kwargs["headers"]["X-AStock-Signature"].startswith("sha256=")
-    assert kwargs["data"] == b'{"a":1,"b":2}'
+    assert kwargs["headers"]["X-AStock-Timestamp"]
+    assert kwargs["headers"]["X-AStock-Event-ID"]
+    assert json.loads(kwargs["data"]) == {"a": 1, "b": 2, "timestamp": kwargs["headers"]["X-AStock-Timestamp"], "event_id": kwargs["headers"]["X-AStock-Event-ID"]}
 
 
 def test_email_body_escapes_event_content() -> None:
@@ -195,6 +198,20 @@ def test_idempotency_key_replays_completed_write_response() -> None:
     assert second.status_code == 200
     assert second.headers["Idempotency-Replayed"] == "true"
     assert second.get_json() == first.get_json()
+
+
+def test_rate_limit_is_enforced_without_limiting_health_checks() -> None:
+    app = _app(require_auth=False)
+    from tradingagents.astock.api.rate_limit import FixedWindowRateLimiter
+
+    app.config["ASTOCK_RATE_LIMIT_PER_MINUTE"] = 1
+    app.extensions["astock_rate_limiter"] = FixedWindowRateLimiter(1, 60)
+    with app.test_client() as client:
+        assert client.get("/api/v1/health/live").status_code == 200
+        assert client.get("/api/v1/cache/status").status_code == 200
+        limited = client.get("/api/v1/cache/status")
+    assert limited.status_code == 429
+    assert limited.headers["Retry-After"]
 
 
 def test_macos_desktop_notification_passes_untrusted_text_as_arguments() -> None:

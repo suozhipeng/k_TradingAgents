@@ -21,12 +21,11 @@ services:
       PG_PORT: 5432
       PG_DB: astock
       PG_USER: astock
-      PG_PASSWORD: astock_prod_2026
-      CORS_ORIGIN: http://localhost:5173
+      PG_PASSWORD: ${PG_PASSWORD:?set PG_PASSWORD in .env or your secret manager}
+      CORS_ORIGIN: ${CORS_ORIGIN:?set the exact public Web UI origin}
       FLASK_ENV: production
     volumes:
-      - ./tradingagents:/app/tradingagents
-      - ~/.tradingagents:/root/.tradingagents
+      - app_state:/home/appuser/.tradingagents
     depends_on:
       postgres:
         condition: service_healthy
@@ -44,12 +43,10 @@ services:
     image: postgres:16
     container_name: astock-pg
     restart: unless-stopped
-    ports:
-      - "5433:5432"
     environment:
       POSTGRES_DB: astock
       POSTGRES_USER: astock
-      POSTGRES_PASSWORD: astock_prod_2026
+      POSTGRES_PASSWORD: ${PG_PASSWORD:?set PG_PASSWORD in .env or your secret manager}
     volumes:
       - pg_data:/var/lib/postgresql/data
       - ./deploy/pg_init:/docker-entrypoint-initdb.d
@@ -70,13 +67,10 @@ services:
     image: clickhouse/clickhouse-server:24.12
     container_name: astock-ch
     restart: unless-stopped
-    ports:
-      - "8123:8123"   # HTTP
-      - "9000:9000"   # Native protocol
     environment:
       CLICKHOUSE_DB: astock
       CLICKHOUSE_USER: astock
-      CLICKHOUSE_PASSWORD: astock_ch_2026
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:?set CLICKHOUSE_PASSWORD in .env or your secret manager}
     volumes:
       - ch_data:/var/lib/clickhouse
       - ./deploy/ch_init:/docker-entrypoint-initdb.d
@@ -85,7 +79,7 @@ services:
         soft: 262144
         hard: 262144
     healthcheck:
-      test: ["CMD", "clickhouse-client", "--user", "astock", "--password", "astock_ch_2026", "--query", "SELECT 1"]
+      test: ["CMD-SHELL", "clickhouse-client --user astock --password \"$$CLICKHOUSE_PASSWORD\" --query 'SELECT 1'"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -99,13 +93,14 @@ services:
       - "5050:80"
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@astock.local
-      PGADMIN_DEFAULT_PASSWORD: admin_2026
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:?set PGADMIN_PASSWORD in .env or your secret manager}
     volumes:
       - pgadmin_data:/var/lib/pgadmin
     profiles:
       - admin
 
 volumes:
+  app_state:
   pg_data:
   ch_data:
   pgadmin_data:

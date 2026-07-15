@@ -6,6 +6,7 @@ import json
 import hmac
 import hashlib
 import logging
+from datetime import datetime, timezone
 import smtplib
 import socket
 import ssl
@@ -15,6 +16,7 @@ from html import escape
 from ipaddress import ip_address
 from typing import Any
 from urllib.parse import urlsplit
+from uuid import uuid4
 
 import requests as http_requests
 
@@ -74,12 +76,17 @@ def dispatch_event(channel: dict[str, Any], event: dict[str, Any]) -> None:
 
 
 def _post_webhook(url: str, payload: dict[str, Any], signing_secret: str = "") -> None:
-    """POST canonical JSON and optionally attach an HMAC for receiver verification."""
+    """POST canonical JSON and optional HMAC with replay-prevention metadata."""
+    payload = dict(payload)
+    timestamp = str(payload.setdefault("timestamp", datetime.now(timezone.utc).isoformat()))
+    event_id = str(payload.setdefault("event_id", uuid4().hex))
     body = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
     headers = {"Content-Type": "application/json"}
     if signing_secret:
         digest = hmac.new(str(signing_secret).encode("utf-8"), body, hashlib.sha256).hexdigest()
         headers["X-AStock-Signature"] = f"sha256={digest}"
+        headers["X-AStock-Timestamp"] = timestamp
+        headers["X-AStock-Event-ID"] = event_id
     safe_http_request(url, data=body, headers=headers)
 
 

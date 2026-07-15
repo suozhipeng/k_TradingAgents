@@ -8,6 +8,7 @@ from collections import Counter
 _lock = threading.Lock()
 _requests = Counter()
 _latency_ms = Counter()
+_gauges: dict[str, float] = {}
 
 
 def record_request(method: str, path: str, status: int, elapsed_ms: float) -> None:
@@ -15,6 +16,11 @@ def record_request(method: str, path: str, status: int, elapsed_ms: float) -> No
     with _lock:
         _requests[key] += 1
         _latency_ms[key] += max(0.0, elapsed_ms)
+
+
+def set_gauge(name: str, value: float) -> None:
+    with _lock:
+        _gauges[name] = float(value)
 
 
 def snapshot() -> dict[str, object]:
@@ -27,4 +33,5 @@ def snapshot() -> dict[str, object]:
             }
             for (method, path, status), count in _requests.items()
         ]
-    return {"requests": sorted(rows, key=lambda row: (-row["count"], row["path"]))}
+        gauges = dict(_gauges)
+    return {"requests": sorted(rows, key=lambda row: (-row["count"], row["path"])), "gauges": gauges}

@@ -22,6 +22,7 @@ from typing import Any
 from tradingagents.astock.data_sources.calendar import prev_trading_day, is_trading_day
 from tradingagents.astock.data_sources.eastmoney import industry_comparison as em_industry_comparison
 from tradingagents.astock.data_sources.router import AStockDataFacade
+from tradingagents.astock.time_utils import market_today
 
 logger = logging.getLogger(__name__)
 
@@ -100,7 +101,7 @@ _pool_source: str = "none"
 
 def _resolve_latest_trade_date() -> str:
     """获取最近一个交易日日期字符串 (YYYY-MM-DD)."""
-    today = date_type.today()
+    today = market_today()
     if is_trading_day(today):
         return today.isoformat()
     prev = prev_trading_day(today)

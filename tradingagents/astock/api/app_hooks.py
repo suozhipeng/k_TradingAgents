@@ -17,6 +17,7 @@ from typing import Any
 
 from flask import Flask, Response, g, jsonify, request
 from .idempotency import IdempotencyRegistry
+from .rate_limit import FixedWindowRateLimiter
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +39,10 @@ def register_hooks(app: Flask) -> None:
     app.extensions["astock_idempotency"] = IdempotencyRegistry(
         app.config.get("ASTOCK_IDEMPOTENCY_TTL_SECONDS", 300),
         app.config.get("ASTOCK_IDEMPOTENCY_MAX_ENTRIES", 1000),
+    )
+    app.extensions["astock_rate_limiter"] = FixedWindowRateLimiter(
+        app.config.get("ASTOCK_RATE_LIMIT_PER_MINUTE", 300), 60,
+        app.config.get("ASTOCK_RATE_LIMIT_MAX_KEYS", 10000),
     )
     _register_before_request(app)
     _register_after_request(app)
@@ -85,6 +90,7 @@ def _register_before_request(app: Flask) -> None:
         g.role = "public"
         g.key_id = ""
         g.allowed_capabilities = ""
+        g.rate_limit = int(app.config.get("ASTOCK_RATE_LIMIT_PER_MINUTE", 300))
 
     @app.before_request
     def _require_auth_on_write_routes() -> tuple[Any, int] | None:
@@ -130,6 +136,10 @@ def _register_before_request(app: Flask) -> None:
         g.role = record.get("role", "readonly")
         g.key_id = record.get("key_id", "")
         g.allowed_capabilities = record.get("allowed_capabilities", "")
+        try:
+            g.rate_limit = max(1, int(record.get("rate_limit", g.rate_limit)))
+        except (TypeError, ValueError):
+            pass
         if request.method in _WRITE_METHODS and g.role not in _WRITE_ROLES:
             return jsonify({
                 "error": "forbidden",
@@ -165,6 +175,21 @@ def _register_before_request(app: Flask) -> None:
         g.idempotency_registry_key = registry_key
         return None
 
+    @app.before_request
+    def _limit_request_rate() -> tuple[Any, int] | None:
+        if request.path.startswith("/api/v1/health"):
+            return None
+        actor = getattr(g, "actor", "anonymous")
+        identity = actor if actor != "anonymous" else (request.remote_addr or "unknown")
+        allowed, retry_after = app.extensions["astock_rate_limiter"].allow(
+            identity, getattr(g, "rate_limit", None)
+        )
+        if allowed:
+            return None
+        response = jsonify({"error": "rate_limited", "status": 429, "retry_after_seconds": retry_after})
+        response.headers["Retry-After"] = str(retry_after)
+        return response, 429
+
 
 # ---------------------------------------------------------------------------
 # after_request
@@ -181,10 +206,14 @@ def _register_after_request(app: Flask) -> None:
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("Referrer-Policy", "no-referrer")
         response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+        response.headers.setdefault("X-Frame-Options", "DENY")
         key = getattr(g, "idempotency_registry_key", None)
         if key:
             registry: IdempotencyRegistry = app.extensions["astock_idempotency"]
-            if response.status_code < 500 and not response.is_streamed:
+            # Only successful operations are replay-safe.  In particular a
+            # transient 429 must not reserve an idempotency key after the
+            # rate-limit window has elapsed.
+            if 200 <= response.status_code < 400 and not response.is_streamed:
                 registry.complete(key, response.status_code, response.get_data(), response.content_type)
                 response.headers["Idempotency-Replayed"] = "false"
             else:

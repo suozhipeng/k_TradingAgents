@@ -4,12 +4,18 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import time
+import os
+import threading
+from uuid import uuid4
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
 from .schema import AStockResponse
+
+logger = logging.getLogger(__name__)
 
 
 def _stable_json(value: Any) -> str:
@@ -71,13 +77,19 @@ def _response_from_payload(payload: Any) -> AStockResponse:
 class InMemoryAStockCache(object):
     """Process-local cache split by history/snapshot/summary buckets."""
 
-    def __init__(self, policy: Optional[AStockCachePolicy] = None, clock: Optional[Any] = None):
+    def __init__(self, policy: Optional[AStockCachePolicy] = None, clock: Optional[Any] = None, max_entries: int = 5000):
         self.policy = policy or AStockCachePolicy()
         self.clock = clock or time.time
         self._history_ranges: Dict[Any, Tuple[float, AStockResponse]] = {}
         self._history_rows: Dict[Tuple[str, str, str], Dict[str, Any]] = {}
         self._snapshots: Dict[Any, Tuple[float, AStockResponse]] = {}
         self._summaries: Dict[Any, Tuple[float, AStockResponse]] = {}
+        self.max_entries = max(1, int(max_entries))
+        self._lock = threading.RLock()
+
+    def _evict(self, store: Dict[Any, Tuple[float, AStockResponse]]) -> None:
+        while len(store) > self.max_entries:
+            del store[next(iter(store))]
 
     def _is_expired(self, bucket: str, created_at: float) -> bool:
         ttl = self.policy.ttl_for(bucket)
@@ -86,13 +98,15 @@ class InMemoryAStockCache(object):
         return (self.clock() - created_at) > ttl
 
     def _get_bucket(self, store: Dict[Any, Tuple[float, AStockResponse]], bucket: str, key: Any) -> Optional[AStockResponse]:
-        entry = store.get(key)
+        with self._lock:
+            entry = store.get(key)
         if entry is None:
             return None
         created_at, response = entry
         if self._is_expired(bucket, created_at):
             try:
-                del store[key]
+                with self._lock:
+                    del store[key]
             except KeyError as e:
 
                 logger.debug("Operation failed: {0}", e)
@@ -102,7 +116,9 @@ class InMemoryAStockCache(object):
 
     def _set_bucket(self, store: Dict[Any, Tuple[float, AStockResponse]], key: Any, value: Any) -> AStockResponse:
         response = _response_from_payload(value)
-        store[key] = (self.clock(), response)
+        with self._lock:
+            store[key] = (self.clock(), response)
+            self._evict(store)
         return response
 
     def get_history_range(self, key: Any) -> Optional[AStockResponse]:
@@ -117,10 +133,14 @@ class InMemoryAStockCache(object):
                 date = row.get("date") or row.get("datetime") or row.get("trade_date") or row.get("time")
                 if date is None:
                     continue
-                self._history_rows[(response.symbol, str(date), response.data.get("interval", "1d"))] = dict(row)
+                with self._lock:
+                    self._history_rows[(response.symbol, str(date), response.data.get("interval", "1d"))] = dict(row)
+                    self._evict(self._history_rows)  # type: ignore[arg-type]
 
     def get_history_row(self, symbol: str, date: str, interval: str = "1d") -> Optional[Dict[str, Any]]:
-        return self._history_rows.get((symbol, date, interval))
+        with self._lock:
+            value = self._history_rows.get((symbol, date, interval))
+            return dict(value) if value else None
 
     def get(self, key: Any) -> Optional[AStockResponse]:
         return self.get_history_range(key)
@@ -141,10 +161,11 @@ class InMemoryAStockCache(object):
         self._set_bucket(self._summaries, key, value)
 
     def clear(self) -> None:
-        self._history_ranges.clear()
-        self._history_rows.clear()
-        self._snapshots.clear()
-        self._summaries.clear()
+        with self._lock:
+            self._history_ranges.clear()
+            self._history_rows.clear()
+            self._snapshots.clear()
+            self._summaries.clear()
 
 
 class FileAStockCache(object):
@@ -165,8 +186,16 @@ class FileAStockCache(object):
         path = self._bucket_path(bucket, key)
         if not path.exists():
             return None
-        with path.open("r", encoding="utf-8") as handle:
-            envelope = json.load(handle)
+        try:
+            with path.open("r", encoding="utf-8") as handle:
+                envelope = json.load(handle)
+        except (OSError, json.JSONDecodeError, ValueError) as exc:
+            logger.warning("Discarding unreadable cache entry %s: %s", path, exc)
+            try:
+                path.unlink(missing_ok=True)
+            except OSError:
+                pass
+            return None
         created_at = float(envelope.get("created_at", 0.0)) if isinstance(envelope, dict) else 0.0
         payload = envelope.get("response") if isinstance(envelope, dict) and "response" in envelope else envelope
         ttl = self.policy.ttl_for(bucket)
@@ -183,7 +212,8 @@ class FileAStockCache(object):
     def _write(self, bucket: str, key: Any, value: Any) -> None:
         response = _response_from_payload(value)
         path = self._bucket_path(bucket, key)
-        with path.open("w", encoding="utf-8") as handle:
+        temporary = path.with_name(f".{path.name}.{os.getpid()}.{uuid4().hex}.tmp")
+        with temporary.open("w", encoding="utf-8") as handle:
             json.dump(
                 {"created_at": self.clock(), "response": response.to_dict()},
                 handle,
@@ -192,6 +222,9 @@ class FileAStockCache(object):
                 indent=2,
                 default=str,
             )
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
 
     def get_history_range(self, key: Any) -> Optional[AStockResponse]:
         return self._read("history_ranges", key)
@@ -222,4 +255,3 @@ class FileAStockCache(object):
                 except OSError as e:
 
                     logger.debug("Operation failed: {0}", e)
-

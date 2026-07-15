@@ -58,6 +58,15 @@
 - 发布采用单实例灰度：先验证 readiness、`/ops/metrics`、日线增量刷新、回测输入指纹和 webhook 签名，再逐步扩容。出现 provider 错误率、队列饱和或延迟异常时，停止扩容并回滚到上一构建。
 - 进行压测时使用 mock/provider stub 与独立数据库；重点覆盖并发 K 线查询、带相同 `Idempotency-Key` 的重试、数据任务队列饱和和回测超时，禁止以第三方免费行情源作为压测目标。
 
+### 生产边界与容量控制
+
+- Flask 对请求体实行 `MAX_CONTENT_LENGTH` 上限，默认 1 MiB（`ASTOCK_MAX_REQUEST_BYTES`）；API 按 API key 或源 IP 使用进程内固定窗口限流，默认每分钟 300 次（`ASTOCK_RATE_LIMIT_PER_MINUTE`）。健康检查不受此限制。多实例部署必须在网关或 Redis 实现共享限流，进程内限流只作为最后一道保护。
+- SSE 客户端有 `ASTOCK_SSE_MAX_CLIENTS` 上限（默认 50），超过即返回 `429`；响应显式禁用代理缓冲。SSE、任务、幂等和缓存的进程内实现适用于单 worker。Docker 默认改为单 worker；扩容前必须迁移到 Redis Streams/队列和共享幂等存储。
+- Router 内存缓存已具有线程锁与容量上限，文件缓存通过临时文件原子替换，避免并发读写产生半截 JSON。仍应通过缓存命中率、淘汰数、活跃 SSE 数、任务队列长度和 provider 错误率接入集中式指标平台。
+- webhook 的签名请求包含 canonical JSON、`X-AStock-Signature`、`X-AStock-Timestamp` 和 `X-AStock-Event-ID`。接收方必须验证 HMAC、事件 ID 去重，并拒绝超过自身时钟窗口的时间戳；未配置 `signing_secret` 时不会生成签名。
+- Compose 不再内置数据库密码，必须通过部署环境或 secret manager 提供 `PG_PASSWORD`、`CLICKHOUSE_PASSWORD` 和 `PGADMIN_PASSWORD`；PostgreSQL 与 ClickHouse 默认只暴露容器内部网络。生产环境还应固定镜像版本、启用镜像/SBOM 漏洞扫描、限制 CPU/内存、配置日志轮转与 TLS 反向代理/HSTS。
+- Compose 同时要求显式设置 `CORS_ORIGIN`，不能将本地开发源带入生产。ClickHouse 健康检查直接读取容器内的 `CLICKHOUSE_PASSWORD`，避免密码与运行配置漂移。每个已认证写请求按 API key 保存的 `rate_limit` 执行；匿名请求使用全局默认值。
+
 ### 产品性质
 
 TradingAgents-Astock 当前定位为：

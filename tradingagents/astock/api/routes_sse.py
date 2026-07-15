@@ -104,7 +104,11 @@ def paper_progress_sse() -> Response:
     poll_interval = current_app.config.get(
         "SSE_POLL_INTERVAL", _DEFAULT_POLL_INTERVAL
     )
-    subscriber_id = EventBus.subscribe()
+    subscriber_id = EventBus.subscribe(current_app.config.get("ASTOCK_SSE_MAX_CLIENTS", 50))
+    if subscriber_id is None:
+        return jsonify({"error": "sse_capacity_exceeded", "status": 429}), 429
+    from .metrics import set_gauge
+    set_gauge("sse_active_clients", EventBus.subscriber_count())
 
     def generate() -> Generator[str, None, None]:
         try:
@@ -128,8 +132,12 @@ def paper_progress_sse() -> Response:
                 time.sleep(poll_interval)
         finally:
             EventBus.unsubscribe(subscriber_id)
+            set_gauge("sse_active_clients", EventBus.subscriber_count())
 
-    return Response(generate(), mimetype="text/event-stream")
+    response = Response(generate(), mimetype="text/event-stream")
+    response.headers["Cache-Control"] = "no-cache, no-transform"
+    response.headers["X-Accel-Buffering"] = "no"
+    return response
 
 
 # ---------------------------------------------------------------------------
