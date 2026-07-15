@@ -704,7 +704,7 @@
 | NFR-03 | 可维护性 | Docs / Governance | `README.md`, `docs/phase-archive.md` | N/A | Phase 0-29 归档覆盖检查 | 0-29 | done |
 | NFR-04 | 可扩展性 | All Modules | provider/strategy/API registries | API/WebUI | strategy/provider tests | 1, 14, 18, 30+ | ✅ done (7 provider adapters + 11 strategies + 27 API blueprints all use registry pattern) |
 | NFR-05 | 产品可观测性 | Data & Ops / Ops & Audit | current metrics: health/API/backtest pages; future metrics registry | Ops Dashboard / health pages / SSE | `03-operations.md` §8, SSE TaskRun events | 30-38 | ✅ done (health endpoint + SSE TaskRun events + AuditStore persistence + ops_audit.html + alerts system) |
-| NFR-06 | API 契约稳定性 | API Platform | 119 条 `/api/v1` Flask route + contract doc | all `/api/v1/*` endpoints | `01-architecture.md` (含验收证据表 ✅) | 30-38 | done |
+| NFR-06 | API 契约稳定性 | API Platform | 120 条 `/api/v1` 唯一路径（131 方法变体）Flask route + contract doc | all `/api/v1/*` endpoints | `01-architecture.md` (含验收证据表 ✅) | 30-38 | done |
 | NFR-07 | 数据字典与血缘 | Data & Ops / Strategy / AI / Trading | provider/store/schema docs + DataCleaner | Data Health / Strategy / AI / Trading pages | `03-operations.md` | 31, 32, 33, 35, 37 | ✅ done (data_health.html shows provider status + DataCleaner NaN cleanup + store schema docs) |
 | NFR-08 | 测试验收与发布门槛 | Test & Release | `tests/`, phase evidence, 1064 tests collected | N/A | `04-development.md` (含验收证据表 ✅) | 30-38 | done |
 | NFR-09 | 风险披露与合规边界 | Product Governance | page/report copy, AI/report/trading outputs, risk register | WebUI / CLI / reports | `03-operations.md` | 30-38 | ✅ done (compliance.md §7 page requirements enforced; all trading pages have risk banners; AI output default advisory-only) |

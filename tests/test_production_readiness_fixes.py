@@ -254,12 +254,14 @@ class TestSchedulerTimeoutProtection(unittest.TestCase):
 
     def test_slow_symbol_does_not_block_others(self):
         """A slow symbol should timeout and not block other symbols."""
-        slow_call = {"fired": False}
+        slow_started = threading.Event()
+        slow_can_finish = threading.Event()
 
-        def slow_query_kline(symbol):
+        def slow_query_kline(*args, **kwargs):
+            symbol = kwargs.get("symbol", args[0] if args else "?")
             if symbol == "SLOW":
-                slow_call["fired"] = True
-                time.sleep(5)
+                slow_started.set()
+                slow_can_finish.wait(timeout=10)
             dates = pd.bdate_range(end="2026-06-12", periods=60)
             return pd.DataFrame({
                 "trade_date": dates,
@@ -272,16 +274,17 @@ class TestSchedulerTimeoutProtection(unittest.TestCase):
 
         self.mock_store.query_kline.side_effect = slow_query_kline
         self.scheduler._symbols = ["FAST", "SLOW"]
-        self.scheduler.SYMBOL_TIMEOUT = 1.0
+        self.scheduler.SYMBOL_TIMEOUT = 0.5
 
         start = time.time()
         self.scheduler._execute_scheduled_cycle()
         elapsed = time.time() - start
+        slow_can_finish.set()  # release the slow thread
 
-        # If SLOW was processed normally it would take 5s+.
-        # With timeout it should complete in ~1-2s.
+        # SLOW should have been attempted (it blocks the thread until released)
+        self.assertTrue(slow_started.is_set(), "SLOW symbol query was never attempted")
+        # Cycle should complete quickly because SLOW is timed out
         self.assertLess(elapsed, 3.0, f"Cycle took {elapsed:.1f}s — SLOW symbol was not timed out")
-        self.assertTrue(slow_call["fired"], "SLOW symbol query was never attempted")
 
     def test_process_symbol_returns_correct_tuple(self):
         result = self.scheduler._process_symbol("600519.SH")

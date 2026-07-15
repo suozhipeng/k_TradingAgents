@@ -75,6 +75,47 @@ def _start_scheduler(interval_minutes: int) -> None:
     )
 
 
+_LOOPBACK_HOSTS = frozenset({"127.0.0.1", "::1", "localhost"})
+
+
+def resolve_debug_mode(requested: bool, host: str, logger=None) -> bool:
+    """Decide whether Werkzeug debug/reloader may run for this bind address.
+
+    The Werkzeug debugger executes arbitrary code on unhandled exceptions, so
+    it must never be enabled on a network-reachable interface. Debug is only
+    honoured when the caller explicitly asks for it *and* the server binds a
+    loopback address. Previously debug defaulted to ``not local_release``,
+    which silently enabled the debugger for every ``--standard`` run and, when
+    combined with ``--host 0.0.0.0``, exposed a remote RCE surface.
+
+    Parameters
+    ----------
+    requested : bool
+        Whether ``--debug`` was passed.
+    host : str
+        The bind address the server will use.
+    logger : logging.Logger, optional
+        When provided, a warning is emitted if a debug request is refused.
+
+    Returns
+    -------
+    bool
+        True only when debug was requested and the host is loopback.
+    """
+    if not requested:
+        return False
+    if (host or "").strip().lower() in _LOOPBACK_HOSTS:
+        return True
+    if logger is not None:
+        logger.warning(
+            "Refusing to enable debug mode on non-loopback host %r; "
+            "the Werkzeug debugger allows remote code execution. "
+            "Bind 127.0.0.1 to use --debug.",
+            host,
+        )
+    return False
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Launch AStock API server")
     parser.add_argument(
@@ -115,6 +156,16 @@ if __name__ == "__main__":
         default="127.0.0.1",
         help="Bind address (default: 127.0.0.1; use 0.0.0.0 only intentionally)",
     )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help=(
+            "Enable the Werkzeug debugger/reloader. Off by default. "
+            "SECURITY: the debugger allows arbitrary code execution on "
+            "unhandled exceptions, so it is refused when --host is not a "
+            "loopback address."
+        ),
+    )
     args = parser.parse_args()
     app = create_app()
 
@@ -125,4 +176,9 @@ if __name__ == "__main__":
         mode = "local analysis/backtest release" if app.config.get("ASTOCK_LOCAL_RELEASE") else "standard"
         logging.getLogger("run_astock_api").info("Web UI enabled at http://localhost:%d (%s)", args.port, mode)
 
-    app.run(host=args.host, port=args.port, debug=not app.config.get("ASTOCK_LOCAL_RELEASE", False))
+    debug_enabled = resolve_debug_mode(
+        requested=args.debug,
+        host=args.host,
+        logger=logging.getLogger("run_astock_api"),
+    )
+    app.run(host=args.host, port=args.port, debug=debug_enabled)

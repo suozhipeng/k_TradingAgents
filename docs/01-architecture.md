@@ -18,7 +18,7 @@
 - [10. 端点清单](#10-端点清单)
 - [11. 代表性端点](#11-代表性端点)
 
-> ⚠️ 以下文档中的端点路径与响应格式可能已过时。**以 `docs/API_REFERENCE.md` 为准**，该文件由代码自动生成，涵盖全部 121 个端点。
+> ⚠️ 以下文档中的端点路径与响应格式可能已过时。**以 `docs/API_REFERENCE.md` 为准**，该文件由 `scripts/gen_api_reference.py` 从运行中的 Flask `url_map` 自动生成，当前涵盖 131 个端点（含 HTTP 方法变体，对应 120 个唯一路径，28 个路由模块）。
 
 ---
 
@@ -151,9 +151,9 @@
 
 本文定义 TradingAgents-Astock 的生产级 API 契约要求。当前代码中的具体端点以实现为准；本文用于约束后续接口口径、能力等级、错误语义和验收要求。
 
-当前本地验证基线（2026-07-14）：
-- `ASTOCK_TESTING=1 pytest tests/ -q --tb=short` → `1133 passed, 13 skipped`
-- AStock 专项：`ASTOCK_TESTING=1 pytest tests/test_astock*.py -q --tb=short` → `723 passed, 13 skipped`
+当前本地验证基线（2026-07-15）：
+- `ASTOCK_TESTING=1 pytest tests/ -q --tb=short` → `1178 passed, 10 skipped`
+- AStock 专项：`ASTOCK_TESTING=1 pytest tests/test_astock*.py -q --tb=short` → `739 passed, 9 skipped`
 - 真实 live 验收沿用 2026-07-08 结果：`tests/test_deepseek_reasoning.py -k live -m integration` → `1 passed`
 - 真实 live provider 验收已补跑：`tests/test_astock_live_providers.py -m integration` → `7 passed, 1 skipped`
 - 当前未闭环项仅为 `ASTOCK_IWENCAI_COOKIE` 缺失时 Iwencai live 用例跳过
@@ -257,7 +257,7 @@
 
 ### 4.1 关键 endpoint 能力等级（Phase 30 快照）
 
-> 以下为代表性端点（当前代码基线约 119 个端点，详见完整端点参考 §2）。
+> 以下为代表性端点（当前代码基线 120 个唯一路径 / 131 个方法变体，详见完整端点参考 §2）。
 
 | Endpoint | 当前能力 | 说明 |
 |----------|----------|------|
@@ -559,7 +559,7 @@ curl -X GET "http://localhost:5860/api/v1/kline?symbol="
 
 ## Health / Dashboard
 
-> ⚠️ 完整端点清单请参见 [`docs/API_REFERENCE.md`](API_REFERENCE.md)，由代码自动生成，覆盖全部 121 个端点。以下仅列出代表性端点。
+> ⚠️ 完整端点清单请参见 [`docs/API_REFERENCE.md`](API_REFERENCE.md)，由 `scripts/gen_api_reference.py` 自动生成，覆盖全部 131 个端点变体（120 个唯一路径）。以下仅列出代表性端点。
 
 | API | Method | 功能 | 响应 keys | 能力 | 测试 |
 |---|---|---|---|---|---|

@@ -17,6 +17,7 @@ from typing import Any
 
 from flask import Flask, Response, g, jsonify, request
 from .idempotency import IdempotencyRegistry
+from .key_resolver import resolve_api_key
 from .rate_limit import FixedWindowRateLimiter
 
 logger = logging.getLogger(__name__)
@@ -109,24 +110,7 @@ def _register_before_request(app: Flask) -> None:
         key_hash = hashlib.sha256(auth[7:].encode()).hexdigest()
         store = app.config.get("PG_STORE") or app.config.get("STORE")
 
-        record = None
-        if store and hasattr(store, "validate_api_key"):
-            try:
-                if asyncio.iscoroutinefunction(store.validate_api_key):
-                    # Run async validation in a new event loop to avoid
-                    # asyncio.run() creating a new policy that may conflict
-                    # with the current process.  We create/close the loop
-                    # manually so it doesn't block the request thread.
-                    loop = asyncio.new_event_loop()
-                    try:
-                        record = loop.run_until_complete(store.validate_api_key(key_hash))
-                    finally:
-                        loop.close()
-                else:
-                    record = store.validate_api_key(key_hash)
-            except Exception as exc:
-                logger.warning("API key validation failed: %s", exc)
-                record = None
+        record = resolve_api_key(store, key_hash)
 
         if record is None:
             return jsonify({"error": "invalid_key",

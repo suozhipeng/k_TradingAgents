@@ -3,6 +3,16 @@
 import re
 
 from tradingagents.agents.utils.agent_states import AgentState
+from .node_names import (
+    AGGRESSIVE_ANALYST,
+    ASTOCK_ANALYST,
+    BEAR_RESEARCHER,
+    BULL_RESEARCHER,
+    CONSERVATIVE_ANALYST,
+    NEUTRAL_ANALYST,
+    PORTFOLIO_MANAGER,
+    RESEARCH_MANAGER,
+)
 
 
 class ConditionalLogic:
@@ -55,10 +65,10 @@ class ConditionalLogic:
         """Route A-share runs through the structured AStockAnalyst bridge."""
         ticker = str(state.get("company_of_interest", "")).strip().upper()
         if not ticker:
-            return "Bull Researcher"
+            return BULL_RESEARCHER
         if ticker.endswith((".SH", ".SZ", ".BJ")) or re.fullmatch(r"\d{6}(?:\.(?:SH|SZ|BJ))?", ticker):
-            return "AStock Analyst"
-        return "Bull Researcher"
+            return ASTOCK_ANALYST
+        return BULL_RESEARCHER
 
     def should_continue_debate(self, state: AgentState) -> str:
         """Determine if debate should continue."""
@@ -66,19 +76,19 @@ class ConditionalLogic:
         if (
             state["investment_debate_state"]["count"] >= 2 * self.max_debate_rounds
         ):  # 3 rounds of back-and-forth between 2 agents
-            return "Research Manager"
+            return RESEARCH_MANAGER
         if state["investment_debate_state"]["current_response"].startswith("Bull"):
-            return "Bear Researcher"
-        return "Bull Researcher"
+            return BEAR_RESEARCHER
+        return BULL_RESEARCHER
 
     def should_continue_risk_analysis(self, state: AgentState) -> str:
         """Determine if risk analysis should continue."""
         if (
             state["risk_debate_state"]["count"] >= 3 * self.max_risk_discuss_rounds
         ):  # 3 rounds of back-and-forth between 3 agents
-            return "Portfolio Manager"
+            return PORTFOLIO_MANAGER
         if state["risk_debate_state"]["latest_speaker"].startswith("Aggressive"):
-            return "Conservative Analyst"
+            return CONSERVATIVE_ANALYST
         if state["risk_debate_state"]["latest_speaker"].startswith("Conservative"):
-            return "Neutral Analyst"
-        return "Aggressive Analyst"
+            return NEUTRAL_ANALYST
+        return AGGRESSIVE_ANALYST

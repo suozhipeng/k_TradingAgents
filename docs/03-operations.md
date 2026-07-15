@@ -462,7 +462,7 @@ TradingAgents-Astock 是本地部署的分析工具，默认不向任何第三�
 - provider 开关和 fallback 顺序。
 - LLM provider、模型名称和超时配置。
 - QMT 连接参数和 managed mode 开关。
-- WebUI host、port、debug mode。
+- WebUI host、port、debug mode。默认 `debug=False`；`scripts/run_astock_api.py --debug` 才启用 Werkzeug 调试器，且仅当 `--host` 为回环地址（`127.0.0.1`/`::1`/`localhost`）时生效——绑定非回环地址时调试请求会被拒绝，避免调试器远程代码执行风险。
 - 测试环境标记和 live dependency guard。
 
 本文不要求记录密钥值、账号、隐私字段或密钥轮换策略；这些属于暂不纳入的安全与隐私文档。

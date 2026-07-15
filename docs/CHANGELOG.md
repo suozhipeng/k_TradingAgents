@@ -29,7 +29,7 @@
 - 数据刷新支持手动设置 1～5 条并发（默认 5）和任务超时；全局网络并发、单 provider 并发、节流与 429 冷却使用同一进程级治理器。
 - K 线超时默认最多重试 3 次，估值超时默认最多重试 2 次；退避重试受任务 deadline 限制并在结果中记录实际次数。
 - K 线入库兼容常见中英文字段和数值字符串；无法解析日期或 OHLC 的行写入 `data_quarantine`，同批有效行继续入库。任务超时后迟到的 K 线结果不会再写入本地库。
-- 2026-07-14 验证：`ASTOCK_TESTING=1 pytest tests/ -q --tb=short` → `1133 passed, 13 skipped`；AStock 专项 → `723 passed, 13 skipped`。
+- 2026-07-15 验证：`ASTOCK_TESTING=1 pytest tests/ -q --tb=short` → `1178 passed, 10 skipped`；AStock 专项 → `739 passed, 9 skipped`。
 - 数据刷新改为逐个 `symbol:interval` 的单次计划执行：修复大批量任务先串行、后重复并发的重复请求问题，并保留每项各自的增量起点。
 - 数据源路由新增按 provider 共享的并发、节流与 429 冷却保护；批量刷新对单项异常返回结构化兼容结果，不再以 `-1` 丢失失败原因。
 - 模拟盘状态变更和快照读取由同一实例锁保护，避免调度周期与手动订单并发时损坏内存状态；计划周期将各标的处理置于线程池中，并为单标的处理设置 30 秒超时，超时标的发布 `cycle_error` 而不阻塞其他标的。
@@ -45,7 +45,7 @@
 - 本地启动器默认进入 local-release 并仅绑定 `127.0.0.1`；`--standard` 仅用于遗留开发兼容。local-release 下 `/ops_audit` 返回 404，Settings 隐藏未完成的通知配置。
 - React Data Hub 改为消费 `/api/v1/data/refresh/options`；新增 `npm run test:release` 契约检查。React 不属于本地正式发布物。
 - 验收：`scripts/verify_local_release.sh` → 155 passed；React 发布契约和生产构建通过。
-- 发布门禁：`scripts/verify_local_release.sh` → 155 passed；后续 2026-07-14 全仓离线回归：`ASTOCK_TESTING=1 pytest tests/ -q --tb=short` → `1133 passed, 13 skipped`。使用运行环境注入的有效 DeepSeek key 后，live structured-output 验收已通过；凭据不写入版本库。
+- 发布门禁：`scripts/verify_local_release.sh` → 155 passed；后续 2026-07-15 全仓离线回归：`ASTOCK_TESTING=1 pytest tests/ -q --tb=short` → `1178 passed, 10 skipped`。使用运行环境注入的有效 DeepSeek key 后，live structured-output 验收已通过；凭据不写入版本库。
 
 ## Workspace Snapshot — 2026-07-12（xg_dev）
 

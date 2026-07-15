@@ -1,37 +1,39 @@
 # A-Stock API 端点参考
 
-> 自动生成于代码，更新于 2026-07-09。以实际代码为准。
+> 自动生成于代码（`scripts/gen_api_reference.py`），更新于 2026-07-15。以实际代码为准。
 
-> 共 **121** 个端点（含 HTTP 方法变体），覆盖 **28** 个路由模块。
+> 共 **131** 个端点（含 HTTP 方法变体，对应 **120** 个唯一路径），覆盖 **28** 个路由模块。
 
 
 ## `routes_admin.py`
 
 | Method | Path | 说明 |
 |--------|------|------|
-| `GET` | `/api/v1/admin/backend` | (无描述) |
-| `POST` | `/api/v1/admin/backend` | (无描述) |
-| `GET` | `/api/v1/admin/backend/config` | 后端配置查询 |
-| `POST` | `/api/v1/admin/health/sync-ch` | (无描述) |
+| `GET` | `/api/v1/admin/backend` | Return current backend status. |
+| `POST` | `/api/v1/admin/backend` | Switch database backend at runtime. |
+| `GET` | `/api/v1/admin/backend/config` | Return current backend configuration (passwords masked). |
+| `POST` | `/api/v1/admin/health/sync-ch` | Trigger a ClickHouse sync for the currently active backend. |
+| `GET` | `/api/v1/admin/mock-data` | Return the process-wide mock-data switch. |
+| `PUT` | `/api/v1/admin/mock-data` | Enable or disable process-wide mock data and persist the setting. |
 
 ## `routes_ai_agent.py`
 
 | Method | Path | 说明 |
 |--------|------|------|
-| `POST` | `/api/v1/ai/analyze` | (无描述) |
+| `POST` | `/api/v1/ai/analyze` | Run AI agent analysis on one or more stock symbols. |
 
 ## `routes_alerts.py`
 
 | Method | Path | 说明 |
 |--------|------|------|
-| `GET` | `/api/v1/alerts` | (无描述) |
-| `POST` | `/api/v1/alerts` | (无描述) |
-| `POST` | `/api/v1/alerts/<alert_id>/ack` | (无描述) |
-| `GET` | `/api/v1/alerts/check` | (无描述) |
-| `GET` | `/api/v1/alerts/rules` | (无描述) |
-| `POST` | `/api/v1/alerts/rules` | (无描述) |
-| `DELETE` | `/api/v1/alerts/rules/<rule_id>` | (无描述) |
-| `PATCH` | `/api/v1/alerts/rules/<rule_id>` | (无描述) |
+| `GET` | `/api/v1/alerts` | Return open / recent alert events. |
+| `POST` | `/api/v1/alerts` | Create a direct alert event (not rule-triggered). |
+| `POST` | `/api/v1/alerts/<alert_id>/ack` | Mark an alert as acknowledged. |
+| `GET` | `/api/v1/alerts/check` | Check all enabled rules against current market data. |
+| `GET` | `/api/v1/alerts/rules` | List all alert rules (optionally only enabled ones). |
+| `POST` | `/api/v1/alerts/rules` | Create a new alert rule. |
+| `PATCH` | `/api/v1/alerts/rules/<rule_id>` | Update fields on an existing alert rule. |
+| `DELETE` | `/api/v1/alerts/rules/<rule_id>` | Delete an alert rule (and its events). |
 
 ## `routes_analysis.py`
 
@@ -43,20 +45,21 @@
 
 | Method | Path | 说明 |
 |--------|------|------|
-| `POST` | `/api/v1/backtest/analyze` | 回测详细分析 |
-| `GET` | `/api/v1/backtest/compare` | 多策略回测对比 |
-| `POST` | `/api/v1/backtest/optimize` | 参数优化 |
-| `DELETE` | `/api/v1/backtest/results` | 清理所有回测结果 |
-| `GET` | `/api/v1/backtest/results` | 查询历史回测结果 |
-| `DELETE` | `/api/v1/backtest/results/<run_id>` | 删除单次回测结果 |
-| `POST` | `/api/v1/backtest/run` | 运行单次回测 |
-| `POST` | `/api/v1/backtest/walkforward` | 运行 Walk-Forward 分析 |
+| `POST` | `/api/v1/backtest/analyze` | POST /api/v1/backtest/analyze |
+| `GET` | `/api/v1/backtest/compare` | Multi-strategy comparison. |
+| `GET` | `/api/v1/backtest/history` | Query historical backtest results. |
+| `POST` | `/api/v1/backtest/optimize` | POST /api/v1/backtest/optimize |
+| `GET` | `/api/v1/backtest/results` | Query historical backtest results. |
+| `DELETE` | `/api/v1/backtest/results` | Delete all stored backtest results. |
+| `DELETE` | `/api/v1/backtest/results/<run_id>` | Delete a single backtest result by run_id. |
+| `POST` | `/api/v1/backtest/run` | Run a single backtest. |
+| `POST` | `/api/v1/backtest/walkforward` | Run Walk-Forward Analysis and return results + summary. |
 
 ## `routes_daily.py`
 
 | Method | Path | 说明 |
 |--------|------|------|
-| `GET` | `/api/v1/daily/review` | (无描述) |
+| `GET` | `/api/v1/daily/review` | Aggregate daily market review for major A-share indexes. |
 
 ## `routes_dashboard.py`
 
@@ -75,28 +78,64 @@
 
 | Method | Path | 说明 |
 |--------|------|------|
-| `GET` | `/api/v1/data/health` | 数据源健康检查（各 provider 连通性） |
+| `GET` | `/api/v1/data/health` | Probe all registered data source adapters. |
 
 ## `routes_data_ingest.py`
 
 | Method | Path | 说明 |
 |--------|------|------|
+| `POST` | `/api/v1/data/lifecycle/intraday` | Preview or explicitly archive old minute K-lines into Parquet. |
+| `POST` | `/api/v1/data/maintenance` | Checkpoint and analyze the hot and canonical local DuckDB stores. |
 | `POST` | `/api/v1/data/manual/<table_name>` | (无描述) |
 | `POST` | `/api/v1/data/refresh/all` | (无描述) |
-| `POST` | `/api/v1/data/refresh/kline` | 刷新 K 线数据 |
-| `POST` | `/api/v1/data/refresh/valuation` | 刷新估值数据 |
+| `POST` | `/api/v1/data/refresh/kline` | (无描述) |
+| `POST` | `/api/v1/data/refresh/valuation` | (无描述) |
 
 ## `routes_data_jobs.py`
 
 | Method | Path | 说明 |
 |--------|------|------|
-| `GET` | `/api/v1/data/refresh/options` | Data Hub 表单契约：本地标的、支持周期、模式、估值开关、默认并发、并发上限、任务超时和超时重试策略 |
 | `GET` | `/api/v1/data/jobs` | (无描述) |
 | `GET` | `/api/v1/data/jobs/<job_id>` | (无描述) |
 | `POST` | `/api/v1/data/jobs/import-database` | (无描述) |
-| `POST` | `/api/v1/data/jobs/refresh` | 创建刷新任务；`mode=incremental` 由服务端从本地最新 bar 推导刷新起点；支持 `max_concurrency`、`timeout_seconds`、`timeout_retries`；逐项返回 `rows_upserted`、失败 `error.code` 与 `retry_count` |
+| `POST` | `/api/v1/data/jobs/refresh` | (无描述) |
+| `GET` | `/api/v1/data/refresh/options` | Return the server-owned contract for the Data Hub refresh form. |
 
-## `routes_data_query.py`
+## `routes_health.py`
+
+| Method | Path | 说明 |
+|--------|------|------|
+| `GET` | `/api/v1/health` | Return readiness for load balancers and dependent API traffic. |
+| `GET` | `/api/v1/health/live` | Return process liveness without touching external dependencies. |
+| `GET` | `/api/v1/health/ready` | Return readiness for load balancers and dependent API traffic. |
+
+## `routes_market.py`
+
+| Method | Path | 说明 |
+|--------|------|------|
+| `GET` | `/api/v1/market/recap` | Generate a structured daily market recap report. |
+| `POST` | `/api/v1/market/recap` | Generate a structured daily market recap report. |
+| `GET` | `/api/v1/market/regime` | 实时市场状态分析（4 维度）。 |
+| `GET` | `/api/v1/market/strategies` | Return the list of available backtest strategies. |
+| `GET` | `/api/v1/market/summary` | Composite market snapshot for a symbol. |
+
+## `routes_market_data.py`
+
+| Method | Path | 说明 |
+|--------|------|------|
+| `GET` | `/api/v1/calendar` | Return trading days in the requested range. |
+| `GET` | `/api/v1/market/blocks` | Concept / industry / region blocks a stock belongs to. |
+| `GET` | `/api/v1/market/dragon-tiger` | Fetch daily dragon & tiger board. |
+| `GET` | `/api/v1/market/leading-pool` | Get the cached leading stock pool summary (read-only). |
+| `POST` | `/api/v1/market/leading-pool/refresh` | Refresh the leading pool; POST keeps this provider write behind auth. |
+| `GET` | `/api/v1/market/momentum` | Return live momentum data for leading stocks. |
+| `POST` | `/api/v1/market/momentum-rotation` | Run leading stock momentum rotation backtest. |
+| `GET` | `/api/v1/market/northbound` | Shanghai / Shenzhen Stock Connect real-time flow. |
+| `GET` | `/api/v1/market/overview` | Market summary with real-time indices and sector performance. |
+| `GET` | `/api/v1/market/quote` | Research-market quote: delegates to trade quote's live/fetch logic. |
+| `GET` | `/api/v1/market/sectors` | Industry sector ranking with unified fallback handling. |
+
+## `routes_market_data_query.py`
 
 | Method | Path | 说明 |
 |--------|------|------|
@@ -104,165 +143,135 @@
 | `GET` | `/api/v1/market/f10` | (无描述) |
 | `GET` | `/api/v1/market/fundamentals` | (无描述) |
 | `GET` | `/api/v1/market/kline` | (无描述) |
-| `GET` | `/api/v1/market/news` | 获取新闻资讯 |
+| `GET` | `/api/v1/market/news` | (无描述) |
 | `GET` | `/api/v1/market/news/live` | (无描述) |
 | `GET` | `/api/v1/market/news/stock` | (无描述) |
 | `GET` | `/api/v1/market/orderbook` | (无描述) |
 | `GET` | `/api/v1/market/research` | (无描述) |
-| `GET` | `/api/v1/market/research/expectation` | 获取机构预期 |
-| `GET` | `/api/v1/market/research/pdf` | 获取研报 PDF 元数据 |
+| `GET` | `/api/v1/market/research/expectation` | (无描述) |
+| `GET` | `/api/v1/market/research/pdf` | (无描述) |
 | `GET` | `/api/v1/market/research/search` | (无描述) |
 | `GET` | `/api/v1/market/store/stats` | (无描述) |
 | `GET` | `/api/v1/market/trade_tape` | (无描述) |
 | `GET` | `/api/v1/market/valuation` | (无描述) |
 
-## `routes_health.py`
-
-| Method | Path | 说明 |
-|--------|------|------|
-| `GET` | `/api/v1/health` | 轻量健康检查（状态、后端、连接、运行时长） |
-
-## `routes_market.py`
-
-| Method | Path | 说明 |
-|--------|------|------|
-| `GET` | `/api/v1/market/recap` | 每日市场复盘报告（指数 + 板块 + 涨跌家数） |
-| `POST` | `/api/v1/market/recap` | 每日市场复盘报告（指数 + 板块 + 涨跌家数） |
-| `GET` | `/api/v1/market/regime` | 实时市场状态分析（4 维度） |
-| `GET` | `/api/v1/market/strategies` | 列出可用回测策略名称 |
-| `GET` | `/api/v1/market/summary` | 个股市场摘要（PE/PB/市值/成交量） |
-
-## `routes_market_data.py`
-
-| Method | Path | 说明 |
-|--------|------|------|
-| `GET` | `/api/v1/calendar` | 交易日历 |
-| `GET` | `/api/v1/market/blocks` | (无描述) |
-| `GET` | `/api/v1/market/dragon-tiger` | (无描述) |
-| `GET` | `/api/v1/market/leading-pool` | (无描述) |
-| `GET` | `/api/v1/market/momentum` | 龙头股动量榜；回退分数按代码稳定生成 |
-| `POST` | `/api/v1/market/momentum-rotation` | 动量轮动 |
-| `GET` | `/api/v1/market/northbound` | (无描述) |
-| `GET` | `/api/v1/market/overview` | (无描述) |
-| `GET` | `/api/v1/market/quote` | Research-only 行情入口；返回 `source`、`as_of`、`age_seconds`、`is_mock`、`is_stale` |
-| `GET` | `/api/v1/market/sectors` | (无描述) |
-
 ## `routes_notifications.py`
 
 | Method | Path | 说明 |
 |--------|------|------|
-| `POST` | `/api/v1/notifications/consumer/start` | 启动通知消费者（需认证） |
-| `POST` | `/api/v1/notifications/consumer/stop` | 停止通知消费者（需认证） |
-| `POST` | `/api/v1/notifications/desktop` | 发送本机通知测试（需认证） |
-| `POST` | `/api/v1/notifications/dingtalk` | 钉钉通知 |
-| `GET` | `/api/v1/notifications/dispatchers` | 通知渠道元数据（凭据与 URL 查询参数脱敏） |
-| `POST` | `/api/v1/notifications/dispatchers` | 注册通知渠道（需认证，仅允许公网目标） |
-| `DELETE` | `/api/v1/notifications/dispatchers/<name>` | 删除通知渠道（需认证） |
-| `PUT` | `/api/v1/notifications/dispatchers/<name>` | 更新通知渠道（需认证，仅允许公网目标） |
-| `POST` | `/api/v1/notifications/email` | (无描述) |
-| `GET` | `/api/v1/notifications/events` | (无描述) |
-| `POST` | `/api/v1/notifications/test-webhook` | Webhook 测试 |
+| `POST` | `/api/v1/notifications/consumer/start` | Start the notification consumer thread. |
+| `POST` | `/api/v1/notifications/consumer/stop` | Stop the notification consumer thread. |
+| `POST` | `/api/v1/notifications/desktop` | Send a desktop notification (for testing). |
+| `POST` | `/api/v1/notifications/dingtalk` | Send a DingTalk webhook notification directly. |
+| `GET` | `/api/v1/notifications/dispatchers` | List configured notification channels. |
+| `POST` | `/api/v1/notifications/dispatchers` | Register a notification channel. |
+| `PUT` | `/api/v1/notifications/dispatchers/<name>` | Update a notification channel. |
+| `DELETE` | `/api/v1/notifications/dispatchers/<name>` | Delete a notification channel by name. |
+| `POST` | `/api/v1/notifications/email` | Send a test email notification. |
+| `GET` | `/api/v1/notifications/events` | Return recent filtered events from the EventBus ring buffer. |
+| `POST` | `/api/v1/notifications/test-webhook` | Test a webhook URL by sending a test payload. |
 
 ## `routes_ops.py`
 
 | Method | Path | 说明 |
 |--------|------|------|
-| `GET` | `/api/v1/ops/audit` | (无描述) |
-| `GET` | `/api/v1/ops/scheduler/status` | 调度器状态 |
-| `GET` | `/api/v1/ops/stats` | (无描述) |
-| `GET` | `/api/v1/ops/tasks` | (无描述) |
-| `GET` | `/api/v1/ops/tasks/<task_id>` | (无描述) |
-| `POST` | `/api/v1/ops/tasks/<task_id>/cancel` | (无描述) |
+| `GET` | `/api/v1/ops/audit` | List audit events with optional filters. |
+| `GET` | `/api/v1/ops/metrics` | Return request counts/latency plus in-process data-job state. |
+| `GET` | `/api/v1/ops/scheduler/status` | Return scheduler lifecycle status from EventBus and AuditStore. |
+| `GET` | `/api/v1/ops/stats` | Get aggregated ops dashboard statistics. |
+| `GET` | `/api/v1/ops/tasks` | List task runs with optional type filter. |
+| `GET` | `/api/v1/ops/tasks/<task_id>` | Get a single task by ID. |
+| `POST` | `/api/v1/ops/tasks/<task_id>/cancel` | Cancel an existing task. |
 
 ## `routes_paper.py`
 
 | Method | Path | 说明 |
 |--------|------|------|
-| `POST` | `/api/v1/paper/cycle` | 执行模拟盘周期（需 writer/operator/admin key） |
-| `GET` | `/api/v1/paper/state` | 模拟盘统一状态；`positions[]` 含成本价、估值来源和盈亏 |
-| `GET` | `/api/v1/paper/trades` | 模拟盘统一成交记录；包含 `side` 与 `quantity` 兼容字段 |
+| `POST` | `/api/v1/paper/cycle` | (无描述) |
+| `GET` | `/api/v1/paper/state` | (无描述) |
+| `GET` | `/api/v1/paper/trades` | (无描述) |
 
 ## `routes_portfolio.py`
 
 | Method | Path | 说明 |
 |--------|------|------|
-| `GET` | `/api/v1/portfolio/attribution` | 组合归因 |
-| `GET` | `/api/v1/portfolio/risk` | 组合风险分析 |
+| `GET` | `/api/v1/portfolio/attribution` | (无描述) |
+| `GET` | `/api/v1/portfolio/risk` | (无描述) |
 
 ## `routes_qmt.py`
 
 | Method | Path | 说明 |
 |--------|------|------|
-| `GET` | `/api/v1/qmt/health` | (无描述) |
-| `GET` | `/api/v1/qmt/orders` | (无描述) |
-| `GET` | `/api/v1/qmt/positions` | (无描述) |
+| `GET` | `/api/v1/qmt/health` | QMT bridge health check. |
+| `GET` | `/api/v1/qmt/orders` | QMT account snapshot (read-only, mock only). |
+| `GET` | `/api/v1/qmt/positions` | QMT current positions (read-only, mock by default). |
 
 ## `routes_reports.py`
 
 | Method | Path | 说明 |
 |--------|------|------|
-| `PATCH` | `/api/v1/reports/<report_id>/audit` | (无描述) |
-| `POST` | `/api/v1/reports/compare` | (无描述) |
-| `GET` | `/api/v1/reports/list` | (无描述) |
-| `GET` | `/api/v1/reports/pptx` | (无描述) |
-| `POST` | `/api/v1/reports/save` | (无描述) |
+| `PATCH` | `/api/v1/reports/<report_id>/audit` | Add an AI audit result to an archived report. |
+| `POST` | `/api/v1/reports/compare` | Compare two archived reports and return a structured diff. |
+| `GET` | `/api/v1/reports/list` | Return filterable report archive listing. |
+| `GET` | `/api/v1/reports/pptx` | Generate and return a PPTX report for a given symbol. |
+| `POST` | `/api/v1/reports/save` | Save a generated report to the archive index. |
 
 ## `routes_scheduler.py`
 
 | Method | Path | 说明 |
 |--------|------|------|
 | `GET` | `/api/v1/sse/scheduler/jobs` | (无描述) |
-| `POST` | `/api/v1/sse/scheduler/jobs` | 添加调度任务 |
+| `POST` | `/api/v1/sse/scheduler/jobs` | (无描述) |
 | `DELETE` | `/api/v1/sse/scheduler/jobs/<job_id>` | (无描述) |
-| `POST` | `/api/v1/sse/scheduler/jobs/<job_id>/toggle` | 切换调度任务 |
+| `POST` | `/api/v1/sse/scheduler/jobs/<job_id>/toggle` | (无描述) |
 | `POST` | `/api/v1/sse/scheduler/pause` | (无描述) |
 | `POST` | `/api/v1/sse/scheduler/resume` | (无描述) |
 | `POST` | `/api/v1/sse/scheduler/start` | (无描述) |
-| `GET` | `/api/v1/sse/scheduler/status` | 调度器状态 |
+| `GET` | `/api/v1/sse/scheduler/status` | (无描述) |
 | `POST` | `/api/v1/sse/scheduler/stop` | (无描述) |
 
 ## `routes_screener.py`
 
 | Method | Path | 说明 |
 |--------|------|------|
-| `GET` | `/api/v1/market/screener` | 选股器 |
+| `GET` | `/api/v1/market/screener` | Scan stocks by technical conditions. |
 
 ## `routes_sse.py`
 
 | Method | Path | 说明 |
 |--------|------|------|
-| `DELETE` | `/api/v1/sse/events` | (无描述) |
-| `GET` | `/api/v1/sse/events` | (无描述) |
-| `GET` | `/api/v1/sse/paper-progress` | (无描述) |
+| `GET` | `/api/v1/sse/events` | Return all buffered events as a JSON array (non-streaming). |
+| `DELETE` | `/api/v1/sse/events` | Clear all buffered events. |
+| `GET` | `/api/v1/sse/paper-progress` | SSE streaming endpoint for paper trading progress. |
 
 ## `routes_strategy_monitor.py`
 
 | Method | Path | 说明 |
 |--------|------|------|
-| `GET` | `/api/v1/strategies/status` | 列出可用回测策略名称 |
+| `GET` | `/api/v1/strategies/status` | Return all registered strategies with metadata. |
 
 ## `routes_trade.py`
 
 | Method | Path | 说明 |
 |--------|------|------|
-| `POST` | `/api/v1/trade/order` | 模拟盘下单（需 writer/operator/admin key，与 `/paper/*` 共享状态） |
-| `GET` | `/api/v1/trade/quote` | 兼容模式行情入口；默认 Research-only 范围返回 `410 research_only`，请使用 `/api/v1/market/quote` |
-| `GET` | `/api/v1/trade/state` | 交易页模拟盘状态；与 `/paper/state` 使用相同 schema |
+| `POST` | `/api/v1/trade/order` | Place a buy or sell order with specified quantity. |
+| `GET` | `/api/v1/trade/quote` | GET /api/v1/trade/quote?symbol=600519.SH |
+| `GET` | `/api/v1/trade/state` | Return current paper trading state for the trading page. |
 
 ## `routes_tv.py`
 
 | Method | Path | 说明 |
 |--------|------|------|
-| `GET` | `/api/v1/tv/history` | (无描述) |
-| `GET` | `/api/v1/tv/stock-info` | (无描述) |
-| `GET` | `/api/v1/tv/stock-search` | (无描述) |
-| `GET` | `/api/v1/tv/symbols` | (无描述) |
+| `GET` | `/api/v1/tv/history` | Return OHLCV bars for TradingView. |
+| `GET` | `/api/v1/tv/stock-info` | Return A-share stock info: name, exchange, board. |
+| `GET` | `/api/v1/tv/stock-search` | Search stocks by code, name, or pinyin. |
+| `GET` | `/api/v1/tv/symbols` | Return TradingView symbol info for a given symbol. |
 
 ## `routes_watchlist.py`
 
 | Method | Path | 说明 |
 |--------|------|------|
-| `GET` | `/api/v1/watchlist` | (无描述) |
-| `POST` | `/api/v1/watchlist/add` | (无描述) |
-| `POST` | `/api/v1/watchlist/batch-analyze` | 批量分析自选股 |
-| `POST` | `/api/v1/watchlist/remove` | (无描述) |
+| `GET` | `/api/v1/watchlist` | Return the current watchlist symbols. |
+| `POST` | `/api/v1/watchlist/add` | Add a symbol to the watchlist. |
+| `POST` | `/api/v1/watchlist/batch-analyze` | Submit all watchlist symbols for batch analysis. |
+| `POST` | `/api/v1/watchlist/remove` | Remove a symbol from the watchlist. |

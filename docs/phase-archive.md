@@ -1221,7 +1221,7 @@ pytest tests/ -q
 | 顶层导航收敛到 7 个模块 | ✅ 完成 | sidebar 含：Trading/Dashboard/Research/Strategy Lab/Market Leaders/Data & Ops/Screener — 旧入口不再顶层 |
 | 旧入口迁移策略明确 | ✅ 完成 | redirect / hidden / deprecation banner 均已落地 |
 | 所有核心页面有输入/输出/状态/错误态 | ✅ 完成 | 25 模板全部覆盖 |
-| 文档数字口径一致 | ✅ 完成 | API 27 blueprints, 119 route decorators |
+| 文档数字口径一致 | ✅ 完成 | API 28 blueprints, 120 唯一路径 / 131 方法变体（`scripts/gen_api_reference.py` 自动生成） |
 
 **注**: `Portfolio Workbench` 是 roadmap 中的目标第 8 模块，当前尚未加入 sidebar。当前 sidebar 的 7 模块以 Screener 为第七项。
 
@@ -1243,7 +1243,7 @@ pytest tests/ -q
 - ✅ Phase 30-39 全部完成（模块级文档/schema/测试均已就绪）
 - ✅ Phase 38 导航收敛已落地（顶层 7 模块 sidebar + 旧入口 redirect + deprecation banner）
 - ✅ 历史 UAT 执行时的模块级前置条件已满足
-- ℹ️ 2026-07-14 当前本地离线全量回归：`ASTOCK_TESTING=1 pytest tests/ -q --tb=short` → `1133 passed, 13 skipped`；AStock 专项 `723 passed, 13 skipped`
+- ℹ️ 2026-07-15 当前本地离线全量回归：`ASTOCK_TESTING=1 pytest tests/ -q --tb=short` → `1178 passed, 10 skipped`；AStock 专项 `739 passed, 9 skipped`
 - ℹ️ 2026-07-08 已补跑真实 live 验收：DeepSeek live API `1 passed`，live provider `7 passed, 1 skipped`，端到端 `live_research` pipeline `VERIFICATION PASSED`
 
 ### Phase 目标
@@ -1409,7 +1409,7 @@ Phase 30-39 每个 phase 的任务均为模块级文档/schema/测试任务，�
 | 36 | Portfolio Risk & Attribution：组合风险和绩效归因 | 完成（VaR 95/HHI 集中度/Brinson 归因/压力测试/前端展示） | [Phase 36](docs/phase-archive.md) [证据](docs/phase-archive.md) |
 | 37 | Ops & Audit Center：任务、错误、provider、模型和审计 | 完成（AuditStore 内存+DuckDB 持久化/API/前端事件日志） | [Phase 37](docs/phase-archive.md) [证据](docs/phase-archive.md) |
 | 38 | Product Navigation Cleanup：WebUI 顶层导航和旧入口收敛 | 完成（7 模块 sidebar + 旧入口 redirect + 文档口径同步 + 数字漂移已消除） | [Phase 38](docs/phase-archive.md) [证据](docs/phase-archive.md) |
-| 39 | End-to-End UAT：端到端用户工作流验收 | 完成（历史 2 个 minor gaps 已在后续提交中修复；2026-07-14 当前本地离线全量回归为 1133 passed / 13 skipped，AStock 专项为 723 passed / 13 skipped；真实 live 验收已补跑：DeepSeek `1 passed`、provider `7 passed, 1 skipped`、pipeline `VERIFICATION PASSED`） | [Phase 39](docs/phase-archive.md) |
+| 39 | End-to-End UAT：端到端用户工作流验收 | 完成（历史 2 个 minor gaps 已在后续提交中修复；2026-07-15 当前本地离线全量回归为 1178 passed / 10 skipped，AStock 专项为 739 passed / 9 skipped；真实 live 验收已补跑：DeepSeek `1 passed`、provider `7 passed, 1 skipped`、pipeline `VERIFICATION PASSED`） | [Phase 39](docs/phase-archive.md) |
 | — | 2026-07-08 回测入口兼容收敛 hotfix | 完成：CLI `backtest` 主入口切到 `tradingagents.astock.execution.backtest_engine`；新包补齐 `run_backtest_pipeline`、`PipelineParams`、`create_strategy`、`BacktestMetrics` 兼容导出；legacy `modules.backtest_engine` 保留 | 见 `docs/CHANGELOG.md` v2.3（2026-07-08） |
 | Web-G0 | 需求冻结与追踪矩阵落地：backlog/traceability/spec/checklist + / → /dashboard 重定向 | 完成 | [Web 证据](docs/phase-archive.md) |
 | Web-P0 | 今日工作台首页重构：market/watchlist/tasks/reports/alerts/sectors/next-actions | 完成（主工作台已落地；backlog 中仍保留首页深化项） | [Web-P0] |

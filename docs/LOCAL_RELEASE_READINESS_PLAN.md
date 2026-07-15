@@ -57,7 +57,7 @@
 
 ### 验证边界
 
-本次已通过本地正式版的精确发布门禁（`scripts/verify_local_release.sh`）。后续 2026-07-14 新鲜全仓离线回归：`ASTOCK_TESTING=1 pytest tests/ -q --tb=short` → `1133 passed, 13 skipped`；AStock 专项：`ASTOCK_TESTING=1 pytest tests/test_astock*.py -q --tb=short` → `723 passed, 13 skipped`。
+本次已通过本地正式版的精确发布门禁（`scripts/verify_local_release.sh`）。后续 2026-07-15 新鲜全仓离线回归：`ASTOCK_TESTING=1 pytest tests/ -q --tb=short` → `1178 passed, 10 skipped`；AStock 专项：`ASTOCK_TESTING=1 pytest tests/test_astock*.py -q --tb=short` → `739 passed, 9 skipped`。
 
 已配置有效 `DEEPSEEK_API_KEY` 时，`tests/test_deepseek_reasoning.py::TestDeepSeekLiveStructuredOutput::test_v4_flash_returns_structured_output` 已于 2026-07-13 通过 live 验收。凭据只应由运行环境注入，禁止写入代码、文档或版本库。
 

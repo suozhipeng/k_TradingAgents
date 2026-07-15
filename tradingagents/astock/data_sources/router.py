@@ -179,6 +179,12 @@ class AStockDataRouter(object):
         try:
             cached = getter(key)
         except Exception:
+            logger.warning(
+                "Cache read failed for capability=%s symbol=%s bucket=%s; "
+                "falling through to live sources",
+                request.capability, request.symbol, bucket,
+                exc_info=True,
+            )
             return None
         if cached is None:
             return None
@@ -222,7 +228,13 @@ class AStockDataRouter(object):
         try:
             setter(key, response)
         except Exception:
-            # Cache failures must never poison the primary data path.
+            # Cache failures must never poison the primary data path, but they
+            # should be visible so a persistently broken cache is noticed.
+            logger.warning(
+                "Cache write failed for capability=%s symbol=%s bucket=%s",
+                request.capability, request.symbol, bucket,
+                exc_info=True,
+            )
             return
 
     def _candidate_sources(self, capability: str, request: AStockRequest) -> Tuple[str, ...]:

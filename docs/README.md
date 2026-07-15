@@ -5,7 +5,7 @@
 ## 当前状态
 
 | 当前本地状态以 [`phase-archive.md`](phase-archive.md)、[`CHANGELOG.md`](CHANGELOG.md) 和 [`04-development.md`](04-development.md) 为准 |
-- 2026-07-14 本地离线全仓验证基线：`ASTOCK_TESTING=1 pytest tests/ -q --tb=short` → `1133 passed, 13 skipped`；AStock 专项 `tests/test_astock*.py` → `723 passed, 13 skipped`；`TEST_PYDANTIC_BT=1` gate 单测已补跑通过。
+- 2026-07-15 本地离线全仓验证基线：`ASTOCK_TESTING=1 pytest tests/ -q --tb=short` → `1178 passed, 10 skipped`；AStock 专项 `tests/test_astock*.py` → `739 passed, 9 skipped`；`TEST_PYDANTIC_BT=1` gate 单测已补跑通过。
 - 2026-07-08 已完成真实 live 验收：DeepSeek live API `1 passed`，live provider `7 passed, 1 skipped`，端到端 `live_research` pipeline `VERIFICATION PASSED`
 - 当前唯一未闭环 live 依赖为 `ASTOCK_IWENCAI_COOKIE`；未配置时 Iwencai 用例按设计跳过
 - 默认产品范围为 Research-only：投研分析 + 策略回测 + 市场盯盘；执行页面与 `/api/v1/trade/*`、`/paper/*`、`/qmt/*`、`/portfolio/*` API 默认不可用。`ASTOCK_RESEARCH_ONLY=false` 仅保留兼容模式；**不接入真实券商**。
