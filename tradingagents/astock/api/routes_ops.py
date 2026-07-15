@@ -13,6 +13,8 @@ import logging
 import threading
 from typing import Any
 
+from .envelope import error_response
+
 from flask import Blueprint, Response, current_app, g, jsonify, request
 logger = logging.getLogger(__name__)
 
@@ -73,7 +75,7 @@ def list_audit_events() -> tuple[Response, int]:
         events = store.list_events(actor=actor, action=action, limit=limit)
         return jsonify(events), 200
     except Exception as exc:
-        return jsonify({"error": str(exc), "status": 500}), 500
+        return error_response(str(exc), 500)
 
 
 # ---------------------------------------------------------------------------
@@ -103,7 +105,7 @@ def list_tasks() -> tuple[Response, int]:
         tasks = store.list_tasks(task_type=task_type, limit=limit)
         return jsonify(tasks), 200
     except Exception as exc:
-        return jsonify({"error": str(exc), "status": 500}), 500
+        return error_response(str(exc), 500)
 
 
 # ---------------------------------------------------------------------------
@@ -123,10 +125,10 @@ def get_task(task_id: str) -> tuple[Response, int]:
         store = _get_audit_store()
         task = store.get_task(task_id)
         if task is None:
-            return jsonify({"error": f"Task not found: {task_id}", "status": 404}), 404
+            return error_response(f"Task not found: {task_id}", 404)
         return jsonify(task), 200
     except Exception as exc:
-        return jsonify({"error": str(exc), "status": 500}), 500
+        return error_response(str(exc), 500)
 
 
 # ---------------------------------------------------------------------------
@@ -146,10 +148,10 @@ def cancel_task_endpoint(task_id: str) -> tuple[Response, int]:
         store = _get_audit_store()
         task = store.cancel_task(task_id)
         if task is None:
-            return jsonify({"error": f"Task not found: {task_id}", "status": 404}), 404
+            return error_response(f"Task not found: {task_id}", 404)
         return jsonify(task), 200
     except Exception as exc:
-        return jsonify({"error": str(exc), "status": 500}), 500
+        return error_response(str(exc), 500)
 
 
 # ---------------------------------------------------------------------------
@@ -171,14 +173,14 @@ def ops_stats() -> tuple[Response, int]:
         stats = store.get_stats()
         return jsonify(stats), 200
     except Exception as exc:
-        return jsonify({"error": str(exc), "status": 500}), 500
+        return error_response(str(exc), 500)
 
 
 @bp.route("/ops/metrics")
 def ops_metrics() -> tuple[Response, int]:
     """Return request counts/latency plus in-process data-job state."""
     if current_app.config.get("ASTOCK_REQUIRE_AUTH", True) and getattr(g, "role", "public") != "admin":
-        return jsonify({"error": "forbidden", "status": 403}), 403
+        return error_response("forbidden", 403)
     from .metrics import snapshot
 
     payload = snapshot()
@@ -242,7 +244,7 @@ def scheduler_status() -> tuple[Response, int]:
             "status": "ok",
         }), 200
     except Exception as exc:
-        return jsonify({"error": str(exc), "status": 500}), 500
+        return error_response(str(exc), 500)
 
 
 __all__ = ["bp"]

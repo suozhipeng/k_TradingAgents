@@ -18,6 +18,7 @@ import logging
 from typing import Any
 
 from flask import Blueprint, Response, current_app, jsonify, request
+from .envelope import error_response
 
 bp = Blueprint("tv", __name__)
 logger = logging.getLogger(__name__)
@@ -295,7 +296,7 @@ def tv_stock_info() -> tuple[Response, int]:
     """Return A-share stock info: name, exchange, board."""
     symbol = request.args.get("symbol", "")
     if not symbol:
-        return jsonify({"error": "symbol required"}), 400
+        return error_response("symbol required", 400)
     info = _stock_board(symbol)
     router = _router()
     name = ""
@@ -359,7 +360,7 @@ def tv_symbols() -> tuple[Response, int]:
     """Return TradingView symbol info for a given symbol."""
     symbol = request.args.get("symbol", "")
     if not symbol:
-        return jsonify({"error": "symbol is required", "status": 400}), 400
+        return error_response("symbol is required", 400)
 
     try:
         store = get_store()

@@ -9,6 +9,7 @@ import logging
 from typing import Any
 
 from flask import Blueprint, Response, jsonify
+from .envelope import error_response
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +79,7 @@ def list_strategies() -> tuple[Response, int]:
             "status": "ok",
         }), 200
     except Exception as exc:
-        return jsonify({"error": str(exc), "status": 500, "strategies": [], "total": 0}), 500
+        return error_response(str(exc), 500)
 
 
 __all__ = ["bp"]

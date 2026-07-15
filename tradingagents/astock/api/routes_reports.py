@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from flask import Blueprint, jsonify, Response, request
+from .envelope import error_response
 
 from tradingagents.astock.reporting.ppt import ReportGenerator, HAS_PPTX
 
@@ -115,7 +116,7 @@ def report_save() -> tuple[Response, int]:
     required = ("symbol", "report_type")
     for field in required:
         if field not in data:
-            return jsonify({"error": f"Missing required field: {field}", "status": 400}), 400
+            return error_response(f"Missing required field: {field}", 400)
 
     entry = {
         "symbol": data.get("symbol", "").upper(),
@@ -239,7 +240,7 @@ def report_pptx() -> Response:
         )
     except Exception as exc:
         logger.exception("PPTX generation failed")
-        return jsonify({"error": f"PPTX generation failed: {exc}"}), 500
+        return error_response(f"PPTX generation failed: {exc}", 500)
 
 
 # ---------------------------------------------------------------------------
@@ -262,7 +263,7 @@ def report_compare() -> tuple[Response, int]:
     trade_date = (data.get("trade_date") or "").strip()
 
     if not symbol_a or not symbol_b:
-        return jsonify({"error": "symbol_a and symbol_b are required", "status": 400}), 400
+        return error_response("symbol_a and symbol_b are required", 400)
 
     items = _load_report_index()
 
@@ -277,7 +278,7 @@ def report_compare() -> tuple[Response, int]:
     report_b = _find_report(symbol_b, trade_date)
 
     if not report_a and not report_b:
-        return jsonify({"error": "Neither report found", "status": 404}), 404
+        return error_response("Neither report found", 404)
 
     # Build comparison fields — metadata
     meta_fields = ["symbol", "report_type", "source", "advisory_only", "trade_date"]
@@ -385,7 +386,7 @@ def report_audit(report_id: str) -> tuple[Response, int]:
     auditor = (data.get("auditor") or "ai").strip()
 
     if audit_status not in ("passed", "flagged", "reviewed"):
-        return jsonify({"error": "audit_status must be passed/flagged/reviewed", "status": 400}), 400
+        return error_response("audit_status must be passed/flagged/reviewed", 400)
 
     items = _load_report_index()
     # Find by created_at timestamp (used as report_id) or symbol match
@@ -401,7 +402,7 @@ def report_audit(report_id: str) -> tuple[Response, int]:
         target = candidates[0] if candidates else None
 
     if target is None:
-        return jsonify({"error": f"Report not found: {report_id}", "status": 404}), 404
+        return error_response(f"Report not found: {report_id}", 404)
 
     target["ai_audit"] = {
         "status": audit_status,

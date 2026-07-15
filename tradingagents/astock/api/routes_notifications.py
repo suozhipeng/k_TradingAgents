@@ -9,6 +9,7 @@ from urllib.parse import urlsplit, urlunsplit
 
 from flask import Blueprint, jsonify, request
 
+from .envelope import error_response
 from ._notification_delivery import (
     safe_http_request,
     send_desktop,
@@ -66,7 +67,7 @@ def test_webhook() -> tuple[Any, int]:
     message = data.get("message", "AStock Pro notification test")
 
     if not url:
-        return jsonify({"error": "url is required", "status": 400}), 400
+        return error_response("url is required", 400)
 
     payload = {
         "source": "astock-pro",
@@ -84,7 +85,7 @@ def test_webhook() -> tuple[Any, int]:
         return jsonify({"status": "error", "http_status": resp.status_code}), 502
     except Exception as exc:
         logger.warning("Webhook test error: %s - %s", url, exc)
-        return jsonify({"status": "error", "error": str(exc)[:200]}), 502
+        return error_response(str(exc)[:200], 502)
 
 
 @bp.route("/notifications/dingtalk", methods=["POST"])
@@ -96,7 +97,7 @@ def send_dingtalk() -> tuple[Any, int]:
     message = data.get("message", "System notification")
 
     if not url:
-        return jsonify({"error": "url is required", "status": 400}), 400
+        return error_response("url is required", 400)
 
     payload = {"msgtype": "markdown", "markdown": {"title": title, "text": message}}
     try:
@@ -107,7 +108,7 @@ def send_dingtalk() -> tuple[Any, int]:
         return jsonify({"status": "error", "http_status": resp.status_code}), 502
     except Exception as exc:
         logger.warning("DingTalk send error: %s - %s", url, exc)
-        return jsonify({"status": "error", "error": str(exc)[:200]}), 502
+        return error_response(str(exc)[:200], 502)
 
 
 @bp.route("/notifications/email", methods=["POST"])
@@ -123,7 +124,7 @@ def send_email_notification() -> tuple[Any, int]:
     body = data.get("body", "This is a test email from AStock Pro.")
 
     if not smtp_user or not smtp_pass or not to_address:
-        return jsonify({"error": "smtp_user, smtp_pass, and to_address are required", "status": 400}), 400
+        return error_response("smtp_user, smtp_pass, and to_address are required", 400)
 
     import smtplib
     import ssl
@@ -135,9 +136,11 @@ def send_email_notification() -> tuple[Any, int]:
     msg["To"] = to_address
 
     try:
-        validate_public_host(smtp_host)
         if not isinstance(smtp_port, int) or not 1 <= smtp_port <= 65535:
-            return jsonify({"status": "error", "error": "smtp_port must be an integer between 1 and 65535"}), 400
+            return error_response("smtp_port must be an integer between 1 and 65535", 400)
+        # Validate caller-controlled scalar inputs before performing host
+        # resolution, so invalid input reliably returns a 4xx response.
+        validate_public_host(smtp_host)
 
         ctx = ssl.create_default_context()
         with smtplib.SMTP(smtp_host, smtp_port) as server:
@@ -150,7 +153,7 @@ def send_email_notification() -> tuple[Any, int]:
         return jsonify({"status": "ok"}), 200
     except Exception as exc:
         logger.warning("Email send failed: %s", exc)
-        return jsonify({"status": "error", "error": str(exc)[:200]}), 502
+        return error_response(str(exc)[:200], 502)
 
 
 @bp.route("/notifications/desktop", methods=["POST"])
@@ -166,7 +169,7 @@ def send_desktop_notification() -> tuple[Any, int]:
         return jsonify({"status": "ok"}), 200
     except Exception as exc:
         logger.warning("Desktop notification failed: %s", exc)
-        return jsonify({"status": "error", "error": str(exc)[:200]}), 502
+        return error_response(str(exc)[:200], 502)
 
 
 @bp.route("/notifications/dispatchers")
@@ -189,7 +192,7 @@ def register_dispatcher() -> tuple[Any, int]:
     url = data.get("url", "")
 
     if not name:
-        return jsonify({"error": "name is required", "status": 400}), 400
+        return error_response("name is required", 400)
 
     channel = {
         "name": name,
@@ -201,7 +204,7 @@ def register_dispatcher() -> tuple[Any, int]:
     try:
         _validate_channel(channel)
     except ValueError as exc:
-        return jsonify({"error": "invalid_input", "message": str(exc), "status": 400}), 400
+        return error_response("invalid_input", 400)
     runtime.register_channel(channel)
     logger.info("Registered notification dispatcher: %s (kind=%s)", name, kind)
     return jsonify({"status": "ok", "dispatcher": _public_channel(channel)}), 201
@@ -213,14 +216,14 @@ def update_dispatcher(name: str) -> tuple[Any, int]:
     data = request.get_json(silent=True) or {}
     existing = next((item for item in runtime.list_channels() if item.get("name") == name), None)
     if existing is None:
-        return jsonify({"error": f"Dispatcher not found: {name}", "status": 404}), 404
+        return error_response(f"Dispatcher not found: {name}", 404)
     try:
         _validate_channel({**existing, **data})
     except ValueError as exc:
-        return jsonify({"error": "invalid_input", "message": str(exc), "status": 400}), 400
+        return error_response("invalid_input", 400)
     channel = runtime.update_channel(name, data)
     if channel is None:
-        return jsonify({"error": f"Dispatcher not found: {name}", "status": 404}), 404
+        return error_response(f"Dispatcher not found: {name}", 404)
     logger.info("Updated notification dispatcher: %s", name)
     return jsonify({"status": "ok", "dispatcher": _public_channel(channel)}), 200
 

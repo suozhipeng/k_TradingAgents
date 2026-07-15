@@ -21,7 +21,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any
 
-from flask import Blueprint, Response, current_app, jsonify, request
+from flask import Blueprint, Response, current_app, request
 
 from tradingagents.astock.alert.alert_store import (
     AlertEvent,
@@ -30,6 +30,7 @@ from tradingagents.astock.alert.alert_store import (
     TriggerDirection,
     TriggerType,
 )
+from .envelope import error_response, success_response
 from ._helpers import _as_bool
 
 bp = Blueprint("alerts", __name__)
@@ -74,15 +75,13 @@ def list_alerts() -> tuple[Response, int]:
         else:
             events = store.get_open_alerts(limit=limit)
 
-        return jsonify(
-            {
-                "alerts": [asdict_safe(e) for e in events],
-                "total": len(events),
-                "status": "ok",
-            }
-        ), 200
+        return success_response({
+            "alerts": [asdict_safe(e) for e in events],
+            "total": len(events),
+            "status": "ok",
+        })
     except Exception as exc:
-        return jsonify({"error": str(exc), "status": 500, "alerts": [], "total": 0}), 500
+        return error_response(str(exc), 500)
 
 
 # ---------------------------------------------------------------------------
@@ -106,13 +105,13 @@ def create_alert() -> tuple[Response, int]:
     try:
         body: dict[str, Any] = request.get_json(force=True, silent=True) or {}
         if not body.get("symbol"):
-            return jsonify({"error": "symbol is required", "status": 400}), 400
+            return error_response("symbol is required", 400)
         trigger_type = body.get("trigger_type", TriggerType.STRATEGY.value)
         if trigger_type not in {t.value for t in TriggerType}:
-            return jsonify({"error": f"invalid trigger_type: {trigger_type}", "status": 400}), 400
+            return error_response(f"invalid trigger_type: {trigger_type}", 400)
         severity = body.get("severity", "info")
         if severity not in ("info", "warn", "critical"):
-            return jsonify({"error": f"invalid severity: {severity}", "status": 400}), 400
+            return error_response(f"invalid severity: {severity}", 400)
         from tradingagents.astock.alert.alert_store import AlertEvent
 
         event = AlertEvent(
@@ -127,9 +126,9 @@ def create_alert() -> tuple[Response, int]:
         )
         store = _alert_store()
         created = store.create_event(event)
-        return jsonify({"alert": asdict_safe(created), "status": "created"}), 201
+        return created_response(asdict_safe(created))
     except Exception as exc:
-        return jsonify({"error": str(exc), "status": 500}), 500
+        return error_response(str(exc), 500)
 
 
 # ---------------------------------------------------------------------------
@@ -142,15 +141,13 @@ def list_rules() -> tuple[Response, int]:
         enabled_only = request.args.get("enabled", "").lower() in ("1", "true", "yes")
         store = _alert_store()
         rules = store.list_rules(enabled_only=enabled_only)
-        return jsonify(
-            {
-                "rules": [asdict_safe(r) for r in rules],
-                "total": len(rules),
-                "status": "ok",
-            }
-        ), 200
+        return success_response({
+            "rules": [asdict_safe(r) for r in rules],
+            "total": len(rules),
+            "status": "ok",
+        })
     except Exception as exc:
-        return jsonify({"error": str(exc), "status": 500, "rules": [], "total": 0}), 500
+        return error_response(str(exc), 500)
 
 
 # ---------------------------------------------------------------------------
@@ -176,25 +173,25 @@ def create_rule() -> tuple[Response, int]:
     try:
         body: dict[str, Any] = request.get_json(force=True, silent=True) or {}
         if not body.get("symbol"):
-            return jsonify({"error": "symbol is required", "status": 400}), 400
+            return error_response("symbol is required", 400)
         if "threshold" not in body:
-            return jsonify({"error": "threshold is required", "status": 400}), 400
+            return error_response("threshold is required", 400)
 
         # Validate trigger_type
         trigger_type = str(body.get("trigger_type", TriggerType.PRICE.value)).strip().lower()
         valid_types = {t.value for t in TriggerType}
         if trigger_type not in valid_types:
-            return jsonify({"error": f"invalid trigger_type, must be one of {valid_types}", "status": 400}), 400
+            return error_response(f"invalid trigger_type, must be one of {valid_types}", 400)
 
         direction = str(body.get("direction", TriggerDirection.ABOVE.value)).strip().lower()
         valid_dirs = {d.value for d in TriggerDirection}
         if direction not in valid_dirs:
-            return jsonify({"error": f"invalid direction, must be one of {valid_dirs}", "status": 400}), 400
+            return error_response(f"invalid direction, must be one of {valid_dirs}", 400)
 
         severity = str(body.get("severity", "warn")).strip().lower()
         valid_sev = {"info", "warn", "critical"}
         if severity not in valid_sev:
-            return jsonify({"error": f"invalid severity, must be one of {valid_sev}", "status": 400}), 400
+            return error_response(f"invalid severity, must be one of {valid_sev}", 400)
 
         rule = AlertRule(
             symbol=body["symbol"],
@@ -207,9 +204,9 @@ def create_rule() -> tuple[Response, int]:
         )
         store = _alert_store()
         created = store.create_rule(rule)
-        return jsonify({"rule": asdict_safe(created), "status": "created"}), 201
+        return created_response(asdict_safe(created))
     except Exception as exc:
-        return jsonify({"error": str(exc), "status": 500}), 500
+        return error_response(str(exc), 500)
 
 
 # ---------------------------------------------------------------------------
@@ -226,15 +223,15 @@ def update_rule(rule_id: str) -> tuple[Response, int]:
         updates = {k: v for k, v in body.items() if k in allowed}
 
         if not updates:
-            return jsonify({"error": "no valid fields to update", "status": 400}), 400
+            return error_response("no valid fields to update", 400)
 
         store = _alert_store()
         updated = store.update_rule(rule_id, updates)
         if updated is None:
-            return jsonify({"error": "rule not found", "status": 404}), 404
-        return jsonify({"rule": asdict_safe(updated), "status": "updated"}), 200
+            return error_response("rule not found", 404)
+        return success_response(asdict_safe(updated))
     except Exception as exc:
-        return jsonify({"error": str(exc), "status": 500}), 500
+        return error_response(str(exc), 500)
 
 
 # ---------------------------------------------------------------------------
@@ -249,10 +246,10 @@ def delete_rule(rule_id: str) -> tuple[Response, int]:
         store = _alert_store()
         ok = store.delete_rule(rule_id)
         if not ok:
-            return jsonify({"error": "rule not found", "status": 404}), 404
-        return jsonify({"status": "deleted"}), 200
+            return error_response("rule not found", 404)
+        return deleted_response()
     except Exception as exc:
-        return jsonify({"error": str(exc), "status": 500}), 500
+        return error_response(str(exc), 500)
 
 
 # ---------------------------------------------------------------------------
@@ -267,10 +264,10 @@ def acknowledge_alert(alert_id: str) -> tuple[Response, int]:
         store = _alert_store()
         event = store.acknowledge(alert_id)
         if event is None:
-            return jsonify({"error": "alert not found", "status": 404}), 404
-        return jsonify({"alert": asdict_safe(event), "status": "acknowledged"}), 200
+            return error_response("alert not found", 404)
+        return success_response(asdict_safe(event))
     except Exception as exc:
-        return jsonify({"error": str(exc), "status": 500}), 500
+        return error_response(str(exc), 500)
 
 
 # ---------------------------------------------------------------------------
@@ -295,15 +292,12 @@ def check_alerts() -> tuple[Response, int]:
         facade = current_app.config.get("DATA_FACADE")
         if not facade:
             # No facade — cannot check price-based rules; return gracefully
-            return jsonify(
-                {
-                    "checked": len(rules),
-                    "triggered": 0,
-                    "alerts": [],
-                    "message": "no data facade available — cannot check price/volume rules",
-                    "status": "ok",
-                }
-            ), 200
+            return success_response({
+                "checked": len(rules),
+                "triggered": 0,
+                "alerts": [],
+                "message": "no data facade available — cannot check price/volume rules",
+            })
 
         for rule in rules:
             try:
@@ -314,16 +308,14 @@ def check_alerts() -> tuple[Response, int]:
             except Exception as exc:
                 logger.debug("Failed to evaluate rule %s: %s", rule.rule_id, exc)
 
-        return jsonify(
-            {
-                "checked": len(rules),
-                "triggered": len(triggered),
-                "alerts": triggered,
-                "status": "ok",
-            }
-        ), 200
+        return success_response({
+            "checked": len(rules),
+            "triggered": len(triggered),
+            "alerts": triggered,
+            "status": "ok",
+        })
     except Exception as exc:
-        return jsonify({"error": str(exc), "checked": 0, "triggered": 0, "status": 500}), 500
+        return error_response(str(exc), 500)
 
 
 # ---------------------------------------------------------------------------

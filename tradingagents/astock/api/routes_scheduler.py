@@ -12,6 +12,7 @@ import logging
 from typing import Any
 
 from flask import Blueprint, Response, jsonify, request
+from .envelope import error_response
 
 bp = Blueprint("scheduler", __name__)
 logger = logging.getLogger(__name__)
@@ -38,7 +39,7 @@ def scheduler_status() -> tuple[Response, int]:
 def scheduler_start() -> tuple[Response, int]:
     sched = _get_sched()
     if sched is None:
-        return jsonify({"error": "scheduler not configured", "status": 500}), 500
+        return error_response("scheduler not configured", 500)
     sched.start()
     return jsonify({"status": "started", "running": sched.running}), 200
 
@@ -47,7 +48,7 @@ def scheduler_start() -> tuple[Response, int]:
 def scheduler_stop() -> tuple[Response, int]:
     sched = _get_sched()
     if sched is None:
-        return jsonify({"error": "scheduler not configured", "status": 500}), 500
+        return error_response("scheduler not configured", 500)
     sched.stop()
     return jsonify({"status": "stopped", "running": sched.running}), 200
 
@@ -56,7 +57,7 @@ def scheduler_stop() -> tuple[Response, int]:
 def scheduler_pause() -> tuple[Response, int]:
     sched = _get_sched()
     if sched is None:
-        return jsonify({"error": "scheduler not configured", "status": 500}), 500
+        return error_response("scheduler not configured", 500)
     sched.pause()
     return jsonify({"status": "paused", "paused": sched.paused}), 200
 
@@ -65,7 +66,7 @@ def scheduler_pause() -> tuple[Response, int]:
 def scheduler_resume() -> tuple[Response, int]:
     sched = _get_sched()
     if sched is None:
-        return jsonify({"error": "scheduler not configured", "status": 500}), 500
+        return error_response("scheduler not configured", 500)
     sched.resume()
     return jsonify({"status": "resumed", "paused": sched.paused}), 200
 
@@ -74,7 +75,7 @@ def scheduler_resume() -> tuple[Response, int]:
 def list_scheduler_jobs() -> tuple[Response, int]:
     sched = _get_sched()
     if sched is None:
-        return jsonify({"error": "scheduler not configured", "status": 500}), 500
+        return error_response("scheduler not configured", 500)
     return jsonify({"jobs": sched.list_jobs()}), 200
 
 
@@ -82,7 +83,7 @@ def list_scheduler_jobs() -> tuple[Response, int]:
 def add_scheduler_job() -> tuple[Response, int]:
     sched = _get_sched()
     if sched is None:
-        return jsonify({"error": "scheduler not configured", "status": 500}), 500
+        return error_response("scheduler not configured", 500)
     data = request.get_json(silent=True) or {}
     job_id = data.get("job_id", "")
     job_type = data.get("job_type", "cron")
@@ -90,7 +91,7 @@ def add_scheduler_job() -> tuple[Response, int]:
     trigger_args = data.get("trigger_args", {})
     enabled = data.get("enabled", True)
     if not job_id:
-        return jsonify({"error": "job_id is required", "status": 400}), 400
+        return error_response("job_id is required", 400)
     try:
         if job_type == "interval":
             minutes = trigger_args.get("minutes", 5)
@@ -103,17 +104,17 @@ def add_scheduler_job() -> tuple[Response, int]:
         return jsonify({"status": "ok", "job_id": job_id}), 201
     except Exception as exc:
         logger.warning("Failed to add scheduler job: %s", exc)
-        return jsonify({"error": str(exc), "status": 500}), 500
+        return error_response(str(exc), 500)
 
 
 @bp.route("/sse/scheduler/jobs/<job_id>", methods=["DELETE"])
 def remove_scheduler_job(job_id: str) -> tuple[Response, int]:
     sched = _get_sched()
     if sched is None:
-        return jsonify({"error": "scheduler not configured", "status": 500}), 500
+        return error_response("scheduler not configured", 500)
     removed = sched.remove_job(job_id)
     if not removed:
-        return jsonify({"error": f"Job not found: {job_id}", "status": 404}), 404
+        return error_response(f"Job not found: {job_id}", 404)
     return jsonify({"status": "removed", "job_id": job_id}), 200
 
 
@@ -121,10 +122,10 @@ def remove_scheduler_job(job_id: str) -> tuple[Response, int]:
 def toggle_scheduler_job(job_id: str) -> tuple[Response, int]:
     sched = _get_sched()
     if sched is None:
-        return jsonify({"error": "scheduler not configured", "status": 500}), 500
+        return error_response("scheduler not configured", 500)
     data = request.get_json(silent=True) or {}
     enabled = data.get("enabled", True)
     toggled = sched.toggle_job(job_id, enabled)
     if not toggled:
-        return jsonify({"error": f"Job not found: {job_id}", "status": 404}), 404
+        return error_response(f"Job not found: {job_id}", 404)
     return jsonify({"status": "ok", "job_id": job_id, "enabled": enabled}), 200

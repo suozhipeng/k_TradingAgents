@@ -176,7 +176,10 @@
 
 ## 标准响应 envelope
 
-> ⚠️ 以下为 **设计目标**。当前代码实际采用 **扁平 JSON** 响应，错误格式为 `{error: str, status: int}`。信封格式 `{success, data, error, meta}` 是 Phase 30+ 目标，尚未实现。
+> 当前 `/api/v1` 正在采用兼容迁移：已迁移路由的成功响应包含
+> `ok: true` 和规范 `data`，同时保留原顶层业务字段；错误响应包含
+> `ok: false`、`error`、`message` 与 `status`。保留字段是 v1 兼容层，
+> 不得在未升版前删除。
 
 **设计目标响应信封（Phase 30+ 目标）：**
 
@@ -231,16 +234,19 @@
 
 ## 当前实际错误格式
 
-当前代码中所有错误响应使用扁平格式：
+已迁移路由使用：
 
 ```json
 {
-  "error": "具体错误信息",
+  "ok": false,
+  "error": "具体错误码或摘要",
+  "message": "面向调用方的错误说明",
   "status": 400
 }
 ```
 
-信封格式 `{success, data, error, meta}` 为 Phase 30+ 设计目标，尚未实现。
+未迁移路由仍可能仅返回原扁平字段。完整 `{success, data, error, meta}`
+属于后续版本目标，必须通过 API 升版而不是移除 v1 兼容字段来实现。
 
 ## API 能力矩阵
 
@@ -372,7 +378,7 @@ Phase 30 约束：
 |--------|------|------|
 | API 总原则（能力等级/标注/响应结构）| ✅ 完成 | §1 定义 4 级能力 + mock 语义 + 稳定性要求 |
 | Phase 30 能力边界定义 | ✅ 完成 | §1.1 research/paper/managed/live-ready 四层定义 + 当前实际落点 |
-| 标准响应 envelope | ✅ 完成 | §2 success/data/error/meta 完整结构 + 错误响应格式 |
+| 标准响应 envelope | 🟡 v1 兼容迁移中 | 已迁移路由返回 ok/data 或 ok/error/message/status；完整 v2 schema 尚未启用 |
 | 错误码分类 | ✅ 完成 | §3 7 类（validation/data/research/backtest/risk/execution/system）+ 处理要求 |
 | API 能力矩阵 | ✅ 完成 | §4 8 模块 × 能力等级 × 生产级要求 |
 | 实际 endpoint 能力等级 | ✅ 完成 | §4.1 11 个关键 endpoint 显式标注 |

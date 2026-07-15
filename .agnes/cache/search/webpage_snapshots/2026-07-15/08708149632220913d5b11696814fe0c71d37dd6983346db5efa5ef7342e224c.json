@@ -1,0 +1,26 @@
+{
+  "kind": "webpage_snapshot",
+  "url": "https://docs.pydantic.dev/latest/",
+  "final_url": "https://pydantic.dev/docs/validation/latest/get-started/",
+  "status": 200,
+  "read_status": "ok",
+  "content_type": "text/html; charset=utf-8",
+  "fetched_at": "2026-07-15T07:57:42.688089+00:00",
+  "title": "Welcome to Pydantic | Pydantic Docs",
+  "description": "",
+  "site_name": "Pydantic Docs",
+  "published_at": null,
+  "source_type": "unknown",
+  "text": "Welcome to Pydantic Documentation for version: v2.13.4. Pydantic is the most widely used data validation library for Python. Fast and extensible, Pydantic plays nicely with your linters/IDE/brain. Define how data should be in pure, canonical Python 3.9+; validate it with Pydantic. Sign up for our newsletter, The Pydantic Stack , with updates & tutorials on Pydantic, Logfire, and Pydantic AI: Subscribe Why use Pydantic? Powered by type hints — with Pydantic, schema validation and serialization ar\n[truncated]",
+  "quote_candidates": [
+    "Welcome to Pydantic Documentation for version: v2.",
+    "Pydantic is the most widely used data validation library for Python.",
+    "Fast and extensible, Pydantic plays nicely with your linters/IDE/brain.",
+    "Define how data should be in pure, canonical Python 3.",
+    "Sign up for our newsletter, The Pydantic Stack , with updates & tutorials on Pydantic, Logfire, and Pydantic AI: Subscribe Why use Pydantic?"
+  ],
+  "word_count": 77,
+  "truncated": true,
+  "blocked": false,
+  "source": "direct_http"
+}

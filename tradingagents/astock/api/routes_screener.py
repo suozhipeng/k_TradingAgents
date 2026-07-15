@@ -12,6 +12,7 @@ from typing import Any
 
 import numpy as np
 from flask import Blueprint, Response, current_app, jsonify, request
+from .envelope import error_response
 
 from ._helpers import _as_bool, get_store, mock_data_enabled
 logger = logging.getLogger(__name__)
@@ -285,4 +286,4 @@ def screener() -> tuple[Response, int]:
         }), 200
 
     except Exception as exc:
-        return jsonify({"error": str(exc), "status": 500}), 500
+        return error_response(str(exc), 500)

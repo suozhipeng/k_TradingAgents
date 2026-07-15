@@ -162,6 +162,44 @@ def test_health_endpoint(app):
     assert data["version"] == "0.3.0"
 
 
+def test_response_envelope_preserves_v1_payload_fields(app):
+    """Migrated routes expose canonical data without removing v1 fields."""
+    response = app.get("/api/v1/backtest/results")
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["ok"] is True
+    assert payload["data"]["results"] == payload["results"]
+
+
+def test_notification_failures_return_the_shared_error_envelope(app, monkeypatch):
+    """Exception paths must return a response instead of falling through."""
+    from tradingagents.astock.api import routes_notifications
+
+    def fail_webhook(*_args, **_kwargs):
+        raise RuntimeError("webhook unavailable")
+
+    monkeypatch.setattr(routes_notifications, "safe_http_request", fail_webhook)
+    response = app.post("/api/v1/notifications/test-webhook", json={"url": "https://example.com/hook"})
+    assert response.status_code == 502
+    payload = response.get_json()
+    assert payload["ok"] is False
+    assert payload["error"] == "internal_server_error"
+
+
+def test_notification_invalid_smtp_port_returns_400(app):
+    response = app.post(
+        "/api/v1/notifications/email",
+        json={
+            "smtp_user": "sender@example.com",
+            "smtp_pass": "secret",
+            "to_address": "recipient@example.com",
+            "smtp_port": 0,
+        },
+    )
+    assert response.status_code == 400
+    assert response.get_json()["error"] == "smtp_port must be an integer between 1 and 65535"
+
+
 # ---------------------------------------------------------------------------
 # Test: data query endpoints
 # ---------------------------------------------------------------------------

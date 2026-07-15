@@ -1,0 +1,26 @@
+{
+  "kind": "webpage_snapshot",
+  "url": "https://docs.pydantic.dev/latest/",
+  "final_url": "https://pydantic.dev/docs/validation/latest/get-started/",
+  "status": 200,
+  "read_status": "ok",
+  "content_type": "text/html; charset=utf-8",
+  "fetched_at": "2026-07-15T07:53:30.010045+00:00",
+  "title": "Welcome to Pydantic | Pydantic Docs",
+  "description": "",
+  "site_name": "Pydantic Docs",
+  "published_at": null,
+  "source_type": "unknown",
+  "text": "Welcome to Pydantic Documentation for version: v2.13.4. Pydantic is the most widely used data validation library for Python. Fast and extensible, Pydantic plays nicely with your linters/IDE/brain. Define how data should be in pure, canonical Python 3.9+; validate it with Pydantic. Sign up for our newsletter, The Pydantic Stack , with updates & tutorials on Pydantic, Logfire, and Pydantic AI: Subscribe Why use Pydantic? Powered by type hints — with Pydantic, schema validation and serialization are controlled by type annotations; less to learn, less code to write, and integration with your IDE and static analysis tools. Learn more… Speed — Pydantic’s core validation logic is written in Rust. As a result, Pydantic is among the fastest data validation libraries for Python. Learn more… JSON Schema — Pydantic models can emit JSON Schema, allowing for easy integration with other tools. Learn more… Strict and Lax mode — Pydantic can run in either strict mode (where data is not converted) or lax mode where Pydantic tries to coerce data to the correct type where appropriate. Learn more… Dataclasses , TypedDicts and more — Pydantic supports validation of many standard library types including dataclass and TypedDict . Learn more… Customisation — Pydantic allows custom validators and serializers to alter how data is processed in many powerful ways. Learn more… Ecosystem — around 8,000 packages on PyPI use Pydantic, including massively popular libraries like FastAPI , huggingface , Django Ninja , SQLModel , & LangChain . Learn more… Battle tested — Pydantic is downloaded over 550M times/month and is used by all FAANG companies and 20 of the 25 largest companies on NASDAQ. If you’re trying to do something with Pydantic, someone else has probably already done it. Learn more… Installing Pydantic is as simple as: pip install pydantic Pydantic examples To see Pydantic at work, let’s start with a simple example, creating a custom class that inherits from BaseModel : Validation Successf\n[truncated]",
+  "quote_candidates": [
+    "Welcome to Pydantic Documentation for version: v2.",
+    "Pydantic is the most widely used data validation library for Python.",
+    "Fast and extensible, Pydantic plays nicely with your linters/IDE/brain.",
+    "Define how data should be in pure, canonical Python 3.",
+    "Sign up for our newsletter, The Pydantic Stack , with updates & tutorials on Pydantic, Logfire, and Pydantic AI: Subscribe Why use Pydantic?"
+  ],
+  "word_count": 320,
+  "truncated": true,
+  "blocked": false,
+  "source": "direct_http"
+}

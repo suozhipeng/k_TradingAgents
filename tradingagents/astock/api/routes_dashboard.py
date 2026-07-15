@@ -18,6 +18,7 @@ from decimal import Decimal
 from typing import Any
 
 from flask import Blueprint, Response, current_app, jsonify
+from .envelope import error_response
 
 from ._analysis_engine import load_watchlist, analyze_stock_symbol
 from ._helpers import get_store
@@ -212,7 +213,7 @@ def dashboard_overview() -> tuple[Response, int]:
             "decision_summary": decision_summary,
         }), 200
     except Exception as exc:
-        return jsonify({"error": str(exc), "status": 500}), 500
+        return error_response(str(exc), 500)
 
 
 def _compute_paper_equity_curve(store: Any) -> list[dict]:

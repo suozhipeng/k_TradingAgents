@@ -11,6 +11,7 @@ from datetime import date as date_type
 from typing import Any
 
 from flask import Blueprint, Response, jsonify, request
+from .envelope import error_response
 
 from tradingagents.astock.data_sources.calendar import trading_days_between
 from tradingagents.astock.data_sources.eastmoney import (
@@ -58,7 +59,7 @@ def market_quote() -> tuple[Response, int]:
     # Use the same quote-fetching function from routes_trade
     symbol = request.args.get("symbol", "").strip()
     if not symbol:
-        return jsonify({"error": "symbol is required", "status": 400}), 400
+        return error_response("symbol is required", 400)
     cached = routes_trade._load_cached_quote(symbol)
     if cached:
         ts = cached.get("cached_at")
@@ -188,11 +189,11 @@ def stock_blocks() -> tuple[Response, int]:
     from datetime import datetime as _dt
     symbol = request.args.get("symbol", "")
     if not symbol:
-        return jsonify({"error": "symbol is required", "status": 400}), 400
+        return error_response("symbol is required", 400)
     try:
         limit = bounded_int_arg("limit", 10, minimum=1, maximum=100)
     except ValueError as exc:
-        return jsonify({"error": str(exc), "status": 400}), 400
+        return error_response(str(exc), 400)
     if mock_data_enabled() or _as_bool(request.args.get("mock"), False):
         data = mock_stock_blocks(symbol)
         data["items"] = data["items"][:limit]
@@ -226,7 +227,7 @@ def leading_pool() -> tuple[Response, int]:
         summary["trade_date"] = resolve_trade_date()[0]
         return jsonify(summary), 200
     except Exception as exc:
-        return jsonify({"error": str(exc), "status": 500}), 500
+        return error_response(str(exc), 500)
 
 
 @bp.route("/market/leading-pool/refresh", methods=["POST"])
@@ -239,7 +240,7 @@ def refresh_leading_pool_endpoint() -> tuple[Response, int]:
         return jsonify(summary), 200
     except Exception as exc:
         logger.warning("Failed to refresh leading pool: %s", exc)
-        return jsonify({"error": "leading_pool_refresh_failed", "status": 503}), 503
+        return error_response("leading_pool_refresh_failed", 503)
 
 
 @bp.route("/market/momentum-rotation", methods=["POST"])
@@ -282,7 +283,7 @@ def momentum_rotation() -> tuple[Response, int]:
             }
         ), 200
     except Exception as exc:
-        return jsonify({"error": str(exc), "status": 500}), 500
+        return error_response(str(exc), 500)
 
 
 @bp.route("/market/momentum", methods=["GET"])
@@ -393,10 +394,10 @@ def get_calendar() -> tuple[Response, int]:
         start = date_type.fromisoformat(raw_start) if raw_start else date_type.today()
         end = date_type.fromisoformat(raw_end) if raw_end else start
     except (ValueError, TypeError):
-        return jsonify({"error": "invalid date format, use YYYY-MM-DD", "status": 400}), 400
+        return error_response("invalid date format, use YYYY-MM-DD", 400)
 
     if end < start:
-        return jsonify({"error": "end must be >= start", "status": 400}), 400
+        return error_response("end must be >= start", 400)
 
     days = trading_days_between(start, end)
     return jsonify(

@@ -14,6 +14,7 @@ import logging
 from typing import Any
 
 from flask import Blueprint, Response, jsonify
+from .envelope import error_response
 
 from ._paper_service import get_paper_trader
 logger = logging.getLogger(__name__)
@@ -61,7 +62,7 @@ def portfolio_risk() -> tuple[Response, int]:
         risk = calculate_risk_exposure(positions, cash)
         return jsonify(risk), 200
     except Exception as exc:
-        return jsonify({"error": str(exc), "status": 500}), 500
+        return error_response(str(exc), 500)
 
 
 # ---------------------------------------------------------------------------
@@ -80,7 +81,7 @@ def portfolio_attribution() -> tuple[Response, int]:
         attribution = calculate_attribution(positions)
         return jsonify(attribution), 200
     except Exception as exc:
-        return jsonify({"error": str(exc), "status": 500}), 500
+        return error_response(str(exc), 500)
 
 
 __all__ = ["bp"]

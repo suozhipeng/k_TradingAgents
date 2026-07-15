@@ -18,6 +18,8 @@ from typing import Any
 
 from flask import Blueprint, Response, current_app, jsonify, request
 
+from .envelope import error_response, success_response
+
 from ._backtest_helpers import (
     build_equity_curve,
     build_period_returns,
@@ -89,25 +91,20 @@ def run_backtest() -> tuple[Response, int]:
     use_mock = mock_data_enabled() or _as_bool(data.get("mock_data"), False)
 
     if not symbol:
-        return jsonify({"error": "symbol is required", "status": 400}), 400
+        return error_response("symbol is required", 400)
     if not strategy_name:
-        return jsonify({"error": "strategy is required", "status": 400}), 400
+        return error_response("strategy is required", 400)
 
     registry = get_strategy_registry()
     if strategy_name not in registry:
-        return jsonify(
-            {
-                "error": f"Unknown strategy '{strategy_name}'. Available: {list(registry)}",
-                "status": 400,
-            }
-        ), 400
+        return error_response(f"Unknown strategy '{strategy_name}'. Available: {list(registry)}", 400)
     if not start_date or not end_date:
-        return jsonify({"error": "start and end dates are required", "status": 400}), 400
+        return error_response("start and end dates are required", 400)
 
     try:
         validate_date_range("start date", start_date, "end date", end_date)
     except ValueError as exc:
-        return jsonify({"error": str(exc), "status": 400}), 400
+        return error_response(str(exc), 400)
 
     try:
         strategy_cls = registry[strategy_name]
@@ -167,9 +164,9 @@ def run_backtest() -> tuple[Response, int]:
             "beta": result.beta,
             "cost_breakdown": result.cost_breakdown,
         }
-        return jsonify(payload), 200
+        return success_response(payload)
     except Exception as exc:
-        return jsonify({"error": str(exc), "status": 500}), 500
+        return error_response(str(exc), 500)
 
 
 # ---------------------------------------------------------------------------
@@ -182,9 +179,9 @@ def clear_backtest_results() -> tuple[Response, int]:
     """Delete all stored backtest results."""
     try:
         deleted = get_store().clear_backtest_results()
-        return jsonify({"status": "ok", "deleted": deleted}), 200
+        return success_response({"deleted": deleted})
     except Exception as exc:
-        return jsonify({"error": str(exc), "status": 500}), 500
+        return error_response(str(exc), 500)
 
 
 # ---------------------------------------------------------------------------
@@ -197,9 +194,9 @@ def delete_backtest_result(run_id: str) -> tuple[Response, int]:
     """Delete a single backtest result by run_id."""
     try:
         deleted = get_store().delete_backtest_result(run_id)
-        return jsonify({"status": "ok", "deleted": deleted}), 200
+        return success_response({"deleted": deleted})
     except Exception as exc:
-        return jsonify({"error": str(exc), "status": 500}), 500
+        return error_response(str(exc), 500)
 
 
 # ---------------------------------------------------------------------------
@@ -239,9 +236,9 @@ def get_backtest_results() -> tuple[Response, int]:
             periods = params.get("periods") if isinstance(params, dict) else None
             if isinstance(periods, list):
                 row["equity_curve"] = build_equity_curve(periods)
-        return jsonify({"results": rows, "total": total, "limit": limit, "offset": offset}), 200
+        return success_response({"results": rows, "total": total, "limit": limit, "offset": offset})
     except Exception as exc:
-        return jsonify({"error": str(exc), "status": 500}), 500
+        return error_response(str(exc), 500)
 
 
 # Alias: GET /api/v1/backtest/history → same handler as /backtest/results
@@ -270,30 +267,25 @@ def compare_backtests() -> tuple[Response, int]:
     use_mock = mock_data_enabled() or _as_bool(request.args.get("mock_data"), False)
 
     if not strategies_param:
-        return jsonify({"error": "strategies is required (comma-separated)", "status": 400}), 400
+        return error_response("strategies is required (comma-separated)", 400)
     if not symbol:
-        return jsonify({"error": "symbol is required", "status": 400}), 400
+        return error_response("symbol is required", 400)
     if not start_date or not end_date:
-        return jsonify({"error": "start and end dates are required", "status": 400}), 400
+        return error_response("start and end dates are required", 400)
 
     try:
         validate_date_range("start date", start_date, "end date", end_date)
     except ValueError as exc:
-        return jsonify({"error": str(exc), "status": 400}), 400
+        return error_response(str(exc), 400)
 
     registry = get_strategy_registry()
     names = [s.strip() for s in strategies_param.split(",") if s.strip()]
     if not names:
-        return jsonify({"error": "No valid strategy names provided", "status": 400}), 400
+        return error_response("No valid strategy names provided", 400)
 
     unknown = [n for n in names if n not in registry]
     if unknown:
-        return jsonify(
-            {
-                "error": f"Unknown strategies: {unknown}. Available: {list(registry)}",
-                "status": 400,
-            }
-        ), 400
+        return error_response(f"Unknown strategies: {unknown}. Available: {list(registry)}", 400)
 
     try:
         engine = create_backtest_engine(use_mock_data=use_mock)
@@ -339,9 +331,9 @@ def compare_backtests() -> tuple[Response, int]:
         for r in results:
             sanitize_metrics(r)
 
-        return jsonify({"comparison": results}), 200
+        return success_response({"comparison": results})
     except Exception as exc:
-        return jsonify({"error": str(exc), "status": 500}), 500
+        return error_response(str(exc), 500)
 
 
 # ---------------------------------------------------------------------------
@@ -363,17 +355,17 @@ def walkforward():
         top_n = int(body.get("top_n", 1))
 
         if not symbol or not start_date or not end_date:
-            return jsonify({"error": "symbol, start_date, end_date required", "status": 400}), 400
+            return error_response("symbol, start_date, end_date required", 400)
 
         try:
             validate_date_range("start_date", start_date, "end_date", end_date)
         except ValueError as exc:
-            return jsonify({"error": str(exc), "status": 400}), 400
+            return error_response(str(exc), 400)
 
         registry = get_strategy_registry()
         strategy_cls = registry.get(strategy_name)
         if strategy_cls is None:
-            return jsonify({"error": f"Unknown strategy: {strategy_name}", "status": 400}), 400
+            return error_response(f"Unknown strategy: {strategy_name}", 400)
 
         engine = create_backtest_engine(
             use_mock_data=mock_data_enabled() or _as_bool(body.get("mock_data"), False)
@@ -405,12 +397,12 @@ def walkforward():
             })
 
         summary = wfa.summarize(results)
-        return jsonify({
+        return success_response({
             "windows": windows,
             "summary": summary,
-        }), 200
+        })
     except Exception as exc:
-        return jsonify({"error": str(exc), "status": 500}), 500
+        return error_response(str(exc), 500)
 
 
 # ---------------------------------------------------------------------------
@@ -432,24 +424,21 @@ def analyze_backtest() -> tuple[Response, int]:
     body = request.get_json(force=True, silent=True) or {}
     strategy_name = body.get("strategy", "")
     if not strategy_name:
-        return jsonify({"error": "strategy is required", "status": 400}), 400
+        return error_response("strategy is required", 400)
     symbol = body.get("symbol", "600519.SH")
     start_date = body.get("start_date", "")
     end_date = body.get("end_date", "")
     if not start_date or not end_date:
-        return jsonify({"error": "start_date and end_date are required", "status": 400}), 400
+        return error_response("start_date and end_date are required", 400)
 
     try:
         validate_date_range("start_date", start_date, "end_date", end_date)
     except ValueError as exc:
-        return jsonify({"error": str(exc), "status": 400}), 400
+        return error_response(str(exc), 400)
 
     registry = get_strategy_registry()
     if strategy_name not in registry:
-        return jsonify({
-            "error": f"Unknown strategy {strategy_name!r}. Available: {list(registry)}",
-            "status": 400,
-        }), 400
+        return error_response(f"Unknown strategy {strategy_name!r}. Available: {list(registry)}", 400)
 
     try:
         strategy = registry[strategy_name]()
@@ -476,9 +465,9 @@ def analyze_backtest() -> tuple[Response, int]:
             "returns": build_period_returns(periods),
             "trades": extract_signal_trades(periods),
         }
-        return jsonify(payload), 200
+        return success_response(payload)
     except Exception as exc:
-        return jsonify({"error": str(exc), "status": 500}), 500
+        return error_response(str(exc), 500)
 
 
 # ---------------------------------------------------------------------------
@@ -504,22 +493,19 @@ def optimize_strategy_api() -> tuple[Response, int]:
     body = request.get_json(force=True, silent=True) or {}
     strategy_name = body.get("strategy", "")
     if not strategy_name:
-        return jsonify({"error": "strategy is required", "status": 400}), 400
+        return error_response("strategy is required", 400)
     symbol = body.get("symbol", "600519.SH")
     start_date = body.get("start_date", "")
     end_date = body.get("end_date", "")
     use_mock = mock_data_enabled() or _as_bool(body.get("mock_data"), False)
     if not start_date or not end_date:
-        return jsonify({"error": "start_date and end_date are required", "status": 400}), 400
+        return error_response("start_date and end_date are required", 400)
     param_grid = body.get("param_grid")
     top_n = int(body.get("top_n", 5))
 
     registry = get_strategy_registry()
     if strategy_name not in registry:
-        return jsonify({
-            "error": f"Unknown strategy {strategy_name!r}. Available: {list(registry)}",
-            "status": 400,
-        }), 400
+        return error_response(f"Unknown strategy {strategy_name!r}. Available: {list(registry)}", 400)
 
     try:
         OptimizerCls = get_optimizer_cls()
@@ -548,6 +534,6 @@ def optimize_strategy_api() -> tuple[Response, int]:
                 "not yet split — requires sample-partition aware optimizer."
             ],
         )
-        return jsonify(result.model_dump()), 200
+        return success_response(result.model_dump())
     except Exception as exc:
-        return jsonify({"error": str(exc), "status": 500}), 500
+        return error_response(str(exc), 500)

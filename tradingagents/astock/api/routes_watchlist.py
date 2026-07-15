@@ -19,6 +19,8 @@ from typing import Any
 
 from flask import Blueprint, Response, jsonify, request
 
+from .envelope import error_response, success_response
+
 from ._analysis_engine import analyze_stock_symbol, load_watchlist
 
 logger = logging.getLogger(__name__)
@@ -145,14 +147,14 @@ def add_symbol() -> WatchlistResponse:
     name = (data.get("name") or "").strip()
 
     if not symbol:
-        return jsonify({"error": "symbol is required", "status": 400}), 400
+        return error_response("symbol is required", 400)
 
     items = _load()
 
     # Check duplicates
     existing = {it.get("symbol", "").upper() for it in items if it.get("symbol")}
     if symbol in existing:
-        return jsonify({"error": f"Symbol {symbol} already in watchlist", "status": 409}), 409
+        return error_response(f"Symbol {symbol} already in watchlist", 409)
 
     entry = {
         "symbol": symbol,
@@ -179,7 +181,7 @@ def remove_symbol() -> WatchlistResponse:
     symbol = (data.get("symbol") or "").strip().upper()
 
     if not symbol:
-        return jsonify({"error": "symbol is required", "status": 400}), 400
+        return error_response("symbol is required", 400)
 
     items = _load()
     before = len(items)
@@ -187,7 +189,7 @@ def remove_symbol() -> WatchlistResponse:
     removed = before - len(items)
 
     if removed == 0:
-        return jsonify({"error": f"Symbol {symbol} not found in watchlist", "status": 404}), 404
+        return error_response(f"Symbol {symbol} not found in watchlist", 404)
 
     _save(items)
     logger.info("Watchlist remove: %s", symbol)
@@ -208,14 +210,14 @@ def batch_analyze() -> WatchlistResponse:
     """
     items = _load()
     if not items:
-        return jsonify({"error": "Watchlist is empty", "status": 400}), 400
+        return error_response("Watchlist is empty", 400)
 
     symbols = [it["symbol"] for it in items if it.get("symbol")]
     from flask import current_app
 
     store = current_app.config.get("STORE")
     if not store:
-        return jsonify({"error": "Store not available", "status": 503}), 503
+        return error_response("Store not available", 503)
 
     results: list[dict[str, Any]] = []
     errors: list[dict[str, Any]] = []

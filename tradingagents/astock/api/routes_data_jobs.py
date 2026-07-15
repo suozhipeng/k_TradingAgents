@@ -13,6 +13,7 @@ from typing import Any
 
 from flask import Blueprint, Response, current_app, jsonify, request
 from ._helpers import _as_bool, get_store
+from .envelope import error_response
 
 bp = Blueprint("data_jobs", __name__)
 logger = logging.getLogger(__name__)
@@ -102,7 +103,7 @@ def list_data_jobs() -> tuple[Response, int]:
 def get_data_job(job_id: str) -> tuple[Response, int]:
     job = _jobs().get(job_id)
     if job is None:
-        return jsonify({"error": "job not found", "status": 404}), 404
+        return error_response("job not found", 404)
     return jsonify({"job": job.to_dict()}), 200
 
 
@@ -111,48 +112,47 @@ def create_refresh_job() -> tuple[Response, int]:
     body = request.get_json(force=True, silent=True) or {}
     symbols = _known_symbols_or_payload(body)
     if not symbols:
-        return jsonify({
-            "error": "symbols are required when the local database has no known symbols",
-            "status": 400,
-        }), 400
+        return error_response(
+            "symbols are required when the local database has no known symbols", 400
+        )
     intervals = body.get("intervals")
     if intervals is None:
         intervals = [body.get("interval", "1d")]
     intervals = [str(item) for item in _as_list(intervals) if item]
     if not intervals:
-        return jsonify({"error": "at least one interval is required", "status": 400}), 400
+        return error_response("at least one interval is required", 400)
     from tradingagents.astock.store.schema_defs import SUPPORTED_KLINE_INTERVALS
     invalid_intervals = sorted(set(intervals) - set(SUPPORTED_KLINE_INTERVALS))
     if invalid_intervals:
-        return jsonify({"error": f"unsupported intervals: {', '.join(invalid_intervals)}", "status": 400}), 400
+        return error_response(f"unsupported intervals: {', '.join(invalid_intervals)}", 400)
     mode = str(body.get("mode", "range")).lower()
     if mode not in {"incremental", "range"}:
-        return jsonify({"error": "mode must be incremental or range", "status": 400}), 400
+        return error_response("mode must be incremental or range", 400)
     if mode == "incremental" and body.get("start"):
-        return jsonify({"error": "start is server-derived in incremental mode", "status": 400}), 400
+        return error_response("start is server-derived in incremental mode", 400)
     start = body.get("start")
     end = body.get("end")
     if start and end and str(start) > str(end):
-        return jsonify({"error": "start must not be after end", "status": 400}), 400
+        return error_response("start must not be after end", 400)
     include_valuation = _as_bool(body.get("include_valuation"), False)
     try:
         max_concurrency = int(body.get("max_concurrency", os.getenv("ASTOCK_NETWORK_MAX_CONCURRENCY", "5")))
     except (TypeError, ValueError):
-        return jsonify({"error": "max_concurrency must be an integer", "status": 400}), 400
+        return error_response("max_concurrency must be an integer", 400)
     if not 1 <= max_concurrency <= 5:
-        return jsonify({"error": "max_concurrency must be between 1 and 5", "status": 400}), 400
+        return error_response("max_concurrency must be between 1 and 5", 400)
     try:
         timeout_seconds = float(body.get("timeout_seconds", os.getenv("ASTOCK_JOB_TIMEOUT_SECONDS", "300")))
     except (TypeError, ValueError):
-        return jsonify({"error": "timeout_seconds must be a number", "status": 400}), 400
+        return error_response("timeout_seconds must be a number", 400)
     if not 1 <= timeout_seconds <= 3600:
-        return jsonify({"error": "timeout_seconds must be between 1 and 3600", "status": 400}), 400
+        return error_response("timeout_seconds must be between 1 and 3600", 400)
     try:
         timeout_retries = int(body.get("timeout_retries", os.getenv("ASTOCK_KLINE_TIMEOUT_RETRIES", "3")))
     except (TypeError, ValueError):
-        return jsonify({"error": "timeout_retries must be an integer", "status": 400}), 400
+        return error_response("timeout_retries must be an integer", 400)
     if not 0 <= timeout_retries <= 3:
-        return jsonify({"error": "timeout_retries must be between 0 and 3", "status": 400}), 400
+        return error_response("timeout_retries must be between 0 and 3", 400)
     # Deduplicate at the API boundary: duplicate symbols/intervals must not
     # create repeated provider requests or duplicate DB writes.
     symbols = list(dict.fromkeys(symbols))
@@ -221,7 +221,7 @@ def create_refresh_job() -> tuple[Response, int]:
     try:
         job = _jobs().submit("refresh", run, total=total, message="queued refresh")
     except RuntimeError as exc:
-        return jsonify({"error": str(exc), "status": 429}), 429
+        return error_response(str(exc), 429)
     return jsonify({"job": job.to_dict()}), 202
 
 
@@ -232,10 +232,9 @@ def create_database_import_job() -> tuple[Response, int]:
     source_table = body.get("source_table")
     target_table = body.get("target_table") or source_table
     if not source_db_path or not source_table or not target_table:
-        return jsonify({
-            "error": "source_db_path, source_table and target_table are required",
-            "status": 400,
-        }), 400
+        return error_response(
+            "source_db_path, source_table and target_table are required", 400
+        )
     store = get_store()
 
     def run(update: Any) -> dict[str, Any]:

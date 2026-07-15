@@ -232,9 +232,15 @@ def _register_after_request(app: Flask) -> None:
         """Non-blocking audit for all POST/PUT/DELETE/PATCH operations."""
         if response.status_code >= 500 and response.status_code != 501:
             logger.error("API request failed: %s %s -> %s", request.method, request.path, response.status_code)
-            error_response = jsonify({"error": "internal_server_error", "status": response.status_code})
-            error_response.status_code = response.status_code
-            return error_response
+            # Keep the global safety boundary while using the same error
+            # schema as route-level handlers.  Do not reflect route exception
+            # messages in an untrusted 5xx response.
+            from .envelope import error_response
+            error_body, status_code = error_response(
+                "internal_server_error", response.status_code
+            )
+            error_body.status_code = status_code
+            return error_body
         if request.method not in ("POST", "PUT", "DELETE", "PATCH"):
             return response
         if request.path.startswith("/api/v1/health"):

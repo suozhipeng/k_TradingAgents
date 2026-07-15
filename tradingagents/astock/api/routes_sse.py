@@ -19,6 +19,7 @@ from datetime import datetime
 from typing import Any, Generator
 
 from flask import Blueprint, Response, current_app, jsonify
+from .envelope import error_response
 
 from tradingagents.astock.execution.infrastructure.event_bus import EventBus
 from tradingagents.astock.schemas.ops_audit import TaskType
@@ -106,7 +107,7 @@ def paper_progress_sse() -> Response:
     )
     subscriber_id = EventBus.subscribe(current_app.config.get("ASTOCK_SSE_MAX_CLIENTS", 50))
     if subscriber_id is None:
-        return jsonify({"error": "sse_capacity_exceeded", "status": 429}), 429
+        return error_response("sse_capacity_exceeded", 429)
     from .metrics import set_gauge
     set_gauge("sse_active_clients", EventBus.subscriber_count())
 

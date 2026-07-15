@@ -9,6 +9,8 @@ import logging
 from typing import Any
 
 from flask import Blueprint, Response, current_app, jsonify, request
+
+from .envelope import error_response, success_response
 from ._helpers import get_store
 
 bp = Blueprint("data_ingest", __name__)
@@ -51,7 +53,7 @@ def manage_intraday_lifecycle() -> tuple[Response, int]:
         return jsonify(result), 200
     except Exception as exc:
         logger.warning("Intraday lifecycle operation failed: %s", exc)
-        return jsonify({"error": "intraday_lifecycle_failed", "message": str(exc), "status": 500}), 500
+        return error_response("intraday_lifecycle_failed", 500)
 
 
 @bp.route("/data/maintenance", methods=["POST"])
@@ -74,7 +76,7 @@ def maintain_local_databases() -> tuple[Response, int]:
         return jsonify({"status": "ok", "maintained": completed}), 200
     except Exception as exc:
         logger.warning("Local database maintenance failed: %s", exc)
-        return jsonify({"error": "maintenance_failed", "message": str(exc), "status": 500}), 500
+        return error_response("maintenance_failed", 500)
 
 
 @bp.route("/data/refresh/kline", methods=["POST"])
@@ -82,7 +84,7 @@ def refresh_kline() -> tuple[Response, int]:
     body = request.get_json(force=True, silent=True) or {}
     symbol = body.get("symbol", "")
     if not symbol:
-        return jsonify({"error": "symbol is required", "status": 400}), 400
+        return error_response("symbol is required", 400)
     start = body.get("start")
     end = body.get("end")
     interval = body.get("interval", "1d")
@@ -91,7 +93,7 @@ def refresh_kline() -> tuple[Response, int]:
         store = get_store()
         router = current_app.config.get("DATA_FACADE")
         if not router:
-            return jsonify({"error": "data router not available", "status": 503}), 503
+            return error_response("data router not available", 503)
         loader = KlineLoader(store, router, permanent_store=_permanent_kline_store())
         count = loader.load(symbol, start=start, end=end, interval=interval)
         return jsonify({"symbol": symbol, "rows_inserted": count, "status": "ok"}), 200
@@ -100,13 +102,13 @@ def refresh_kline() -> tuple[Response, int]:
         # 提供更有意义的错误信息
         if "timeout" in error_msg.lower() or "timed out" in error_msg.lower():
             logger.warning("Refresh kline timed out for %s: %s", symbol, exc)
-            return jsonify({"error": "request_timed_out", "message": "数据请求超时，请稍后重试", "status": 408}), 408
+            return error_response("request_timed_out", 408)
         elif "network" in error_msg.lower() or "connection" in error_msg.lower():
             logger.warning("Refresh kline network error for %s: %s", symbol, exc)
-            return jsonify({"error": "network_error", "message": "网络连接异常，请稍后重试", "status": 503}), 503
+            return error_response("network_error", 503)
         else:
             logger.warning("Refresh kline failed for %s: %s", symbol, exc)
-            return jsonify({"error": "refresh_failed", "message": error_msg, "status": 500}), 500
+            return error_response("refresh_failed", 500)
 
 
 @bp.route("/data/refresh/valuation", methods=["POST"])
@@ -114,13 +116,13 @@ def refresh_valuation() -> tuple[Response, int]:
     body = request.get_json(force=True, silent=True) or {}
     symbol = body.get("symbol", "")
     if not symbol:
-        return jsonify({"error": "symbol is required", "status": 400}), 400
+        return error_response("symbol is required", 400)
     try:
         from tradingagents.astock.store.loader import ValuationLoader
         store = get_store()
         router = current_app.config.get("DATA_FACADE")
         if not router:
-            return jsonify({"error": "data router not available", "status": 503}), 503
+            return error_response("data router not available", 503)
         loader = ValuationLoader(store, router)
         count = loader.load(symbol)
         return jsonify({"symbol": symbol, "rows_inserted": count, "status": "ok"}), 200
@@ -128,13 +130,13 @@ def refresh_valuation() -> tuple[Response, int]:
         error_msg = str(exc)
         if "timeout" in error_msg.lower() or "timed out" in error_msg.lower():
             logger.warning("Refresh valuation timed out for %s: %s", symbol, exc)
-            return jsonify({"error": "request_timed_out", "message": "数据请求超时，请稍后重试", "status": 408}), 408
+            return error_response("request_timed_out", 408)
         elif "network" in error_msg.lower() or "connection" in error_msg.lower():
             logger.warning("Refresh valuation network error for %s: %s", symbol, exc)
-            return jsonify({"error": "network_error", "message": "网络连接异常，请稍后重试", "status": 503}), 503
+            return error_response("network_error", 503)
         else:
             logger.warning("Refresh valuation failed for %s: %s", symbol, exc)
-            return jsonify({"error": "refresh_failed", "message": error_msg, "status": 500}), 500
+            return error_response("refresh_failed", 500)
 
 
 @bp.route("/data/refresh/all", methods=["POST"])
@@ -142,7 +144,7 @@ def refresh_all() -> tuple[Response, int]:
     body = request.get_json(force=True, silent=True) or {}
     symbols = body.get("symbols", [])
     if not symbols:
-        return jsonify({"error": "symbols list is required", "status": 400}), 400
+        return error_response("symbols list is required", 400)
     start = body.get("start")
     end = body.get("end")
     interval = body.get("interval", "1d")
@@ -151,7 +153,7 @@ def refresh_all() -> tuple[Response, int]:
         store = get_store()
         router = current_app.config.get("DATA_FACADE")
         if not router:
-            return jsonify({"error": "data router not available", "status": 503}), 503
+            return error_response("data router not available", 503)
         loader = BatchLoader(store, router, permanent_store=_permanent_kline_store())
         results = loader.load_all(symbols, kline_start=start, kline_end=end, interval=interval)
         return jsonify({"results": results, "status": "ok"}), 200
@@ -159,13 +161,13 @@ def refresh_all() -> tuple[Response, int]:
         error_msg = str(exc)
         if "timeout" in error_msg.lower() or "timed out" in error_msg.lower():
             logger.warning("Refresh all timed out: %s", exc)
-            return jsonify({"error": "request_timed_out", "message": "数据请求超时，请稍后重试", "status": 408}), 408
+            return error_response("request_timed_out", 408)
         elif "network" in error_msg.lower() or "connection" in error_msg.lower():
             logger.warning("Refresh all network error: %s", exc)
-            return jsonify({"error": "network_error", "message": "网络连接异常，请稍后重试", "status": 503}), 503
+            return error_response("network_error", 503)
         else:
             logger.warning("Refresh all failed: %s", exc)
-            return jsonify({"error": "refresh_failed", "message": error_msg, "status": 500}), 500
+            return error_response("refresh_failed", 500)
 
 
 # ---------------------------------------------------------------------------
@@ -235,8 +237,8 @@ def _insert_error_response(exc: Exception) -> tuple[Response, int]:
             "violations": getattr(exc, "violations", []), "status": 422,
         }), 422
     if isinstance(exc, ValueError):
-        return jsonify({"error": "invalid_input", "message": str(exc), "status": 400}), 400
-    return jsonify({"error": "insert_failed", "message": str(exc), "status": 500}), 500
+        return error_response("invalid_input", 400, detail=str(exc))
+    return error_response("insert_failed", 500, detail=str(exc))
 
 
 def _records_from_body(body: dict[str, Any]) -> list[dict[str, Any]]:
@@ -260,9 +262,9 @@ def manual_insert_rows(table_name: str) -> tuple[Response, int]:
     try:
         records = _records_from_body(body)
     except ValueError as exc:
-        return jsonify({"error": str(exc), "status": 400}), 400
+        return error_response(str(exc), 400)
     if not records:
-        return jsonify({"error": "record or records is required", "status": 400}), 400
+        return error_response("record or records is required", 400)
 
     symbol = body.get("symbol")
     trade_date = body.get("trade_date") or body.get("date")

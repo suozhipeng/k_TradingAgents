@@ -16,6 +16,7 @@ from typing import Any
 
 import requests
 from flask import Blueprint, Response, jsonify, request
+from .envelope import error_response
 
 bp = Blueprint("trade", __name__)
 logger = logging.getLogger(__name__)
@@ -256,13 +257,13 @@ def place_order() -> tuple[Response, int]:
     quantity = data.get("quantity")
 
     if not symbol:
-        return jsonify({"error": "symbol is required", "status": 400}), 400
+        return error_response("symbol is required", 400)
     if side not in ("buy", "sell"):
-        return jsonify({"error": "side must be 'buy' or 'sell'", "status": 400}), 400
+        return error_response("side must be 'buy' or 'sell'", 400)
     if not isinstance(price, (int, float)) or price <= 0:
-        return jsonify({"error": "price must be positive", "status": 400}), 400
+        return error_response("price must be positive", 400)
     if not isinstance(quantity, int) or quantity <= 0:
-        return jsonify({"error": "quantity must be a positive integer", "status": 400}), 400
+        return error_response("quantity must be a positive integer", 400)
 
     try:
         from ._paper_service import get_paper_trader
@@ -286,9 +287,9 @@ def place_order() -> tuple[Response, int]:
         result = trader.place_order(symbol, side, float(price), int(quantity))
         return jsonify({"status": "ok", "order": _serialize_order(result)}), 200
     except ValueError as exc:
-        return jsonify({"error": str(exc), "status": 400}), 400
+        return error_response(str(exc), 400)
     except Exception as exc:
-        return jsonify({"error": str(exc), "status": 500}), 500
+        return error_response(str(exc), 500)
 
 
 # ---------------------------------------------------------------------------
@@ -306,7 +307,7 @@ def get_quote() -> tuple[Response, int]:
     from tradingagents.astock.data_sources.quality import DataQualityBanner
     symbol = request.args.get("symbol", "").strip()
     if not symbol:
-        return jsonify({"error": "symbol is required", "status": 400}), 400
+        return error_response("symbol is required", 400)
 
     # 1. 先看缓存（TTL 内快速返回）
     cached = _load_cached_quote(symbol)
@@ -350,7 +351,7 @@ def trade_state() -> tuple[Response, int]:
         from ._paper_service import get_paper_trader, serialize_paper_state
         return jsonify(serialize_paper_state(get_paper_trader())), 200
     except Exception as exc:
-        return jsonify({"error": str(exc), "status": 500}), 500
+        return error_response(str(exc), 500)
 
 
 __all__ = ["bp"]

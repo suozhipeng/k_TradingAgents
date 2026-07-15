@@ -24,6 +24,7 @@ import logging
 from typing import Any
 
 from flask import Blueprint, Response, jsonify
+from .envelope import error_response
 logger = logging.getLogger(__name__)
 
 bp = Blueprint("qmt", __name__)
@@ -104,7 +105,7 @@ def qmt_health() -> tuple[Response, int]:
             }
         ), 200
     except Exception as exc:
-        return jsonify({"error": str(exc), "status": 500, "healthy": False}), 500
+        return error_response(str(exc), 500)
 
 
 # ---------------------------------------------------------------------------
@@ -124,7 +125,7 @@ def qmt_positions() -> tuple[Response, int]:
             "status": _bridge_status(bridge),
         }), 200
     except Exception as exc:
-        return jsonify({"error": str(exc), "status": 500}), 500
+        return error_response(str(exc), 500)
 
 
 # ---------------------------------------------------------------------------
@@ -158,4 +159,4 @@ def qmt_orders() -> tuple[Response, int]:
             "status": _bridge_status(bridge),
         }), 200
     except Exception as exc:
-        return jsonify({"error": str(exc), "status": 500}), 500
+        return error_response(str(exc), 500)

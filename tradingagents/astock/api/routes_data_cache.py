@@ -9,6 +9,7 @@ import logging
 from typing import Any
 
 from flask import Blueprint, Response, current_app, jsonify
+from .envelope import error_response
 
 bp = Blueprint("data_cache", __name__)
 logger = logging.getLogger(__name__)

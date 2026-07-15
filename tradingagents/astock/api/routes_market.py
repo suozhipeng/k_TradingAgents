@@ -13,6 +13,7 @@ from typing import Any
 
 import pandas as pd
 from flask import Blueprint, Response, current_app, jsonify, request
+from .envelope import error_response
 
 from ._helpers import df_to_json, get_store, sanitise_records
 
@@ -89,7 +90,7 @@ def market_summary() -> tuple[Response, int]:
     """
     symbol = request.args.get("symbol", "")
     if not symbol:
-        return jsonify({"error": "symbol is required", "status": 400}), 400
+        return error_response("symbol is required", 400)
 
     try:
         store = get_store()
@@ -149,7 +150,7 @@ def market_summary() -> tuple[Response, int]:
             }
         ), 200
     except Exception as exc:
-        return jsonify({"error": str(exc), "status": 500}), 500
+        return error_response(str(exc), 500)
 
 
 # ---------------------------------------------------------------------------
@@ -324,4 +325,4 @@ def daily_market_recap() -> tuple[Response, int]:
         }), 200
     except Exception as exc:
         logger.exception("daily_market_recap failed")
-        return jsonify({"error": str(exc), "status": 500}), 500
+        return error_response(str(exc), 500)

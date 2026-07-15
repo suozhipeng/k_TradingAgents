@@ -12,6 +12,7 @@ from typing import Any
 from flask import Blueprint, current_app, g, jsonify, request
 
 from .auth import require_auth
+from .envelope import error_response, success_response
 from ._helpers import _as_bool
 
 bp = Blueprint("admin", __name__)
@@ -51,8 +52,8 @@ def get_backend() -> tuple[Any, int]:
     """Return current backend status."""
     mgr = current_app.config.get("BACKEND_MGR")
     if mgr is None:
-        return jsonify({"error": "BackendManager not configured"}), 500
-    return jsonify(mgr.status()), 200
+        return error_response("BackendManager not configured", 500)
+    return success_response(mgr.status())
 
 
 @bp.route("/admin/backend", methods=["POST"])
@@ -75,14 +76,14 @@ def switch_backend() -> tuple[Any, int]:
     data = request.get_json(silent=True) or {}
     target = data.get("backend", "").strip().lower()
     if not target:
-        return jsonify({"error": "Missing 'backend' field. Use 'duckdb' or 'postgresql'."}), 400
+        return error_response("Missing 'backend' field. Use 'duckdb' or 'postgresql'.", 400)
 
     if not _require_admin("backend:switch"):
-        return jsonify({"error": "forbidden", "message": "Admin role + backend:switch capability required"}), 403
+        return error_response("Admin role + backend:switch capability required", 403)
 
     mgr = current_app.config.get("BACKEND_MGR")
     if mgr is None:
-        return jsonify({"error": "BackendManager not configured"}), 500
+        return error_response("BackendManager not configured", 500)
 
     result = mgr.switch_to(target)
 
@@ -113,19 +114,19 @@ def get_backend_config() -> tuple[Any, int]:
     """Return current backend configuration (passwords masked)."""
     mgr = current_app.config.get("BACKEND_MGR")
     if mgr is None:
-        return jsonify({"error": "BackendManager not configured"}), 500
+        return error_response("BackendManager not configured", 500)
     cfg = mgr.config.to_dict()
     # Mask password
     if cfg.get("pg_password"):
         cfg["pg_password"] = "***"
-    return jsonify(cfg), 200
+    return success_response(cfg)
 
 
 @bp.route("/admin/mock-data", methods=["GET"])
 @require_auth(roles=["admin"])
 def get_mock_data_setting() -> tuple[Any, int]:
     """Return the process-wide mock-data switch."""
-    return jsonify({"enabled": _as_bool(current_app.config.get("ASTOCK_MOCK_DATA_ENABLED"), False)}), 200
+    return success_response({"enabled": _as_bool(current_app.config.get("ASTOCK_MOCK_DATA_ENABLED"), False)})
 
 
 @bp.route("/admin/mock-data", methods=["PUT"])
@@ -140,7 +141,7 @@ def set_mock_data_setting() -> tuple[Any, int]:
         manager.config.mock_data_enabled = enabled
         manager.config.save()
     logger.warning("Global mock-data mode changed: enabled=%s actor=%s", enabled, getattr(g, "actor", "unknown"))
-    return jsonify({"enabled": enabled, "persistent": manager is not None}), 200
+    return success_response({"enabled": enabled, "persistent": manager is not None})
 
 
 @bp.route("/admin/health/sync-ch", methods=["POST"])
@@ -159,17 +160,17 @@ def trigger_ch_sync() -> tuple[Any, int]:
     since = data.get("since")
 
     if not _require_admin("clickhouse:sync"):
-        return jsonify({"error": "forbidden", "message": "Admin role + clickhouse:sync capability required"}), 403
+        return error_response("Admin role + clickhouse:sync capability required", 403)
 
     mgr = current_app.config.get("BACKEND_MGR")
     if mgr is None:
-        return jsonify({"error": "BackendManager not configured"}), 500
+        return error_response("BackendManager not configured", 500)
 
     backend = mgr.current_backend
     store = mgr.get_store()
 
     if store is None:
-        return jsonify({"error": f"No store available for backend '{backend}'"}), 502
+        return error_response(f"No store available for backend '{backend}'", 502)
 
     # Import sync logic — call the CLI script as subprocess
     import subprocess, sys
@@ -185,12 +186,12 @@ def trigger_ch_sync() -> tuple[Any, int]:
 
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
-        return jsonify({
+        return success_response({
             "backend": backend,
             "table": table or "all",
             "returncode": result.returncode,
             "stdout": result.stdout[:2000] if result.stdout else "",
             "stderr": result.stderr[:500] if result.stderr else "",
-        }), 200 if result.returncode == 0 else 502
+        }, status=200 if result.returncode == 0 else 502)
     except subprocess.TimeoutExpired:
-        return jsonify({"error": "Sync timed out after 600s"}), 504
+        return error_response("Sync timed out after 600s", 504)

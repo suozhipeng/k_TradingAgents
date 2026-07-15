@@ -12,6 +12,7 @@ import logging
 from typing import Any
 
 from flask import Blueprint, Response, jsonify, request
+from .envelope import error_response
 
 from ._paper_service import get_paper_trader, serialize_paper_state, serialize_paper_trades
 logger = logging.getLogger(__name__)
@@ -31,16 +32,16 @@ def paper_cycle() -> tuple[Response, int]:
     prices = data.get("prices", {})
 
     if not signals:
-        return jsonify({"error": "signals dict is required", "status": 400}), 400
+        return error_response("signals dict is required", 400)
     if not prices:
-        return jsonify({"error": "prices dict is required", "status": 400}), 400
+        return error_response("prices dict is required", 400)
 
     try:
         trader = get_paper_trader()
         state = trader.execute_cycle(signals, prices)
         return jsonify(serialize_paper_state(trader)), 200
     except Exception as exc:
-        return jsonify({"error": str(exc), "status": 500}), 500
+        return error_response(str(exc), 500)
 
 
 # ---------------------------------------------------------------------------
@@ -54,7 +55,7 @@ def paper_state() -> tuple[Response, int]:
         trader = get_paper_trader()
         return jsonify(serialize_paper_state(trader)), 200
     except Exception as exc:
-        return jsonify({"error": str(exc), "status": 500}), 500
+        return error_response(str(exc), 500)
 
 
 # ---------------------------------------------------------------------------
@@ -75,4 +76,4 @@ def paper_trades() -> tuple[Response, int]:
             "trades": trades, "count": count, "limit": limit or count,
         }), 200
     except Exception as exc:
-        return jsonify({"error": str(exc), "status": 500}), 500
+        return error_response(str(exc), 500)

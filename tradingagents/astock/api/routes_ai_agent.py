@@ -16,6 +16,7 @@ from datetime import datetime
 from typing import Any
 
 from flask import Blueprint, Response, current_app, jsonify, request
+from .envelope import error_response
 
 from tradingagents.astock.schemas.research_task import ResearchAudit
 from tradingagents.astock.schemas import ResearchContext
@@ -62,7 +63,7 @@ def ai_analyze() -> tuple[Response, int]:
         symbols.extend([str(s).strip() for s in symbols_raw if str(s).strip()])
 
     if not symbols:
-        return jsonify({"error": "symbol or symbols is required", "status": 400}), 400
+        return error_response("symbol or symbols is required", 400)
 
     # Normalize each symbol
     # Normalize each symbol — infer exchange from stock code prefix
@@ -111,7 +112,7 @@ def ai_analyze() -> tuple[Response, int]:
         return jsonify(result), 200
     except Exception as exc:
         logger.warning("AI analysis failed for %s: %s", symbols, exc)
-        return jsonify({"error": str(exc), "status": 500}), 500
+        return error_response(str(exc), 500)
 
 
 def _generate_task_id() -> str:
