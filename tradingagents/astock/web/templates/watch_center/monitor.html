@@ -57,7 +57,7 @@ async function loadAlerts() {
   const cont = document.getElementById('alert-container');
   try {
     const res = await fetch('/api/v1/alerts');
-    const data = await res.json();
+    const data = APIClient.unwrap(await res.json());
     if (!data.alerts || data.alerts.length === 0) {
       cont.innerHTML = '<h3>📋 开放告警</h3><div class="no-alerts">暂无开放告警 ✅</div>';
       document.getElementById('stat-open').textContent = '0';
@@ -95,7 +95,7 @@ async function loadRules() {
   const cont = document.getElementById('rules-container');
   try {
     const res = await fetch('/api/v1/alerts/rules');
-    const data = await res.json();
+    const data = APIClient.unwrap(await res.json());
     if (!data.rules || data.rules.length === 0) {
       cont.innerHTML = '<h3>🔔 告警规则</h3><div class="no-alerts">暂未设置规则</div>';
       return;

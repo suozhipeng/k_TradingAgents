@@ -39,7 +39,7 @@ async function loadHealth() {
 
   try {
     const res = await fetch('/api/v1/data/health');
-    const data = await res.json();
+    const data = APIClient.unwrap(await res.json());
 
     if (data.error) { status.textContent = '❌ ' + data.error; return; }
 

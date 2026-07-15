@@ -23,7 +23,7 @@ from flask import Blueprint, Response, current_app, jsonify, request
 
 from .envelope import error_response, success_response
 
-from ._helpers import df_to_json, get_store, sanitise_records
+from ._helpers import _as_bool, df_to_json, get_store, sanitise_records
 from tradingagents.astock.time_utils import market_today
 
 bp = Blueprint("market_data_query", __name__)
@@ -245,10 +245,15 @@ def get_kline() -> tuple[Response, int]:
     interval = request.args.get("interval", "1d")
     include_cold = request.args.get("include_cold", "0").lower() in ("1", "true", "yes")
     limit = _int_param("limit", 500, max_val=5000)
-    _FETCH_LIMIT = 400
-
     try:
-        daily_refresh = _refresh_daily_kline_incrementally(symbol)
+        refresh_requested = _as_bool(
+            request.args.get("refresh"),
+            current_app.config.get("ASTOCK_AUTO_REFRESH_DAILY_KLINE", False),
+        )
+        daily_refresh = (
+            _refresh_daily_kline_incrementally(symbol)
+            if refresh_requested else {"status": "not_requested", "rows_upserted": 0}
+        )
         store = get_store()
         store_limit = limit + 1 if limit > 0 else None
         df = store.query_kline(symbol, start=start, end=end, interval=interval, limit=store_limit, include_cold=include_cold)
@@ -258,47 +263,6 @@ def get_kline() -> tuple[Response, int]:
         if limit > 0 and len(bars) > limit:
             bars = bars[-limit:]
             has_more = True
-
-        if not bars:
-            router = _router()
-            if router is not None:
-                try:
-                    resp = router.get_kline(symbol, interval=interval, limit=_FETCH_LIMIT)
-                    if resp.status == "ok" and resp.data:
-                        items = resp.data.get("items") or resp.data.get("bars", [])
-                        if isinstance(items, list) and len(items) > 0:
-                            source_str = resp.source or ""
-                            if hasattr(resp, "meta") and resp.meta:
-                                source_str = source_str or resp.meta.get("source", "")
-                            for item in items:
-                                if "trade_date" not in item and "date" in item:
-                                    item["trade_date"] = item["date"]
-                            df_live = pd.DataFrame(items)
-                            date_col_present = any(
-                                c in df_live.columns
-                                for c in ("trade_date", "date", "datetime", "time")
-                            )
-                            if date_col_present:
-                                store.insert_kline(symbol, df_live, interval=interval, source=source_str)
-                                if current_app.config.get("ASTOCK_PERMANENT_KLINE_ENABLED", True):
-                                    from tradingagents.astock.store.permanent_kline import (
-                                        get_permanent_kline_store, mirror_kline_frame,
-                                    )
-                                    mirror_kline_frame(
-                                        get_permanent_kline_store(current_app.config.get("ASTOCK_PERMANENT_KLINE_DB_PATH", "kline/kline.duckdb")),
-                                        symbol, df_live, interval=interval, source=source_str,
-                                    )
-                            df2 = store.query_kline(symbol, start=start, end=end, interval=interval, limit=store_limit)
-                            bars = df_to_json(df2)
-                            has_more = False
-                            if limit > 0 and len(bars) > limit:
-                                bars = bars[-limit:]
-                                has_more = True
-                except Exception as exc:
-                    logger.warning("live kline fetch failed for %s interval=%s: %s", symbol, interval, exc)
-                    # 检查是否是超时异常，如果是则提供更友好的错误信息
-                    if "timeout" in str(exc).lower() or "timed out" in str(exc).lower():
-                        logger.info("kline data not found in store and live fetch timed out, returning empty result")
 
         bar_count = len(bars)
         date_range: dict[str, str | None] = {"start": None, "end": None}

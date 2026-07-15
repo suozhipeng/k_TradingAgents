@@ -126,7 +126,7 @@ async function loadReview() {
   try {
     const resp = await fetch(`/api/v1/daily/review?date=${date}`);
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    const data = await resp.json();
+    const data = APIClient.unwrap(await resp.json());
     renderIndices(data.indices);
     renderSectors(data.sectors);
     renderMovers('dr-gainers', data.top_gainers, true);

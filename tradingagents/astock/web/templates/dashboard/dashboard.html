@@ -307,8 +307,8 @@ async function loadAll() {
       fetch('/api/v1/dashboard/overview'),
       fetch('/api/v1/market/strategies'),
     ]);
-    const overview = await overviewRes.json();
-    const stratData = await stratRes.json();
+    const overview = APIClient.unwrap(await overviewRes.json());
+    const stratData = APIClient.unwrap(await stratRes.json());
 
     // === Key Metrics ===
     const stats = overview.statistics || {};
@@ -411,7 +411,7 @@ async function loadDataHealth() {
   try {
     const res = await fetch('/api/v1/data/health');
     if (!res.ok) throw new Error('health failed');
-    const data = await res.json();
+    const data = APIClient.unwrap(await res.json());
     const sources = data.sources || data.data_sources || data.adapters || [];
     if (!sources.length) {
       el.innerHTML = '<div class="dash-empty">暂无数据源信息</div>';
@@ -448,7 +448,7 @@ async function loadMarketSummary() {
     const results = await Promise.allSettled(
       MARKET_INDICES.map(idx =>
         fetch(`/api/v1/market/summary?symbol=${encodeURIComponent(idx.symbol)}`)
-          .then(r => r.json())
+          .then(r => r.json()).then(APIClient.unwrap)
           .then(data => ({ ...idx, data }))
       )
     );
@@ -502,13 +502,13 @@ async function loadLatestReports() {
     const reportRes = await fetch('/api/v1/reports/list?limit=5');
     let archiveItems = [];
     if (reportRes.ok) {
-      const reportData = await reportRes.json();
+      const reportData = APIClient.unwrap(await reportRes.json());
       archiveItems = reportData.items || [];
     }
 
     // Also get backtest-based reports for completeness
     const overviewRes = await fetch('/api/v1/dashboard/overview');
-    const overview = await overviewRes.json();
+    const overview = APIClient.unwrap(await overviewRes.json());
     const backtests = overview.recent_backtests || [];
 
     // Merge: archive items first, then backtest-derived items
@@ -566,7 +566,7 @@ async function loadAITasks() {
   try {
     const res = await fetch('/api/v1/ops/tasks?limit=10');
     if (!res.ok) throw new Error('tasks failed');
-    const tasks = await res.json();
+    const tasks = APIClient.unwrap(await res.json());
 
     if (!tasks || !tasks.length) {
       el.innerHTML = '<div class="dash-empty">暂无 AI 任务记录</div>';
@@ -635,7 +635,7 @@ async function loadAlertsSummary() {
     // Primary: use new /api/v1/alerts endpoint
     const res = await fetch('/api/v1/alerts?limit=8');
     if (res.ok) {
-      const body = await res.json();
+      const body = APIClient.unwrap(await res.json());
       const alerts = body.alerts || [];
 
       if (!alerts.length) {
@@ -671,7 +671,7 @@ async function loadAlertsSummary() {
     // Fallback: use ops/audit for recent error events as a proxy for alerts
     const fallbackRes = await fetch('/api/v1/ops/audit?limit=10');
     if (!fallbackRes.ok) throw new Error('audit failed');
-    const events = await fallbackRes.json();
+    const events = APIClient.unwrap(await fallbackRes.json());
 
     if (!events || !events.length) {
       el.innerHTML = '<div class="dash-empty">暂无告警</div>';
@@ -719,7 +719,7 @@ async function loadSectorLeaders() {
     let leaderHtml = '';
 
     if (sectorsRes.ok) {
-      const sectorData = await sectorsRes.json();
+      const sectorData = APIClient.unwrap(await sectorsRes.json());
       const top = (sectorData.top || []).slice(0, 3);
 
       if (top.length) {
@@ -771,7 +771,7 @@ async function loadSectorLeaders() {
         body: JSON.stringify({ start_date: '', end_date: '', n: 20, k: 5, l: 5 }),
       });
       if (momentumRes.ok) {
-        const momentumData = await momentumRes.json();
+        const momentumData = APIClient.unwrap(await momentumRes.json());
         const leadingStocks = momentumData.leading_stocks || [];
         if (leadingStocks.length) {
           const topLeaders = leadingStocks.slice(0, 3);
@@ -884,7 +884,7 @@ async function loadGlobalDecisionSummary() {
   try {
     const res = await fetch('/api/v1/analysis/watchlist', {method: 'POST'});
     if (!res.ok) throw new Error('status ' + res.status);
-    const data = await res.json();
+    const data = APIClient.unwrap(await res.json());
     const s = data.summary || {total:0,buy:0,hold:0,sell:0,research_only:0};
     const total = s.total || 0;
     const researchOnly = s.research_only != null ? s.research_only : Math.max(0, total - s.buy - s.hold - s.sell);
@@ -927,7 +927,7 @@ async function loadAIStatus() {
     // Check ops/audit for recent AI agent activity
     const res = await fetch('/api/v1/ops/audit?limit=5');
     if (!res.ok) throw new Error('audit failed');
-    const events = await res.json();
+    const events = APIClient.unwrap(await res.json());
 
     // Look for AI-related events
     const aiEvents = events.filter(e => {
@@ -1013,7 +1013,7 @@ async function runBatchAnalysis() {
   try {
     const res = await fetch('/api/v1/watchlist/batch-analyze', {method: 'POST'});
     if (!res.ok) throw new Error('Batch analyze failed (' + res.status + ')');
-    const data = await res.json();
+    const data = APIClient.unwrap(await res.json());
     // Update decision cards with batch results
     const container = document.getElementById('decision-cards');
     const summary = document.getElementById('decision-summary');
@@ -1071,7 +1071,7 @@ async function runWatchlistAnalysis() {
   try {
     const res = await fetch('/api/v1/analysis/watchlist', {method:'POST'});
     if (!res.ok) throw new Error('Analysis failed (' + res.status + ')');
-    const data = await res.json();
+    const data = APIClient.unwrap(await res.json());
     // Render summary
     const s = data.summary || {total:0,buy:0,hold:0,sell:0};
     summary.textContent = `共${s.total}只 | 🟢买入:${s.buy} 🟡观望:${s.hold} 🔴卖出:${s.sell}`;

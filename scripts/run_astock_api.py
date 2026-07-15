@@ -30,13 +30,10 @@ logging.basicConfig(
 _parser = argparse.ArgumentParser(add_help=False)
 _parser.add_argument("--no-web", action="store_true")
 _parser.add_argument("--local-release", action="store_true")
-_parser.add_argument("--standard", action="store_true")
 _parsed, remaining = _parser.parse_known_args()
 if _parsed.no_web:
     os.environ.setdefault("ASTOCK_ENABLE_WEB_UI", "false")
-if _parsed.standard:
-    os.environ["ASTOCK_LOCAL_RELEASE"] = "false"
-elif _parsed.local_release or "ASTOCK_LOCAL_RELEASE" not in os.environ:
+if _parsed.local_release or "ASTOCK_LOCAL_RELEASE" not in os.environ:
     # The standalone launcher is the supported local formal-release entrypoint.
     # Keep legacy execution-capable startup behind an explicit opt-out.
     os.environ["ASTOCK_LOCAL_RELEASE"] = "true"
@@ -85,8 +82,7 @@ def resolve_debug_mode(requested: bool, host: str, logger=None) -> bool:
     it must never be enabled on a network-reachable interface. Debug is only
     honoured when the caller explicitly asks for it *and* the server binds a
     loopback address. Previously debug defaulted to ``not local_release``,
-    which silently enabled the debugger for every ``--standard`` run and, when
-    combined with ``--host 0.0.0.0``, exposed a remote RCE surface.
+    which could expose a remote RCE surface when combined with ``--host 0.0.0.0``.
 
     Parameters
     ----------
@@ -134,16 +130,10 @@ if __name__ == "__main__":
         action="store_true",
         help="Disable the Jinja2 WebUI (default: enabled)",
     )
-    release_mode = parser.add_mutually_exclusive_group()
-    release_mode.add_argument(
+    parser.add_argument(
         "--local-release",
         action="store_true",
         help="Run the analysis-and-backtest-only local formal release (default)",
-    )
-    release_mode.add_argument(
-        "--standard",
-        action="store_true",
-        help="Opt out of the local formal-release guard for legacy development only",
     )
     parser.add_argument(
         "--port",
@@ -173,8 +163,7 @@ if __name__ == "__main__":
         _start_scheduler(args.interval)
 
     if not args.no_web:
-        mode = "local analysis/backtest release" if app.config.get("ASTOCK_LOCAL_RELEASE") else "standard"
-        logging.getLogger("run_astock_api").info("Web UI enabled at http://localhost:%d (%s)", args.port, mode)
+        logging.getLogger("run_astock_api").info("Web UI enabled at http://localhost:%d (local analysis/backtest release)", args.port)
 
     debug_enabled = resolve_debug_mode(
         requested=args.debug,

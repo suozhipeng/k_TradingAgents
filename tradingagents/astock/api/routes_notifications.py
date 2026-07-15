@@ -8,6 +8,7 @@ from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
 from flask import Blueprint, jsonify, request
+from .auth import require_capability
 
 from .envelope import error_response
 from ._notification_delivery import (
@@ -60,6 +61,7 @@ def set_notification_store(store: Any) -> None:
 
 
 @bp.route("/notifications/test-webhook", methods=["POST"])
+@require_capability("notifications:send", roles=["admin", "operator"])
 def test_webhook() -> tuple[Any, int]:
     """Test a webhook URL by sending a test payload."""
     data = request.get_json(silent=True) or {}
@@ -89,6 +91,7 @@ def test_webhook() -> tuple[Any, int]:
 
 
 @bp.route("/notifications/dingtalk", methods=["POST"])
+@require_capability("notifications:send", roles=["admin", "operator"])
 def send_dingtalk() -> tuple[Any, int]:
     """Send a DingTalk webhook notification directly."""
     data = request.get_json(silent=True) or {}
@@ -112,6 +115,7 @@ def send_dingtalk() -> tuple[Any, int]:
 
 
 @bp.route("/notifications/email", methods=["POST"])
+@require_capability("notifications:send", roles=["admin", "operator"])
 def send_email_notification() -> tuple[Any, int]:
     """Send a test email notification."""
     data = request.get_json(silent=True) or {}
@@ -157,6 +161,7 @@ def send_email_notification() -> tuple[Any, int]:
 
 
 @bp.route("/notifications/desktop", methods=["POST"])
+@require_capability("notifications:send", roles=["admin", "operator"])
 def send_desktop_notification() -> tuple[Any, int]:
     """Send a desktop notification (for testing)."""
     data = request.get_json(silent=True) or {}
@@ -173,6 +178,7 @@ def send_desktop_notification() -> tuple[Any, int]:
 
 
 @bp.route("/notifications/dispatchers")
+@require_capability("notifications:read", roles=["admin", "operator"])
 def list_dispatchers() -> tuple[Any, int]:
     """List configured notification channels."""
     return jsonify(
@@ -184,6 +190,7 @@ def list_dispatchers() -> tuple[Any, int]:
 
 
 @bp.route("/notifications/dispatchers", methods=["POST"])
+@require_capability("notifications:manage", roles=["admin", "operator"])
 def register_dispatcher() -> tuple[Any, int]:
     """Register a notification channel."""
     data = request.get_json(silent=True) or {}
@@ -211,6 +218,7 @@ def register_dispatcher() -> tuple[Any, int]:
 
 
 @bp.route("/notifications/dispatchers/<name>", methods=["PUT"])
+@require_capability("notifications:manage", roles=["admin", "operator"])
 def update_dispatcher(name: str) -> tuple[Any, int]:
     """Update a notification channel."""
     data = request.get_json(silent=True) or {}
@@ -229,6 +237,7 @@ def update_dispatcher(name: str) -> tuple[Any, int]:
 
 
 @bp.route("/notifications/dispatchers/<name>", methods=["DELETE"])
+@require_capability("notifications:manage", roles=["admin", "operator"])
 def delete_dispatcher(name: str) -> tuple[Any, int]:
     """Delete a notification channel by name."""
     runtime.delete_channel(name)
@@ -237,12 +246,14 @@ def delete_dispatcher(name: str) -> tuple[Any, int]:
 
 
 @bp.route("/notifications/events")
+@require_capability("notifications:read", roles=["admin", "operator"])
 def list_notification_events() -> tuple[Any, int]:
     """Return recent filtered events from the EventBus ring buffer."""
     return jsonify({"events": runtime.recent_events()}), 200
 
 
 @bp.route("/notifications/consumer/start", methods=["POST"])
+@require_capability("notifications:manage", roles=["admin", "operator"])
 def start_consumer() -> tuple[Any, int]:
     """Start the notification consumer thread."""
     runtime.start_consumer()
@@ -250,6 +261,7 @@ def start_consumer() -> tuple[Any, int]:
 
 
 @bp.route("/notifications/consumer/stop", methods=["POST"])
+@require_capability("notifications:manage", roles=["admin", "operator"])
 def stop_consumer_route() -> tuple[Any, int]:
     """Stop the notification consumer thread."""
     runtime.stop_consumer()

@@ -12,6 +12,7 @@ import logging
 from typing import Any
 
 from flask import Blueprint, Response, jsonify, request
+from .auth import require_capability
 from .envelope import error_response
 
 bp = Blueprint("scheduler", __name__)
@@ -36,6 +37,7 @@ def scheduler_status() -> tuple[Response, int]:
 
 
 @bp.route("/sse/scheduler/start", methods=["POST"])
+@require_capability("scheduler:manage", roles=["admin", "operator"])
 def scheduler_start() -> tuple[Response, int]:
     sched = _get_sched()
     if sched is None:
@@ -45,6 +47,7 @@ def scheduler_start() -> tuple[Response, int]:
 
 
 @bp.route("/sse/scheduler/stop", methods=["POST"])
+@require_capability("scheduler:manage", roles=["admin", "operator"])
 def scheduler_stop() -> tuple[Response, int]:
     sched = _get_sched()
     if sched is None:
@@ -54,6 +57,7 @@ def scheduler_stop() -> tuple[Response, int]:
 
 
 @bp.route("/sse/scheduler/pause", methods=["POST"])
+@require_capability("scheduler:manage", roles=["admin", "operator"])
 def scheduler_pause() -> tuple[Response, int]:
     sched = _get_sched()
     if sched is None:
@@ -63,6 +67,7 @@ def scheduler_pause() -> tuple[Response, int]:
 
 
 @bp.route("/sse/scheduler/resume", methods=["POST"])
+@require_capability("scheduler:manage", roles=["admin", "operator"])
 def scheduler_resume() -> tuple[Response, int]:
     sched = _get_sched()
     if sched is None:
@@ -80,6 +85,7 @@ def list_scheduler_jobs() -> tuple[Response, int]:
 
 
 @bp.route("/sse/scheduler/jobs", methods=["POST"])
+@require_capability("scheduler:manage", roles=["admin", "operator"])
 def add_scheduler_job() -> tuple[Response, int]:
     sched = _get_sched()
     if sched is None:
@@ -108,6 +114,7 @@ def add_scheduler_job() -> tuple[Response, int]:
 
 
 @bp.route("/sse/scheduler/jobs/<job_id>", methods=["DELETE"])
+@require_capability("scheduler:manage", roles=["admin", "operator"])
 def remove_scheduler_job(job_id: str) -> tuple[Response, int]:
     sched = _get_sched()
     if sched is None:
@@ -119,6 +126,7 @@ def remove_scheduler_job(job_id: str) -> tuple[Response, int]:
 
 
 @bp.route("/sse/scheduler/jobs/<job_id>/toggle", methods=["POST"])
+@require_capability("scheduler:manage", roles=["admin", "operator"])
 def toggle_scheduler_job(job_id: str) -> tuple[Response, int]:
     sched = _get_sched()
     if sched is None:

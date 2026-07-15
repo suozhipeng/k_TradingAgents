@@ -34,9 +34,9 @@ def test_order_state_is_shared_by_trading_paper_and_dashboard() -> None:
         )
         assert order.status_code == 200
 
-        trading = client.get("/api/v1/trade/state").get_json()
-        paper = client.get("/api/v1/paper/state").get_json()
-        overview = client.get("/api/v1/dashboard/overview").get_json()
+        trading = client.get("/api/v1/trade/state").get_json()["data"]
+        paper = client.get("/api/v1/paper/state").get_json()["data"]
+        overview = client.get("/api/v1/dashboard/overview").get_json()["data"]
 
     assert trading["positions"] == paper["positions"]
     assert paper["positions"][0]["price_source"] == "cost_basis"
@@ -45,12 +45,12 @@ def test_order_state_is_shared_by_trading_paper_and_dashboard() -> None:
     assert overview["recent_trades"][0]["side"] == "buy"
 
 
-def test_display_reads_remain_available_when_write_auth_is_enabled() -> None:
+def test_public_display_reads_remain_available_when_write_auth_is_enabled() -> None:
     app = _app(require_auth=True)
     with app.test_client() as client:
         assert client.get("/api/v1/paper/state").status_code == 200
         assert client.get("/api/v1/qmt/health").status_code == 200
-        assert client.get("/api/v1/ops/audit").status_code == 200
+        assert client.get("/api/v1/ops/audit").status_code == 403
 
 
 def test_default_leader_pool_is_not_labelled_as_real_market_data() -> None:

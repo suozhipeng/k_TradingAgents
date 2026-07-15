@@ -640,7 +640,7 @@ document.querySelectorAll('#palette-results .as-palette-item').forEach(el => {
 // ── Server health + market status ──
 function refreshStatus() {
   fetch('/api/v1/health')
-    .then(r => r.json())
+    .then(r => r.json()).then(APIClient.unwrap)
     .then(d => {
       const srvDot = document.getElementById('srv-status-dot');
       const srvText = document.getElementById('srv-status-text');
@@ -716,7 +716,7 @@ searchInput.addEventListener('input', function() {
     try {
       const res = await fetch(`/api/v1/tv/stock-search?q=${encodeURIComponent(q)}&limit=8`);
       if (!res.ok) throw new Error('search failed');
-      const data = await res.json();
+      const data = APIClient.unwrap(await res.json());
       const items = data.items || data.results || data.stocks || [];
       if (!items.length) { suggestions.style.display = 'none'; return; }
       suggestions.innerHTML = items.map(s => `

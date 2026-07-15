@@ -31,8 +31,7 @@ bp = Blueprint(
     "web",
     __name__,
     template_folder=TEMPLATES_DIR,
-    # The local formal release serves the Jinja2 workbench.  Keep its legacy
-    # JavaScript and chart assets available even when a React build exists.
+    # The local formal release serves the Jinja2 workbench assets.
     static_folder=STATIC_DIR,
     static_url_path="/web/static",
 )
@@ -45,8 +44,7 @@ bp.register_blueprint(strategy_bp, name="strategy")
 bp.register_blueprint(portfolio_bp, name="portfolio")
 bp.register_blueprint(ops_bp, name="ops")
 
-# Root redirect → React homepage (dashboard)
-# Jinja2 legacy pages still accessible via /web/dashboard etc.
+# Root redirect → dashboard.
 @bp.route("/")
 def root():
     return redirect("/dashboard", 302)

@@ -7,17 +7,14 @@ instead of each carrying their own copy.
 Exported functions
 ------------------
 - ``analyze_stock_symbol(symbol, name)`` — single-stock technical analysis
-- ``load_watchlist()`` — load watchlist from DuckDB (with JSON fallback)
+- ``load_watchlist()`` — load watchlist from DuckDB
 """
 
 from __future__ import annotations
 
-import json
 import logging
 import math
-import os
 from datetime import datetime
-from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -25,44 +22,25 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
-# Watchlist JSON fallback path (legacy)
-_WATCHLIST_JSON_PATH = Path(os.environ.get(
-    "ASTOCK_WATCHLIST_DIR",
-    Path.home() / ".tradingagents",
-)) / "watchlist.json"
-
-
 def load_watchlist() -> list[dict[str, Any]]:
-    """Load watchlist — tries DuckDB first, falls back to JSON file."""
+    """Load watchlist from the configured DuckDB store."""
     from flask import current_app
     store = current_app.config.get("STORE") if current_app else None
-    return _load_from_duckdb(store) or _load_json()
+    return _load_from_duckdb(store)
 
 
-def _load_from_duckdb(store: Any) -> list[dict[str, Any]] | None:
-    """Load watchlist from DuckDB. Returns None if unavailable."""
+def _load_from_duckdb(store: Any) -> list[dict[str, Any]]:
+    """Load watchlist from DuckDB; propagate backend failures."""
     try:
         if store is None:
-            return None
+            raise RuntimeError("watchlist store unavailable")
         df = store.query_sql('SELECT symbol, name, added_at, source FROM watchlist ORDER BY added_at DESC')
         if df is None or df.empty:
-            return None
+            return []
         return df.to_dict(orient="records")
-    except Exception:
-        return None
-
-
-def _load_json() -> list[dict[str, Any]]:
-    """Load watchlist from JSON file (legacy fallback)."""
-    if not _WATCHLIST_JSON_PATH.exists():
-        return []
-    try:
-        with open(_WATCHLIST_JSON_PATH, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            return data if isinstance(data, list) else []
-    except (json.JSONDecodeError, OSError) as exc:
-        logger.warning("Failed to load watchlist JSON: %s", exc)
-        return []
+    except Exception as exc:
+        logger.exception("DuckDB watchlist load failed")
+        raise RuntimeError("watchlist store unavailable") from exc
 
 
 def compute_rsi(series: pd.Series, period: int = 14) -> pd.Series:

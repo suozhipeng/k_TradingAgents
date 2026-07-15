@@ -45,6 +45,7 @@ def test_local_release_serves_analysis_and_backtest_pages_only(app):
     "/api/v1/qmt/health",
     "/api/v1/portfolio/risk",
     "/api/v1/scheduler/status",
+    "/api/v1/sse/scheduler/status",
     "/api/v1/sse/paper-progress",
 ))
 def test_local_release_blocks_execution_surfaces(app, path):
@@ -58,3 +59,14 @@ def test_local_release_keeps_analysis_and_backtest_api_available(app):
     assert client.get("/api/v1/health").status_code == 200
     assert client.get("/api/v1/market/quote?symbol=600519.SH").status_code != 410
     assert client.get("/api/v1/backtest/results").status_code != 410
+
+
+def test_research_only_disables_scheduler_and_scheduler_routes():
+    from tradingagents.astock.api import create_app
+
+    app = create_app(
+        db_path=":memory:", cors_origin="*",
+        test_config={"ASTOCK_RESEARCH_ONLY": True, "ASTOCK_SCHEDULER_ENABLED": True},
+    )
+    assert app.config["ASTOCK_SCHEDULER_ENABLED"] is False
+    assert app.test_client().post("/api/v1/sse/scheduler/start").status_code == 410

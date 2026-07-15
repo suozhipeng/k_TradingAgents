@@ -79,7 +79,7 @@ async function loadEvents() {
   try {
     const resp = await fetch('/api/v1/sse/events');
     if (!resp.ok) return;
-    const events = await resp.json();
+    const events = APIClient.unwrap(await resp.json());
     const tbody = document.getElementById('event-table-body');
     if (!events || events.length === 0) {
       tbody.innerHTML = '<tr><td colspan="3" class="text-gray-500 text-center py-4">暂无事件</td></tr>';

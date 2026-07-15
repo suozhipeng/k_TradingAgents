@@ -332,7 +332,7 @@ async function loadMomentum() {
   loading.style.display = ''; content.style.display = 'none'; empty.style.display = 'none'; error.style.display = 'none';
   try {
     const res = await fetch('/api/v1/market/momentum');
-    const data = await res.json();
+    const data = APIClient.unwrap(await res.json());
     if (data.error) { showError('md-error', data.error); return; }
     const payload = data.data || data;
     const leaders = payload.stocks || data.leaders || data.stocks || [];
@@ -384,7 +384,7 @@ async function loadSectors() {
   if (heatmapChart) { try { heatmapChart.dispose(); } catch(e) {} heatmapChart = null; }
   try {
     const res = await fetch(`/api/v1/market/sectors?top_n=${topN}&mock=0`);
-    const data = await res.json();
+    const data = APIClient.unwrap(await res.json());
     if (data.error) { showError('sec-error', data.error); return; }
     const top = data.top || [];
     const bottom = data.bottom || [];
@@ -456,7 +456,7 @@ async function loadNorthbound() {
   try {
     const params = new URLSearchParams({ mock: useMock ? '1' : '0' });
     const res = await fetch(`/api/v1/market/northbound?${params}`);
-    const data = await res.json();
+    const data = APIClient.unwrap(await res.json());
     if (data.error) { showError('nb-error', data.error); return; }
     const flow = data.flow || [];
     if (!flow.length) { showEmpty('nb-empty', '暂无数据（非交易时段）'); return; }
@@ -503,7 +503,7 @@ async function loadDragonTiger() {
   try {
     const params = new URLSearchParams({ date, min_net_buy: minBuy, mock: useMock ? '1' : '0' });
     const res = await fetch(`/api/v1/market/dragon-tiger?${params}`);
-    const data = await res.json();
+    const data = APIClient.unwrap(await res.json());
     if (data.error) { showError('dt-error', data.error); return; }
     const stocks = data.stocks || [];
     if (!stocks.length) { document.getElementById('dt-table').innerHTML = '<p class="text-gray-500">' + (data.note || '暂无数据。') + '</p>'; loading.style.display = 'none'; content.style.display = ''; if (status) status.textContent = '⚠️ 无数据'; return; }
@@ -574,7 +574,7 @@ async function runMomentumRotation() {
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({ start_date: start, end_date: end, n: parseInt(n), k: parseInt(k), l: parseInt(l) }),
     });
-    const data = await res.json();
+    const data = APIClient.unwrap(await res.json());
     if (data.error) { showError('mr-error', data.error); return; }
     // Stock pool
     renderStockPool(data.leading_stocks || [], data.leading_source || 'default');

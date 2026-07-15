@@ -1,14 +1,13 @@
 """Watch Center page routes — Phase 17.
 
 Pages: /watchlist, /batch-analyze, /screener, /market_leaders, /monitor,
-       /kc_chart, /dragon_tiger, /sectors, /northbound,
-       /momentum_rotation
+       /kc_chart
 Templates live in templates/watch_center/
 """
 
 from __future__ import annotations
 
-from flask import Blueprint, redirect, render_template, request, url_for
+from flask import Blueprint, render_template, request
 
 bp = Blueprint("web_watch_center", __name__)
 
@@ -38,36 +37,8 @@ def monitor() -> str:
     return render_template("watch_center/monitor.html")
 
 
-@bp.route("/tv_chart")
-def tv_chart():
-    """Keep the historic TV URL while routing to the supported KC Chart."""
-    symbol = request.args.get("symbol", "600519.SH")
-    return redirect(url_for("web.watch_center.kc_chart", symbol=symbol), code=302)
-
-
 @bp.route("/kc_chart")
 def kc_chart() -> str:
     symbol = request.args.get("symbol", "600519.SH")
     standalone = request.args.get("standalone", "0") == "1"
     return render_template("watch_center/kc_chart.html", symbol=symbol, standalone=standalone)
-
-
-# Legacy redirects → the corresponding /market_leaders tab.
-@bp.route("/dragon_tiger")
-def dragon_tiger():
-    return redirect(url_for("web.watch_center.market_leaders", tab="dragon_tiger"), code=302)
-
-
-@bp.route("/sectors")
-def sectors():
-    return redirect(url_for("web.watch_center.market_leaders", tab="sectors"), code=302)
-
-
-@bp.route("/northbound")
-def northbound():
-    return redirect(url_for("web.watch_center.market_leaders", tab="northbound"), code=302)
-
-
-@bp.route("/momentum_rotation")
-def momentum_rotation():
-    return redirect(url_for("web.watch_center.market_leaders", tab="rotation"), code=302)

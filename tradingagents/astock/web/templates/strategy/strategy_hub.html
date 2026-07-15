@@ -638,7 +638,7 @@ async function shUpdateStockInfo(symbol) {
   try {
     const res = await fetch('/api/v1/tv/stock-info?symbol=' + encodeURIComponent(symbol));
     if (!res.ok) { el.textContent = ''; return; }
-    const info = await res.json();
+    const info = APIClient.unwrap(await res.json());
     if (!info || !info.name) { el.textContent = ''; return; }
     const parts = [info.exchange, info.board, info.industry].filter(Boolean);
     if (info.indices && info.indices.length) parts.push(info.indices.join('/'));
@@ -648,7 +648,7 @@ async function shUpdateStockInfo(symbol) {
   // ── Sidebar: market regime analysis on index ──
   try {
     const regimeRes = await fetch('/api/v1/market/regime?symbol=000300.SH&lookback=120');
-    const regimeData = await regimeRes.json();
+    const regimeData = APIClient.unwrap(await regimeRes.json());
     if (!regimeData.error && regimeData.verdict) {
       const regimeColors = {bearish:'#f23645', cautious_bearish:'#f23645', neutral:'#787b86', cautious_bullish:'#089981', bullish:'#089981'};
       const regimeLabels = {bullish:'📈 强势上涨',cautious_bullish:'↗️ 谨慎看涨',neutral:'➡️ 横盘震荡',cautious_bearish:'↘️ 谨慎看跌',bearish:'📉 强势下跌'};
@@ -664,7 +664,7 @@ async function shUpdateStockInfo(symbol) {
 async function shLoadStrategies() {
   try {
     const res = await fetch('/api/v1/market/strategies');
-    const data = await res.json();
+    const data = APIClient.unwrap(await res.json());
     allStrategies = data?.strategies || [];
     const sel = document.getElementById('sh-strategy');
     sel.innerHTML = allStrategies.map(s => '<option value="' + s.name + '">' + s.name + '</option>').join('');
@@ -774,7 +774,7 @@ async function shRunOptimize(symbol, start, end, statusEl) {
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({strategy, symbol, start_date: start, end_date: end, param_grid: paramGrid, top_n: 5}),
     });
-    const data = await res.json();
+    const data = APIClient.unwrap(await res.json());
     if (data.error) { statusEl.textContent = '❌ ' + data.error; return; }
 
     // Show result
@@ -833,7 +833,7 @@ async function shRunSingle(symbol, start, end, statusEl) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ symbol, strategy, start, end }),
     });
-    const btData = await res.json();
+    const btData = APIClient.unwrap(await res.json());
     if (btData.error) { statusEl.textContent = '❌ ' + btData.error; return; }
     lastSingleResult = btData;
     statusEl.textContent = '⏳ 加载绩效分析...';
@@ -842,7 +842,7 @@ async function shRunSingle(symbol, start, end, statusEl) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ strategy, symbol, start_date: start, end_date: end }),
     });
-    const analyzeData = await analyzeRes.json();
+    const analyzeData = APIClient.unwrap(await analyzeRes.json());
     lastSingleAnalyze = analyzeData.error ? btData : analyzeData;
     shRenderSingleResults(btData, analyzeData.error ? btData : analyzeData);
     statusEl.textContent = '✅ ' + strategy + ' · ' + symbol + ' 完成';
@@ -875,7 +875,7 @@ async function shRunMultiCompare(symbol, start, end, statusEl) {
       strategies: selected.join(','), symbol, start, end, mock_data: '0',
     });
     const res = await fetch('/api/v1/backtest/compare?' + params.toString());
-    const data = await res.json();
+    const data = APIClient.unwrap(await res.json());
     if (data.error) { statusEl.textContent = '❌ ' + data.error; return; }
     lastMultiResults = data.comparison || [];
     if (lastMultiResults.length === 0) { statusEl.textContent = '⚠️ 无对比结果'; return; }
@@ -1343,7 +1343,7 @@ function shRenderCompareResults(comparison) {
 async function shLoadHistory() {
   try {
     var res = await fetch('/api/v1/backtest/results?limit=20');
-    var data = await res.json();
+    var data = APIClient.unwrap(await res.json());
     var results = data?.results || [];
     document.getElementById('sh-history-count').textContent = results.length;
     var el = document.getElementById('sh-history-list');
@@ -1377,7 +1377,7 @@ async function shDeleteRecord(runId) {
   if (!runId || !confirm('确认删除该条回测记录？')) return;
   try {
     var res = await fetch('/api/v1/backtest/results/' + encodeURIComponent(runId), { method: 'DELETE' });
-    var data = await res.json();
+    var data = APIClient.unwrap(await res.json());
     document.getElementById('sh-status').textContent = data?.status === 'ok' ? '✅ 已删除' : '❌ 删除失败';
     shLoadHistory();
   } catch (e) {
@@ -1406,7 +1406,7 @@ async function shClearAll() {
   if (!confirm('确认清空所有回测历史？')) return;
   try {
     var res = await fetch('/api/v1/backtest/results', { method: 'DELETE' });
-    var data = await res.json();
+    var data = APIClient.unwrap(await res.json());
     document.getElementById('sh-status').textContent = data?.status === 'ok' ? '✅ 已清空' : '❌ 失败';
     shLoadHistory();
   } catch (e) {
@@ -1453,7 +1453,7 @@ function shRunWalkforward(symbol, start, end, statusEl) {
     method: 'POST',
     headers: {'Content-Type':'application/json'},
     body: JSON.stringify({symbol, start_date: start, end_date: end, strategy, train_years: trainYears, val_months: valMonths, top_n: 1}),
-  }).then(r=>r.json()).then(data=>{
+  }).then(r=>r.json()).then(APIClient.unwrap).then(data=>{
     if (data.error) { statusEl.textContent = '❌ '+data.error; return; }
     statusEl.textContent = '✅ WFA 完成 ('+data.windows.length+' 窗口)';
     const s = data.summary;

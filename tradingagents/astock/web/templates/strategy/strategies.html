@@ -84,7 +84,7 @@ async function updateStockInfo(symbol) {
   try {
     const res = await fetch(`/api/v1/tv/stock-info?symbol=${encodeURIComponent(symbol)}`);
     if (!res.ok) { el.textContent = ''; return; }
-    const info = await res.json();
+    const info = APIClient.unwrap(await res.json());
     if (!info || !info.name) { el.textContent = ''; return; }
 
     // Display stock identity
@@ -108,7 +108,7 @@ function setDefaultDates() {
 async function loadStrategies() {
   try {
     const res = await fetch('/api/v1/market/strategies');
-    const data = await res.json();
+    const data = APIClient.unwrap(await res.json());
     const strategies = data?.strategies || [];
 
     // Strategy list
@@ -184,7 +184,7 @@ async function runOptimization() {
       signal: abortController.signal,
     });
 
-    const data = await res.json();
+    const data = APIClient.unwrap(await res.json());
 
     document.getElementById('opt-progress').classList.add('hidden');
 
@@ -206,7 +206,7 @@ async function runOptimization() {
     let displaySymbol = data.symbol;
     try {
       const res2 = await fetch(`/api/v1/tv/stock-info?symbol=${encodeURIComponent(data.symbol)}`);
-      const info = await res2.json();
+      const info = APIClient.unwrap(await res2.json());
       if (info.name) {
         const parts2 = [info.exchange, info.board, info.industry, ...(info.indices || [])].filter(Boolean);
         displaySymbol = `${info.name} (${info.code}) ${parts2.join('/')}`;

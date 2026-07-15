@@ -8,10 +8,15 @@ router), fetching data from providers and writing it into DuckDB tables with
 from __future__ import annotations
 
 import logging
+import multiprocessing
 import os
+import pickle
+import tempfile
+import threading
 import time
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, as_completed, wait
-from typing import Any, Optional
+from queue import Empty
+from typing import Any, Callable, Optional
 
 import pandas as pd
 
@@ -23,6 +28,66 @@ from tradingagents.astock.data_sources.errors import (
 from .schema import AStockStore
 
 logger = logging.getLogger(__name__)
+
+_provider_process_gate: Any | None = None
+_provider_process_gate_lock = threading.Lock()
+
+
+def _get_provider_process_gate() -> threading.BoundedSemaphore:
+    """Return the parent-owned cap for isolated provider processes.
+
+    A spawned router has its own in-memory governor and cache.  Holding this
+    lease in the API process keeps all child requests under one conservative
+    upstream budget until a shared external governor is introduced.
+    """
+    global _provider_process_gate
+    with _provider_process_gate_lock:
+        if _provider_process_gate is None:
+            limit = max(1, int(os.getenv("ASTOCK_ISOLATED_PROVIDER_MAX_CONCURRENCY", "1")))
+            _provider_process_gate = threading.BoundedSemaphore(limit)
+        return _provider_process_gate
+
+
+def _fetch_response_worker(
+    capability: str,
+    symbol: str,
+    start: str | None,
+    end: str | None,
+    interval: str,
+    retries: int,
+    timeout_seconds: float,
+    output: Any,
+    result_path: str,
+) -> None:
+    """Fetch in a fresh interpreter so a stuck provider can be terminated."""
+    try:
+        # Do not inherit a live router, DuckDB handle, or provider locks from
+        # the web worker.  ``spawn`` imports this module afresh and the facade
+        # is constructed from the canonical runtime configuration.
+        from tradingagents.astock.data_sources.router import AStockDataFacade
+
+        facade = AStockDataFacade()
+        request_args = {
+            "capability": capability,
+            "symbol": symbol,
+            "start_date": start,
+            "end_date": end,
+        }
+        if capability == "kline":
+            request_args["interval"] = interval
+        response, retry_count = run_with_timeout_retries(
+            lambda: facade.fetch(**request_args),
+            retries=retries,
+            deadline=time.monotonic() + timeout_seconds,
+        )
+        # Queue pipes are small; sending a DataFrame/report through one can
+        # block process exit while the parent is waiting in join().  Persist
+        # the payload first and keep Queue traffic to a tiny status message.
+        with open(result_path, "wb") as handle:
+            pickle.dump(response, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        output.put(("ok", retry_count))
+    except Exception as exc:
+        output.put(("error", serialize_load_error(exc), getattr(exc, "retry_count", 0)))
 
 
 def serialize_load_error(exc: Exception) -> dict[str, Any]:
@@ -302,6 +367,88 @@ class BatchLoader:
         configured_workers = max_workers or int(os.getenv("ASTOCK_NETWORK_MAX_CONCURRENCY", str(self.MAX_CONCURRENT_WORKERS)))
         self._max_workers = max(1, min(configured_workers, 5))
 
+    def _fetch_response_isolated(
+        self,
+        symbol: str,
+        start: str | None,
+        end: str | None,
+        interval: str,
+        retries: int,
+        timeout_seconds: float,
+        cancelled: Callable[[], bool] | None = None,
+        capability: str = "kline",
+    ) -> tuple[Any, int]:
+        """Fetch through a killable child process without inheriting locks.
+
+        Thread cancellation cannot stop a provider call that has already
+        started.  A short-lived forked worker gives the request deadline a
+        real termination boundary while keeping DuckDB writes in the parent.
+        """
+        if (
+            os.getenv("ASTOCK_TESTING") == "1"
+            or os.getenv("ASTOCK_PROVIDER_PROCESS_ISOLATION", "true").lower() in {"0", "false", "no", "off"}
+        ):
+            return run_with_timeout_retries(
+                lambda: (
+                    self._kline_loader.fetch_response(symbol, start, end, interval)
+                    if capability == "kline"
+                    else self._valuation_loader.fetch_response(symbol, start, end)
+                ),
+                retries=retries,
+                deadline=time.monotonic() + timeout_seconds,
+            )
+        context = multiprocessing.get_context("spawn")
+        output = context.Queue(maxsize=1)
+        result_file = tempfile.NamedTemporaryFile(prefix="astock-provider-", suffix=".pickle", delete=False)
+        result_path = result_file.name
+        result_file.close()
+        gate = _get_provider_process_gate()
+        if not gate.acquire(timeout=max(0.1, timeout_seconds)):
+            os.unlink(result_path)
+            raise TimeoutError("provider fetch timed out waiting for isolated capacity")
+        worker = context.Process(
+            target=_fetch_response_worker,
+            args=(capability, symbol, start, end, interval, retries, timeout_seconds, output, result_path),
+            daemon=True,
+        )
+        try:
+            worker.start()
+            deadline = time.monotonic() + timeout_seconds
+            # Poll rather than a single blocking join so a cancelled data job
+            # terminates an already-running provider request promptly.
+            while worker.is_alive() and time.monotonic() < deadline:
+                if cancelled is not None and cancelled():
+                    worker.terminate()
+                    worker.join(timeout=1)
+                    raise TimeoutError("provider fetch cancelled")
+                worker.join(timeout=min(0.1, max(0.0, deadline - time.monotonic())))
+            if worker.is_alive():
+                worker.terminate()
+                worker.join(timeout=1)
+                raise TimeoutError("provider fetch timed out")
+            try:
+                packet = output.get(timeout=0.2)
+            except Empty as exc:
+                raise RuntimeError("provider worker exited without a response") from exc
+        finally:
+            output.close()
+            output.join_thread()
+            gate.release()
+            if "packet" not in locals() or packet[0] != "ok":
+                if os.path.exists(result_path):
+                    os.unlink(result_path)
+        status = packet[0]
+        if status == "ok":
+            try:
+                with open(result_path, "rb") as handle:
+                    return pickle.load(handle), int(packet[1])
+            finally:
+                if os.path.exists(result_path):
+                    os.unlink(result_path)
+        error = RuntimeError(str(packet[1].get("message", "provider fetch failed")))
+        setattr(error, "retry_count", packet[2])
+        raise error
+
     def load_kline_batch(
         self,
         symbols: list[str],
@@ -353,7 +500,7 @@ class BatchLoader:
     def load_kline_requests(
         self, requests: list[dict[str, Any]], *, concurrent: bool = False,
         timeout_seconds: float | None = None, timeout_retries: int | None = None,
-        source: str = "",
+        source: str = "", cancelled: Callable[[], bool] | None = None,
     ) -> dict[str, dict[str, Any]]:
         """Execute distinct K-line requests and retain per-item failures.
 
@@ -363,6 +510,7 @@ class BatchLoader:
         timeout = max(1.0, float(timeout_seconds if timeout_seconds is not None else os.getenv("ASTOCK_JOB_TIMEOUT_SECONDS", "300")))
         deadline = time.monotonic() + timeout
         retries = int(timeout_retries if timeout_retries is not None else os.getenv("ASTOCK_KLINE_TIMEOUT_RETRIES", "3"))
+        is_cancelled = cancelled or (lambda: False)
 
         def execute(item: dict[str, Any]) -> tuple[str, dict[str, Any], Any | None]:
             symbol = str(item["symbol"])
@@ -375,11 +523,11 @@ class BatchLoader:
                 "status": "succeeded",
             }
             try:
-                response, result["retry_count"] = run_with_timeout_retries(
-                    lambda: self._kline_loader.fetch_response(
-                        symbol, item.get("start"), item.get("end"), interval
-                    ),
-                    retries=retries, deadline=deadline,
+                if is_cancelled():
+                    raise TimeoutError("provider fetch cancelled")
+                response, result["retry_count"] = self._fetch_response_isolated(
+                    symbol, item.get("start"), item.get("end"), interval,
+                    retries, max(0.1, deadline - time.monotonic()), is_cancelled,
                 )
                 return key, result, response
             except Exception as exc:
@@ -387,14 +535,16 @@ class BatchLoader:
                 return key, result, None
 
         results: dict[str, dict[str, Any]] = {}
-        # Even a one-symbol refresh uses this bounded executor so a provider
-        # call can be reported as timed out instead of blocking the job route
-        # indefinitely.  The underlying adapters also set socket timeouts.
+        # Threads coordinate concurrent jobs; each provider call itself runs
+        # in a killable child process so timeout does not leave a blocked
+        # third-party worker behind.
         executor = ThreadPoolExecutor(max_workers=self._max_workers if concurrent else 1)
         futures = {executor.submit(execute, item): item for item in requests}
         pending = set(futures)
         try:
             while pending and time.monotonic() < deadline:
+                if is_cancelled():
+                    break
                 done, pending = wait(
                     pending,
                     timeout=min(0.25, max(0.0, deadline - time.monotonic())),
@@ -405,6 +555,8 @@ class BatchLoader:
                     if result["status"] == "succeeded":
                         item = futures[future]
                         try:
+                            if is_cancelled():
+                                raise TimeoutError("provider fetch cancelled")
                             result["rows_upserted"] = self._kline_loader.write_response(
                                 str(item["symbol"]),
                                 response,
@@ -425,13 +577,13 @@ class BatchLoader:
                 results[key] = {
                     "requested_start": item.get("start"), "requested_end": item.get("end"),
                     "rows_upserted": 0, "status": "failed", "retry_count": 0,
-                    "error": {"code": "timeout", "message": "refresh job deadline exceeded", "retryable": True},
+                    "error": {"code": "cancelled" if is_cancelled() else "timeout", "message": "refresh job cancelled" if is_cancelled() else "refresh job deadline exceeded", "retryable": not is_cancelled()},
                 }
         finally:
-            # Do not block the request thread on a third-party call that has
-            # already exceeded its deadline; HTTP adapters still carry their
-            # own socket timeouts.
-            executor.shutdown(wait=False, cancel_futures=True)
+            # Each executing task polls the cancellation callback and kills
+            # its child process before this method returns.  Waiting here
+            # prevents a cancelled job from retaining hidden provider work.
+            executor.shutdown(wait=True, cancel_futures=True)
         return results
 
     def load_valuations_batch(

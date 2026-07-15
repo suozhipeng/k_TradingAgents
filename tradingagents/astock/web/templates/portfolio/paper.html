@@ -156,7 +156,7 @@ async function fetchJson(url, timeoutMs = 15000) {
   const tid = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
     const res = await fetch(url, { signal: ctrl.signal });
-    const data = await res.json();
+    const data = APIClient.unwrap(await res.json());
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data;
   } finally { clearTimeout(tid); }

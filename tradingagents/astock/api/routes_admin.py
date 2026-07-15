@@ -22,12 +22,12 @@ logger = logging.getLogger(__name__)
 def _require_admin(*required_capabilities: str) -> bool:
     """Check if the current request has admin role and required capabilities.
 
-    Requires ``ASTOCK_ADMIN_TOKEN`` env var (or ``?token=`` query param).
+    Requires ``ASTOCK_ADMIN_TOKEN`` in the Bearer Authorization header.
     DuckDB mode no longer bypasses auth.
 
     Returns True if allowed, False if blocked (caller should return 403).
     """
-    token = request.args.get("token") or request.headers.get("Authorization", "").replace("Bearer ", "")
+    token = request.headers.get("Authorization", "").replace("Bearer ", "")
     expected = os.environ.get("ASTOCK_ADMIN_TOKEN", "")
     if expected and token != expected:
         return False

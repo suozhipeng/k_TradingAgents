@@ -23,10 +23,7 @@ from .envelope import error_response
 bp = Blueprint("tv", __name__)
 logger = logging.getLogger(__name__)
 
-from ._helpers import df_to_json, get_store  # noqa: E402
-
-# Backward-compatible alias
-_df_to_json = df_to_json
+from ._helpers import bounded_int_arg, df_to_json, get_store  # noqa: E402
 
 RESOLUTION_MAP: dict[str, str] = {
     "1": "1m", "5": "5m", "15": "15m", "30": "30m", "60": "60m",
@@ -220,7 +217,10 @@ def tv_stock_search() -> tuple[Response, int]:
     q = request.args.get("q", "").strip().lower()
     if not q or len(q) < 1:
         return jsonify({"items": []}), 200
-    limit = int(request.args.get("limit", 10))
+    try:
+        limit = bounded_int_arg("limit", 10, minimum=1, maximum=50)
+    except ValueError:
+        return error_response("invalid_limit", 400)
 
     stocks = _load_stock_list()
     if not stocks:
@@ -365,7 +365,7 @@ def tv_symbols() -> tuple[Response, int]:
     try:
         store = get_store()
         df = store.query_kline(symbol, interval="1d", limit=2)
-        bars = _df_to_json(df)
+        bars = df_to_json(df)
         # bars may use 'bar_time' or 'trade_date' as time column
         last_price = bars[-1]["close"] if bars else 100.0
         prev_close = bars[-2]["close"] if len(bars) > 1 else last_price
@@ -439,12 +439,12 @@ def tv_history() -> tuple[Response, int]:
         start_str = __import__("datetime").datetime.utcfromtimestamp(from_ts).strftime("%Y-%m-%d") if from_ts else None  # noqa: E501
         end_str = __import__("datetime").datetime.utcfromtimestamp(to_ts).strftime("%Y-%m-%d") if to_ts else None
         df = store.query_kline(symbol, interval=interval, start=start_str, end=end_str, limit=max_bars, include_cold=include_cold)
-        bars = _df_to_json(df)
+        bars = df_to_json(df)
 
         # Weekly/Monthly/Yearly: aggregate from daily data
         if not bars and interval in ("1w", "1mo", "1y"):
             df_daily = store.query_kline(symbol, interval="1d", start=start_str, end=end_str, limit=max_bars)
-            daily_bars = _df_to_json(df_daily)
+            daily_bars = df_to_json(df_daily)
             if daily_bars:
                 bars = _aggregate_bars(daily_bars, interval)
         if not bars:

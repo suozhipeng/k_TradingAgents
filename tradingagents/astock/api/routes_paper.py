@@ -14,6 +14,7 @@ from typing import Any
 from flask import Blueprint, Response, jsonify, request
 from .envelope import error_response
 
+from ._helpers import bounded_int_arg
 from ._paper_service import get_paper_trader, serialize_paper_state, serialize_paper_trades
 logger = logging.getLogger(__name__)
 
@@ -66,7 +67,7 @@ def paper_state() -> tuple[Response, int]:
 @bp.route("/paper/trades")
 def paper_trades() -> tuple[Response, int]:
     try:
-        limit = int(request.args.get("limit", "0"))
+        limit = bounded_int_arg("limit", 0, minimum=0, maximum=1_000)
         trader = get_paper_trader()
         trades = serialize_paper_trades(trader)
         count = len(trades)
@@ -75,5 +76,7 @@ def paper_trades() -> tuple[Response, int]:
         return jsonify({
             "trades": trades, "count": count, "limit": limit or count,
         }), 200
+    except ValueError:
+        return error_response("invalid_limit", 400)
     except Exception as exc:
         return error_response(str(exc), 500)

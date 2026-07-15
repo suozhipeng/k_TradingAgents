@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import json
 import logging
 import re
 import time
@@ -16,9 +17,9 @@ import uuid
 from typing import Any
 
 from flask import Flask, Response, g, jsonify, request
+from .envelope import stable_error_code
 from .idempotency import IdempotencyRegistry
-from .key_resolver import resolve_api_key
-from .rate_limit import FixedWindowRateLimiter
+from .key_resolver import build_rate_limiter, resolve_api_key
 
 logger = logging.getLogger(__name__)
 
@@ -28,10 +29,67 @@ _REQUEST_ID_RE = re.compile(r"^[A-Za-z0-9_-]{8,128}$")
 _IDEMPOTENCY_KEY_RE = re.compile(r"^[A-Za-z0-9._:-]{8,128}$")
 _EXECUTION_PREFIXES = frozenset((
     "/api/v1/trade/", "/api/v1/paper/", "/api/v1/qmt/", "/api/v1/portfolio/",
+    "/api/v1/sse/scheduler/",
 ))
 _LOCAL_RELEASE_DISABLED_PREFIXES = _EXECUTION_PREFIXES | frozenset((
     "/api/v1/scheduler/", "/api/v1/ops/scheduler/", "/api/v1/sse/paper-progress",
 ))
+
+
+def _is_canonical_api_envelope(payload: Any) -> bool:
+    """Return whether *payload* already conforms to the current API schema."""
+    if not isinstance(payload, dict) or not isinstance(payload.get("ok"), bool):
+        return False
+    if payload["ok"]:
+        return set(payload) == {"ok", "data"}
+    return (
+        {"ok", "error", "message", "status"}.issubset(payload)
+        and set(payload).issubset({"ok", "error", "message", "status", "details"})
+    )
+
+
+def _normalise_api_json_response(response: Any) -> Any:
+    """Apply the v1 JSON envelope to every non-streaming JSON API response.
+
+    Route modules historically returned a mix of ``jsonify(payload)``, shared
+    helpers, and JSON arrays.  Centralising the migration keeps every API
+    response coherent without changing each route's business logic.  The
+    contract is deliberately non-compatible: successful payloads exist only
+    under ``data``. Streaming SSE, downloads, redirects and no-content
+    responses deliberately bypass it.
+    """
+    if (
+        not request.path.startswith("/api/v1/")
+        or response.is_streamed
+        or response.status_code in (204, 304)
+        or not response.is_json
+    ):
+        return response
+    payload = response.get_json(silent=True)
+    if _is_canonical_api_envelope(payload):
+        return response
+
+    if 200 <= response.status_code < 400:
+        body: dict[str, Any] = {"ok": True, "data": payload}
+    else:
+        raw_details = payload if isinstance(payload, dict) else {"value": payload}
+        message = str(raw_details.get("message") or raw_details.get("error") or "request_failed")
+        body = {
+            "ok": False,
+            "error": stable_error_code(str(raw_details.get("error") or message), response.status_code),
+            "message": message,
+            "status": response.status_code,
+        }
+        details = {
+            key: value for key, value in raw_details.items()
+            if key not in {"ok", "error", "message", "status"}
+        }
+        if details:
+            body["details"] = details
+
+    response.set_data(json.dumps(body, ensure_ascii=False, default=str, separators=(",", ":")))
+    response.mimetype = "application/json"
+    return response
 
 
 def register_hooks(app: Flask) -> None:
@@ -41,10 +99,10 @@ def register_hooks(app: Flask) -> None:
         app.config.get("ASTOCK_IDEMPOTENCY_TTL_SECONDS", 300),
         app.config.get("ASTOCK_IDEMPOTENCY_MAX_ENTRIES", 1000),
     )
-    app.extensions["astock_rate_limiter"] = FixedWindowRateLimiter(
-        app.config.get("ASTOCK_RATE_LIMIT_PER_MINUTE", 300), 60,
-        app.config.get("ASTOCK_RATE_LIMIT_MAX_KEYS", 10000),
-    )
+    # One limiter protects every route.  It is Redis-backed when configured,
+    # avoiding the previous split where only decorator-protected routes shared
+    # rate-limit state across workers.
+    app.extensions["astock_rate_limiter"] = build_rate_limiter()
     _register_before_request(app)
     _register_after_request(app)
     _register_error_handlers(app)
@@ -94,16 +152,18 @@ def _register_before_request(app: Flask) -> None:
         g.rate_limit = int(app.config.get("ASTOCK_RATE_LIMIT_PER_MINUTE", 300))
 
     @app.before_request
-    def _require_auth_on_write_routes() -> tuple[Any, int] | None:
-        if not app.config.get("ASTOCK_REQUIRE_AUTH", True):
-            return None
-        if request.method not in _WRITE_METHODS:
-            return None
-        if any(request.path.startswith(p) for p in ("/api/v1/health",)):
-            return None
+    def _authenticate_request() -> tuple[Any, int] | None:
+        """Resolve a supplied bearer key before global rate limiting.
 
+        This gives every request the same key identity for shared limiting.
+        Write requests still require a valid writer-capable key; anonymous
+        reads remain supported where routes allow them.
+        """
         auth = request.headers.get("Authorization", "")
+        is_write = request.method in _WRITE_METHODS and not request.path.startswith("/api/v1/health")
         if not auth.startswith("Bearer "):
+            if not app.config.get("ASTOCK_REQUIRE_AUTH", True) or not is_write:
+                return None
             return jsonify({"error": "missing_auth",
                             "message": "Bearer token required for write operations"}), 401
 
@@ -113,6 +173,8 @@ def _register_before_request(app: Flask) -> None:
         record = resolve_api_key(store, key_hash)
 
         if record is None:
+            if not app.config.get("ASTOCK_REQUIRE_AUTH", True) and not is_write:
+                return None
             return jsonify({"error": "invalid_key",
                             "message": "Invalid or expired API key"}), 401
 
@@ -124,7 +186,7 @@ def _register_before_request(app: Flask) -> None:
             g.rate_limit = max(1, int(record.get("rate_limit", g.rate_limit)))
         except (TypeError, ValueError):
             pass
-        if request.method in _WRITE_METHODS and g.role not in _WRITE_ROLES:
+        if app.config.get("ASTOCK_REQUIRE_AUTH", True) and is_write and g.role not in _WRITE_ROLES:
             return jsonify({
                 "error": "forbidden",
                 "message": "A writer, operator, or admin API key is required for write operations",
@@ -165,9 +227,12 @@ def _register_before_request(app: Flask) -> None:
             return None
         actor = getattr(g, "actor", "anonymous")
         identity = actor if actor != "anonymous" else (request.remote_addr or "unknown")
-        allowed, retry_after = app.extensions["astock_rate_limiter"].allow(
-            identity, getattr(g, "rate_limit", None)
-        )
+        limiter = app.extensions["astock_rate_limiter"]
+        if hasattr(limiter, "allow"):
+            allowed, retry_after = limiter.allow(identity, getattr(g, "rate_limit", None))
+        else:
+            allowed, _remaining = limiter.consume(identity, getattr(g, "rate_limit", None))
+            retry_after = 60
         if allowed:
             return None
         response = jsonify({"error": "rate_limited", "status": 429, "retry_after_seconds": retry_after})
@@ -191,6 +256,7 @@ def _register_after_request(app: Flask) -> None:
         response.headers.setdefault("Referrer-Policy", "no-referrer")
         response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
         response.headers.setdefault("X-Frame-Options", "DENY")
+        response = _normalise_api_json_response(response)
         key = getattr(g, "idempotency_registry_key", None)
         if key:
             registry: IdempotencyRegistry = app.extensions["astock_idempotency"]
@@ -231,6 +297,9 @@ def _register_after_request(app: Flask) -> None:
     def _audit_write_operations(response: Any) -> Any:
         """Non-blocking audit for all POST/PUT/DELETE/PATCH operations."""
         if response.status_code >= 500 and response.status_code != 501:
+            payload = response.get_json(silent=True) if response.is_json else None
+            if _is_canonical_api_envelope(payload):
+                return response
             logger.error("API request failed: %s %s -> %s", request.method, request.path, response.status_code)
             # Keep the global safety boundary while using the same error
             # schema as route-level handlers.  Do not reflect route exception

@@ -89,7 +89,7 @@ async function resolveName(symbol) {
   try {
     const res = await fetch(`/api/v1/tv/stock-info?symbol=${encodeURIComponent(symbol)}`);
     if (!res.ok) return symbol;
-    const info = await res.json();
+    const info = APIClient.unwrap(await res.json());
     if (info && info.name) {
       nameCache[symbol] = `${info.name} (${info.code})`;
       return nameCache[symbol];
@@ -117,7 +117,7 @@ async function runScreener() {
     });
 
     const res = await fetch(`/api/v1/market/screener?${params}`);
-    const data = await res.json();
+    const data = APIClient.unwrap(await res.json());
 
     if (data.error) {
       status.textContent = '❌ ' + data.error;

@@ -118,9 +118,10 @@ class RedisRateLimiter:
             results = pipe.execute()
             count = int(results[2])
         except Exception:
-            # A Redis outage must not hard-fail requests; log and allow.
-            logger.exception("Redis rate-limit check failed; allowing request")
-            return True, rate
+            # Failing open silently removes the only shared limit in a
+            # multi-worker deployment. Reject until Redis recovers instead.
+            logger.exception("Redis rate-limit check failed; rejecting request")
+            return False, 0
         if count > rate:
             return False, 0
         return True, max(0, rate - count)

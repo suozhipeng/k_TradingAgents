@@ -128,8 +128,7 @@ def backtest(
 
     try:
         from tradingagents.astock.execution.backtest_engine import (
-            PipelineParams,
-            run_backtest_pipeline,
+            BacktestEngine,
         )
     except ImportError:
         console.print("[red]✗ backtest_engine module not found. Run from project root.[/red]")
@@ -137,19 +136,17 @@ def backtest(
 
     with console.status(f"[blue]Running {strategy} on {symbol}..."):
         try:
-            params = PipelineParams(
+            result = BacktestEngine(use_mock_data=False).run(
                 symbol=symbol,
-                strategy_name=strategy,
                 start_date=start,
                 end_date=end,
-                strategy_config={},
+                strategy=strategy,
             )
-            result = run_backtest_pipeline(params)
         except Exception as e:
             console.print(f"[red]✗ Backtest failed: {e}[/red]")
             raise typer.Exit(1)
 
-    m = result.metrics
+    m = result
     if json_output:
         console.print(json_lib.dumps({
             "symbol": symbol,

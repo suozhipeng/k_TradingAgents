@@ -5,121 +5,62 @@ POST   /api/v1/watchlist/add      → {symbol, name}
 POST   /api/v1/watchlist/remove   → {symbol}
 POST   /api/v1/watchlist/batch-analyze → batch AI analysis for all watchlist symbols
 
-Uses DuckDB ``watchlist`` table as primary storage with JSON file fallback.
+Uses DuckDB ``watchlist`` table as the sole storage backend.
 """
 
 from __future__ import annotations
 
-import json
 import logging
-import os
 from datetime import datetime
-from pathlib import Path
 from typing import Any
 
 from flask import Blueprint, Response, jsonify, request
 
 from .envelope import error_response, success_response
 
-from ._analysis_engine import analyze_stock_symbol, load_watchlist
+from ._analysis_engine import analyze_stock_symbol
 
 logger = logging.getLogger(__name__)
 
 bp = Blueprint("watchlist", __name__)
 
-_WATCHLIST_FALLBACK_DIR = Path(os.environ.get(
-    "ASTOCK_WATCHLIST_DIR",
-    Path.home() / ".tradingagents",
-))
-WATCHLIST_PATH = _WATCHLIST_FALLBACK_DIR / "watchlist.json"
-
-# ---------------------------------------------------------------------------
-# Watchlist storage — fallback path lives under the project data dir,
-# NOT under the user's HOME, to avoid environment-dependent permissions.
-# ---------------------------------------------------------------------------
-_WATCHLIST_FALLBACK_DIR = Path(os.environ.get(
-    "ASTOCK_WATCHLIST_DIR",
-    Path.home() / ".tradingagents",
-))
-WATCHLIST_PATH = _WATCHLIST_FALLBACK_DIR / "watchlist.json"
-
-
 def _load_from_duckdb(store: Any) -> list[dict[str, Any]]:
     """Load watchlist from DuckDB watchlist table."""
     try:
         if store is None:
-            return []
+            raise RuntimeError("watchlist store unavailable")
         df = store.query_sql('SELECT symbol, name, added_at, source FROM watchlist ORDER BY added_at DESC')
         if df is None or df.empty:
             return []
         return df.to_dict(orient="records")
     except Exception as exc:
-        logger.debug("DuckDB watchlist unavailable: %s", exc)
-        return []
+        logger.exception("DuckDB watchlist load failed")
+        raise RuntimeError("watchlist store unavailable") from exc
 
 
 def _save_to_duckdb(store: Any, items: list[dict[str, Any]]) -> None:
     """Save watchlist to DuckDB watchlist table."""
     try:
         if store is None or not hasattr(store, "replace_watchlist"):
-            return
+            raise RuntimeError("watchlist store unavailable")
         store.replace_watchlist(items)
     except Exception as exc:
-        logger.warning("DuckDB watchlist save failed, falling back to JSON: %s", exc)
-        _save_json(items)
-
-
-def _load_json() -> list[dict[str, Any]]:
-    """Load watchlist from JSON file (legacy fallback)."""
-    if not WATCHLIST_PATH.exists():
-        return []
-    try:
-        with open(WATCHLIST_PATH, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            return data if isinstance(data, list) else []
-    except (json.JSONDecodeError, OSError) as exc:
-        logger.warning("Failed to load watchlist JSON: %s", exc)
-        return []
-
-
-def _json_serializable(obj: Any) -> Any:
-    """Recursively convert non-JSON-serializable types to serializable ones."""
-    if isinstance(obj, dict):
-        return {k: _json_serializable(v) for k, v in obj.items()}
-    if isinstance(obj, (list, tuple)):
-        return [_json_serializable(v) for v in obj]
-    # Handle datetime-like objects (DuckDB Timestamp, pandas Timestamp, etc.)
-    if hasattr(obj, 'isoformat'):
-        return obj.isoformat()
-    if isinstance(obj, (int, float, str, bool)) or obj is None:
-        return obj
-    return str(obj)
-
-
-def _save_json(items: list[dict[str, Any]]) -> None:
-    """Save watchlist to JSON file (legacy fallback)."""
-    WATCHLIST_PATH.parent.mkdir(parents=True, exist_ok=True)
-    serializable_items = _json_serializable(items)
-    with open(WATCHLIST_PATH, "w", encoding="utf-8") as f:
-        json.dump(serializable_items, f, ensure_ascii=False, indent=2)
+        logger.exception("DuckDB watchlist save failed")
+        raise RuntimeError("watchlist store unavailable") from exc
 
 
 def _load() -> list[dict[str, Any]]:
-    """Load watchlist — tries DuckDB first, falls back to JSON."""
+    """Load watchlist from the configured DuckDB store."""
     from flask import current_app
     store = current_app.config.get("STORE") if current_app else None
-    items = _load_from_duckdb(store)
-    if not items:
-        items = _load_json()
-    return items
+    return _load_from_duckdb(store)
 
 
 def _save(items: list[dict[str, Any]]) -> None:
-    """Save watchlist — tries DuckDB first, falls back to JSON."""
+    """Save watchlist to the configured DuckDB store."""
     from flask import current_app
     store = current_app.config.get("STORE") if current_app else None
     _save_to_duckdb(store, items)
-    _save_json(items)
 
 
 # ---------------------------------------------------------------------------
@@ -130,8 +71,11 @@ def _save(items: list[dict[str, Any]]) -> None:
 @bp.route("/watchlist", methods=["GET"])
 def get_watchlist() -> WatchlistResponse:
     """Return the current watchlist symbols."""
-    items = _load()
-    return jsonify({"items": items, "count": len(items)})
+    try:
+        items = _load()
+    except RuntimeError as exc:
+        return error_response("watchlist_store_unavailable", 503, detail=str(exc))
+    return success_response({"items": items, "count": len(items)})
 
 
 # ---------------------------------------------------------------------------
@@ -149,7 +93,10 @@ def add_symbol() -> WatchlistResponse:
     if not symbol:
         return error_response("symbol is required", 400)
 
-    items = _load()
+    try:
+        items = _load()
+    except RuntimeError as exc:
+        return error_response("watchlist_store_unavailable", 503, detail=str(exc))
 
     # Check duplicates
     existing = {it.get("symbol", "").upper() for it in items if it.get("symbol")}
@@ -163,10 +110,13 @@ def add_symbol() -> WatchlistResponse:
         "source": data.get("source", "manual"),
     }
     items.append(entry)
-    _save(items)
+    try:
+        _save(items)
+    except RuntimeError as exc:
+        return error_response("watchlist_store_unavailable", 503, detail=str(exc))
 
     logger.info("Watchlist add: %s (%s)", symbol, name)
-    return jsonify({"item": entry, "count": len(items), "status": "ok"}), 201
+    return success_response({"item": entry, "count": len(items)}, status=201)
 
 
 # ---------------------------------------------------------------------------
@@ -183,7 +133,10 @@ def remove_symbol() -> WatchlistResponse:
     if not symbol:
         return error_response("symbol is required", 400)
 
-    items = _load()
+    try:
+        items = _load()
+    except RuntimeError as exc:
+        return error_response("watchlist_store_unavailable", 503, detail=str(exc))
     before = len(items)
     items = [it for it in items if it.get("symbol", "").upper() != symbol]
     removed = before - len(items)
@@ -191,9 +144,12 @@ def remove_symbol() -> WatchlistResponse:
     if removed == 0:
         return error_response(f"Symbol {symbol} not found in watchlist", 404)
 
-    _save(items)
+    try:
+        _save(items)
+    except RuntimeError as exc:
+        return error_response("watchlist_store_unavailable", 503, detail=str(exc))
     logger.info("Watchlist remove: %s", symbol)
-    return jsonify({"removed": removed, "count": len(items), "status": "ok"}), 200
+    return success_response({"removed": removed, "count": len(items)})
 
 
 # ---------------------------------------------------------------------------
@@ -208,7 +164,10 @@ def batch_analyze() -> WatchlistResponse:
     Performs technical analysis on all watchlist symbols and optionally
     triggers AI analysis if LLM is configured.
     """
-    items = _load()
+    try:
+        items = _load()
+    except RuntimeError as exc:
+        return error_response("watchlist_store_unavailable", 503, detail=str(exc))
     if not items:
         return error_response("Watchlist is empty", 400)
 
@@ -255,7 +214,7 @@ def batch_analyze() -> WatchlistResponse:
     rating_order = {"buy": 0, "hold": 1, "sell": 2}
     results.sort(key=lambda r: (rating_order.get(r.get("rating", "hold"), 9), -r.get("score", 0)))
 
-    return jsonify({
+    return success_response({
         "status": "complete",
         "total": len(symbols),
         "results_count": len(results),
@@ -266,7 +225,7 @@ def batch_analyze() -> WatchlistResponse:
         "message": f"完成 {len(results)}/{len(symbols)} 个标的的分析",
         "research_only": True,
         "actionable": False,
-    }), 200
+    })
 
 
 __all__ = ["bp"]

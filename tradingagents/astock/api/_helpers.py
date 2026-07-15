@@ -105,6 +105,20 @@ def bounded_int_arg(name: str, default: int, *, minimum: int = 0, maximum: int =
     return value
 
 
+def bounded_float_arg(name: str, default: float, *, minimum: float, maximum: float) -> float:
+    """Read a finite floating-point query parameter with bounds."""
+    raw = request.args.get(name)
+    if raw is None or raw == "":
+        return default
+    try:
+        value = float(raw)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{name} must be a number") from exc
+    if not math.isfinite(value) or not minimum <= value <= maximum:
+        raise ValueError(f"{name} must be between {minimum} and {maximum}")
+    return value
+
+
 def _bool_env(key: str, default: bool = False) -> bool:
     """Read a boolean env var."""
     val = os.environ.get(key, "")

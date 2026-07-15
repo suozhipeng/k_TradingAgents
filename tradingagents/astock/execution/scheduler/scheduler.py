@@ -128,6 +128,10 @@ class PaperTradeScheduler:
             ["000300.SH", "000001.SH", "399001.SZ", "600519.SH", "000858.SZ"],
         )
         self._cycle_count = 0
+        # Keep a bounded worker pool for the scheduler lifetime.  A timed-out
+        # Python future cannot stop a running provider call, but reusing this
+        # pool prevents every timeout from creating another orphan thread.
+        self._symbol_executor = ThreadPoolExecutor(max_workers=8, thread_name_prefix="astock-scheduler")
 
         self._scheduler = BackgroundScheduler(daemon=True)
         self._job_id = "paper_trade_cycle"
@@ -536,9 +540,7 @@ class PaperTradeScheduler:
         # per symbol.  If one symbol hangs, the others still proceed.
         # We manually manage the pool so we can call shutdown(wait=False)
         # to avoid blocking on timed-out threads.
-        pool = ThreadPoolExecutor(
-            max_workers=max(1, min(len(self._symbols), 8)),
-        )
+        pool = self._symbol_executor
         try:
             futures = {}
             for symbol in self._symbols:
@@ -572,6 +574,7 @@ class PaperTradeScheduler:
                 for future in expired:
                     pending.remove(future)
                     symbol = futures[future]
+                    self._interrupt_store_query(symbol)
                     future.cancel()
                     logger.warning("Symbol %s processing timed out after %ds", symbol, self.SYMBOL_TIMEOUT)
                     EventBus.publish({
@@ -588,9 +591,9 @@ class PaperTradeScheduler:
                     "timestamp": datetime.utcnow().isoformat(),
                 })
         finally:
-            # wait=False: do not block on threads that are still running
-            # (e.g. a symbol that timed out and is sleeping in a data source).
-            pool.shutdown(wait=False)
+            # DuckDB queries are interrupted above before a Future is removed.
+            # ``cancel`` still handles work that has not started yet.
+            pass
 
         if signals:
             try:
@@ -673,6 +676,24 @@ class PaperTradeScheduler:
             signal = 0.0
 
         return (price, signal)
+
+    def _interrupt_store_query(self, symbol: str) -> None:
+        """Ask the active database connection to stop a timed-out query.
+
+        The scheduler only reads local kline data; it must not leave a blocked
+        DuckDB query behind and pretend that ``Future.cancel`` stopped it.
+        DuckDB exposes ``interrupt`` on the connection in supported versions.
+        Other stores simply do not provide this best-effort hook.
+        """
+        for candidate in (self._store, getattr(self._store, "conn", None)):
+            interrupt = getattr(candidate, "interrupt", None)
+            if callable(interrupt):
+                try:
+                    interrupt()
+                    logger.warning("Interrupted timed-out kline query for %s", symbol)
+                    return
+                except Exception as exc:
+                    logger.warning("Failed to interrupt timed-out query for %s: %s", symbol, exc)
 
     # ------------------------------------------------------------------
     # Data helpers

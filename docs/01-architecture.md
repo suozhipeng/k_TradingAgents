@@ -162,7 +162,7 @@
 
 - 所有 API 必须标注能力等级：`research`、`paper`、`managed`、`live-ready`。
 - `mock` 不是顶层能力等级；它只用于描述 `source`、`mock_mode` 或降级实现状态。
-- 所有 API 响应必须包含稳定的 `success`、`data`、`error`、`meta` 结构，或在 phase 文档中说明兼容例外。
+- 所有 `/api/v1` JSON 响应必须使用当前统一信封：成功为 `ok` + `data`，失败为 `ok` + `error` + `message` + `status`（可选 `details`）。
 - 不能把 mock、paper、managed 响应描述成真实实盘。
 - 交易相关 API 必须返回风控状态、确认状态和审计引用。
 - 回测、AI、数据刷新等长任务必须返回 task id，并进入 Ops/Audit 追踪。
@@ -176,26 +176,16 @@
 
 ## 标准响应 envelope
 
-> 当前 `/api/v1` 正在采用兼容迁移：已迁移路由的成功响应包含
-> `ok: true` 和规范 `data`，同时保留原顶层业务字段；错误响应包含
-> `ok: false`、`error`、`message` 与 `status`。保留字段是 v1 兼容层，
-> 不得在未升版前删除。
+> 当前 `/api/v1` 已完成统一迁移：成功响应严格为 `ok: true` 与唯一的
+> `data` 字段；错误响应严格为 `ok: false`、`error`、`message`、`status`，
+> 并可带 `details`。不保留旧顶层业务字段。
 
-**设计目标响应信封（Phase 30+ 目标）：**
+**当前响应信封：**
 
 ```json
 {
-  "success": true,
-  "data": {},
-  "error": null,
-  "meta": {
-    "capability": "research",
-    "source": "duckdb|provider|cache|mock|paper|managed",
-    "request_id": "uuid",
-    "generated_at": "2026-06-23T00:00:00Z",
-    "data_snapshot_id": "optional",
-    "audit_event_id": "optional"
-  }
+  "ok": true,
+  "data": {}
 }
 ```
 
@@ -203,20 +193,11 @@
 
 ```json
 {
-  "success": false,
-  "data": null,
-  "error": {
-    "code": "DATA_PROVIDER_UNAVAILABLE",
-    "message": "provider unavailable",
-    "category": "data|validation|risk|execution|system",
-    "retryable": true,
-    "details": {}
-  },
-  "meta": {
-    "capability": "research",
-    "request_id": "uuid",
-    "generated_at": "2026-06-23T00:00:00Z"
-  }
+  "ok": false,
+  "error": "DATA_PROVIDER_UNAVAILABLE",
+  "message": "provider unavailable",
+  "status": 503,
+  "details": {}
 }
 ```
 
@@ -234,7 +215,7 @@
 
 ## 当前实际错误格式
 
-已迁移路由使用：
+所有失败路由使用：
 
 ```json
 {
@@ -245,8 +226,7 @@
 }
 ```
 
-未迁移路由仍可能仅返回原扁平字段。完整 `{success, data, error, meta}`
-属于后续版本目标，必须通过 API 升版而不是移除 v1 兼容字段来实现。
+所有路由都由应用层统一规范化；不得新增未包装的扁平 JSON 响应或旧字段回填。
 
 ## API 能力矩阵
 
@@ -358,12 +338,11 @@ Phase 30 约束：
 | `confirmation_status` | enum | 是 | `not_required` / `pending` / `confirmed` / `rejected` |
 | `audit_event_id` | string | 是 | 审计事件 |
 
-## 版本与兼容
+## 当前开发阶段的契约规则
 
-- 破坏性字段变更必须提升 API version 或提供兼容字段。
-- 新增字段必须保持向后兼容。
-- 删除 endpoint 前必须在 phase 文档中写迁移策略。
-- 页面不能直接依赖未版本化的内部字段。
+- 不保留旧响应字段或旧客户端解析分支。
+- 字段与 endpoint 的破坏性调整直接更新 `/api/v1` 契约、仓库内客户端和测试。
+- 页面只能通过统一 API 客户端读取信封中的 `data`。
 
 ## 验收要求
 
@@ -378,7 +357,7 @@ Phase 30 约束：
 |--------|------|------|
 | API 总原则（能力等级/标注/响应结构）| ✅ 完成 | §1 定义 4 级能力 + mock 语义 + 稳定性要求 |
 | Phase 30 能力边界定义 | ✅ 完成 | §1.1 research/paper/managed/live-ready 四层定义 + 当前实际落点 |
-| 标准响应 envelope | 🟡 v1 兼容迁移中 | 已迁移路由返回 ok/data 或 ok/error/message/status；完整 v2 schema 尚未启用 |
+| 标准响应 envelope | ✅ 已完成 | 所有 `/api/v1` JSON 路由统一为 ok/data 或 ok/error/message/status/details |
 | 错误码分类 | ✅ 完成 | §3 7 类（validation/data/research/backtest/risk/execution/system）+ 处理要求 |
 | API 能力矩阵 | ✅ 完成 | §4 8 模块 × 能力等级 × 生产级要求 |
 | 实际 endpoint 能力等级 | ✅ 完成 | §4.1 11 个关键 endpoint 显式标注 |
@@ -387,7 +366,7 @@ Phase 30 约束：
 | ExecutionCapability schema | ✅ 完成 | §5.1B capability/mock/effective/risk/confirmation/audit |
 | TaskRun schema | ✅ 完成 | §5.2 task_id/type/status/progress/timestamps/error |
 | OrderState schema | ✅ 完成 | §5.3 order/broker/mode/symbol/side/quantity/status/risk/confirmation/audit |
-| 版本兼容要求 | ✅ 完成 | §6 破坏性变更/新增字段/删除 endpoint/页面依赖规则 4 项 |
+| 当前契约规则 | ✅ 已完成 | §6 明确不保留旧响应字段；变更同步更新当前客户端和测试 |
 
 
 

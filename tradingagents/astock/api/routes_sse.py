@@ -19,7 +19,8 @@ from datetime import datetime
 from typing import Any, Generator
 
 from flask import Blueprint, Response, current_app, jsonify
-from .envelope import error_response
+from .auth import require_capability
+from .envelope import error_response, success_response
 
 from tradingagents.astock.execution.infrastructure.event_bus import EventBus
 from tradingagents.astock.schemas.ops_audit import TaskType
@@ -100,6 +101,7 @@ def _to_task_run(event: dict[str, Any]) -> dict[str, Any]:
 
 
 @bp.route("/sse/paper-progress")
+@require_capability("events:read", roles=["admin", "operator"])
 def paper_progress_sse() -> Response:
     """SSE streaming endpoint for paper trading progress."""
     poll_interval = current_app.config.get(
@@ -147,17 +149,12 @@ def paper_progress_sse() -> Response:
 
 
 @bp.route("/sse/events")
+@require_capability("events:read", roles=["admin", "operator"])
 def all_events() -> tuple[Response, int]:
     """Return all buffered events as a JSON array (non-streaming)."""
     raw_events = EventBus.peek_all()
     normalized = [_to_task_run(e) for e in raw_events]
-    return (
-        Response(
-            json.dumps(normalized, ensure_ascii=False),
-            mimetype="application/json",
-        ),
-        200,
-    )
+    return success_response({"events": normalized})
 
 
 # ---------------------------------------------------------------------------
@@ -166,6 +163,7 @@ def all_events() -> tuple[Response, int]:
 
 
 @bp.route("/sse/events", methods=["DELETE"])
+@require_capability("events:manage", roles=["admin", "operator"])
 def clear_events() -> tuple[Response, int]:
     """Clear all buffered events."""
     EventBus.clear()

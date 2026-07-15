@@ -13,6 +13,7 @@ Verifies:
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 import sys
 import tempfile
@@ -41,7 +42,11 @@ def app():
     app = create_app(
         db_path=":memory:",
         cors_origin="*",
-        test_config={"ASTOCK_RESEARCH_ONLY": False},
+        test_config={
+            "ASTOCK_RESEARCH_ONLY": False,
+            "ASTOCK_MOCK_DATA_ENABLED": False,
+            "ASTOCK_REQUIRE_AUTH": False,
+        },
     )
 
     # Seed some test data
@@ -157,18 +162,84 @@ def test_app_creation():
 def test_health_endpoint(app):
     resp = app.get("/api/v1/health")
     assert resp.status_code == 200
-    data = resp.get_json()
+    data = resp.get_json()["data"]
     assert data["status"] == "ok"
     assert data["version"] == "0.3.0"
 
-
-def test_response_envelope_preserves_v1_payload_fields(app):
-    """Migrated routes expose canonical data without removing v1 fields."""
+def test_response_envelope_uses_only_canonical_data_field(app):
+    """Successful v1 responses expose business fields only under data."""
     response = app.get("/api/v1/backtest/results")
     assert response.status_code == 200
     payload = response.get_json()
     assert payload["ok"] is True
-    assert payload["data"]["results"] == payload["results"]
+    assert "results" in payload["data"]
+    assert "results" not in payload
+
+
+def test_global_envelope_wraps_legacy_success_and_error_responses(app):
+    """Routes still using jsonify receive the canonical contract centrally."""
+    success = app.get("/api/v1/cache/status")
+    success_payload = success.get_json()
+    assert success.status_code == 200
+    assert success_payload["ok"] is True
+    assert success_payload["data"]["cache"]
+    assert "cache" not in success_payload
+
+    failure = app.get("/api/v1/market/kline")
+    failure_payload = failure.get_json()
+    assert failure.status_code == 400
+    assert failure_payload == {
+        "ok": False,
+        "error": "invalid_request",
+        "message": "symbol is required",
+        "status": 400,
+    }
+
+
+def test_global_envelope_rewraps_noncanonical_ok_payload(app):
+    """A legacy-looking ok field cannot bypass the current envelope."""
+    from flask import jsonify
+    from tradingagents.astock.api.app_hooks import _normalise_api_json_response
+
+    with app.application.test_request_context("/api/v1/test-envelope"):
+        response = _normalise_api_json_response(
+            jsonify({"ok": True, "results": [{"id": "legacy"}]})
+        )
+
+    assert response.get_json() == {
+        "ok": True,
+        "data": {"ok": True, "results": [{"id": "legacy"}]},
+    }
+
+
+def test_every_registered_api_route_has_a_canonical_error_or_success_envelope(app):
+    """Exercise every API rule once to prevent route-level contract drift.
+
+    GET rules are called with placeholder path values; write-only rules are
+    called while auth is enabled so they stop at the shared auth boundary.
+    Download and SSE routes are intentionally excluded from JSON envelopes.
+    """
+    flask_app = app.application
+    original_auth = flask_app.config["ASTOCK_REQUIRE_AUTH"]
+    flask_app.config["ASTOCK_REQUIRE_AUTH"] = True
+    try:
+        for rule in flask_app.url_map.iter_rules():
+            if not rule.rule.startswith("/api/v1/"):
+                continue
+            method = "GET" if "GET" in rule.methods else "POST"
+            path = re.sub(r"<[^>]+>", "contract-test", rule.rule)
+            response = app.open(path, method=method)
+            if response.mimetype in {"text/event-stream", "application/octet-stream"}:
+                continue
+            assert response.is_json, f"{method} {rule.rule} returned {response.mimetype}"
+            payload = response.get_json()
+            assert isinstance(payload, dict) and isinstance(payload.get("ok"), bool), f"{method} {rule.rule}"
+            if payload["ok"]:
+                assert set(payload) == {"ok", "data"}, f"{method} {rule.rule}"
+            else:
+                assert {"ok", "error", "message", "status"}.issubset(payload), f"{method} {rule.rule}"
+    finally:
+        flask_app.config["ASTOCK_REQUIRE_AUTH"] = original_auth
 
 
 def test_notification_failures_return_the_shared_error_envelope(app, monkeypatch):
@@ -197,7 +268,9 @@ def test_notification_invalid_smtp_port_returns_400(app):
         },
     )
     assert response.status_code == 400
-    assert response.get_json()["error"] == "smtp_port must be an integer between 1 and 65535"
+    payload = response.get_json()
+    assert payload["error"] == "invalid_request"
+    assert "smtp_port" in payload["message"]
 
 
 # ---------------------------------------------------------------------------
@@ -209,14 +282,14 @@ class TestDataEndpoints:
     def test_get_kline(self, app):
         resp = app.get("/api/v1/market/kline?symbol=600519.SH")
         assert resp.status_code == 200
-        data = resp.get_json()
+        data = resp.get_json()["data"]
         assert data["symbol"] == "600519.SH"
         assert len(data["bars"]) == 2
 
     def test_get_kline_with_limit(self, app):
         resp = app.get("/api/v1/market/kline?symbol=600519.SH&limit=1")
         assert resp.status_code == 200
-        data = resp.get_json()
+        data = resp.get_json()["data"]
         assert len(data["bars"]) == 1
 
     def test_get_kline_missing_symbol(self, app):
@@ -230,26 +303,26 @@ class TestDataEndpoints:
             "/api/v1/market/kline?symbol=600519.SH&start=2024-01-01&end=2024-01-10"
         )
         assert resp.status_code == 200
-        data = resp.get_json()
+        data = resp.get_json()["data"]
         assert len(data["bars"]) == 2
 
     def test_get_valuation(self, app):
         resp = app.get("/api/v1/market/valuation?symbol=600519.SH")
         assert resp.status_code == 200
-        data = resp.get_json()
+        data = resp.get_json()["data"]
         assert data["symbol"] == "600519.SH"
         assert len(data["valuations"]) == 1
 
     def test_get_valuation_with_limit(self, app):
         resp = app.get("/api/v1/market/valuation?symbol=600519.SH&limit=1")
         assert resp.status_code == 200
-        data = resp.get_json()
+        data = resp.get_json()["data"]
         assert len(data["valuations"]) == 1
 
     def test_get_valuation_missing_symbol(self, app):
         resp = app.get("/api/v1/market/valuation")
         assert resp.status_code == 400
-
+        data = resp.get_json()
     def test_manual_insert_kline(self, app):
         resp = app.post(
             "/api/v1/data/manual/kline_bars",
@@ -268,12 +341,12 @@ class TestDataEndpoints:
             },
         )
         assert resp.status_code == 200
-        data = resp.get_json()
+        data = resp.get_json()["data"]
         assert data["rows_inserted"] == 1
 
         check = app.get("/api/v1/market/kline?symbol=000001.SZ")
         assert check.status_code == 200
-        bars = check.get_json()["bars"]
+        bars = check.get_json()["data"]["bars"]
         assert len(bars) == 1
         assert bars[0]["source"] == "manual"
 
@@ -295,7 +368,7 @@ class TestDataEndpoints:
         assert resp.status_code == 400
         data = resp.get_json()
         assert data["error"] == "invalid_input"
-        assert "not_a_column" in data["message"]
+        assert "not_a_column" in data["details"]["detail"]
 
     def test_manual_insert_rejects_missing_required_kline_fields(self, app):
         resp = app.post(
@@ -313,7 +386,7 @@ class TestDataEndpoints:
         assert resp.status_code == 400
         data = resp.get_json()
         assert data["error"] == "invalid_input"
-        assert "symbol is required" in data["message"]
+        assert "symbol is required" in data["details"]["detail"]
 
     def test_manual_insert_reports_quality_block(self, app):
         resp = app.post(
@@ -333,7 +406,7 @@ class TestDataEndpoints:
         assert resp.status_code == 422
         data = resp.get_json()
         assert data["error"] == "data_quality_blocked"
-        assert "violations" in data
+        assert "violations" in data["details"]
 
     def test_database_import_job_status(self, app):
         with tempfile.NamedTemporaryFile(suffix=".sqlite", delete=False) as tmp:
@@ -372,13 +445,13 @@ class TestDataEndpoints:
                 },
             )
             assert resp.status_code == 202
-            job_id = resp.get_json()["job"]["job_id"]
+            job_id = resp.get_json()["data"]["job"]["job_id"]
 
             job = None
             for _ in range(20):
                 status = app.get(f"/api/v1/data/jobs/{job_id}")
                 assert status.status_code == 200
-                job = status.get_json()["job"]
+                job = status.get_json()["data"]["job"]
                 if job["status"] in ("succeeded", "failed"):
                     break
                 time.sleep(0.05)
@@ -389,14 +462,14 @@ class TestDataEndpoints:
 
             check = app.get("/api/v1/market/kline?symbol=000002.SZ")
             assert check.status_code == 200
-            assert check.get_json()["bars"][0]["source"] == "sqlite"
+            assert check.get_json()["data"]["bars"][0]["source"] == "sqlite"
         finally:
             Path(source_path).unlink(missing_ok=True)
 
     def test_refresh_options_are_server_owned(self, app):
         resp = app.get("/api/v1/data/refresh/options")
         assert resp.status_code == 200
-        data = resp.get_json()
+        data = resp.get_json()["data"]
         assert "600519.SH" in data["symbols"]
         assert data["default_interval"] in data["intervals"]
         assert data["modes"] == ["incremental", "range"]
@@ -437,7 +510,7 @@ class TestDataEndpoints:
         assert start is not None
         assert start.startswith("2024-01-02")
 
-    def test_large_refresh_is_single_pass_and_keeps_partial_errors(self, app):
+    def test_large_refresh_is_single_pass_and_keeps_partial_errors(self, app, monkeypatch):
         """Four symbols use the concurrent path without a duplicate batch pass."""
         from tradingagents.astock.data_sources.errors import AStockSourceUnavailableError
 
@@ -461,6 +534,7 @@ class TestDataEndpoints:
                     }]
                 }
 
+        monkeypatch.setenv("ASTOCK_PROVIDER_PROCESS_ISOLATION", "false")
         app.application.config["DATA_FACADE"] = FakeFacade()
         response = app.post(
             "/api/v1/data/jobs/refresh",
@@ -471,10 +545,10 @@ class TestDataEndpoints:
             },
         )
         assert response.status_code == 202
-        job_id = response.get_json()["job"]["job_id"]
+        job_id = response.get_json()["data"]["job"]["job_id"]
         job = None
         for _ in range(40):
-            job = app.get(f"/api/v1/data/jobs/{job_id}").get_json()["job"]
+            job = app.get(f"/api/v1/data/jobs/{job_id}").get_json()["data"]["job"]
             if job["status"] in ("succeeded", "failed"):
                 break
             time.sleep(0.02)
@@ -493,26 +567,26 @@ class TestDataEndpoints:
     def test_get_orderbook(self, app):
         resp = app.get("/api/v1/market/orderbook?symbol=600519.SH")
         assert resp.status_code == 200
-        data = resp.get_json()
+        data = resp.get_json()["data"]
         assert "snapshots" in data
 
     def test_get_news(self, app):
         resp = app.get("/api/v1/market/news?symbol=600519.SH&limit=10")
         assert resp.status_code == 200
-        data = resp.get_json()
+        data = resp.get_json()["data"]
         assert len(data["news"]) == 1
         assert data["news"][0]["title"] == "Test news article"
 
     def test_get_research(self, app):
         resp = app.get("/api/v1/market/research?symbol=600519.SH&limit=10")
         assert resp.status_code == 200
-        data = resp.get_json()
+        data = resp.get_json()["data"]
         assert len(data["reports"]) == 1
 
     def test_market_blocks_mock(self, app):
         resp = app.get("/api/v1/market/blocks?symbol=600519.SH&mock=1&limit=1")
         assert resp.status_code == 200
-        data = resp.get_json()
+        data = resp.get_json()["data"]
         assert data["symbol"] == "600519.SH"
         assert data["count"] == 1
         assert data["items"][0]["name"] == "白酒"
@@ -520,13 +594,13 @@ class TestDataEndpoints:
     def test_get_announcements(self, app):
         resp = app.get("/api/v1/market/announcements?symbol=600519.SH&limit=10")
         assert resp.status_code == 200
-        data = resp.get_json()
+        data = resp.get_json()["data"]
         assert len(data["announcements"]) == 1
 
     def test_get_store_stats(self, app):
         resp = app.get("/api/v1/market/store/stats")
         assert resp.status_code == 200
-        data = resp.get_json()
+        data = resp.get_json()["data"]
         stats = data["stats"]
         assert isinstance(stats, dict)
         # kline_bars should have 2 rows
@@ -553,7 +627,7 @@ class TestBacktestEndpoints:
             content_type="application/json",
         )
         assert resp.status_code == 200
-        data = resp.get_json()
+        data = resp.get_json()["data"]
         assert "total_return" in data
         assert "sharpe_ratio" in data
         assert data["strategy_name"] == "MovingAverageTrend"
@@ -582,7 +656,8 @@ class TestBacktestEndpoints:
         )
         assert resp.status_code == 400
         data = resp.get_json()
-        assert "Unknown strategy" in data["error"]
+        assert data["error"] == "invalid_request"
+        assert "Unknown strategy" in data["message"]
 
     def test_get_backtest_results(self, app):
         # Run one first
@@ -601,8 +676,7 @@ class TestBacktestEndpoints:
 
         resp = app.get("/api/v1/backtest/results")
         assert resp.status_code == 200
-        data = resp.get_json()
-        assert "results" in data
+        data = resp.get_json()["data"]
         assert data["results"]
         curve = data["results"][0]["equity_curve"]
         assert curve
@@ -613,7 +687,7 @@ class TestBacktestEndpoints:
             "/api/v1/backtest/compare?strategies=BullTrend,MeanReversion&symbol=600519.SH&start=2024-01-01&end=2024-01-10&mock_data=1"
         )
         assert resp.status_code == 200
-        data = resp.get_json()
+        data = resp.get_json()["data"]
         assert "comparison" in data
         assert len(data["comparison"]) == 2
 
@@ -648,7 +722,7 @@ class TestPaperEndpoints:
             content_type="application/json",
         )
         assert resp.status_code == 200
-        data = resp.get_json()
+        data = resp.get_json()["data"]
         assert "positions" in data
         assert "cash" in data
 
@@ -659,11 +733,11 @@ class TestPaperEndpoints:
             content_type="application/json",
         )
         assert resp.status_code == 400
-
+        data = resp.get_json()
     def test_paper_state(self, app):
         resp = app.get("/api/v1/paper/state")
         assert resp.status_code == 200
-        data = resp.get_json()
+        data = resp.get_json()["data"]
         assert "positions" in data
 
     def test_paper_trades(self, app):
@@ -679,7 +753,7 @@ class TestPaperEndpoints:
         )
         resp = app.get("/api/v1/paper/trades")
         assert resp.status_code == 200
-        data = resp.get_json()
+        data = resp.get_json()["data"]
         assert "trades" in data
         assert len(data["trades"]) >= 1
 
@@ -693,18 +767,18 @@ class TestMarketEndpoints:
     def test_market_summary(self, app):
         resp = app.get("/api/v1/market/summary?symbol=600519.SH")
         assert resp.status_code == 200
-        data = resp.get_json()
+        data = resp.get_json()["data"]
         assert data["symbol"] == "600519.SH"
         assert "latest_price" in data
 
     def test_market_summary_missing_symbol(self, app):
         resp = app.get("/api/v1/market/summary")
         assert resp.status_code == 400
-
+        data = resp.get_json()
     def test_list_strategies(self, app):
         resp = app.get("/api/v1/market/strategies")
         assert resp.status_code == 200
-        data = resp.get_json()
+        data = resp.get_json()["data"]
         assert "strategies" in data
         assert len(data["strategies"]) >= 6
 
@@ -718,7 +792,7 @@ class TestQmtEndpoints:
     def test_qmt_health(self, app):
         resp = app.get("/api/v1/qmt/health")
         assert resp.status_code == 200
-        data = resp.get_json()
+        data = resp.get_json()["data"]
         assert "healthy" in data
         assert data["mock_mode"] is True
         assert data["real_healthy"] is False
@@ -733,7 +807,7 @@ class TestQmtEndpoints:
     def test_qmt_health_real_param_does_not_enable_real_bridge(self, app):
         resp = app.get("/api/v1/qmt/health?real=1")
         assert resp.status_code == 200
-        data = resp.get_json()
+        data = resp.get_json()["data"]
         assert data["mock_mode"] is True
         assert data["real_healthy"] is False
         assert data["real_connection_check"]["enabled"] is False
@@ -742,7 +816,7 @@ class TestQmtEndpoints:
     def test_qmt_positions(self, app):
         resp = app.get("/api/v1/qmt/positions")
         assert resp.status_code == 200
-        data = resp.get_json()
+        data = resp.get_json()["data"]
         assert "positions" in data
         assert data["status"]["mock"] is True
         assert data["status"]["read_only"] is True
@@ -750,7 +824,7 @@ class TestQmtEndpoints:
     def test_qmt_orders(self, app):
         resp = app.get("/api/v1/qmt/orders")
         assert resp.status_code == 200
-        data = resp.get_json()
+        data = resp.get_json()["data"]
         assert "orders" in data
         assert data["orders"] == []
         assert "account_snapshot" in data
@@ -767,7 +841,7 @@ class TestDashboardEndpoints:
     def test_dashboard_overview(self, app):
         resp = app.get("/api/v1/dashboard/overview")
         assert resp.status_code == 200
-        data = resp.get_json()
+        data = resp.get_json()["data"]
         assert "statistics" in data
         assert "paper_positions" in data
         assert "recent_backtests" in data
@@ -789,8 +863,7 @@ class TestScreenerEndpoints:
     def test_screener_mock(self, app):
         resp = app.get("/api/v1/market/screener?mock=1&limit=5")
         assert resp.status_code == 200
-        data = resp.get_json()
-        assert "results" in data
+        data = resp.get_json()["data"]
         assert len(data["results"]) <= 5
 
         if data["results"]:
@@ -807,7 +880,7 @@ class TestScreenerEndpoints:
             "/api/v1/market/screener?mock=1&rsi_min=40&rsi_max=60&limit=3"
         )
         assert resp.status_code == 200
-        data = resp.get_json()
+        data = resp.get_json()["data"]
         assert "filters" in data
         assert data["filters"]["rsi_min"] == 40
         assert data["filters"]["rsi_max"] == 60
@@ -825,7 +898,7 @@ class TestTradeEndpoints:
             json={"symbol": "600519.SH", "side": "buy", "price": 100.0, "quantity": 100},
         )
         assert resp.status_code == 200
-        data = resp.get_json()
+        data = resp.get_json()["data"]
         assert data["status"] == "ok"
         assert data["order"]["filled"] is True
         assert data["order"]["symbol"] == "600519.SH"
@@ -842,25 +915,25 @@ class TestTradeEndpoints:
             json={"symbol": "600519.SH", "side": "sell", "price": 120.0, "quantity": 100},
         )
         assert resp.status_code == 200
-        data = resp.get_json()
+        data = resp.get_json()["data"]
         assert data["status"] == "ok"
         assert data["order"]["filled"] is True
 
     def test_place_order_missing_symbol(self, app):
         resp = app.post("/api/v1/trade/order", json={"side": "buy", "price": 100.0, "quantity": 100})
         assert resp.status_code == 400
-
+        data = resp.get_json()
     def test_place_order_invalid_side(self, app):
         resp = app.post(
             "/api/v1/trade/order",
             json={"symbol": "600519.SH", "side": "hold", "price": 100.0, "quantity": 100},
         )
         assert resp.status_code == 400
-
+        data = resp.get_json()
     def test_trade_quote(self, app):
         resp = app.get("/api/v1/trade/quote?symbol=600519.SH")
         assert resp.status_code == 200
-        data = resp.get_json()
+        data = resp.get_json()["data"]
         assert "last_price" in data
         assert "symbol" in data
         assert data["symbol"] == "600519.SH"
@@ -869,11 +942,11 @@ class TestTradeEndpoints:
     def test_trade_quote_missing_symbol(self, app):
         resp = app.get("/api/v1/trade/quote")
         assert resp.status_code == 400
-
+        data = resp.get_json()
     def test_trade_state(self, app):
         resp = app.get("/api/v1/trade/state")
         assert resp.status_code == 200
-        data = resp.get_json()
+        data = resp.get_json()["data"]
         assert "cash" in data
         assert "total_value" in data
         assert "positions" in data
@@ -888,14 +961,14 @@ class TestMarketDataEndpoints:
     def test_dragon_tiger_mock(self, app):
         resp = app.get("/api/v1/market/dragon-tiger?mock=1")
         assert resp.status_code == 200
-        data = resp.get_json()
+        data = resp.get_json()["data"]
         assert "stocks" in data
         assert data["total_records"] > 0
 
     def test_sectors_mock(self, app):
         resp = app.get("/api/v1/market/sectors?mock=1&top_n=5")
         assert resp.status_code == 200
-        data = resp.get_json()
+        data = resp.get_json()["data"]
         assert "top" in data
         assert len(data["top"]) > 0
         assert "name" in data["top"][0]
@@ -911,7 +984,7 @@ class TestMarketDataEndpoints:
         try:
             resp = app.get("/api/v1/market/sectors?top_n=5")
             assert resp.status_code == 200
-            data = resp.get_json()
+            data = resp.get_json()["data"]
             assert "_note" not in data  # real data, not mock
             assert len(data["top"]) > 0
             assert "name" in data["top"][0]
@@ -936,7 +1009,7 @@ class TestMarketDataEndpoints:
         try:
             resp = app.get("/api/v1/market/sectors?top_n=5")
             assert resp.status_code == 200
-            data = resp.get_json()
+            data = resp.get_json()["data"]
             assert data["source"] == "mock"
             assert "模拟数据" in data["_note"]
             assert len(data["top"]) > 0
@@ -948,14 +1021,14 @@ class TestMarketDataEndpoints:
     def test_northbound_mock(self, app):
         resp = app.get("/api/v1/market/northbound?mock=1")
         assert resp.status_code == 200
-        data = resp.get_json()
+        data = resp.get_json()["data"]
         assert "flow" in data
         assert len(data["flow"]) > 0
 
     def test_data_health_endpoint(self, app):
         resp = app.get("/api/v1/data/health")
         assert resp.status_code == 200
-        data = resp.get_json()
+        data = resp.get_json()["data"]
         assert "sources" in data
         assert "summary" in data
         assert data["summary"]["total"] > 0
@@ -971,7 +1044,7 @@ class TestMarketDataEndpoints:
         response = app.get("/api/v1/market/dragon-tiger")
 
         assert response.status_code == 200
-        data = response.get_json()
+        data = response.get_json()["data"]
         assert data["source"] == "fallback"
         assert data["is_mock"] is False
         assert data["stocks"] == []
@@ -982,11 +1055,11 @@ class TestCacheEndpoints:
     def test_cache_status_and_clear_are_available(self, app):
         status = app.get("/api/v1/cache/status")
         assert status.status_code == 200
-        assert "cache" in status.get_json()
+        assert "cache" in status.get_json()["data"]
 
         cleared = app.post("/api/v1/cache/clear")
         assert cleared.status_code == 200
-        assert cleared.get_json()["status"] == "ok"
+        assert cleared.get_json()["data"]["status"] == "ok"
 
 
 # ---------------------------------------------------------------------------
@@ -997,7 +1070,7 @@ class TestCacheEndpoints:
 def test_404_not_found(app):
     resp = app.get("/api/v1/nonexistent")
     assert resp.status_code == 404
-
+    data = resp.get_json()
 
 # ---------------------------------------------------------------------------
 # New tests: kline response metadata
@@ -1008,7 +1081,7 @@ def test_kline_returns_count_limit_has_more(app):
     """Kline response includes count/limit/has_more/range metadata."""
     resp = app.get("/api/v1/market/kline?symbol=600519.SH")
     assert resp.status_code == 200
-    data = resp.get_json()
+    data = resp.get_json()["data"]
     assert isinstance(data.get("count"), int)
     assert isinstance(data.get("limit"), int)
     assert isinstance(data.get("has_more"), bool)
@@ -1022,12 +1095,12 @@ def test_kline_default_limit_is_500(app):
     """Default limit is 500 (not 0 = unlimited)."""
     resp = app.get("/api/v1/market/kline?symbol=600519.SH")
     assert resp.status_code == 200
-    data = resp.get_json()
+    data = resp.get_json()["data"]
     assert data["limit"] == 500
 
 
-def test_kline_query_incrementally_refreshes_daily_data(app):
-    """Normal API queries refresh from the latest local daily bar first."""
+def test_kline_query_incrementally_refreshes_daily_data(app, monkeypatch):
+    """An explicitly enabled deployment refreshes from the local watermark."""
     from types import SimpleNamespace
 
     class Facade:
@@ -1045,6 +1118,7 @@ def test_kline_query_incrementally_refreshes_daily_data(app):
                 }]},
             )
 
+    monkeypatch.setenv("ASTOCK_PROVIDER_PROCESS_ISOLATION", "false")
     facade = Facade()
     flask_app = app.application
     flask_app.config["DATA_FACADE"] = facade
@@ -1053,7 +1127,7 @@ def test_kline_query_incrementally_refreshes_daily_data(app):
 
     response = app.get("/api/v1/market/kline?symbol=600519.SH")
     assert response.status_code == 200
-    payload = response.get_json()
+    payload = response.get_json()["data"]
     assert facade.calls == [{
         "capability": "kline", "symbol": "600519.SH", "start_date": "2024-01-03",
         "end_date": None, "interval": "1d",
@@ -1063,11 +1137,84 @@ def test_kline_query_incrementally_refreshes_daily_data(app):
     assert payload["count"] == 3
 
 
+def test_kline_query_without_refresh_never_fetches_or_writes(app):
+    """A read-only K-line query returns local data only."""
+    class Facade:
+        calls = 0
+
+        def get_kline(self, *_args, **_kwargs):
+            self.calls += 1
+            raise AssertionError("GET /market/kline must not fetch providers")
+
+    facade = Facade()
+    app.application.config["DATA_FACADE"] = facade
+    app.application.config["ASTOCK_AUTO_REFRESH_DAILY_KLINE"] = False
+
+    response = app.get("/api/v1/market/kline?symbol=000003.SZ")
+
+    assert response.status_code == 200
+    payload = response.get_json()["data"]
+    assert payload["bars"] == []
+    assert payload["daily_refresh"]["status"] == "not_requested"
+    assert facade.calls == 0
+
+
+def test_market_regime_rejects_invalid_lookback_with_contract_error(app):
+    response = app.get("/api/v1/market/regime?lookback=not-a-number")
+
+    assert response.status_code == 400
+    assert response.get_json() == {
+        "ok": False,
+        "error": "invalid_lookback",
+        "message": "invalid_lookback",
+        "status": 400,
+    }
+
+
+@pytest.mark.parametrize(
+    ("path", "error"),
+    [
+        ("/api/v1/market/summary?symbol=600519.SH&kline_limit=bad", "invalid_kline_limit"),
+        ("/api/v1/reports/list?limit=bad", "invalid_pagination"),
+        ("/api/v1/tv/stock-search?q=600&limit=bad", "invalid_limit"),
+        ("/api/v1/alerts?limit=bad", "invalid_limit"),
+        ("/api/v1/paper/trades?limit=bad", "invalid_limit"),
+        ("/api/v1/market/sectors?top_n=bad", "invalid_top_n"),
+        ("/api/v1/market/screener?rsi_min=bad", "invalid_screener_parameter"),
+    ],
+)
+def test_invalid_query_numbers_return_contract_errors(app, path, error):
+    response = app.get(path)
+
+    assert response.status_code == 400
+    payload = response.get_json()
+    assert payload["ok"] is False
+    assert payload["error"] == error
+    assert payload["status"] == 400
+
+
+def test_cache_failures_return_http_errors_without_exception_text(app, monkeypatch):
+    from tradingagents.astock.api import routes_data_cache
+
+    monkeypatch.setattr(routes_data_cache, "_router", lambda: (_ for _ in ()).throw(RuntimeError("cache secret")))
+
+    status = app.get("/api/v1/cache/status")
+    clear = app.post("/api/v1/cache/clear")
+
+    assert status.status_code == 503
+    assert clear.status_code == 500
+    for response, code in ((status, "cache_status_unavailable"), (clear, "cache_clear_failed")):
+        payload = response.get_json()
+        assert payload["ok"] is False
+        assert payload["error"] == code
+        assert "cache secret" not in str(payload)
+
+
 def test_kline_limit_zero_returns_all(app):
-    """Passing limit=0 returns all rows (backward compat)."""
+    """Passing limit=0 returns all rows."""
     resp = app.get("/api/v1/market/kline?symbol=600519.SH&limit=0")
     assert resp.status_code == 200
-    data = resp.get_json()
+    data = resp.get_json()["data"]
     assert data["count"] == 2
     assert data["has_more"] is False
 
@@ -1092,7 +1239,7 @@ def test_announcements_returns_latest_first(app):
 
     resp = app.get("/api/v1/market/announcements?symbol=600519.SH&limit=10")
     assert resp.status_code == 200
-    data = resp.get_json()
+    data = resp.get_json()["data"]
     assert len(data["announcements"]) == 2
     assert data["announcements"][0]["title"] == "Newer test announcement"
     assert data["announcements"][1]["title"] == "Test announcement"
@@ -1115,7 +1262,7 @@ def test_paper_trades_with_limit(app):
 
     resp = app.get("/api/v1/paper/trades?limit=1")
     assert resp.status_code == 200
-    data = resp.get_json()
+    data = resp.get_json()["data"]
     assert isinstance(data.get("count"), int)
     assert isinstance(data.get("limit"), int)
     assert len(data["trades"]) >= 1

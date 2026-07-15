@@ -543,8 +543,8 @@ async function handleSymbolChange(symbol) {
       fetch(`/api/v1/orderbook?symbol=${encodeURIComponent(sym)}`),
     ]);
 
-    const quote  = await quoteRes.json();
-    const orders = await orderbookRes.json();
+    const quote  = APIClient.unwrap(await quoteRes.json());
+    const orders = APIClient.unwrap(await orderbookRes.json());
 
     // ── 3a. 更新报价条 ──
     if (!quote.error) {
@@ -656,7 +656,7 @@ async function fetchStockInfo(symbol) {
   const gen = ++_stockInfoGen;
   try {
     const res = await fetch(`/api/v1/tv/stock-info?symbol=${encodeURIComponent(symbol)}`);
-    const info = await res.json();
+    const info = APIClient.unwrap(await res.json());
     if (gen !== _stockInfoGen) return; // 被新请求取代，丢弃旧结果
     if (info.name) {
       const parts = [info.industry, ...(info.indices || [])].filter(Boolean);
@@ -748,7 +748,7 @@ async function submitOrder() {
         decision_scope: 'trading',
       }),
     });
-    const data = await res.json();
+    const data = APIClient.unwrap(await res.json());
 
     if (data.error) {
       showToast('❌ ' + data.error, 'error');
@@ -769,7 +769,7 @@ async function submitOrder() {
 async function loadTradingState() {
   try {
     const res = await fetch('/api/v1/trade/state');
-    const state = await res.json();
+    const state = APIClient.unwrap(await res.json());
     if (state.error) return;
 
     document.getElementById('acc-total').textContent = '¥' + (state.total_value || 0).toLocaleString(undefined, {minimumFractionDigits: 2});
@@ -821,7 +821,7 @@ function renderTrades(state) {
 async function loadTradeHistory() {
   try {
     const res = await fetch('/api/v1/paper/trades');
-    const data = await res.json();
+    const data = APIClient.unwrap(await res.json());
     const trades = data.trades || [];
     const body = document.getElementById('trades-body');
     if (trades.length === 0) {

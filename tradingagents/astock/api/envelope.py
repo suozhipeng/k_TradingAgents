@@ -1,8 +1,8 @@
 """Standardised API response envelope.
 
-Every JSON API endpoint should return one of:
+Every JSON API endpoint returns one of:
 
-    {"ok": true,  "data": <payload>, ...legacy payload fields}  # success
+    {"ok": true,  "data": <payload>}  # success
     {"ok": false, "error": <code>, "message": <human text>, "status": <code>}  # failure
 
 This avoids scattered patterns like ``{"error": "...", "status": 400}`` vs
@@ -22,13 +22,31 @@ Usage::
 
 from __future__ import annotations
 
+import re
+import logging
 from typing import Any
 
 from flask import jsonify
 
+logger = logging.getLogger(__name__)
+
+_STABLE_ERROR_CODE = re.compile(r"^[a-z][a-z0-9_]*$")
+_STATUS_ERROR_CODES = {
+    400: "invalid_request", 401: "unauthorized", 403: "forbidden",
+    404: "not_found", 405: "method_not_allowed", 409: "conflict",
+    413: "payload_too_large", 422: "unprocessable_entity", 429: "rate_limited",
+}
+
+
+def stable_error_code(message: str, status: int) -> str:
+    """Return a public machine code without deriving it from dynamic text."""
+    if status >= 500:
+        return "internal_server_error"
+    return message if _STABLE_ERROR_CODE.fullmatch(message) else _STATUS_ERROR_CODES.get(status, "request_failed")
+
 
 def success_response(data: Any, *, status: int = 200) -> tuple:
-    """Return a transitional standardised success envelope.
+    """Return the standardised success envelope.
 
     Parameters
     ----------
@@ -42,13 +60,7 @@ def success_response(data: Any, *, status: int = 200) -> tuple:
     tuple[Response, int]
         ``(jsonify(...), status)`` ready for a Flask route handler.
     """
-    # API v1 clients read result fields directly (for example
-    # ``total_return`` and ``results``). Keep those fields during the
-    # migration while exposing the canonical ``data`` object for new clients.
-    body: dict[str, Any] = {"ok": True, "data": data}
-    if isinstance(data, dict):
-        body.update({key: value for key, value in data.items() if key not in body})
-    return jsonify(body), status
+    return jsonify({"ok": True, "data": data}), status
 
 
 def error_response(
@@ -56,6 +68,7 @@ def error_response(
     status: int = 500,
     *,
     detail: str | None = None,
+    code: str | None = None,
 ) -> tuple:
     """Return a standardised error envelope.
 
@@ -67,21 +80,31 @@ def error_response(
         HTTP status code (default 500).
     detail:
         Optional machine-readable / debug detail.
+    code:
+        Stable public error code. Required to expose a distinct 5xx error;
+        otherwise 5xx responses are deliberately sanitised.
 
     Returns
     -------
     tuple[Response, int]
         ``(jsonify(...), status)`` ready for a Flask route handler.
     """
+    if code is None:
+        if status >= 500:
+            logger.error("API error response: status=%s code=%s detail=%s", status, code or "internal_server_error", message)
+            code = stable_error_code(message, status)
+            message = "internal_server_error"
+            detail = None
+        else:
+            code = stable_error_code(message, status)
     body: dict[str, Any] = {
         "ok": False,
-        "error": message,
-        # Retain the legacy field while routes migrate to the shared helper.
-        "message": detail or message,
+        "error": code or message,
+        "message": message,
         "status": status,
     }
     if detail is not None:
-        body["detail"] = detail
+        body["details"] = {"detail": detail}
     return jsonify(body), status
 
 

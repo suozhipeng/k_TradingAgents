@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import threading
+import time
 from unittest.mock import patch
 
 
@@ -73,7 +75,7 @@ def test_admin_read_routes_require_an_admin_key() -> None:
 def test_global_mock_data_setting_defaults_off_and_requires_admin() -> None:
     app = _app(require_auth=True)
     with app.test_client() as client:
-        assert client.get("/api/v1/health").get_json()["mock_data_enabled"] is False
+        assert client.get("/api/v1/health").get_json()["data"]["mock_data_enabled"] is False
         assert client.put("/api/v1/admin/mock-data", json={"enabled": True}).status_code == 401
 
         admin_key = "mock-admin-key"
@@ -89,11 +91,14 @@ def test_global_mock_data_setting_defaults_off_and_requires_admin() -> None:
                 headers={"Authorization": f"Bearer {admin_key}"},
             )
         assert response.status_code == 200
-        assert response.get_json() == {"enabled": True, "persistent": True}
-        assert client.get("/api/v1/health").get_json()["mock_data_enabled"] is True
+        assert response.get_json() == {
+            "ok": True,
+            "data": {"enabled": True, "persistent": True},
+        }
+        assert client.get("/api/v1/health").get_json()["data"]["mock_data_enabled"] is True
         screener = client.get("/api/v1/market/screener")
         assert screener.status_code == 200
-        assert screener.get_json()["total"] == 10
+        assert screener.get_json()["data"]["total"] == 10
         manager.config.mock_data_enabled = previous
 
 
@@ -103,7 +108,75 @@ def test_api_5xx_responses_do_not_expose_exception_text() -> None:
         with app.test_client() as client:
             response = client.get("/api/v1/market/kline?symbol=600519.SH")
     assert response.status_code == 500
-    assert response.get_json() == {"error": "internal_server_error", "status": 500}
+    assert response.get_json() == {
+        "ok": False,
+        "error": "internal_server_error",
+        "message": "internal_server_error",
+        "status": 500,
+    }
+
+
+def test_scheduler_and_data_import_require_operator_capabilities() -> None:
+    app = _app(require_auth=True)
+    writer_key = "writer-key-without-ops-cap"
+    app.config["STORE"].add_api_key(
+        key_hash=hashlib.sha256(writer_key.encode()).hexdigest(), role="writer"
+    )
+    headers = {"Authorization": f"Bearer {writer_key}"}
+    with app.test_client() as client:
+        assert client.post("/api/v1/sse/scheduler/start", headers=headers).status_code == 403
+        assert client.post("/api/v1/data/jobs/import-database", json={
+            "source_db_path": "data/imports/source.db", "source_table": "kline_bars",
+        }, headers=headers).status_code == 403
+
+
+def test_cancelled_data_job_cannot_be_overwritten_as_succeeded() -> None:
+    from tradingagents.astock.store.jobs import DataJobManager
+
+    started = threading.Event()
+    release = threading.Event()
+    manager = DataJobManager(max_workers=1)
+    try:
+        job = manager.submit(
+            "test",
+            lambda _update: (started.set(), release.wait(timeout=2), {"done": True})[-1],
+        )
+        assert started.wait(timeout=1)
+        assert manager.cancel(job.job_id) is True
+        release.set()
+        deadline = time.monotonic() + 1
+        while time.monotonic() < deadline and manager.get(job.job_id).status != "cancelled":
+            time.sleep(0.01)
+        assert manager.get(job.job_id).status == "cancelled"
+    finally:
+        manager.shutdown()
+
+
+def test_queued_data_job_cancel_is_terminal_before_worker_starts() -> None:
+    """Cancellation in the submit/start window must not resurrect the job."""
+    from tradingagents.astock.store.jobs import DataJobManager
+
+    blocker_started = threading.Event()
+    unblock = threading.Event()
+    target_started = threading.Event()
+    manager = DataJobManager(max_workers=1)
+    try:
+        blocker = manager.submit(
+            "blocker",
+            lambda _update: (blocker_started.set(), unblock.wait(timeout=2), {})[-1],
+        )
+        assert blocker_started.wait(timeout=1)
+        target = manager.submit("target", lambda _update: (target_started.set(), {})[-1])
+        assert manager.cancel(target.job_id) is True
+        unblock.set()
+        deadline = time.monotonic() + 1
+        while time.monotonic() < deadline and manager.get(target.job_id).status != "cancelled":
+            time.sleep(0.01)
+        assert manager.get(target.job_id).status == "cancelled"
+        assert not target_started.is_set()
+        assert manager.cancel(target.job_id) is False
+    finally:
+        manager.shutdown()
 
 
 def test_api_boolean_parser_accepts_only_explicit_true_values() -> None:
@@ -134,11 +207,11 @@ def test_dispatcher_responses_redact_credentials_and_webhook_query() -> None:
                 },
             )
             assert response.status_code == 201
-            dispatcher = response.get_json()["dispatcher"]
+            dispatcher = response.get_json()["data"]["dispatcher"]
             assert "smtp_pass" not in dispatcher
             assert dispatcher["url"] == "https://8.8.8.8/hook"
 
-            listing = client.get("/api/v1/notifications/dispatchers").get_json()
+            listing = client.get("/api/v1/notifications/dispatchers").get_json()["data"]
             assert "secret-value" not in str(listing)
     finally:
         routes_notifications._stop_consumer()

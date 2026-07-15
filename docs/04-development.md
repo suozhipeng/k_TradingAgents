@@ -251,7 +251,7 @@
 - AI provider、prompt、模型输出和降级必须遵守 `03-operations.md`。
 - WebUI 页面状态、能力标签和顶层导航必须遵守 `02-user-guide.md`。
 - WebUI 页面输入、输出、状态、错误态和截图证据必须遵守 `README.md`。
-- API/data/AI/trading/UI 兼容性变化必须遵守 `03-operations.md`。
+- API/data/AI/trading/UI 契约变化必须同步更新 `03-operations.md`、当前客户端与测试。
 - 当前暂不纳入范围必须以 `README.md` 为准，不得隐式扩展。
 
 ### 关联文档

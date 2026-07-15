@@ -166,7 +166,7 @@ let lastReportData = null;
 async function loadArchive() {
   try {
     const res = await fetch('/api/v1/reports/list?limit=100');
-    const data = await res.json();
+    const data = APIClient.unwrap(await res.json());
     if (data.status === 'ok') {
       archiveReports = data.items || [];
       renderArchive(archiveReports);
@@ -289,13 +289,13 @@ async function generateReport() {
     let data;
     if (rptType === 'single') {
       const res = await fetch(`/api/v1/research?symbol=${symbol}`);
-      data = await res.json();
+      data = APIClient.unwrap(await res.json());
     } else if (rptType === 'market') {
       const res = await fetch(`/api/v1/dashboard/overview`);
-      data = await res.json();
+      data = APIClient.unwrap(await res.json());
     } else if (rptType === 'watchlist') {
       const res = await fetch(`/api/v1/watchlist`);
-      data = await res.json();
+      data = APIClient.unwrap(await res.json());
     }
 
     lastReportData = data;
@@ -307,7 +307,7 @@ async function generateReport() {
     let displaySymbol = symbol;
     try {
       const res = await fetch(`/api/v1/tv/stock-info?symbol=${encodeURIComponent(symbol)}`);
-      const info = await res.json();
+      const info = APIClient.unwrap(await res.json());
       if (info.name) {
         const parts = [info.industry, ...(info.indices || [])].filter(Boolean);
         const suffix = parts.length > 0 ? ' / ' + parts.join('/') : '';
@@ -403,7 +403,7 @@ async function saveToArchive() {
         trade_date: new Date().toISOString().slice(0, 10),
       })
     });
-    const data = await res.json();
+    const data = APIClient.unwrap(await res.json());
     if (data.status === 'ok') {
       status.textContent = '✅ 报告已保存到归档';
       await loadArchive();
@@ -483,7 +483,7 @@ async function compareReport(created_at) {
         trade_date: '',
       }),
     });
-    const data = await res.json();
+    const data = APIClient.unwrap(await res.json());
     if (data.status === 'ok') {
       renderCompareDiff(data);
     } else {

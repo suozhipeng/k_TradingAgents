@@ -13,7 +13,8 @@ import logging
 import threading
 from typing import Any
 
-from .envelope import error_response
+from .auth import require_capability
+from .envelope import error_response, success_response
 
 from flask import Blueprint, Response, current_app, g, jsonify, request
 logger = logging.getLogger(__name__)
@@ -51,6 +52,7 @@ def _get_audit_store() -> Any:
 
 
 @bp.route("/ops/audit")
+@require_capability("ops:read", roles=["admin", "operator"])
 def list_audit_events() -> tuple[Response, int]:
     """List audit events with optional filters.
 
@@ -73,7 +75,7 @@ def list_audit_events() -> tuple[Response, int]:
         action = request.args.get("action")
         limit = _safe_int(request.args.get("limit"), 50)
         events = store.list_events(actor=actor, action=action, limit=limit)
-        return jsonify(events), 200
+        return success_response({"events": events})
     except Exception as exc:
         return error_response(str(exc), 500)
 
@@ -84,6 +86,7 @@ def list_audit_events() -> tuple[Response, int]:
 
 
 @bp.route("/ops/tasks")
+@require_capability("ops:read", roles=["admin", "operator"])
 def list_tasks() -> tuple[Response, int]:
     """List task runs with optional type filter.
 
@@ -103,7 +106,7 @@ def list_tasks() -> tuple[Response, int]:
         task_type = request.args.get("type")
         limit = _safe_int(request.args.get("limit"), 50)
         tasks = store.list_tasks(task_type=task_type, limit=limit)
-        return jsonify(tasks), 200
+        return success_response({"tasks": tasks})
     except Exception as exc:
         return error_response(str(exc), 500)
 
@@ -114,6 +117,7 @@ def list_tasks() -> tuple[Response, int]:
 
 
 @bp.route("/ops/tasks/<task_id>")
+@require_capability("ops:read", roles=["admin", "operator"])
 def get_task(task_id: str) -> tuple[Response, int]:
     """Get a single task by ID.
 
@@ -126,7 +130,7 @@ def get_task(task_id: str) -> tuple[Response, int]:
         task = store.get_task(task_id)
         if task is None:
             return error_response(f"Task not found: {task_id}", 404)
-        return jsonify(task), 200
+        return success_response({"task": task})
     except Exception as exc:
         return error_response(str(exc), 500)
 
@@ -137,6 +141,7 @@ def get_task(task_id: str) -> tuple[Response, int]:
 
 
 @bp.route("/ops/tasks/<task_id>/cancel", methods=["POST"])
+@require_capability("ops:task:cancel", roles=["admin", "operator"])
 def cancel_task_endpoint(task_id: str) -> tuple[Response, int]:
     """Cancel an existing task.
 
@@ -149,7 +154,7 @@ def cancel_task_endpoint(task_id: str) -> tuple[Response, int]:
         task = store.cancel_task(task_id)
         if task is None:
             return error_response(f"Task not found: {task_id}", 404)
-        return jsonify(task), 200
+        return success_response({"task": task})
     except Exception as exc:
         return error_response(str(exc), 500)
 
@@ -160,6 +165,7 @@ def cancel_task_endpoint(task_id: str) -> tuple[Response, int]:
 
 
 @bp.route("/ops/stats")
+@require_capability("ops:read", roles=["admin", "operator"])
 def ops_stats() -> tuple[Response, int]:
     """Get aggregated ops dashboard statistics.
 
@@ -171,16 +177,15 @@ def ops_stats() -> tuple[Response, int]:
     try:
         store = _get_audit_store()
         stats = store.get_stats()
-        return jsonify(stats), 200
+        return success_response(stats)
     except Exception as exc:
         return error_response(str(exc), 500)
 
 
 @bp.route("/ops/metrics")
+@require_capability("ops:read", roles=["admin", "operator"])
 def ops_metrics() -> tuple[Response, int]:
     """Return request counts/latency plus in-process data-job state."""
-    if current_app.config.get("ASTOCK_REQUIRE_AUTH", True) and getattr(g, "role", "public") != "admin":
-        return error_response("forbidden", 403)
     from .metrics import snapshot
 
     payload = snapshot()
@@ -192,7 +197,7 @@ def ops_metrics() -> tuple[Response, int]:
             "running": sum(job.status == "running" for job in jobs),
             "failed": sum(job.status == "failed" for job in jobs),
         }
-    return jsonify(payload), 200
+    return success_response(payload)
 
 
 # ---------------------------------------------------------------------------
@@ -201,6 +206,7 @@ def ops_metrics() -> tuple[Response, int]:
 
 
 @bp.route("/ops/scheduler/status")
+@require_capability("ops:read", roles=["admin", "operator"])
 def scheduler_status() -> tuple[Response, int]:
     """Return scheduler lifecycle status from EventBus and AuditStore.
 
@@ -233,7 +239,7 @@ def scheduler_status() -> tuple[Response, int]:
                 latest_cycle = e
                 break
 
-        return jsonify({
+        return success_response({
             "running": bool(latest_cycle and latest_cycle.get("action") != "cycle_error"),
             "cycle_count": cycle_count,
             "last_activity": latest_cycle.get("timestamp") if latest_cycle else None,

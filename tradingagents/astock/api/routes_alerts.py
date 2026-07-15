@@ -31,7 +31,7 @@ from tradingagents.astock.alert.alert_store import (
     TriggerType,
 )
 from .envelope import error_response, success_response
-from ._helpers import _as_bool
+from ._helpers import _as_bool, bounded_int_arg
 
 bp = Blueprint("alerts", __name__)
 logger = logging.getLogger(__name__)
@@ -65,7 +65,7 @@ def list_alerts() -> tuple[Response, int]:
         status (str, optional) — filter by status
     """
     try:
-        limit = int(request.args.get("limit", 20))
+        limit = bounded_int_arg("limit", 20, minimum=1, maximum=200)
         status_filter = request.args.get("status", "").strip().lower()
         store = _alert_store()
 
@@ -80,6 +80,8 @@ def list_alerts() -> tuple[Response, int]:
             "total": len(events),
             "status": "ok",
         })
+    except ValueError:
+        return error_response("invalid_limit", 400)
     except Exception as exc:
         return error_response(str(exc), 500)
 

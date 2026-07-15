@@ -136,6 +136,7 @@ class TestSseBlueprint(unittest.TestCase):
             from flask import Flask
 
             app = Flask(__name__)
+            app.config["ASTOCK_REQUIRE_AUTH"] = False
             app.register_blueprint(_sse.bp, url_prefix="/api/v1")
             with app.test_client() as client:
                 # Use streamed=True to get a streaming response
@@ -161,11 +162,12 @@ class TestSseBlueprint(unittest.TestCase):
             from flask import Flask
 
             app = Flask(__name__)
+            app.config["ASTOCK_REQUIRE_AUTH"] = False
             app.register_blueprint(_sse.bp, url_prefix="/api/v1")
             with app.test_client() as client:
                 resp = client.get("/api/v1/sse/events")
                 self.assertEqual(resp.status_code, 200)
-                data = json.loads(resp.data.decode("utf-8"))
+                data = json.loads(resp.data.decode("utf-8"))["data"]["events"]
                 self.assertIsInstance(data, list)
                 self.assertGreaterEqual(len(data), 1)
         except Exception as e:
@@ -216,10 +218,11 @@ class TestTaskRunWrapping(unittest.TestCase):
         EventBus.publish({"type": "error", "message": "oops"})
 
         app = Flask(__name__)
+        app.config["ASTOCK_REQUIRE_AUTH"] = False
         app.register_blueprint(_sse.bp, url_prefix="/api/v1")
         with app.test_client() as client:
             resp = client.get("/api/v1/sse/events")
-            data = json.loads(resp.data.decode("utf-8"))
+            data = json.loads(resp.data.decode("utf-8"))["data"]["events"]
             self.assertEqual(len(data), 2)
             for entry in data:
                 self.assertIn("task_id", entry)

@@ -75,26 +75,23 @@ def create_app(
     app.config.setdefault("MAX_CONTENT_LENGTH", int(os.environ.get("ASTOCK_MAX_REQUEST_BYTES", str(1024 * 1024))))
     app.config.setdefault("ASTOCK_ENABLE_WEB_UI", True)
     app.config.setdefault("ASTOCK_LOCAL_RELEASE", _env_enabled("ASTOCK_LOCAL_RELEASE"))
-    # Network-facing deployments must opt in to anonymous mutation explicitly.
-    # The test harness sets ASTOCK_TESTING=1 before importing the app factory.
-    app.config.setdefault(
-        "ASTOCK_REQUIRE_AUTH",
-        os.environ.get("ASTOCK_TESTING", "").lower() not in ("1", "true", "yes", "on"),
-    )
+    # Authentication is fail-closed in every deployed process. Tests may
+    # explicitly override this through ``test_config`` after app creation.
+    app.config.setdefault("ASTOCK_REQUIRE_AUTH", True)
     from tradingagents.astock.store.backend import backend_mgr
     app.config.setdefault("ASTOCK_MOCK_DATA_ENABLED", backend_mgr.config.mock_data_enabled)
     app.config.setdefault(
         "ASTOCK_RESEARCH_ONLY",
         os.environ.get("ASTOCK_RESEARCH_ONLY", "true").lower() not in ("0", "false", "no", "off"),
     )
-    # Every interactive K-line query refreshes the daily series first.  Keep
-    # isolated test runs offline unless the test explicitly opts in.
+    # GET requests are read-only by default. Clients that need a foreground
+    # refresh must opt in with ``refresh=1`` or an explicit deployment flag.
     app.config.setdefault(
         "ASTOCK_AUTO_REFRESH_DAILY_KLINE",
         os.environ.get("ASTOCK_AUTO_REFRESH_DAILY_KLINE", "").lower()
         in ("1", "true", "yes", "on")
         if "ASTOCK_AUTO_REFRESH_DAILY_KLINE" in os.environ
-        else not _env_enabled("ASTOCK_TESTING"),
+        else False,
     )
     app.config.setdefault(
         "ASTOCK_DAILY_KLINE_REFRESH_TIMEOUT_SECONDS",
@@ -103,6 +100,11 @@ def create_app(
     app.config.setdefault(
         "ASTOCK_MAIN_ANALYSIS_TIMEOUT_SECONDS",
         float(os.environ.get("ASTOCK_MAIN_ANALYSIS_TIMEOUT_SECONDS", "45")),
+    )
+    app.config.setdefault(
+        "ASTOCK_ANALYSIS_PROCESS_ISOLATION",
+        _env_enabled("ASTOCK_ANALYSIS_PROCESS_ISOLATION")
+        if "ASTOCK_ANALYSIS_PROCESS_ISOLATION" in os.environ else True,
     )
     app.config.setdefault("ASTOCK_SLOW_REQUEST_MS", float(os.environ.get("ASTOCK_SLOW_REQUEST_MS", "1000")))
     app.config.setdefault("ASTOCK_LLM_REPORT_TTL_SECONDS", float(os.environ.get("ASTOCK_LLM_REPORT_TTL_SECONDS", "600")))
@@ -131,10 +133,9 @@ def create_app(
     app.config.setdefault("SESSION_COOKIE_SECURE", _env_enabled("ASTOCK_COOKIE_SECURE"))
     worker_count = int(os.environ.get("WEB_CONCURRENCY", "1"))
     if worker_count > 1:
-        app.logger.warning(
-            "WEB_CONCURRENCY=%d: in-process SSE, job and report-cache state is not shared; "
-            "run one API worker or deploy a shared Redis/PostgreSQL coordination backend.",
-            worker_count,
+        raise RuntimeError(
+            "WEB_CONCURRENCY must be 1: SSE, background jobs and report cache "
+            "are process-local. Deploy a shared coordination backend before enabling multi-worker mode."
         )
 
     # -- CORS -----------------------------------------------------------------
@@ -161,6 +162,9 @@ def create_app(
     # test configuration as a non-bypassable product-scope guard.
     if app.config.get("ASTOCK_LOCAL_RELEASE", False):
         app.config["ASTOCK_RESEARCH_ONLY"] = True
+        app.config["ASTOCK_SCHEDULER_ENABLED"] = False
+    elif app.config.get("ASTOCK_RESEARCH_ONLY", True):
+        # Research-only is a runtime boundary, not just an HTTP-route guard.
         app.config["ASTOCK_SCHEDULER_ENABLED"] = False
 
     # -- Scheduler ------------------------------------------------------------

@@ -73,7 +73,7 @@ async function loadWatchlist() {
 
   try {
     const res = await fetch('/api/v1/watchlist');
-    const data = await res.json();
+    const data = APIClient.unwrap(await res.json());
     if (data.status === 'ok' || data.items) {
       watchlistItems = data.items || [];
       renderTable(watchlistItems);
@@ -129,7 +129,7 @@ async function addSymbol() {
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({symbol, name: symbol, source: 'manual'})
     });
-    const data = await res.json();
+    const data = APIClient.unwrap(await res.json());
     if (data.status === 'ok') {
       status.textContent = '✅ ' + symbol + ' 已添加到自选股';
       input.value = '';
@@ -151,7 +151,7 @@ async function quickAdd(symbol, name) {
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({symbol, name, source: 'quick_add'})
     });
-    const data = await res.json();
+    const data = APIClient.unwrap(await res.json());
     if (data.status === 'ok') {
       status.textContent = '✅ ' + name + ' 已添加';
       await loadWatchlist();
@@ -174,7 +174,7 @@ async function removeSymbol(symbol) {
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({symbol})
     });
-    const data = await res.json();
+    const data = APIClient.unwrap(await res.json());
     if (data.status === 'ok') {
       status.textContent = '✅ ' + symbol + ' 已移除';
       await loadWatchlist();
@@ -198,7 +198,7 @@ async function batchAnalyze() {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
     });
-    const data = await res.json();
+    const data = APIClient.unwrap(await res.json());
     if (data.status === 'complete') {
       const err = data.errors_count > 0 ? ` (${data.errors_count} errors)` : '';
       status.textContent = `✅ ${data.message}${err}`;

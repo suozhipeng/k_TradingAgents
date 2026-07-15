@@ -6,15 +6,27 @@ Routes: /data/refresh/*, /data/manual/<table>
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import Any
 
 from flask import Blueprint, Response, current_app, jsonify, request
 
 from .envelope import error_response, success_response
 from ._helpers import get_store
+from ._helpers import _as_bool
+from .auth import require_capability
 
 bp = Blueprint("data_ingest", __name__)
 logger = logging.getLogger(__name__)
+
+
+def _managed_path(value: str, config_key: str, default: str) -> str:
+    """Resolve a route-supplied path below its configured managed root."""
+    root = Path(current_app.config.get(config_key, default)).resolve()
+    candidate = Path(value).expanduser().resolve()
+    if candidate != root and root not in candidate.parents:
+        raise ValueError("path must be inside the managed data directory")
+    return str(candidate)
 
 
 def _permanent_kline_store() -> Any:
@@ -33,6 +45,7 @@ def _permanent_kline_store() -> Any:
 
 
 @bp.route("/data/lifecycle/intraday", methods=["POST"])
+@require_capability("data:lifecycle", roles=["admin", "operator"])
 def manage_intraday_lifecycle() -> tuple[Response, int]:
     """Preview or explicitly archive old minute K-lines into Parquet.
 
@@ -42,8 +55,11 @@ def manage_intraday_lifecycle() -> tuple[Response, int]:
     body = request.get_json(force=True, silent=True) or {}
     try:
         retention_days = min(max(int(body.get("retention_days", 180)), 1), 3650)
-        archive_dir = str(body.get("archive_dir", "kline/archive"))
-        confirm_delete = bool(body.get("confirm_delete", False))
+        archive_dir = _managed_path(
+            str(body.get("archive_dir", "kline/archive")),
+            "ASTOCK_ARCHIVE_ROOT", "kline/archive",
+        )
+        confirm_delete = _as_bool(body.get("confirm_delete"), False)
         from tradingagents.astock.store.intraday_lifecycle import archive_intraday_kline
         result = archive_intraday_kline(
             get_store(), retention_days=retention_days, archive_dir=archive_dir,
@@ -57,6 +73,7 @@ def manage_intraday_lifecycle() -> tuple[Response, int]:
 
 
 @bp.route("/data/maintenance", methods=["POST"])
+@require_capability("data:maintenance", roles=["admin", "operator"])
 def maintain_local_databases() -> tuple[Response, int]:
     """Checkpoint and analyze the hot and canonical local DuckDB stores."""
     try:

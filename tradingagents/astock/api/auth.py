@@ -1,9 +1,9 @@
 """
-API key authentication for AStock Pro.
+API key authentication and capability guards for AStock Pro.
+
 Supports Bearer token -> api_keys lookup (PGStore -> DuckDB fallback).
-Rate limiting delegates to a shared limiter (Redis when configured, else
-process-local); API-key validation delegates to a single resolver so all
-three auth entry points behave identically.
+Rate limiting is enforced once by the application request hook; this module
+only resolves keys and applies route-level role/capability policies.
 """
 
 import hashlib
@@ -13,19 +13,9 @@ from typing import Callable, Optional
 
 from flask import request, g, jsonify, current_app
 
-from .key_resolver import build_rate_limiter, resolve_api_key
+from .key_resolver import resolve_api_key
 
 logger = logging.getLogger(__name__)
-
-# ---------------------------------------------------------------------------
-# Rate limiter (Redis-backed when ASTOCK_REDIS_URL is set, else in-memory)
-# ---------------------------------------------------------------------------
-
-# Backwards-compatible alias: existing code/tests reference ``bucket.consume``.
-# ``build_rate_limiter`` returns an object exposing the same consume()/reset()
-# contract as the previous TokenBucket.
-bucket = build_rate_limiter()
-
 
 # ---------------------------------------------------------------------------
 # Decorators
@@ -93,26 +83,38 @@ def require_auth(roles: Optional[list[str]] = None):
                     "message": f"Requires one of: {roles}"
                 }), 403
 
-            # Rate limit check
-            rate_limit = record.get("rate_limit", 100)
-            if isinstance(rate_limit, str):
-                try:
-                    rate_limit = int(rate_limit)
-                except (ValueError, TypeError):
-                    rate_limit = 100
-            allowed, _ = bucket.consume(record["key_id"], rate_limit)
-            if not allowed:
-                return jsonify({
-                    "error": "rate_limited",
-                    "message": "Rate limit exceeded"
-                }), 429
-
             # Populate g
             g.actor = record.get("key_id", "unknown")
             g.role = key_role
             g.key_id = record.get("key_id", "")
             g.allowed_capabilities = record.get("allowed_capabilities", "")
 
+            return f(*args, **kwargs)
+        return decorated
+    return decorator
+
+
+def require_capability(*capabilities: str, roles: Optional[list[str]] = None):
+    """Require an authenticated role plus one of the named capabilities.
+
+    The application-wide write hook has already resolved the bearer key.  In
+    test mode (``ASTOCK_REQUIRE_AUTH=false``) this deliberately remains a
+    no-op so isolated route tests need not manufacture credentials.
+    """
+    def decorator(f: Callable):
+        @wraps(f)
+        def decorated(*args, **kwargs):
+            if not current_app.config.get("ASTOCK_REQUIRE_AUTH", True):
+                return f(*args, **kwargs)
+            role = getattr(g, "role", "public")
+            if roles and role not in roles:
+                return jsonify({"error": "forbidden", "message": "Insufficient role"}), 403
+            granted = {
+                item.strip() for item in getattr(g, "allowed_capabilities", "").split(",")
+                if item.strip()
+            }
+            if "*" not in granted and not any(item in granted for item in capabilities):
+                return jsonify({"error": "forbidden", "message": "Required capability missing"}), 403
             return f(*args, **kwargs)
         return decorated
     return decorator

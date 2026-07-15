@@ -201,7 +201,7 @@ document.addEventListener('DOMContentLoaded', function() {
 async function loadSettings() {
   try {
     const res = await fetch('/api/v1/health');
-    const data = await res.json();
+    const data = APIClient.unwrap(await res.json());
     document.getElementById('sys-version').textContent = data?.version || '0.1.0';
     document.getElementById('sys-status').textContent = data?.status === 'ok' ? 'Online' : 'Degraded';
     document.getElementById('cfg-mock-data').checked = data?.mock_data_enabled === true;
@@ -224,7 +224,7 @@ async function saveSettings() {
       headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key},
       body: JSON.stringify({enabled: document.getElementById('cfg-mock-data').checked}),
     });
-    const data = await res.json();
+    const data = APIClient.unwrap(await res.json());
     if (!res.ok) throw new Error(data.message || data.error || '保存失败');
     status.textContent = data.enabled ? '✅ 已启用全局 Mock 数据。' : '✅ 已关闭全局 Mock 数据。';
   } catch (e) {
@@ -306,7 +306,7 @@ async function testWebhook() {
 async function refreshCacheStatus() {
   try {
     const res = await fetch('/api/v1/cache/status');
-    const data = await res.json();
+    const data = APIClient.unwrap(await res.json());
     const c = data?.cache || {};
     document.getElementById('cache-status').textContent = c.enabled ? '✅ 已启用' : '❌ 未启用';
     document.getElementById('cache-type').textContent = c.type || 'N/A';
@@ -323,7 +323,7 @@ async function clearCache() {
   el.textContent = '⏳ 清除中...';
   try {
     const res = await fetch('/api/v1/cache/clear', { method: 'POST' });
-    const data = await res.json();
+    const data = APIClient.unwrap(await res.json());
     el.textContent = data.cleared ? '✅ 缓存已清除' : '⚠️ 清除失败: ' + (data.reason || 'unknown');
     refreshCacheStatus();
   } catch (e) {
@@ -346,7 +346,7 @@ async function refreshKline() {
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({symbol, start, end})
     });
-    const data = await res.json();
+    const data = APIClient.unwrap(await res.json());
     el.textContent = data.status === 'ok'
       ? '✅ K-line 刷新完成，插入 ' + data.rows_inserted + ' 行'
       : '❌ 刷新失败: ' + (data.error || 'unknown');
@@ -367,7 +367,7 @@ async function refreshValuation() {
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({symbol})
     });
-    const data = await res.json();
+    const data = APIClient.unwrap(await res.json());
     el.textContent = data.status === 'ok'
       ? '✅ 估值刷新完成，插入 ' + data.rows_inserted + ' 行'
       : '❌ 刷新失败: ' + (data.error || 'unknown');

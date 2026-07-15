@@ -15,7 +15,7 @@ import pandas as pd
 from flask import Blueprint, Response, current_app, jsonify, request
 from .envelope import error_response
 
-from ._helpers import df_to_json, get_store, sanitise_records
+from ._helpers import bounded_int_arg, df_to_json, get_store, sanitise_records
 
 logger = logging.getLogger(__name__)
 
@@ -97,10 +97,9 @@ def market_summary() -> tuple[Response, int]:
         # Summary views only need a bounded recent window.  Loading an entire
         # intraday history here would inflate both DuckDB work and JSON output.
         try:
-            kline_limit = int(request.args.get("kline_limit", 120))
-        except (TypeError, ValueError):
-            kline_limit = 120
-        kline_limit = min(max(kline_limit, 1), 500)
+            kline_limit = bounded_int_arg("kline_limit", 120, minimum=1, maximum=500)
+        except ValueError:
+            return error_response("invalid_kline_limit", 400)
         kline_df = store.query_kline(symbol, interval="1d", limit=kline_limit)
         val_df = store.query_valuations(symbol)
         indicators_df = store.query_market_indicators(symbol)
@@ -182,7 +181,12 @@ def market_regime() -> tuple[Response, int]:
     JSON with ``composite_score``, ``verdict``, ``recommended_strategies``, ``dimensions``.
     """
     symbol = request.args.get("symbol", "000300.SH").strip()
-    lookback = int(request.args.get("lookback", 120))
+    try:
+        lookback = int(request.args.get("lookback", 120))
+    except (TypeError, ValueError):
+        return error_response("invalid_lookback", 400)
+    if lookback < 1 or lookback > 1000:
+        return error_response("invalid_lookback", 400)
     end_date = datetime.now().strftime("%Y-%m-%d")
 
     try:
@@ -191,7 +195,9 @@ def market_regime() -> tuple[Response, int]:
         facade = AStockDataFacade()
         resp = facade.get_kline(symbol=symbol, interval="1d")
         if resp.status != "ok" or not resp.data or not resp.data.get("bars"):
-            return jsonify({"error": "no data", "verdict": "neutral", "composite_score": 0.0}), 200
+            return error_response(
+                "market_regime_data_unavailable", 503, code="market_regime_data_unavailable"
+            )
 
         bars = resp.data["bars"]
         df = pd.DataFrame(bars)
@@ -211,7 +217,8 @@ def market_regime() -> tuple[Response, int]:
         return jsonify(regime), 200
 
     except Exception as exc:
-        return jsonify({"error": str(exc), "verdict": "neutral", "composite_score": 0.0}), 200
+        logger.exception("Market regime analysis failed for %s", symbol)
+        return error_response("market_regime_failed", 500, code="market_regime_failed")
 
 
 # ---------------------------------------------------------------------------

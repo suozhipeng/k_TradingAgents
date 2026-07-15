@@ -31,7 +31,7 @@ class AStockTVDatafeed {
             const url = `/api/v1/tv/symbols?symbol=${encodeURIComponent(symbolName)}`;
             const res = await fetch(url);
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            const data = await res.json();
+            const data = APIClient.unwrap(await res.json());
             onSymbolResolved(data);
         } catch (e) {
             onResolveError(`Cannot resolve symbol: ${e.message}`);
@@ -46,7 +46,7 @@ class AStockTVDatafeed {
                 + `&from=${from}&to=${to}`;
             const res = await fetch(url);
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            const data = await res.json();
+            const data = APIClient.unwrap(await res.json());
 
             if (data.s === 'no_data') {
                 onHistoryCallback([], { noData: true });
@@ -83,7 +83,7 @@ class AStockTVDatafeed {
                     + `&resolution=1&from=${now - 7200}&to=${now}`;
                 const res = await fetch(url);
                 if (!res.ok) return;
-                const data = await res.json();
+                const data = APIClient.unwrap(await res.json());
                 if (data.s === 'ok' && data.t && data.t.length > 0) {
                     const lastIdx = data.t.length - 1;
                     onRealtimeCallback({

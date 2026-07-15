@@ -8,11 +8,16 @@ from __future__ import annotations
 
 import logging
 import copy
+import multiprocessing
+import os
+import pickle
+import tempfile
 import threading
 import time
 import uuid
-from concurrent.futures import Future, ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
+from concurrent.futures import Future, TimeoutError as FuturesTimeoutError
 from datetime import datetime
+from queue import Empty
 from typing import Any
 
 from flask import Blueprint, Response, current_app, jsonify, request
@@ -26,8 +31,9 @@ logger = logging.getLogger(__name__)
 _report_cache_lock = threading.Lock()
 _report_cache: dict[tuple[str, str, str], tuple[float, dict[str, Any]]] = {}
 _report_flights: dict[tuple[str, str, str], Future[dict[str, Any]]] = {}
-_analysis_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="astock-analysis")
-_analysis_slots = threading.BoundedSemaphore(8)
+_analysis_slots = threading.BoundedSemaphore(
+    max(1, int(os.getenv("ASTOCK_ANALYSIS_MAX_CONCURRENCY", "4")))
+)
 
 bp = Blueprint("ai_agent", __name__)
 
@@ -158,17 +164,81 @@ def _set_cached_report(key: tuple[str, str, str], payload: dict[str, Any]) -> No
         _report_cache[key] = (time.monotonic() + _report_cache_ttl_seconds(), copy.deepcopy(payload))
 
 
-def _submit_analysis(fn: Any) -> Future[Any]:
-    """Submit to the process-wide bounded pool without creating request threads."""
+def _analysis_worker(kind: str, payload: dict[str, Any], output: Any, result_path: str) -> None:
+    """Run an untrusted external analysis stage in a fresh interpreter."""
+    try:
+        if kind == "main_pipeline":
+            from tradingagents.astock import AStockGraphRuntime, AStockInterface
+            from tradingagents.astock.data_sources.router import AStockDataFacade
+
+            facade = AStockDataFacade()
+            result = AStockGraphRuntime(
+                symbol=payload["symbol"],
+                interface=AStockInterface(facade=facade),
+                source="ai_indicator_query",
+            ).run().to_dict()
+        elif kind == "llm":
+            context_data = payload["context"]
+            context = (
+                ResearchContext.model_validate(context_data)
+                if hasattr(ResearchContext, "model_validate")
+                else ResearchContext(**context_data)
+            )
+            result = _try_llm_analysis(payload["symbol"], context, payload["analysis_type"])
+        else:
+            raise ValueError(f"unsupported isolated analysis stage: {kind}")
+        # Keep Queue payloads tiny.  A report can exceed the OS pipe buffer;
+        # serializing it to a parent-owned temporary file avoids child-exit
+        # deadlocks while the parent waits for completion.
+        with open(result_path, "wb") as handle:
+            pickle.dump(result, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        output.put(("ok",))
+    except Exception as exc:
+        output.put(("error", f"{type(exc).__name__}: {exc}"))
+
+
+def _run_isolated_analysis(kind: str, payload: dict[str, Any], timeout: float, fallback: Any) -> Any:
+    """Execute external analysis with a hard process deadline.
+
+    A thread timeout only abandons the HTTP request while its LLM/provider
+    call keeps consuming a worker.  Production therefore uses ``spawn`` so
+    timeout terminates the whole child without inheriting Flask, DuckDB, or
+    provider locks.  Tests intentionally retain their injected in-process
+    doubles.
+    """
+    if current_app.testing or not current_app.config.get("ASTOCK_ANALYSIS_PROCESS_ISOLATION", True):
+        return fallback()
     if not _analysis_slots.acquire(blocking=False):
         raise RuntimeError("analysis capacity is saturated; retry shortly")
+    context = multiprocessing.get_context("spawn")
+    output = context.Queue(maxsize=1)
+    result_file = tempfile.NamedTemporaryFile(prefix="astock-analysis-", suffix=".pickle", delete=False)
+    result_path = result_file.name
+    result_file.close()
+    worker = context.Process(target=_analysis_worker, args=(kind, payload, output, result_path), daemon=True)
     try:
-        future = _analysis_executor.submit(fn)
-    except Exception:
+        worker.start()
+        deadline = time.monotonic() + timeout
+        while worker.is_alive() and time.monotonic() < deadline:
+            worker.join(timeout=min(0.1, max(0.0, deadline - time.monotonic())))
+        if worker.is_alive():
+            worker.terminate()
+            worker.join(timeout=1)
+            raise TimeoutError(f"{kind} deadline exceeded after {timeout:.0f}s")
+        try:
+            packet = output.get(timeout=0.2)
+        except Empty as exc:
+            raise RuntimeError(f"{kind} worker exited without a response") from exc
+        if packet[0] != "ok":
+            raise RuntimeError(str(packet[1]))
+        with open(result_path, "rb") as handle:
+            return pickle.load(handle)
+    finally:
+        output.close()
+        output.join_thread()
         _analysis_slots.release()
-        raise
-    future.add_done_callback(lambda _future: _analysis_slots.release())
-    return future
+        if os.path.exists(result_path):
+            os.unlink(result_path)
 
 
 def _run_analysis_singleflight(
@@ -321,19 +391,19 @@ def _run_main_pipeline(symbol: str, *, daily_refresh: dict[str, Any] | None = No
     interface = AStockInterface(facade=facade) if facade is not None else None
     daily_refresh = daily_refresh or _refresh_daily_kline_incrementally(symbol)
     timeout = max(1.0, float(current_app.config.get("ASTOCK_MAIN_ANALYSIS_TIMEOUT_SECONDS", 45)))
-    future = _submit_analysis(
-        lambda: AStockGraphRuntime(
+    def run_in_process() -> dict[str, Any]:
+        return AStockGraphRuntime(
             symbol=symbol, interface=interface, source="ai_indicator_query"
         ).run().to_dict()
-    )
     try:
-        report = future.result(timeout=timeout)
+        report = _run_isolated_analysis(
+            "main_pipeline", {"symbol": symbol}, timeout, run_in_process,
+        )
         return {
             "status": "completed", "timeout_seconds": timeout,
             "daily_refresh": daily_refresh, "report": report,
         }
-    except FuturesTimeoutError:
-        future.cancel()
+    except TimeoutError:
         logger.warning("main analysis timed out for %s after %.1fs", symbol, timeout)
         return {
             "status": "timed_out", "timeout_seconds": timeout,
@@ -352,11 +422,15 @@ def _run_llm_analysis_bounded(
     symbol: str, context: ResearchContext, analysis_type: str
 ) -> dict[str, str]:
     timeout = min(20.0, max(1.0, float(current_app.config.get("ASTOCK_MAIN_ANALYSIS_TIMEOUT_SECONDS", 45))))
-    future = _submit_analysis(lambda: _try_llm_analysis(symbol, context, analysis_type))
     try:
-        return future.result(timeout=timeout)
-    except FuturesTimeoutError as exc:
-        future.cancel()
+        context_data = context.model_dump() if hasattr(context, "model_dump") else dict(context)
+        return _run_isolated_analysis(
+            "llm",
+            {"symbol": symbol, "context": context_data, "analysis_type": analysis_type},
+            timeout,
+            lambda: _try_llm_analysis(symbol, context, analysis_type),
+        )
+    except TimeoutError as exc:
         raise TimeoutError(f"LLM presentation deadline exceeded after {timeout:.0f}s") from exc
 
 

@@ -10,7 +10,9 @@ from __future__ import annotations
 import difflib
 import json
 import logging
+import os
 import tempfile
+from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -20,7 +22,7 @@ from .envelope import error_response
 
 from tradingagents.astock.reporting.ppt import ReportGenerator, HAS_PPTX
 
-from ._helpers import _as_bool
+from ._helpers import _as_bool, bounded_int_arg
 
 logger = logging.getLogger(__name__)
 
@@ -32,23 +34,63 @@ bp = Blueprint("reports", __name__)
 # ---------------------------------------------------------------------------
 
 REPORT_INDEX_PATH = Path.home() / ".tradingagents" / "report_index.json"
+REPORT_INDEX_LOCK_PATH = REPORT_INDEX_PATH.with_suffix(".lock")
+_REPORT_INDEX_MAX_ENTRIES = 1_000
+
+
+class ReportIndexCorruptError(RuntimeError):
+    """Raised instead of silently replacing a corrupt report index."""
+
+
+@contextmanager
+def _locked_report_index(exclusive: bool = False):
+    """Open the report index under an advisory cross-process file lock."""
+    import fcntl
+
+    REPORT_INDEX_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with open(REPORT_INDEX_LOCK_PATH, "a+", encoding="utf-8") as handle:
+        fcntl.flock(handle.fileno(), fcntl.LOCK_EX if exclusive else fcntl.LOCK_SH)
+        try:
+            if not REPORT_INDEX_PATH.exists():
+                data = []
+            else:
+                try:
+                    data = json.loads(REPORT_INDEX_PATH.read_text(encoding="utf-8"))
+                except json.JSONDecodeError as exc:
+                    raise ReportIndexCorruptError(
+                        "report index is corrupt; repair it before saving new reports"
+                    ) from exc
+                except OSError as exc:
+                    raise RuntimeError("report index is unavailable") from exc
+            if not isinstance(data, list):
+                raise ReportIndexCorruptError("report index must contain a JSON list")
+            yield data
+        finally:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
 
 
 def _load_report_index() -> list[dict[str, Any]]:
-    if not REPORT_INDEX_PATH.exists():
-        return []
-    try:
-        with open(REPORT_INDEX_PATH, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            return data if isinstance(data, list) else []
-    except (json.JSONDecodeError, OSError):
-        return []
+    with _locked_report_index() as items:
+        return list(items)
 
 
 def _save_report_index(items: list[dict[str, Any]]) -> None:
-    REPORT_INDEX_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with open(REPORT_INDEX_PATH, "w", encoding="utf-8") as f:
-        json.dump(items, f, ensure_ascii=False, indent=2)
+    """Atomically replace the index while the caller holds the write lock."""
+    with tempfile.NamedTemporaryFile(
+        mode="w", encoding="utf-8", dir=REPORT_INDEX_PATH.parent,
+        prefix=".report_index-", suffix=".json", delete=False,
+    ) as handle:
+        json.dump(items[-_REPORT_INDEX_MAX_ENTRIES:], handle, ensure_ascii=False, indent=2)
+        temp_path = Path(handle.name)
+    os.replace(temp_path, REPORT_INDEX_PATH)
+
+
+def _append_report_index(entry: dict[str, Any]) -> int:
+    """Append one entry without a read-modify-write race across workers."""
+    with _locked_report_index(exclusive=True) as items:
+        items.append(entry)
+        _save_report_index(items)
+        return min(len(items), _REPORT_INDEX_MAX_ENTRIES)
 
 
 # ---------------------------------------------------------------------------
@@ -68,8 +110,11 @@ def report_list() -> tuple[Response, int]:
     """
     rpt_type = request.args.get("type", "all")
     source = request.args.get("source", "")
-    limit = int(request.args.get("limit", "50"))
-    offset = int(request.args.get("offset", "0"))
+    try:
+        limit = bounded_int_arg("limit", 50, minimum=1, maximum=100)
+        offset = bounded_int_arg("offset", 0, minimum=0, maximum=100_000)
+    except ValueError:
+        return error_response("invalid_pagination", 400)
 
     items = _load_report_index()
 
@@ -132,11 +177,9 @@ def report_save() -> tuple[Response, int]:
         "trade_date": data.get("trade_date", ""),
     }
 
-    items = _load_report_index()
-    items.append(entry)
-    _save_report_index(items)
+    count = _append_report_index(entry)
 
-    return jsonify({"item": entry, "count": len(items), "status": "ok"}), 201
+    return jsonify({"item": entry, "count": count, "status": "ok"}), 201
 
 
 @bp.route("/reports/pptx", methods=["GET"])

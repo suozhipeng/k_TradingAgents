@@ -57,9 +57,9 @@ async function loadQmt() {
       fetch('/api/v1/qmt/positions'),
       fetch('/api/v1/qmt/orders'),
     ]);
-    const health = await healthRes.json();
-    const positions = await posRes.json();
-    const orders = await ordRes.json();
+    const health = APIClient.unwrap(await healthRes.json());
+    const positions = APIClient.unwrap(await posRes.json());
+    const orders = APIClient.unwrap(await ordRes.json());
 
     // Connection Status
     const qs = document.getElementById('qmt-status');

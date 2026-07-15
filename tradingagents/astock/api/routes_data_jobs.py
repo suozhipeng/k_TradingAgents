@@ -9,14 +9,27 @@ import logging
 import os
 import time
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Any
 
 from flask import Blueprint, Response, current_app, jsonify, request
 from ._helpers import _as_bool, get_store
 from .envelope import error_response
+from .auth import require_capability
 
 bp = Blueprint("data_jobs", __name__)
 logger = logging.getLogger(__name__)
+
+
+def _managed_import_path(value: str) -> str:
+    """Restrict production database imports to the operator-managed root."""
+    if not current_app.config.get("ASTOCK_REQUIRE_AUTH", True):
+        return value
+    root = Path(current_app.config.get("ASTOCK_IMPORT_ROOT", "data/imports")).resolve()
+    candidate = Path(value).expanduser().resolve()
+    if candidate != root and root not in candidate.parents:
+        raise ValueError("source_db_path must be inside ASTOCK_IMPORT_ROOT")
+    return str(candidate)
 
 
 def _jobs() -> Any:
@@ -169,7 +182,7 @@ def create_refresh_job() -> tuple[Response, int]:
         )
 
     def run(update: Any) -> dict[str, Any]:
-        from tradingagents.astock.store.loader import BatchLoader, ValuationLoader, run_with_timeout_retries, serialize_load_error
+        from tradingagents.astock.store.loader import BatchLoader, ValuationLoader, serialize_load_error
         valuation_loader = ValuationLoader(store, router)
         batch_loader = BatchLoader(
             store, router, max_workers=max_concurrency,
@@ -177,6 +190,9 @@ def create_refresh_job() -> tuple[Response, int]:
         )
         completed = 0
         results: dict[str, Any] = {"mode": mode, "kline": {}, "valuations": {}, "failure_count": 0}
+        cancelled = getattr(update, "cancelled", lambda: False)
+        if cancelled():
+            return {"status": "cancelled_before_start"}
         kline_requests = [
             {
                 "symbol": symbol,
@@ -190,27 +206,36 @@ def create_refresh_job() -> tuple[Response, int]:
         update(message="refreshing kline data", completed=completed)
         results["kline"] = batch_loader.load_kline_requests(
             kline_requests, concurrent=use_concurrent, timeout_seconds=timeout_seconds
-            , timeout_retries=timeout_retries
+            , timeout_retries=timeout_retries, cancelled=cancelled
         )
+        if cancelled():
+            return {**results, "status": "cancelled_after_kline"}
         completed += len(kline_requests)
         results["failure_count"] += sum(1 for item in results["kline"].values() if item["status"] == "failed")
         update(completed=completed, result=results)
 
         for symbol in symbols:
             if include_valuation:
+                if cancelled():
+                    return {**results, "status": "cancelled_before_valuation"}
                 update(message=f"refreshing valuation {symbol}", completed=completed)
                 try:
-                    count, retry_count = run_with_timeout_retries(
-                        lambda: valuation_loader.load(symbol, start=start, end=end),
-                        retries=int(os.getenv("ASTOCK_VALUATION_TIMEOUT_RETRIES", "2")),
-                        deadline=time.monotonic() + timeout_seconds,
+                    response, retry_count = batch_loader._fetch_response_isolated(
+                        symbol, start, end, "1d",
+                        int(os.getenv("ASTOCK_VALUATION_TIMEOUT_RETRIES", "2")),
+                        timeout_seconds, cancelled, capability="valuation",
                     )
+                    if cancelled():
+                        return {**results, "status": "cancelled_during_valuation"}
+                    count = valuation_loader.write_response(symbol, response)
                     results["valuations"][symbol] = {"status": "succeeded", "rows_upserted": count, "retry_count": retry_count}
                 except Exception as exc:
                     results["valuations"][symbol] = {"status": "failed", "rows_upserted": 0, "retry_count": getattr(exc, "retry_count", 0), "error": serialize_load_error(exc)}
                     results["failure_count"] += 1
                 completed += 1
                 update(completed=completed, result=results)
+                if cancelled():
+                    return {**results, "status": "cancelled_after_valuation"}
         if results["failure_count"]:
             results["message"] = f"completed with {results['failure_count']} item failure(s)"
         results["max_concurrency"] = max_concurrency
@@ -226,6 +251,7 @@ def create_refresh_job() -> tuple[Response, int]:
 
 
 @bp.route("/data/jobs/import-database", methods=["POST"])
+@require_capability("data:import", roles=["admin", "operator"])
 def create_database_import_job() -> tuple[Response, int]:
     body = request.get_json(force=True, silent=True) or {}
     source_db_path = body.get("source_db_path") or body.get("db_path")
@@ -235,6 +261,10 @@ def create_database_import_job() -> tuple[Response, int]:
         return error_response(
             "source_db_path, source_table and target_table are required", 400
         )
+    try:
+        source_db_path = _managed_import_path(str(source_db_path))
+    except ValueError as exc:
+        return error_response(str(exc), 400)
     store = get_store()
 
     def run(update: Any) -> dict[str, Any]:

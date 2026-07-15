@@ -340,7 +340,7 @@ async function fetchStockInfo(symbol) {
   el.textContent = '⏳ 加载中...';
   try {
     const res = await fetch(`/api/v1/tv/stock-info?symbol=${encodeURIComponent(symbol)}`);
-    const info = await res.json();
+    const info = APIClient.unwrap(await res.json());
     if (info.name) {
       const parts = [info.industry, ...(info.indices || [])].filter(Boolean);
       const suffix = parts.length > 0 ? '/' + parts.join('/') : '';

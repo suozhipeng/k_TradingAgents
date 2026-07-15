@@ -798,7 +798,7 @@ live provider 的历史验证证据由 `tradingagents/astock/verification_proven
 ### 回滚策略
 
 - WebUI 页面异常：回退到上一个稳定模板或禁用入口。
-- API schema 异常：保留兼容字段，不删除旧字段。
+- API schema 异常：修复当前统一信封及其仓库内调用方，不恢复旧字段。
 - 数据刷新异常：保留旧数据快照，标记 stale。
 - 回测异常：标记结果 invalid，不进入策略对比。
 - 交易异常：启用 kill switch，停止后续执行。

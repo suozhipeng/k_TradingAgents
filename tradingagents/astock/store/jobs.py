@@ -64,6 +64,7 @@ class DataJob:
     retry_count: int = 0
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
+    cancellation_event: threading.Event = field(default_factory=threading.Event, repr=False, compare=False)
 
     @property
     def progress(self) -> float:
@@ -115,6 +116,7 @@ class DataJobManager:
         self._interactive_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="astock-interactive")
         self._bulk_executor = ThreadPoolExecutor(max_workers=max(1, workers - 1), thread_name_prefix="astock-bulk")
         self._jobs: dict[str, DataJob] = {}
+        self._futures: dict[str, Future[Any]] = {}
         self._lock = threading.Lock()
         self._store = store
         # ``ThreadPoolExecutor`` itself has an unbounded work queue.  Reserve
@@ -170,9 +172,17 @@ class DataJobManager:
             self._jobs[job.job_id] = job
         self._persist_event(job, "queued")
         executor = self._interactive_executor if priority > 0 else self._bulk_executor
+        # Do not let the worker transition the job to ``running`` before its
+        # Future is registered.  Otherwise a caller can cancel in the narrow
+        # submit/register window and the worker may overwrite ``cancelled``.
+        start_gate = threading.Event()
         try:
-            executor.submit(self._run_limited, job.job_id, fn)
+            future = executor.submit(self._run_limited, job.job_id, fn, start_gate)
+            with self._lock:
+                self._futures[job.job_id] = future
+            start_gate.set()
         except Exception:
+            start_gate.set()
             self._admission.release()
             raise
         return job
@@ -211,9 +221,14 @@ class DataJobManager:
         if job is None:
             return False
         with self._lock:
-            if job.status in ("queued", "running"):
-                job.status = "cancelled"
-                job.updated_at = time.time()
+            if job.status not in ("queued", "running"):
+                return False
+            job.status = "cancelled"
+            job.updated_at = time.time()
+            job.cancellation_event.set()
+            future = self._futures.get(job_id)
+            if future is not None:
+                future.cancel()
         self._persist_event(job, "cancelled")
         return True
 
@@ -226,17 +241,28 @@ class DataJobManager:
     # ── internal ───────────────────────────────────────────────────────
 
     def _run_limited(
-        self, job_id: str, fn: Callable[[Callable[..., None]], dict[str, Any]]
+        self,
+        job_id: str,
+        fn: Callable[[Callable[..., None]], dict[str, Any]],
+        start_gate: threading.Event,
     ) -> None:
         try:
+            start_gate.wait()
             self._run(job_id, fn)
         finally:
+            with self._lock:
+                self._futures.pop(job_id, None)
             self._admission.release()
 
     def _update(self, job_id: str, **updates: Any) -> None:
         with self._lock:
             job = self._jobs.get(job_id)
             if job is None:
+                return
+            # Terminal cancellation is authoritative.  In particular, a
+            # worker that starts just after ``cancel`` must not resurrect the
+            # job as running/succeeded/failed.
+            if job.status == "cancelled" or job.cancellation_event.is_set():
                 return
             for key, value in updates.items():
                 if hasattr(job, key):
@@ -265,23 +291,41 @@ class DataJobManager:
     def _run(
         self, job_id: str, fn: Callable[[Callable[..., None]], dict[str, Any]]
     ) -> None:
+        def cancelled() -> bool:
+            current = self.get(job_id)
+            return current is None or current.status == "cancelled" or current.cancellation_event.is_set()
+
+        if cancelled():
+            return
         self._update(job_id, status="running", retry_count=0)
 
         def progress(**updates: Any) -> None:
-            self._update(job_id, **updates)
+            if not cancelled():
+                self._update(job_id, **updates)
+
+        # Existing handlers accept a callable; expose cancellation without
+        # breaking that interface so long-running handlers can cooperatively
+        # stop before their next network or write operation.
+        setattr(progress, "cancelled", cancelled)
 
         job = self.get(job_id)
         max_retries = job.max_retries if job else 0
         retry_delays = [5, 15, 30, 60, 120]
 
         for attempt in range(max_retries + 1):
+            if cancelled():
+                return
             if attempt > 0:
                 delay = retry_delays[min(attempt - 1, len(retry_delays) - 1)]
                 logger.info(
                     "Job %s retry %d/%d in %ds",
                     job_id, attempt, max_retries, delay,
                 )
-                time.sleep(delay)
+                current = self.get(job_id)
+                if current is not None and current.cancellation_event.wait(delay):
+                    return
+                if cancelled():
+                    return
                 self._update(job_id, status="running", retry_count=attempt)
                 current = self.get(job_id)
                 if current:
@@ -289,6 +333,8 @@ class DataJobManager:
 
             try:
                 result = fn(progress)
+                if cancelled():
+                    return
                 completed_job = self.get(job_id)
                 self._update(
                     job_id,
@@ -303,6 +349,8 @@ class DataJobManager:
                     self._persist_event(succeeded_job, "succeeded")
                 return
             except Exception as exc:
+                if cancelled():
+                    return
                 if attempt < max_retries:
                     logger.warning(
                         "Job %s attempt %d failed, retrying: %s",

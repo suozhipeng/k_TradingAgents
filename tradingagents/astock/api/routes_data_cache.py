@@ -43,7 +43,7 @@ def cache_status() -> tuple[Response, int]:
         return jsonify({"cache": info}), 200
     except Exception as exc:
         logger.warning("Cache status failed: %s", exc)
-        return jsonify({"cache": {"enabled": False, "error": str(exc)}}), 200
+        return error_response("cache_status_unavailable", 503, code="cache_status_unavailable")
 
 
 @bp.route("/cache/clear", methods=["POST"])
@@ -64,4 +64,4 @@ def cache_clear() -> tuple[Response, int]:
         return jsonify({"status": "ok", "cleared": False, "reason": "cache has no clear()"}), 200
     except Exception as exc:
         logger.warning("Cache clear failed: %s", exc)
-        return jsonify({"status": "error", "cleared": False, "error": str(exc)}), 200
+        return error_response("cache_clear_failed", 500, code="cache_clear_failed")

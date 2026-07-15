@@ -156,6 +156,14 @@ export interface ApiResponse<T = unknown> {
   message?: string;
 }
 
+interface ApiEnvelope<T> {
+  ok: boolean;
+  data?: T;
+  error?: string;
+  message?: string;
+  status?: number;
+}
+
 async function request<T = unknown>(
   path: string,
   options: RequestInit = {},
@@ -168,9 +176,9 @@ async function request<T = unknown>(
     ...options,
   });
 
-  const body = await res.json().catch(() => null);
+  const body = await res.json().catch(() => null) as ApiEnvelope<T> | null;
 
-  if (!res.ok) {
+  if (!res.ok || !body?.ok) {
     throw new ApiError(
       body?.error ?? `HTTP ${res.status}`,
       res.status,
@@ -178,7 +186,7 @@ async function request<T = unknown>(
     );
   }
 
-  return body as T;
+  return body.data as T;
 }
 
 export interface BacktestRunParams {

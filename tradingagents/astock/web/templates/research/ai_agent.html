@@ -74,7 +74,7 @@ async function updateStockInfo(symbol) {
   try {
     const res = await fetch(`/api/v1/tv/stock-info?symbol=${encodeURIComponent(symbol)}`);
     if (!res.ok) { el.textContent = ''; return; }
-    const info = await res.json();
+    const info = APIClient.unwrap(await res.json());
     if (!info || !info.name) { el.textContent = ''; return; }
     const parts = [info.exchange, info.board, info.industry].filter(Boolean);
     if (info.indices && info.indices.length) parts.push(info.indices.join('/'));
@@ -117,7 +117,7 @@ async function runAIAnalysis() {
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({ symbol: primary, symbols, analysis_type: type }),
     });
-    const data = await res.json();
+    const data = APIClient.unwrap(await res.json());
 
     if (data.error) {
       status.textContent = '❌ ' + data.error;

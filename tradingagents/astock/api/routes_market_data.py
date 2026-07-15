@@ -128,7 +128,10 @@ def sectors() -> tuple[Response, int]:
     if mock_data_enabled() or _as_bool(request.args.get("mock"), False):
         data = mock_sectors()
         return jsonify(DataQualityBanner.enrich(data, source="mock")), 200
-    top_n = int(request.args.get("top_n", 20))
+    try:
+        top_n = bounded_int_arg("top_n", 20, minimum=1, maximum=100)
+    except ValueError:
+        return error_response("invalid_top_n", 400)
     for attempt, (name, fetcher) in enumerate(
         [("Sina", sina_industry_comparison), ("EastMoney", em_industry_comparison)]
     ):

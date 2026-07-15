@@ -25,7 +25,7 @@ async function loadStrategies() {
   const grid = document.getElementById('strategy-grid');
   try {
     const res = await fetch('/api/v1/strategies/status');
-    const data = await res.json();
+    const data = APIClient.unwrap(await res.json());
     if (!data.strategies || data.strategies.length === 0) {
       grid.innerHTML = '<div class="loading-center">暂未发现已注册策略</div>';
       return;

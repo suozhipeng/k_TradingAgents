@@ -14,7 +14,7 @@ import numpy as np
 from flask import Blueprint, Response, current_app, jsonify, request
 from .envelope import error_response
 
-from ._helpers import _as_bool, get_store, mock_data_enabled
+from ._helpers import _as_bool, bounded_float_arg, bounded_int_arg, get_store, mock_data_enabled
 logger = logging.getLogger(__name__)
 
 bp = Blueprint("screener", __name__)
@@ -119,9 +119,14 @@ def screener() -> tuple[Response, int]:
         mock (bool) — use synthetic data for testing
     """
     try:
+        limit = bounded_int_arg("limit", 50, minimum=1, maximum=200)
+        scan_limit = bounded_int_arg("scan_limit", 2000, minimum=1, maximum=5000)
+        rsi_min = bounded_float_arg("rsi_min", 0, minimum=0, maximum=100)
+        rsi_max = bounded_float_arg("rsi_max", 100, minimum=0, maximum=100)
+        vol_ratio_min = bounded_float_arg("volume_ratio_min", 0, minimum=0, maximum=100)
+        if rsi_min > rsi_max:
+            return error_response("invalid_rsi_range", 400)
         store = get_store()
-        limit = min(max(int(request.args.get("limit", 50)), 1), 200)
-        scan_limit = min(max(int(request.args.get("scan_limit", 2000)), 1), 5000)
         use_mock = mock_data_enabled() or _as_bool(request.args.get("mock"), False)
 
         # Get symbols to scan
@@ -158,18 +163,16 @@ def screener() -> tuple[Response, int]:
             return jsonify({"results": [], "total": 0, "message": "No symbols found in store."}), 200
 
         # Parse filter params
-        rsi_min = float(request.args.get("rsi_min", 0))
-        rsi_max = float(request.args.get("rsi_max", 100))
         ma_golden = _as_bool(request.args.get("ma_golden_cross"), False)
         ma_death = _as_bool(request.args.get("ma_death_cross"), False)
         macd_golden = _as_bool(request.args.get("macd_golden"), False)
         macd_death = _as_bool(request.args.get("macd_death"), False)
-        vol_ratio_min = float(request.args.get("volume_ratio_min", 0))
 
         any_filter = any([rsi_min > 0, rsi_max < 100, ma_golden, ma_death,
                           macd_golden, macd_death, vol_ratio_min > 0])
 
         results = []
+        failed_symbols = 0
         for symbol in symbols:
             try:
                 if use_mock:
@@ -264,7 +267,9 @@ def screener() -> tuple[Response, int]:
                     "score": round(float(score), 3),
                 })
 
-            except Exception:
+            except Exception as exc:
+                failed_symbols += 1
+                logger.debug("Screener calculation failed for %s: %s", symbol, exc)
                 continue
 
         # Sort by score descending
@@ -283,7 +288,10 @@ def screener() -> tuple[Response, int]:
                 "volume_ratio_min": vol_ratio_min,
                 "scan_limit": scan_limit,
             },
+            "scan": {"requested": len(symbols), "failed": failed_symbols},
         }), 200
 
+    except ValueError:
+        return error_response("invalid_screener_parameter", 400)
     except Exception as exc:
         return error_response(str(exc), 500)
