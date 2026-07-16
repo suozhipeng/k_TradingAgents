@@ -200,6 +200,10 @@ def create_app(
     # -- Notification store wiring --------------------------------------------
     wire_notification_store(app)
 
+    # -- Process shutdown ------------------------------------------------------
+    from .lifecycle import register_atexit_shutdown
+    register_atexit_shutdown(app)
+
     # -- Phase 17: Web UI (Jinja2) blueprint ---------------------------------
     if _bool_config(app, "ASTOCK_ENABLE_WEB_UI", True):
         from tradingagents.astock.web import bp as web_bp
