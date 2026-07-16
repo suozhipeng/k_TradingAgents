@@ -2,12 +2,11 @@
 
 ## Python 版本
 - `pyproject.toml` 指定：`requires-python = ">=3.12"`
-- Docker/容器相关默认镜像未在 `docker-compose.yml` 明示 Python 小版本；`terminal.docker_image` 属于 Hermes 配置，不属于本项目，故这里不引用。
-- 若生产部署要求固定到 `3.10.x / 3.11.x`，当前仓库内未看到锁定信息，**需人工确认**。
+- 当前产品范围仅支持本地 Python 环境；Python 版本由项目元数据和锁文件约束。
 
 ## 依赖来源
 - **主依赖来源**：`pyproject.toml`
-- **requirements.txt**：仅包含 `.`，表示以当前项目包方式安装，本身不列出真实第三方依赖。
+- **可选依赖组**：`astock-providers` 提供本地 A 股数据能力，`test` 提供 pytest 与浏览器回归依赖。
 
 ## 主要依赖
 ### LLM / Agent 编排
@@ -106,19 +105,10 @@
 `pyproject.toml`
 - `tradingagents = "cli.main:app"`
 
-## Docker 相关组件
-### `docker-compose.yml`
-服务：
-- `tradingagents`
-  - `build: .`
-  - 加载 `.env`
-  - 挂载持久卷到 `/home/appuser/.tradingagents`
-- `ollama`
-  - `image: ollama/ollama:latest`
-  - profile: `ollama`
-- `tradingagents-ollama`
-  - `LLM_PROVIDER=ollama`
-  - 依赖 `ollama`
+## 本地 Web 运行
+
+- 唯一浏览器入口：`scripts/run_astock_api.py --local-release`。
+- 服务只绑定回环地址；本地进程使用 DuckDB、进程内任务、SSE 和缓存。
   - profile: `ollama`
 
 ### Docker 能力结论
@@ -290,13 +280,11 @@ AStockDataRouter
 | Ops Audit | `astock/schemas/ops_audit.py` | TaskType / TaskRun / AuditEvent |
 | Report Archive | `astock/schemas/report_archive.py` | ReportFormat / ReportItem / ReportArchive |
 
-#### React/TS 实验前端（Phase 26+）
+#### 本地 Web 工作台
 | 模块 | 路径 | 职责 |
 |---|---|---|
-| App | `webui/src/App.tsx` | 非发布开发前端；用于组件和 API 契约开发，不是本地正式版入口 |
-| Modules | `webui/src/data/modules.json` | 30 个模块静态记录 |
-| API Client | `webui/src/hooks/useApi.ts` | Flask REST API 客户端；Data Hub 从服务端读取刷新选项 |
-| Types | `webui/src/types.ts` | ModuleType / ModuleRecord / AStockGraphReport |
+| Flask/Jinja2 | `tradingagents/astock/web/` | 唯一浏览器工作台，展示数据、研究报告与回测结果 |
+| 启动器 | `scripts/run_astock_api.py` | 本地回环绑定、统一端口输出与 local-release 安全边界 |
 
 #### 测试基础设施
 | 模块 | 路径 | 职责 |

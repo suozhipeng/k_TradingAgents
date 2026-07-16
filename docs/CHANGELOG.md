@@ -4,6 +4,12 @@
 
 ## Unreleased
 
+### 2026-07-16 本地入口与数据边界收敛
+
+- 唯一启动器固定为 `scripts/run_astock_api.py`：local-release、单 worker 与 scheduler 禁用不再有可绕过的命令行开关。
+- 本地免鉴权改为产品 API allowlist；通知、运维、管理、执行和 SSE/scheduler 端点在该模式统一拒绝。
+- `/api/v1/market/kline` 默认只读；显式刷新执行水位增量同步并返回 `data_state`，首次空库与上游故障不再混为一类。服务端错误与永久仓库同步错误均只公开稳定错误码。
+
 ### 2026-07-14 路由修复与容错增强
 
 - **数据查询路由规范化**：`routes_data_query.py` 所有端点从 `/api/v1/xxx` 迁移到 `/api/v1/market/xxx`，与市场数据路由体系一致（`/kline` → `/market/kline`、`/valuation` → `/market/valuation`、`/orderbook` → `/market/orderbook`、`/news` → `/market/news`、`/trade_tape` → `/market/trade_tape`、`/research` → `/market/research`、`/fundamentals` → `/market/fundamentals`、`/f10` → `/market/f10`、`/announcements` → `/market/announcements`、`/store/stats` → `/market/store/stats`）。

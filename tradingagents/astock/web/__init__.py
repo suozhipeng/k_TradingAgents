@@ -7,10 +7,9 @@ definitions.  Each functional module now has its own blueprint file under
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
-from flask import Blueprint, abort, redirect, send_from_directory
+from flask import Blueprint, redirect
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -24,7 +23,6 @@ from .blueprints.ops_bp import bp as ops_bp
 
 TEMPLATES_DIR = str(BASE_DIR / "templates")
 STATIC_DIR = str(BASE_DIR / "static")
-REACT_DIST = str(BASE_DIR.parent.parent.parent / "webui" / "dist")
 
 # Create the aggregate web blueprint
 bp = Blueprint(
@@ -48,41 +46,3 @@ bp.register_blueprint(ops_bp, name="ops")
 @bp.route("/")
 def root():
     return redirect("/dashboard", 302)
-
-
-@bp.route("/assets/<path:path>")
-def react_assets(path: str):
-    """Serve React static assets (JS/CSS) from the built dist."""
-    if REACT_DIST and os.path.isdir(REACT_DIST):
-        asset_dir = os.path.join(REACT_DIST, "assets")
-        if os.path.isdir(asset_dir):
-            return send_from_directory(asset_dir, path)
-    return abort(404)
-
-
-@bp.route("/react/<path:path>")
-def react_static(path: str):
-    """Serve other React files from the built dist root."""
-    if REACT_DIST and os.path.isdir(REACT_DIST):
-        return send_from_directory(REACT_DIST, path)
-    return abort(404)
-
-
-@bp.route("/<path:path>")
-def spa_fallback(path: str):
-    """Serve React SPA index.html for any non-API, non-static route.
-
-    API routes (/api/*) must still return 404 when unmatched — we don't
-    want the React fallback swallowing API errors.
-
-    In local release mode the React SPA is not exposed; unknown routes
-    must return 404 so the analysis-and-backtest-only surface is enforced.
-    """
-    if path.startswith("api/") or path.startswith("api:") or path.startswith("api?"):
-        abort(404)
-    from flask import current_app
-    if current_app and current_app.config.get("ASTOCK_LOCAL_RELEASE", False):
-        abort(404)
-    if REACT_DIST and os.path.isdir(REACT_DIST):
-        return send_from_directory(REACT_DIST, "index.html")
-    abort(404)

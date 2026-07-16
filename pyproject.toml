@@ -44,12 +44,13 @@ astock-providers = [
     "pywencai>=0.13.0",
     "duckdb>=1.5.0",
 ]
-ui = [
-    "streamlit>=1.37.0",
-]
 astock-artifacts = [
     "python-pptx>=1.0.2",
     "pyarrow>=24.0.0",
+]
+test = [
+    "playwright>=1.52.0",
+    "pytest>=8.0",
 ]
 
 [project.scripts]
@@ -70,6 +71,7 @@ markers = [
     "unit: fast isolated unit tests",
     "integration: tests requiring external services",
     "smoke: quick sanity-check tests",
+    "browser: tests that drive a real browser",
 ]
 filterwarnings = [
     "ignore::DeprecationWarning",

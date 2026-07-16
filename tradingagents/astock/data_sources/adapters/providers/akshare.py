@@ -5,6 +5,8 @@ from __future__ import annotations
 import importlib
 import inspect
 import logging
+import queue
+import threading
 import time
 from datetime import datetime
 from typing import Any, Dict, List, Optional
@@ -122,7 +124,16 @@ class AkshareAdapter(AStockAdapterBase):
                 return func(**kwargs)
 
         try:
-            result = _retry_with_backoff(_do_call, max_retries=2, base_delay=1.0, name="akshare." + func_name)
+            # Many AkShare functions do not expose a network timeout.  Run the
+            # full retry sequence behind one hard caller deadline so a broken
+            # upstream cannot stall an API request or the research graph.
+            result = self._call_with_deadline(
+                lambda: _retry_with_backoff(
+                    _do_call, max_retries=2, base_delay=1.0,
+                    name="akshare." + func_name,
+                ),
+                func_name,
+            )
             # Success - reset circuit breaker for this function
             self._failure_count.pop(func_name, None)
             self._last_failure_time.pop(func_name, None)
@@ -139,6 +150,35 @@ class AkshareAdapter(AStockAdapterBase):
                 self.name, "{0} failed after retries: {1}".format(func_name, exc),
                 capability=request.capability,
             )
+
+    def _call_with_deadline(self, operation: Any, func_name: str) -> Any:
+        """Return an AkShare result or fail after the adapter-wide deadline.
+
+        The upstream library owns its HTTP sessions and not every function
+        accepts a timeout argument.  A daemon worker is deliberately used as
+        a containment boundary: once the deadline expires callers can fall
+        back immediately and the stuck upstream call cannot keep the local
+        product or pytest process alive.
+        """
+        result: queue.Queue[tuple[bool, Any]] = queue.Queue(maxsize=1)
+
+        def run() -> None:
+            try:
+                result.put((True, operation()))
+            except BaseException as exc:  # propagate provider failures intact
+                result.put((False, exc))
+
+        worker = threading.Thread(target=run, name="akshare-call", daemon=True)
+        worker.start()
+        try:
+            succeeded, value = result.get(timeout=max(0.1, float(self.timeout)))
+        except queue.Empty as exc:
+            raise TimeoutError(
+                "akshare.{0} exceeded {1:.1f}s deadline".format(func_name, self.timeout)
+            ) from exc
+        if succeeded:
+            return value
+        raise value
 
     def _record_failure(self, func_name: str) -> None:
         """Record a failure and open circuit if threshold exceeded."""

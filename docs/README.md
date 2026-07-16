@@ -5,11 +5,11 @@
 ## 当前状态
 
 | 当前本地状态以 [`phase-archive.md`](phase-archive.md)、[`CHANGELOG.md`](CHANGELOG.md) 和 [`04-development.md`](04-development.md) 为准 |
-- 2026-07-15 本地离线全仓验证基线：`ASTOCK_TESTING=1 pytest tests/ -q --tb=short` → `1178 passed, 10 skipped`；AStock 专项 `tests/test_astock*.py` → `739 passed, 9 skipped`；`TEST_PYDANTIC_BT=1` gate 单测已补跑通过。
+- 2026-07-15 本次本地 Web 收敛后的离线验证：`ASTOCK_TESTING=1 .venv/bin/python -m pytest -m 'not integration and not browser' --ignore=tests/test_deepseek_reasoning.py -q --tb=short` → `1174 passed, 7 skipped, 9 deselected`；本地发布门禁 → `170 passed`。Chromium 冒烟由 CI 安装浏览器运行时后执行；`TEST_PYDANTIC_BT=1` gate 单测已补跑通过。
 - 2026-07-08 已完成真实 live 验收：DeepSeek live API `1 passed`，live provider `7 passed, 1 skipped`，端到端 `live_research` pipeline `VERIFICATION PASSED`
 - 当前唯一未闭环 live 依赖为 `ASTOCK_IWENCAI_COOKIE`；未配置时 Iwencai 用例按设计跳过
 - 默认产品范围为 Research-only：投研分析 + 策略回测 + 市场盯盘；执行页面与 `/api/v1/trade/*`、`/paper/*`、`/qmt/*`、`/portfolio/*` API 默认不可用。`ASTOCK_RESEARCH_ONLY=false` 仅保留兼容模式；**不接入真实券商**。
-- 本地正式版（仅分析与回测）的问题整改、任务拆分和验收结果见 [`LOCAL_RELEASE_READINESS_PLAN.md`](LOCAL_RELEASE_READINESS_PLAN.md)。React/Vite 保留为非发布开发前端，不作为默认入口。
+- 本地正式版（仅分析与回测）的问题整改、任务拆分和验收结果见 [`LOCAL_RELEASE_READINESS_PLAN.md`](LOCAL_RELEASE_READINESS_PLAN.md)。Flask/Jinja2 是唯一 Web 工作台。
 - 行情响应统一包含 `source`、`as_of`、`age_seconds`、`is_mock`、`is_stale`，UI 与调用方必须据此区分实时、缓存、降级与模拟数据。
 - Jinja2 WebUI 已收敛为 22 个非共享页面模板与 2 个共享模板；旧盯盘 URL 以 `302` 跳转到 Market Leaders，唯一支持的图表入口为 KC Chart。
 

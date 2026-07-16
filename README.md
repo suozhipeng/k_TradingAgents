@@ -73,9 +73,8 @@ TradingAgents is a multi-agent trading framework that mirrors the dynamics of re
 - **A 股文档入口**：详见 [`docs/README.md`](docs/README.md)，包含产品需求、技术架构、API 契约、数据字典、测试验收、风险披露等完整文档体系。
 - **快速上手**：参见 [`docs/02-user-guide.md`](docs/02-user-guide.md)。
 - **当前状态**：参见 [`docs/phase-archive.md`](docs/phase-archive.md) 和 [`docs/04-development.md`](docs/04-development.md)。
-- **本地正式版（分析与回测）**：`.venv/bin/python scripts/run_astock_api.py --port 5860` 默认即为 local-release；`--local-release` 可显式声明。服务默认仅绑定 `127.0.0.1`，且默认 `debug=False`（`--debug` 仅在回环地址上生效）。该模式强制关闭交易、模拟盘、QMT、组合执行和调度器；`--standard` 仅用于遗留开发兼容，不是发布入口。多 worker 部署请设置 `ASTOCK_REDIS_URL` 以启用共享限流（未设置时回退为进程内限流，不适用于多 worker）。
+- **唯一 Web 入口（分析与回测）**：`.venv/bin/python scripts/run_astock_api.py`。默认以 local-release 启动并绑定 `127.0.0.1:5860`；端口可通过 `ASTOCK_PORT` 或命令行覆盖，host 只能是 `127.0.0.1`、`::1` 或 `localhost`。该模式强制关闭交易、模拟盘、QMT、组合执行和调度器；单进程是明确产品约束，任务、SSE 与报告缓存均为本地进程内状态。
 - **发布前验证**：`scripts/verify_local_release.sh`。
-- **React/TS 开发前端**：`cd webui && npm install && npm run dev`（Vite + TailwindCSS）；不是本地正式版入口，Data Hub 仅通过服务端刷新契约取值。
 - **环境配置**：参见 [`docs/03-operations.md`](docs/03-operations.md)。
 
 > A 股定制模块当前定位为投研分析 + 策略验证 + 模拟盘 + 受控执行试运行平台，不是完整自动实盘生产交易系统。当前产品范围明确 **不接入真实券商**。详见 [`docs/03-operations.md`](docs/03-operations.md) 与 [`docs/03-operations.md`](docs/03-operations.md)。
@@ -135,19 +134,6 @@ Install the package and its dependencies:
 pip install .
 ```
 
-### Docker
-
-Alternatively, run with Docker:
-```bash
-cp .env.example .env  # add your API keys
-docker compose run --rm tradingagents
-```
-
-For local models with Ollama:
-```bash
-docker compose --profile ollama run --rm tradingagents-ollama
-```
-
 ### Required APIs
 
 TradingAgents supports multiple LLM providers. Set the API key for your chosen provider:
@@ -174,8 +160,7 @@ For enterprise providers (e.g. Azure OpenAI, AWS Bedrock), copy `.env.enterprise
 For A 股 data sources, install optional providers:
 
 ```bash
-pip install '.[astock-providers]'   # akshare, mootdx, pywencai, duckdb
-pip install '.[ui]'                # streamlit
+pip install -e '.[astock-providers,test]'  # 本地 Web、数据 Provider 与浏览器回归
 ```
 
 A 股 Provider 环境变量配置参见 [`docs/03-operations.md`](docs/03-operations.md) 和 [`planning/codebase/ASTOCK_PROVIDER_CONFIG.md`](planning/codebase/ASTOCK_PROVIDER_CONFIG.md)。

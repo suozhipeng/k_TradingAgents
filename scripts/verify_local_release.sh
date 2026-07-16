@@ -17,5 +17,3 @@ ASTOCK_TESTING=1 "${python_bin}" -m pytest -q \
   tests/test_astock_web.py \
   tests/test_astock_web_data_contracts.py \
   tests/test_astock_security_fixes.py
-npm --prefix webui run test:release
-npm --prefix webui run build

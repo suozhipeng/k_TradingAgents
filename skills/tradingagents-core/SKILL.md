@@ -32,10 +32,10 @@ Project-level core context for the TradingAgents multi-agent financial trading f
 | Data validation | Pydantic (BaseModel schemas) |
 | Testing | pytest with unit/integration/smoke markers |
 | CLI | Typer + Rich |
-| Frontend | Jinja2 templates (25 pages) / React/TS experimental |
+| Frontend | Jinja2 templates（唯一浏览器工作台） |
 | REST API | Flask (14 blueprints, 57 endpoints) |
 | Database | DuckDB (local, 10 tables) |
-| Deployment | Docker / docker-compose (with Ollama profile) |
+| Local runtime | 单进程 Flask + DuckDB（回环绑定） |
 | A-stock data | akshare, mootdx, pywencai, Tencent Finance |
 | Backtesting | backtrader 1.9+ |
 | General market | yfinance, alpha_vantage |
@@ -57,7 +57,6 @@ k_TradingAgents/
 │   ├── dataflows/              # Data source routing
 │   └── graph/                  # LangGraph orchestration
 ├── cli/                        # Typer CLI entry point
-├── webui/                      # React/TS experimental frontend
 ├── tests/                      # pytest test suite (~67 files)
 ├── docs/                       # Phase archives, requirements, status
 ├── planning/                   # Architecture docs, review records
@@ -136,8 +135,7 @@ Key risk metrics: Sharpe Ratio, VaR (95%/99%), Max Drawdown, Win Rate, Profit Fa
 ```bash
 # Build/install
 pip install -e .                     # base
-pip install -e .[astock-providers]   # with A-share providers
-pip install -e .[ui]                 # with Streamlit viewer
+pip install -e '.[astock-providers,test]'  # local A-share workbench and tests
 
 # Run
 tradingagents research <symbol>      # CLI research
@@ -149,9 +147,8 @@ pytest tests/test_astock_data_sources.py -q    # provider tests
 pytest tests/test_astock_provider_fixtures.py -q
 pytest tests/test_astock_interface_analyst.py -q
 
-# Docker
-docker compose up                    # default services + app
-docker compose --profile ollama up   # with local LLM
+# Local Web workbench
+.venv/bin/python scripts/run_astock_api.py --local-release --port 5860
 ```
 
 ## Code Conventions

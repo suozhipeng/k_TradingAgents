@@ -389,18 +389,16 @@ async def cmd_revoke_key(args: argparse.Namespace) -> None:
     store = await _get_pg_store(args)
     try:
         key_id = args.key_id
-        sql = f"UPDATE api_keys SET is_active = FALSE WHERE key_id = '{key_id}'"
+        from sqlalchemy import text
+
+        sql = text("UPDATE api_keys SET is_active = FALSE WHERE key_id = :key_id")
         if store._sync:
-            from sqlalchemy import text
             with store._sync_engine.begin() as conn:
-                result = conn.execute(text(sql))
-                conn.commit()
+                result = conn.execute(sql, {"key_id": key_id})
             affected = result.rowcount
         else:
-            from sqlalchemy import text
             async with store._async_engine.begin() as conn:
-                result = await conn.execute(text(sql))
-                await conn.commit()
+                result = await conn.execute(sql, {"key_id": key_id})
             affected = result.rowcount
 
         if affected:

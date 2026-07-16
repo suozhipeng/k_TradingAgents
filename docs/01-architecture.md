@@ -48,24 +48,24 @@
 | 影响 | 后续改动必须先判断是否触及 core；触及时只做兼容性修复并补测试 |
 | 关联文档 | `03-operations.md`, `03-operations.md` |
 
-### ADR-002 Flask WebUI 和 Streamlit viewer 不强行合并
+### ADR-002 Web 产品面收敛
 
 | 字段 | 内容 |
 |---|---|
 | 状态 | `accepted` |
-| 背景 | Flask WebUI 承载产品页面，Streamlit viewer 承载只读运行时查看 |
-| 决策 | 保持两者职责分离，不在当前核心功能阶段强行合并成单前端 |
-| 影响 | 后续 WebUI 重构优先收敛 Flask 产品导航；Streamlit 继续作为只读 viewer |
+| 背景 | 多套 Web 壳会产生路由、鉴权、依赖和验收漂移。 |
+| 决策 | 仅保留 Flask/Jinja2 本地工作台；React/Vite 与 Streamlit viewer 已移除。 |
+| 影响 | 所有浏览器功能、静态资源和浏览器测试只围绕 Flask 页面维护。 |
 | 关联文档 | `02-user-guide.md`, `03-operations.md` |
 
-### ADR-003 Flask 同时服务 Jinja2 模板页面和 React SPA
+### ADR-003 Flask/Jinja2 作为唯一 Web 产品面
 
 | 字段 | 内容 |
 |---|---|
 | 状态 | `accepted` |
-| 背景 | 项目同时存在 Jinja2 模板页面（`web/templates/`）和 React 构建产物（`webui/dist/`），需要统一入口 |
-| 决策 | Flask `web` blueprint 同时注册两类页面：Jinja2 路由（`/dashboard`, `/backtest` 等）优先匹配；非 API 路径由 `spa_fallback` 返回 `webui/dist/index.html`；React 静态资源通过 `/assets/<path>` 单独路由。`/api/*` 路径不被 SPA fallback 吞没，未匹配时返回 404 |
-| 影响 | 新增 Jinja2 页面需注册到对应 blueprint；新增 React 路由由前端自行处理；API 路由不受影响 |
+| 背景 | 多套 Web 入口导致本地功能、端口、鉴权和发布行为漂移 |
+| 决策 | Flask/Jinja2 是唯一 Web 产品面；入口固定为 `scripts/run_astock_api.py`。React SPA、Streamlit 和旧动量壳不再由 Flask 服务，也不属于当前产品范围。未知 Web 路径返回 404。 |
+| 影响 | 新增页面必须注册到现有 Jinja2 blueprint；前端资源一律位于 `tradingagents/astock/web/static/`。 |
 | 关联文档 | `02-user-guide.md`, `CHANGELOG.md` |
 
 ### ADR-004 所有交易能力必须标注 capability
@@ -152,7 +152,7 @@
 本文定义 TradingAgents-Astock 的生产级 API 契约要求。当前代码中的具体端点以实现为准；本文用于约束后续接口口径、能力等级、错误语义和验收要求。
 
 当前本地验证基线（2026-07-15）：
-- `ASTOCK_TESTING=1 pytest tests/ -q --tb=short` → `1178 passed, 10 skipped`
+- 本次本地 Web 收敛后：`ASTOCK_TESTING=1 .venv/bin/python -m pytest -m 'not integration and not browser' --ignore=tests/test_deepseek_reasoning.py -q --tb=short` → `1174 passed, 7 skipped, 9 deselected`；Chromium 冒烟由 CI 执行。
 - AStock 专项：`ASTOCK_TESTING=1 pytest tests/test_astock*.py -q --tb=short` → `739 passed, 9 skipped`
 - 真实 live 验收沿用 2026-07-08 结果：`tests/test_deepseek_reasoning.py -k live -m integration` → `1 passed`
 - 真实 live provider 验收已补跑：`tests/test_astock_live_providers.py -m integration` → `7 passed, 1 skipped`

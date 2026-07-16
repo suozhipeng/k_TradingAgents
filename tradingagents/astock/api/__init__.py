@@ -36,6 +36,13 @@ def _env_enabled(name: str) -> bool:
     """Return True only for explicit enabled environment values."""
     return os.environ.get(name, "").lower() in ("1", "true", "yes", "on")
 
+
+def _env_bool(name: str, default: bool) -> bool:
+    """Read an optional boolean environment setting without hiding its default."""
+    if name not in os.environ:
+        return default
+    return _env_enabled(name)
+
 # Read version from pyproject.toml (works even when not installed as package)
 try:
     import tomllib
@@ -74,10 +81,16 @@ def create_app(
     app = Flask(__name__)
     app.config.setdefault("MAX_CONTENT_LENGTH", int(os.environ.get("ASTOCK_MAX_REQUEST_BYTES", str(1024 * 1024))))
     app.config.setdefault("ASTOCK_ENABLE_WEB_UI", True)
-    app.config.setdefault("ASTOCK_LOCAL_RELEASE", _env_enabled("ASTOCK_LOCAL_RELEASE"))
-    # Authentication is fail-closed in every deployed process. Tests may
-    # explicitly override this through ``test_config`` after app creation.
-    app.config.setdefault("ASTOCK_REQUIRE_AUTH", True)
+    local_release = _env_enabled("ASTOCK_LOCAL_RELEASE")
+    app.config.setdefault("ASTOCK_LOCAL_RELEASE", local_release)
+    # The supported product surface is a loopback-only, single-user local
+    # workbench.  It must work without asking the browser to retain a bearer
+    # token.  Non-local processes remain fail-closed unless explicitly
+    # configured otherwise.
+    app.config.setdefault(
+        "ASTOCK_REQUIRE_AUTH",
+        _env_bool("ASTOCK_REQUIRE_AUTH", not (local_release or _env_enabled("ASTOCK_TESTING"))),
+    )
     from tradingagents.astock.store.backend import backend_mgr
     app.config.setdefault("ASTOCK_MOCK_DATA_ENABLED", backend_mgr.config.mock_data_enabled)
     app.config.setdefault(
@@ -163,6 +176,12 @@ def create_app(
     if app.config.get("ASTOCK_LOCAL_RELEASE", False):
         app.config["ASTOCK_RESEARCH_ONLY"] = True
         app.config["ASTOCK_SCHEDULER_ENABLED"] = False
+        # The sole supported UI runs on loopback and uses same-origin requests.
+        # Do not make its functionality depend on a browser-held API key.
+        app.config["ASTOCK_REQUIRE_AUTH"] = False
+        # Reads remain side-effect free.  The workbench explicitly uses the
+        # refresh API/job when it needs to initialise or update local bars.
+        app.config["ASTOCK_AUTO_REFRESH_DAILY_KLINE"] = False
     elif app.config.get("ASTOCK_RESEARCH_ONLY", True):
         # Research-only is a runtime boundary, not just an HTTP-route guard.
         app.config["ASTOCK_SCHEDULER_ENABLED"] = False

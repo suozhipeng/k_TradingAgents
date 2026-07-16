@@ -30,7 +30,7 @@ def load_watchlist() -> list[dict[str, Any]]:
 
 
 def _load_from_duckdb(store: Any) -> list[dict[str, Any]]:
-    """Load watchlist from DuckDB; propagate backend failures."""
+    """Load watchlist from DuckDB, distinguishing an empty first run from failure."""
     try:
         if store is None:
             raise RuntimeError("watchlist store unavailable")
@@ -39,6 +39,10 @@ def _load_from_duckdb(store: Any) -> list[dict[str, Any]]:
             return []
         return df.to_dict(orient="records")
     except Exception as exc:
+        # A newly created local warehouse does not have an optional watchlist
+        # table yet.  That is an empty user state, not a backend outage.
+        if "table with name watchlist does not exist" in str(exc).lower():
+            return []
         logger.exception("DuckDB watchlist load failed")
         raise RuntimeError("watchlist store unavailable") from exc
 

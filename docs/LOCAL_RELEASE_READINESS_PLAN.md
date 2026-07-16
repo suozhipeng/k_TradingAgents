@@ -6,7 +6,7 @@
 
 ## 1. 发布结论与目标边界
 
-本计划已完成：Flask/Jinja2 是本地正式版唯一工作台；React/Vite 被明确保留为非发布开发前端，并已补充 Data Hub 服务端契约检查。
+本计划已完成：Flask/Jinja2 是本地正式版唯一工作台；React/Vite、Streamlit 及旧启动壳已从仓库产品面移除。
 
 本计划的目标不是接入交易，而是形成一个可在本机稳定使用、可验证、可支持的正式版：
 
@@ -20,21 +20,21 @@
 ```text
 浏览器
   └─ Flask 单进程（唯一入口）
-       ├─ 正式 Web 工作台（Jinja2 或完成验收后的 React，二选一）
+       ├─ 正式 Web 工作台（Jinja2）
        ├─ /api/v1 市场数据、研究、报告、回测 API
        └─ research-only guard：拒绝全部交易/执行 API
 ```
 
-本地正式版启动命令：`.venv/bin/python scripts/run_astock_api.py --port 5860`（默认 local-release；`--local-release` 可显式声明）。服务默认仅绑定 `127.0.0.1`；`--standard` 仅供遗留开发兼容，不能作为发布入口。React 不能宣称为默认入口或正式产品面。
+本地正式版启动命令：`.venv/bin/python scripts/run_astock_api.py --port 5860`。这是唯一启动器，固定 local-release、固定单 worker、固定关闭 scheduler；服务默认仅绑定 `127.0.0.1`，由于本地模式免 Bearer 鉴权，启动器会拒绝 `0.0.0.0` 等非回环绑定。
 
 ## 2. 当前问题清单
 
 | ID | 优先级 | 问题与证据 | 影响 |
 | --- | --- | --- | --- |
 | LFR-I01 | done | 固定 Flask/Jinja2 为唯一正式入口；根路径仍到 `/dashboard`，未知路径改为真实 404。 | 入口和监控语义明确。 |
-| LFR-I02 | done | local-release 为启动器默认值，强制 research-only、关闭 scheduler；执行页面和未完成的 Ops Audit 页面 404，执行/SSE/scheduler API 410。 | 仅分析与回测边界由配置、页面和 API 三层强制。 |
+| LFR-I02 | done | 唯一启动器固定 local-release，强制 research-only、关闭 scheduler；本地免鉴权仅开放产品 API allowlist，执行、通知、运维、管理和 SSE/scheduler API 410。 | 仅分析与回测边界由配置、页面和 API 三层强制。 |
 | LFR-I03 | done | Data Hub 读取 `/api/v1/data/refresh/options`，周期和模式按服务端返回渲染。 | 避免客户端能力漂移。 |
-| LFR-I04 | done | 增加 `npm run test:release` 前端契约检查，以及 Flask 关键路径的 `tests/test_local_release.py`。 | 构建之外有可执行发布门禁。 |
+| LFR-I04 | done | Flask 关键路径由本地测试验证；Playwright Chromium 冒烟已纳入 CI。 | 构建之外有可执行发布门禁。 |
 | LFR-I05 | done | README、用户手册、Backlog 与本计划统一为 Flask/Jinja2 本地正式版。 | 发布口径一致。 |
 | LFR-I06 | done | 移除 React SPA 兜底成功响应，未知路径返回 404。 | 失效链接不会伪装为成功。 |
 | LFR-I07 | done | 新增 `scripts/verify_local_release.sh`，固定使用 `.venv/bin/python`。 | 本机验收解释器和命令确定。 |
@@ -43,21 +43,21 @@
 
 | 顺序 | ID | 子任务 | 依赖 | 完成标准 |
 | ---: | --- | --- | --- | --- |
-| 1-11 | LFR-001~LFR-011 | 已完成；实现与验收对应见上表及 `scripts/verify_local_release.sh`。 | — | 2026-07-13 验证：后端/页面/安全切片 155 passed；`npm run test:release` 通过；`npm run build` 通过。 |
+| 1-11 | LFR-001~LFR-011 | 已完成；实现与验收对应见上表及 `scripts/verify_local_release.sh`。 | — | 2026-07-15 验证：本地发布门禁 170 passed；离线非集成、非浏览器回归 1174 passed、7 skipped、9 deselected。 |
 
 ## 4. 验收清单
 
 - [x] local-release 时，执行路径及未完成的 Ops Audit 页面均不可达；Settings 隐藏未完成通知渠道。
 - [x] 用户可完成：查看数据质量 → 研究标的 → 查看报告 → 运行/比较回测。
 - [x] 首页、导航和未知 URL 已有验收；数据质量状态沿用既有页面测试。
-- [x] 后端切片、前端契约检查与构建通过。
-- [x] 验收脚本固定 `.venv/bin/python` 和 Node 命令。
+- [x] 后端切片通过；真实 Chromium Dashboard 冒烟由 CI 安装运行时并执行。
+- [x] 验收脚本固定 `.venv/bin/python`；CI 负责安装浏览器运行时。
 - [x] README、用户手册、Backlog 与实际入口一致。
 - [x] 既有风险披露继续适用于数据、AI 和回测输出。
 
 ### 验证边界
 
-本次已通过本地正式版的精确发布门禁（`scripts/verify_local_release.sh`）。后续 2026-07-15 新鲜全仓离线回归：`ASTOCK_TESTING=1 pytest tests/ -q --tb=short` → `1178 passed, 10 skipped`；AStock 专项：`ASTOCK_TESTING=1 pytest tests/test_astock*.py -q --tb=short` → `739 passed, 9 skipped`。
+本地正式版发布门禁是 `scripts/verify_local_release.sh`；完整离线回归和 Chromium 浏览器测试由 CI 执行。浏览器本地验收可运行 `.venv/bin/python -m playwright install chromium` 后执行 `.venv/bin/python -m pytest -m browser -q`。在空本地库中，先显式 `/api/v1/market/kline?symbol=600519.SH&refresh=1` 初始化；mootdx 的 TDX 尾部窗口会按请求的本地水位日期过滤后再 upsert 和同步永久仓库。真实 LLM 和有 cookie 的 Provider 验收不使用离线基线伪造通过，见用户手册的外部凭据前置条件。
 
 已配置有效 `DEEPSEEK_API_KEY` 时，`tests/test_deepseek_reasoning.py::TestDeepSeekLiveStructuredOutput::test_v4_flash_returns_structured_output` 已于 2026-07-13 通过 live 验收。凭据只应由运行环境注入，禁止写入代码、文档或版本库。
 

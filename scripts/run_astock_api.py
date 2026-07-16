@@ -3,8 +3,7 @@
 
 Usage:
     python scripts/run_astock_api.py
-    python scripts/run_astock_api.py --scheduler --interval 30
-    python scripts/run_astock_api.py --no-web
+    python scripts/run_astock_api.py --port 5860
 """
 
 from __future__ import annotations
@@ -26,53 +25,16 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 
-# Respect --no-web flag before app creation
-_parser = argparse.ArgumentParser(add_help=False)
-_parser.add_argument("--no-web", action="store_true")
-_parser.add_argument("--local-release", action="store_true")
-_parsed, remaining = _parser.parse_known_args()
-if _parsed.no_web:
-    os.environ.setdefault("ASTOCK_ENABLE_WEB_UI", "false")
-if _parsed.local_release or "ASTOCK_LOCAL_RELEASE" not in os.environ:
-    # The standalone launcher is the supported local formal-release entrypoint.
-    # Keep legacy execution-capable startup behind an explicit opt-out.
-    os.environ["ASTOCK_LOCAL_RELEASE"] = "true"
-
-app = None
-
-
-def _start_scheduler(interval_minutes: int) -> None:
-    """Initialise and start the paper trade scheduler.
-
-    NOTE: create_app() already starts the scheduler automatically (via
-    APScheduler).  Calling this function again would duplicate it.
-    Only use when ASTOCK_SCHEDULER_ENABLED=false and you want manual start.
-    """
-    from tradingagents.astock.execution.paper_trader import PaperTrader
-    from tradingagents.astock.execution.scheduler import PaperTradeScheduler
-    from tradingagents.astock.store.schema import AStockStore
-
-    if app is None:
-        raise RuntimeError("Application must be created before starting the scheduler")
-    store: AStockStore = app.config.get("STORE")  # type: ignore[assignment]
-    if store is None:
-        print("ERROR: No store available; cannot start scheduler", file=sys.stderr)
-        sys.exit(1)
-
-    trader = PaperTrader()
-    scheduler = PaperTradeScheduler(
-        paper_trader=trader,
-        store=store,
-        interval_minutes=interval_minutes,
-    )
-    scheduler.start()
-    app.config["SCHEDULER"] = scheduler
-    logging.getLogger("run_astock_api").info(
-        "PaperTradeScheduler started (interval=%d min)", interval_minutes
-    )
-
+# This is the only supported product launcher: always keep it in the local,
+# analysis-and-backtest-only profile before importing the application factory.
+os.environ["ASTOCK_LOCAL_RELEASE"] = "true"
 
 _LOOPBACK_HOSTS = frozenset({"127.0.0.1", "::1", "localhost"})
+
+
+def is_loopback_host(host: str) -> bool:
+    """Return whether *host* is a loopback bind supported by local release."""
+    return (host or "").strip().lower() in _LOOPBACK_HOSTS
 
 
 def resolve_debug_mode(requested: bool, host: str, logger=None) -> bool:
@@ -100,7 +62,7 @@ def resolve_debug_mode(requested: bool, host: str, logger=None) -> bool:
     """
     if not requested:
         return False
-    if (host or "").strip().lower() in _LOOPBACK_HOSTS:
+    if is_loopback_host(host):
         return True
     if logger is not None:
         logger.warning(
@@ -115,36 +77,15 @@ def resolve_debug_mode(requested: bool, host: str, logger=None) -> bool:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Launch AStock API server")
     parser.add_argument(
-        "--scheduler",
-        action="store_true",
-        help="Manually start the paper trade scheduler (only if disabled in create_app)",
-    )
-    parser.add_argument(
-        "--interval",
-        type=int,
-        default=30,
-        help="Scheduler interval in minutes (default: 30)",
-    )
-    parser.add_argument(
-        "--no-web",
-        action="store_true",
-        help="Disable the Jinja2 WebUI (default: enabled)",
-    )
-    parser.add_argument(
-        "--local-release",
-        action="store_true",
-        help="Run the analysis-and-backtest-only local formal release (default)",
-    )
-    parser.add_argument(
         "--port",
         type=int,
-        default=5860,
-        help="Server port (default: 5860)",
+        default=int(os.environ.get("ASTOCK_PORT", "5860")),
+        help="Server port (default: ASTOCK_PORT or 5860)",
     )
     parser.add_argument(
         "--host",
-        default="127.0.0.1",
-        help="Bind address (default: 127.0.0.1; use 0.0.0.0 only intentionally)",
+        default=os.environ.get("ASTOCK_HOST", "127.0.0.1"),
+        help="Bind address (default: ASTOCK_HOST or 127.0.0.1)",
     )
     parser.add_argument(
         "--debug",
@@ -157,13 +98,13 @@ if __name__ == "__main__":
         ),
     )
     args = parser.parse_args()
+    if os.environ.get("ASTOCK_LOCAL_RELEASE", "").lower() in {"1", "true", "yes", "on"} and not is_loopback_host(args.host):
+        parser.error(
+            "local-release disables bearer authentication and must bind to a loopback host "
+            "(127.0.0.1, ::1, or localhost)"
+        )
     app = create_app()
-
-    if args.scheduler:
-        _start_scheduler(args.interval)
-
-    if not args.no_web:
-        logging.getLogger("run_astock_api").info("Web UI enabled at http://localhost:%d (local analysis/backtest release)", args.port)
+    logging.getLogger("run_astock_api").info("Web UI enabled at http://localhost:%d (local analysis/backtest release)", args.port)
 
     debug_enabled = resolve_debug_mode(
         requested=args.debug,

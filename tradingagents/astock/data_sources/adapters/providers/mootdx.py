@@ -94,6 +94,21 @@ class MootdxAdapter(AStockAdapterBase):
                     "amount": _coerce_float(_first_non_null(row, ("amount", "amt"))),
                 }
             )
+        # TDX's ``bars`` API accepts an offset, not a date range.  The router
+        # still supplies the local watermark for an incremental refresh, so
+        # honour it before handing rows to the loader.  This prevents the
+        # provider's trailing window from being presented as a full reload or
+        # repeatedly upserted as such.  Date strings emitted by
+        # ``_format_timestamp`` are ISO-like and therefore sort correctly on
+        # their calendar portion.
+        start_date = str(request.start_date or "")[:10]
+        end_date = str(request.end_date or "")[:10]
+        if start_date or end_date:
+            bars = [
+                bar for bar in bars
+                if (not start_date or str(bar.get("date") or "")[:10] >= start_date)
+                and (not end_date or str(bar.get("date") or "")[:10] <= end_date)
+            ]
         return {"bars": bars, "symbol": request.symbol, "interval": request.interval}
 
     def _parse_quotes(self, request: AStockRequest, payload: Any) -> Dict[str, Any]:

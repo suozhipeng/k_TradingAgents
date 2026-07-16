@@ -34,6 +34,22 @@ _EXECUTION_PREFIXES = frozenset((
 _LOCAL_RELEASE_DISABLED_PREFIXES = _EXECUTION_PREFIXES | frozenset((
     "/api/v1/scheduler/", "/api/v1/ops/scheduler/", "/api/v1/sse/paper-progress",
 ))
+_LOCAL_RELEASE_ALLOWED_PREFIXES = (
+    "/api/v1/health", "/api/v1/dashboard/", "/api/v1/data/health",
+    "/api/v1/data/refresh/", "/api/v1/data/jobs", "/api/v1/market/",
+    "/api/v1/watchlist", "/api/v1/reports", "/api/v1/backtest/",
+    "/api/v1/tv/", "/api/v1/screener", "/api/v1/analysis/",
+    "/api/v1/daily/", "/api/v1/strategies/", "/api/v1/alerts",
+    "/api/v1/kline", "/api/v1/valuation", "/api/v1/orderbook",
+    "/api/v1/news", "/api/v1/research", "/api/v1/fundamentals", "/api/v1/f10",
+)
+
+
+def _is_local_release_api_allowed(path: str) -> bool:
+    """Keep the no-auth local workbench on a deliberate, narrow API surface."""
+    if path == "/api/v1/data/jobs/import-database":
+        return False
+    return any(path.startswith(prefix) for prefix in _LOCAL_RELEASE_ALLOWED_PREFIXES)
 
 
 def _is_canonical_api_envelope(payload: Any) -> bool:
@@ -123,7 +139,10 @@ def _register_before_request(app: Flask) -> None:
     def _block_execution_in_research_only() -> tuple[Any, int] | None:
         """Return 410 if RESEARCH_ONLY and path matches an execution prefix."""
         if app.config.get("ASTOCK_LOCAL_RELEASE", False):
-            if any(request.path.startswith(p) for p in _LOCAL_RELEASE_DISABLED_PREFIXES):
+            if request.path.startswith("/api/v1/") and (
+                any(request.path.startswith(p) for p in _LOCAL_RELEASE_DISABLED_PREFIXES)
+                or not _is_local_release_api_allowed(request.path)
+            ):
                 return jsonify({
                     "error": "local_release_disabled",
                     "message": "This endpoint is unavailable in the local analysis and backtest release.",
@@ -247,10 +266,28 @@ def _register_before_request(app: Flask) -> None:
 def _register_after_request(app: Flask) -> None:
     @app.after_request
     def _security_and_idempotency(response: Any) -> Any:
+        # The local workbench still contains legacy inline handlers and a
+        # small number of chart CDN imports.  Keep that compatibility scoped
+        # to loopback local release; non-local API processes retain the strict
+        # policy.  The follow-up migration can remove this exception once all
+        # templates use external modules and event listeners.
+        if app.config.get("ASTOCK_LOCAL_RELEASE", False):
+            csp = (
+                "default-src 'self'; base-uri 'self'; object-src 'none'; "
+                "frame-ancestors 'none'; img-src 'self' data:; "
+                "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+                "script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com "
+                "https://cdn.jsdelivr.net; connect-src 'self'"
+            )
+        else:
+            csp = (
+                "default-src 'self'; base-uri 'self'; object-src 'none'; "
+                "frame-ancestors 'none'; img-src 'self' data:; "
+                "style-src 'self' 'unsafe-inline'; connect-src 'self'"
+            )
         response.headers.setdefault(
             "Content-Security-Policy",
-            "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; "
-            "img-src 'self' data:; style-src 'self' 'unsafe-inline'; connect-src 'self'",
+            csp,
         )
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("Referrer-Policy", "no-referrer")

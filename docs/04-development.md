@@ -76,7 +76,6 @@
 - QMT managed mock/read-only 边界
 - 数据存储与缓存
 - Flask WebUI
-- Streamlit 只读 viewer
 - CLI
 
 #### 不包含范围
@@ -124,7 +123,6 @@
 系统应支持：
 
 - CLI 报告
-- Streamlit 只读 viewer
 - WebUI 报告与产品页面
 
 #### ### PRD-05 回测与策略能力
@@ -670,7 +668,7 @@
 |---|---|---|---|---|---|---|---|
 | FR-01 | A 股五层数据能力 | Data & Ops | `tradingagents/astock/data_sources/` | `routes_data.py`, `data_health.html` | `tests/test_astock_data_sources.py`, provider fixture tests | 1-4, 12, 27 | done |
 | FR-02 | 统一数据访问层 | Data & Ops / AI Research | `interface.py`, `tools.py`, `router.py` | 上层 research/runtime 调用 | `tests/test_astock_interface_analyst.py` | 3-6 | done |
-| FR-03 | 多 Agent 研究能力 | AI Research Center | `analyst.py`, `runtime.py`, original TradingAgents core | CLI / Streamlit / `research.html` | `tests/test_astock_graph_runtime.py`, `tests/test_astock_graph_bridge.py` | 4-9 | done |
+| FR-03 | 多 Agent 研究能力 | AI Research Center | `analyst.py`, `runtime.py`, original TradingAgents core | CLI / `research.html` | `tests/test_astock_graph_runtime.py`, `tests/test_astock_graph_bridge.py` | 4-9 | done |
 | FR-04 | advisory 决策链 | AI Research Center / Trading | `phase9_schemas.py`, `runtime.py` | report payload / CLI / UI | `tests/test_astock_phase9_contracts.py` | 9 | done |
 | FR-05 | 展示与报告 | AI Research Center / WebUI | `reporting/`, Flask templates, CLI renderer, report compare (unified diff) + AI audit endpoints | `reports.html`, `research.html`, CLI | Phase 7/8/17/24 归档 | 7, 8, 17, 24 | ✅ done (report_compare unified diff for summary/investment_plan + structured diff for research_conclusion + PATCH audit + frontend unified diff display) |
 | FR-06 | 回测与模拟盘 | Strategy Lab / Trading | `backtest_engine.py`, `paper_trader.py`, `metrics.py` | `routes_backtest.py`, `paper.html`, `strategy_hub.html` | `tests/test_astock_backtest.py`, `tests/test_astock_paper_trader.py` | 10, 14, 18-20 | ✅ done (持久化 + /backtest/results + 日期校验 + sanitize) |

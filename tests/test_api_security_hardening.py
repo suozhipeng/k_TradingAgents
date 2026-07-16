@@ -33,6 +33,10 @@ def _load_resolve_debug_mode():
         n for n in tree.body
         if isinstance(n, ast.FunctionDef) and n.name == "resolve_debug_mode"
     )
+    is_loopback = next(
+        n for n in tree.body
+        if isinstance(n, ast.FunctionDef) and n.name == "is_loopback_host"
+    )
     # _LOOPBACK_HOSTS is a module-level constant the function closes over.
     loopback = next(
         n for n in tree.body
@@ -41,8 +45,23 @@ def _load_resolve_debug_mode():
     )
     ns: dict = {"frozenset": frozenset}
     exec(compile(ast.Module(body=[loopback], type_ignores=[]), "<launcher>", "exec"), ns)
+    exec(textwrap.dedent(ast.get_source_segment(source, is_loopback)), ns)
     exec(textwrap.dedent(ast.get_source_segment(source, fn)), ns)
     return ns["resolve_debug_mode"]
+
+
+def _load_is_loopback_host():
+    source = (_ROOT / "scripts" / "run_astock_api.py").read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    fn = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "is_loopback_host")
+    loopback = next(
+        n for n in tree.body if isinstance(n, ast.Assign)
+        and any(getattr(t, "id", "") == "_LOOPBACK_HOSTS" for t in n.targets)
+    )
+    ns: dict = {"frozenset": frozenset}
+    exec(compile(ast.Module(body=[loopback], type_ignores=[]), "<launcher>", "exec"), ns)
+    exec(textwrap.dedent(ast.get_source_segment(source, fn)), ns)
+    return ns["is_loopback_host"]
 
 
 # --- resolve_debug_mode ----------------------------------------------------
@@ -73,6 +92,15 @@ def test_resolve_debug_mode_warns_on_non_loopback(caplog):
         result = resolve_debug_mode(True, "0.0.0.0", logger=logger)
     assert result is False
     assert any("non-loopback" in r.message for r in caplog.records)
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("host,expected", [
+    ("127.0.0.1", True), ("::1", True), ("localhost", True),
+    ("0.0.0.0", False), ("192.168.1.10", False), ("", False),
+])
+def test_local_release_loopback_guard(host, expected):
+    assert _load_is_loopback_host()(host) is expected
 
 
 # --- resolve_api_key -------------------------------------------------------

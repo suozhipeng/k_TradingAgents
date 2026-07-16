@@ -3,35 +3,21 @@
 ## 顶层目录结构
 ```text
 TradingAgents/
-├── main.py
 ├── pyproject.toml
-├── requirements.txt
-├── docker-compose.yml
 ├── cli/
 ├── tradingagents/
 ├── tests/
 ├── scripts/
 ├── assets/
 ├── planning/codebase/
-└── webui/
+└── docs/
 ```
 
-> 本次重点分析范围按要求聚焦：`main.py`、`cli/`、`tradingagents/`、`pyproject.toml`、`requirements.txt`、`docker-compose.yml`。
+> 当前本地产品范围聚焦：`scripts/run_astock_api.py`、`cli/`、`tradingagents/`、`pyproject.toml` 与 `docs/`。
 
 ## 核心目录职责
 
-### 1. `main.py`
-职责：
-- 最小化脚本入口
-- 直接构造 `TradingAgentsGraph`
-- 用固定示例 `NVDA` 和 `2024-05-10` 调用 `propagate()`
-- 打印最终决策
-
-特点：
-- 更像 demo / smoke entry，不是主交互入口
-- 使用 `DEFAULT_CONFIG.copy()`，环境变量可覆盖默认配置
-
-### 2. `cli/`
+### 1. `cli/`
 职责：用户交互层 / 可视化终端层
 
 主要文件：
@@ -53,10 +39,9 @@ TradingAgents/
   - 拉取公告并显示
 
 结论：
-- `cli/` 是**真正的主产品入口**
-- `main.py` 是轻量脚本入口
+- CLI 是原始多智能体框架的交互入口；A 股本地 Web 产品入口是 `scripts/run_astock_api.py --local-release`。
 
-### 3. `tradingagents/`
+### 2. `tradingagents/`
 职责：核心业务实现
 
 子目录职责：

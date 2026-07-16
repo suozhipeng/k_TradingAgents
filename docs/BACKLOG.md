@@ -55,8 +55,8 @@
 | P2 | Iwencai live Provider 验证 | 依赖 `ASTOCK_IWENCAI_COOKIE`；缺失时按设计跳过 |
 | P2 | 可选测试依赖 | `python-pptx`、`pyarrow`/`fastparquet` 未安装时相关用例跳过（已优化为模块级 `_HAS_PPTX` / `_HAS_PARQUET` 常量）；不影响离线核心基线 |
 | P0 | 本地正式版 Web 收敛 | ✅ done — LFR-001~LFR-011 已完成：Flask/Jinja2 唯一入口、research-only 强制隔离、分析/回测验收、测试与文档收口；详见 `LOCAL_RELEASE_READINESS_PLAN.md` |
-| P1 | React/TS 正式工作台 | deferred — React 保留为非发布开发前端；若未来替换 Jinja2，仍需独立完成路由、端到端测试和发布验收 |
-| P3 / 范围外 | RBAC、多用户、SLA、故障分级与完整安全专项 | 已登记，尚未纳入当前 Research-only 产品范围 |
+| P1 | 浏览器回归 | done — Chromium 冒烟覆盖唯一 Dashboard 入口；CI 安装浏览器运行时并执行该用例 |
+| P3 / 范围外 | RBAC、多用户、SLA、故障分级与完整安全专项 | 已登记，尚未纳入当前 Research-only 产品范围；本地模式强制回环绑定 |
 
 ## 2. P0
 

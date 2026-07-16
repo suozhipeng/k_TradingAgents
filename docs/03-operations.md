@@ -33,17 +33,17 @@
 - 本地 DuckDB 是单写入分析库：网络和计算可并发，写入由 Store 锁批处理；需要多进程/多用户高并发写入时必须切换 PostgreSQL/TimescaleDB（连接池由 `PG_POOL_SIZE` 配置）。入库层兼容常见中英文行情字段和数值字符串；无法解析日期或 OHLC 的行会写入 `data_quarantine`（`rule_id=field_compatibility`、`severity=error`）并输出 `KLINE_FIELD_EXCEPTION` 结构化错误日志，同批有效数据继续写入，管理员可通过隔离记录手动修复和关闭。
 - 刷新任务会持久化状态事件用于审计；任务列表本身仍是进程内视图，服务重启后不承诺恢复为可轮询任务。
 - `rows_upserted` 是本次受影响行数，不等同于新增、更新或跳过的拆分计数；在没有数据库差分计数器前不得展示这些虚假明细。
-- 用于回测的永久 K 线仓库默认是项目根目录的 `kline/kline.duckdb`（可用 `ASTOCK_PERMANENT_KLINE_DB_PATH` 覆盖）。交互查询完成日线增量刷新后会同步该仓库；若当日有日 K，则同样同步当日 5 分钟 K。首次同步会把热库中该标的/周期的完整已有序列回填，之后按永久库自身的最新 bar 重叠 upsert，因此短暂失败后的下一次查询能自动补齐。
+- 用于回测的永久 K 线仓库默认是项目根目录的 `kline/kline.duckdb`（可用 `ASTOCK_PERMANENT_KLINE_DB_PATH` 覆盖）。本地正式版的 K 线 GET 默认只读，必须由 Data Hub 或显式 `refresh=1` 初始化；刷新从本地水位重叠拉取并 upsert，随后同步永久仓库。响应的 `data_state` 明确区分 `ready` 和首次运行的 `not_initialized`；上游刷新失败且没有本地数据时返回 `503 market_data_unavailable`，不再伪装成空数据。
 - 分钟 K 的归档/清理只针对应用热库，默认仅预览；永久仓库不参与清理。只有在已确认永久库同步成功且归档文件校验通过时，才应以 `confirm_delete=true` 删除热库历史数据。可用 `ASTOCK_PERMANENT_KLINE_ENABLED=false` 显式关闭永久镜像（不建议用于回测环境）。
 - 回测默认只读永久仓库，结果会记录 `permanent_local_duckdb` 数据来源；如确有需要才设置 `ASTOCK_BACKTEST_ALLOW_LIVE_FALLBACK=true` 允许网络回补。回测历史接口支持 `limit`、`offset`，列表页可使用 `include_curve=false` 避免传输完整净值曲线。
 - `GET /api/v1/market/screener` 以单次窗口查询读取最近 120 根日 K，默认最多扫描 2,000 个标的（`scan_limit` 最大 5,000）。`/api/v1/tv/history` 单次最多返回 5,000 根 bar。
-- 后台数据任务有有界等待队列（默认 `ASTOCK_DATA_JOB_MAX_QUEUED=100`）；队列饱和返回 HTTP 429。仪表盘表统计默认缓存 30 秒（`ASTOCK_DASHBOARD_STATS_TTL_SECONDS`）。可通过 `POST /api/v1/data/maintenance` 对热库和永久库执行 `CHECKPOINT + ANALYZE`。
+- 后台数据任务有有界等待队列（默认 `ASTOCK_DATA_JOB_MAX_QUEUED=100`）；队列饱和返回 HTTP 429。仪表盘表统计默认缓存 30 秒（`ASTOCK_DASHBOARD_STATS_TTL_SECONDS`）。`POST /api/v1/data/maintenance` 仅供受认证的运维模式使用，本地正式版的 allowlist 不开放它。
 - 历史回测默认不会访问外部停牌/涨跌停接口，确保本地数据可复现；需要该附加校验时，在回测请求中传入 `enable_external_constraints=true`，同一运行内会按标的和日期缓存。Alpha Vantage 使用共享连接与 Provider 限流器，超时由 `ASTOCK_ALPHA_VANTAGE_TIMEOUT_SECONDS` 控制（默认 15 秒）。
-- 进程内 SSE、任务队列和 LLM 报告缓存仅适用于单 API worker。设置 `WEB_CONCURRENCY>1` 会输出告警；横向扩展前须提供共享 Redis/PostgreSQL 协调后端，避免事件和任务状态分裂。
+- 本地正式版固定单 API worker。`WEB_CONCURRENCY>1` 会直接拒绝启动；启动器不再提供 scheduler 开关，也不会启动 scheduler。本地免鉴权仅开放产品 API allowlist，通知、运维、管理、执行、SSE 和 scheduler 一律返回 410；本地范围不承诺 Redis、多 worker 或横向扩展。
 - 已归档的分钟 K 写入按月 Parquet，并在热库创建 `kline_bars_cold` DuckDB 视图供审计和冷数据查询；永久回测库不清理这些分钟 K。
 - 市场领先池刷新仅允许 `POST /api/v1/market/leading-pool/refresh`；`GET /market/leading-pool` 与 `GET /market/momentum` 保持只读，不再由 `refresh=1` 改变服务端状态。健康探针分为 `/api/v1/health/live`（进程存活）与 `/api/v1/health/ready`（实际探测热库和永久库）；旧 `/health` 保持为 readiness 兼容别名。
 - 每个 API 响应携带 `X-Request-ID` 与 `X-Response-Time-Ms`。`GET /api/v1/ops/metrics` 可查看进程内请求量、平均延迟和数据任务状态。它用于单进程本地运维；横向扩展请接入集中式指标系统。
-- DuckDB 恢复会先验证备份中存在受管表，再在单个事务内重建；任一表失败即回滚，不再出现部分恢复状态。CI 位于 `.github/workflows/ci.yml`，执行无外部密钥的后端测试与前端构建。
+- DuckDB 恢复会先验证备份中存在受管表，再在单个事务内重建；任一表失败即回滚，不再出现部分恢复状态。CI 位于 `.github/workflows/ci.yml`，执行无外部密钥的后端测试与 Chromium 浏览器冒烟。
 - 所有 API K 线写入路径（单标的刷新、Data Hub 批量任务、查询 fallback、TradingView fallback）均通过 Loader 同步到永久仓库；不再依赖某个查询接口的事后镜像。`GET /api/v1/kline` 与 `/api/v1/tv/history` 可传 `include_cold=true` 合并读取热库和 `kline_bars_cold` Parquet 视图。
 - AI 主链与展示 LLM 使用进程级有界执行器，容量饱和会返回可重试错误；报告缓存通过 `ASTOCK_LLM_REPORT_CACHE_MAX_ENTRIES`（默认 100）限制容量并按 TTL 清理。`/ops/metrics` 以路由模板聚合，避免动态 ID 导致指标基数膨胀，且在启用认证时仅管理员可访问。
 - 所有会产生副作用的 HTTP 写请求均可带 `Idempotency-Key`（8～128 位字母、数字、`. _ : -`）。同一 API 进程在 `ASTOCK_IDEMPOTENCY_TTL_SECONDS`（默认 300 秒）内对相同调用方、相同 key、相同请求体仅执行一次，并以原始响应重放；若同 key 对应不同请求或仍在执行中，返回 `409`。该保护是进程内机制，多 worker 部署前应替换为 Redis 之类的共享存储。
@@ -55,17 +55,16 @@
 
 - 永久回测仓库 `kline/kline.duckdb` 与应用热库必须分别备份；分钟 Parquet 归档目录也必须纳入同一保留策略。恢复后先运行 `/api/v1/health/ready`，随机核对一个标的的日线、5 分钟线行数与最新时间，再恢复对外流量。
 - 数据库结构变更应先在备份副本演练升级和回滚。迁移前记录版本与校验和；若回滚不可逆，使用恢复到迁移前备份而不是手工删表。
-- 发布采用单实例灰度：先验证 readiness、`/ops/metrics`、日线增量刷新、回测输入指纹和 webhook 签名，再逐步扩容。出现 provider 错误率、队列饱和或延迟异常时，停止扩容并回滚到上一构建。
+- 本地发布先验证 readiness、`/ops/metrics`、日线增量刷新、回测输入指纹和 webhook 签名；出现 provider 错误率、队列饱和或延迟异常时，停止使用并检查本地数据与配置。
 - 进行压测时使用 mock/provider stub 与独立数据库；重点覆盖并发 K 线查询、带相同 `Idempotency-Key` 的重试、数据任务队列饱和和回测超时，禁止以第三方免费行情源作为压测目标。
 
-### 生产边界与容量控制
+### 本地边界与容量控制
 
-- Flask 对请求体实行 `MAX_CONTENT_LENGTH` 上限，默认 1 MiB（`ASTOCK_MAX_REQUEST_BYTES`）；API 按 API key 或源 IP 使用进程内固定窗口限流，默认每分钟 300 次（`ASTOCK_RATE_LIMIT_PER_MINUTE`）。健康检查不受此限制。多实例部署必须在网关或 Redis 实现共享限流，进程内限流只作为最后一道保护。
-- SSE 客户端有 `ASTOCK_SSE_MAX_CLIENTS` 上限（默认 50），超过即返回 `429`；响应显式禁用代理缓冲。SSE、任务、幂等和缓存的进程内实现适用于单 worker。Docker 默认改为单 worker；扩容前必须迁移到 Redis Streams/队列和共享幂等存储。
-- Router 内存缓存已具有线程锁与容量上限，文件缓存通过临时文件原子替换，避免并发读写产生半截 JSON。仍应通过缓存命中率、淘汰数、活跃 SSE 数、任务队列长度和 provider 错误率接入集中式指标平台。
+- Flask 对请求体实行 `MAX_CONTENT_LENGTH` 上限，默认 1 MiB（`ASTOCK_MAX_REQUEST_BYTES`）；API 按源 IP 使用进程内固定窗口限流，默认每分钟 300 次（`ASTOCK_RATE_LIMIT_PER_MINUTE`）。健康检查不受此限制。
+- SSE 客户端有 `ASTOCK_SSE_MAX_CLIENTS` 上限（默认 50），超过即返回 `429`；响应显式禁用代理缓冲。SSE、任务、幂等和缓存均为单 worker 的进程内实现，启动器与应用工厂会拒绝多 worker。
+- Router 内存缓存具有线程锁与容量上限，文件缓存通过临时文件原子替换，避免并发读写产生半截 JSON。应定期查看缓存命中率、活跃 SSE 数、任务队列长度和 provider 错误率。
 - webhook 的签名请求包含 canonical JSON、`X-AStock-Signature`、`X-AStock-Timestamp` 和 `X-AStock-Event-ID`。接收方必须验证 HMAC、事件 ID 去重，并拒绝超过自身时钟窗口的时间戳；未配置 `signing_secret` 时不会生成签名。
-- Compose 不再内置数据库密码，必须通过部署环境或 secret manager 提供 `PG_PASSWORD`、`CLICKHOUSE_PASSWORD` 和 `PGADMIN_PASSWORD`；PostgreSQL 与 ClickHouse 默认只暴露容器内部网络。生产环境还应固定镜像版本、启用镜像/SBOM 漏洞扫描、限制 CPU/内存、配置日志轮转与 TLS 反向代理/HSTS。
-- Compose 同时要求显式设置 `CORS_ORIGIN`，不能将本地开发源带入生产。ClickHouse 健康检查直接读取容器内的 `CLICKHOUSE_PASSWORD`，避免密码与运行配置漂移。每个已认证写请求按 API key 保存的 `rate_limit` 执行；匿名请求使用全局默认值。
+- Docker、多实例、Redis 与集中式数据库不属于当前本地产品范围；如将来启用，必须先重新设计共享任务、SSE、幂等、缓存和限流边界，不能复用当前进程内承诺。
 
 ### 产品性质
 
@@ -448,7 +447,6 @@ TradingAgents-Astock 是本地部署的分析工具，默认不向任何第三�
 |---|---|---|
 | Python runtime | 后端、CLI、Agent runtime | 版本固定，可复现安装 |
 | Flask WebUI | 产品页面和 API | 启动命令、端口、健康检查可记录 |
-| PostgreSQL / ClickHouse | 生产级 OLTP + OLAP | Docker compose 部署，容器化 |
 | DuckDB | 本地 OLAP 分析缓存 | 数据目录、备份、迁移边界明确 |
 | akshare / mootdx / Tencent / EastMoney / Sina | A 股数据 provider | 记录来源、fallback、质量和授权边界 |
 | LLM provider | AI Research | 记录模型、prompt、失败降级 |
@@ -475,9 +473,7 @@ TradingAgents-Astock 是本地部署的分析工具，默认不向任何第三�
 2. 检查 DuckDB/cache 目录可读写。
 3. 检查 provider 可用性，失败时标注 fallback 或 degraded。
 4. 启动 Flask WebUI/API。
-5. 需要时启动 Streamlit viewer。
-6. 需要时启动 QMT managed/dry-run 联调。
-7. 运行健康检查并记录结果。
+5. 运行健康检查并记录结果。
 
 ### 健康检查
 
@@ -519,8 +515,8 @@ TradingAgents-Astock 是本地部署的分析工具，默认不向任何第三�
 | 验收项 | 状态 | 证据 |
 |--------|------|------|
 | 环境分层定义 | ✅ 完成 | §1 明确定义 local/test/staging/production-like 四层及其允许/禁止能力 |
-| 依赖清单完整 | ✅ 完成 | §2 列出 Python/Flask/Streamlit/DuckDB/provider/LLM/QMT 依赖及生产级要求 |
-| 启动顺序文档化 | ✅ 完成 | §4 从环境检查→provider 可用性→Flask→Streamlit→QMT 共 7 步 |
+| 依赖清单完整 | ✅ 完成 | §2 列出 Python/Flask/DuckDB/provider/LLM 依赖及本地运行要求 |
+| 启动顺序文档化 | ✅ 完成 | §4 从环境检查→provider 可用性→Flask→健康检查共 5 步 |
 | 健康检查覆盖范围 | ✅ 完成 | §5 覆盖 WebUI/DuckDB/provider/LLM/QMT/数据刷新/任务失败 7 项 |
 | 数据恢复边界明确 | ✅ 完成 | §6 DuckDB/cache/报告/任务/审计的备份恢复口径已定义 |
 | 环境变量配置纪要 | ✅ 完成 | §3 DB路径/cache/provider/LLM/QMT/WebUI/测试标记均需记录 |
@@ -630,7 +626,7 @@ python3 -m cli.main run-analysis
 - Bear Researcher：quick-thinking 模型
 - Research Manager：deep-thinking 模型
 
-Streamlit 只读 viewer 在 live runtime mode 下使用同一套配置路径。
+本地 Web 工作台在 live runtime mode 下使用同一套配置路径。
 
 ### 校验行为
 
@@ -670,7 +666,7 @@ ASTOCK_IWENCAI_COOKIE=your_cookie_value_here
 
 ### 当前主机状态
 
-当前仓库已经把 `live_research` 路径接入 config、CLI 和 Streamlit。真实运行仍要求当前 shell 或 app 进程环境中存在匹配 provider 的有效 key。
+当前仓库已经把 `live_research` 路径接入 config、CLI 和本地 Web 工作台。真实运行仍要求当前 shell 或 app 进程环境中存在匹配 provider 的有效 key。
 
 live provider 的历史验证证据由 `tradingagents/astock/verification_provenance.py` 管理。这些记录是 provider 可用性溯源，不等同于当前网络环境仍可用；重新验证需要运行 live provider 测试并追加新的 dated provenance。
 

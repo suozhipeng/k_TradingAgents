@@ -75,7 +75,9 @@ class TestOptimizeApiSchema(unittest.TestCase):
         # If the optimizer fails due to insufficient data, we still expect a 500 error
         # (not a crash).  The key contract is that on success the body matches the schema.
         if resp.status_code == 200:
-            data = resp.get_json()
+            body = resp.get_json()
+            self.assertTrue(body["ok"])
+            data = body["data"]
             expected_keys = {
                 "strategy_name", "symbol", "score", "top_n",
                 "in_sample_return", "out_sample_return", "walk_forward_return",

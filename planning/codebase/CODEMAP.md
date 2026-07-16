@@ -54,7 +54,7 @@ TradingAgentsGraph.propagate("600519.SH", date)
 ```
 
 CLI 对 A 股标的生成 `AStockGraphReport` 并保存 `complete_report.md` 与
-`astock_report.json`。Streamlit viewer 使用同一 schema。
+`astock_report.json`。本地 Flask/Jinja2 工作台读取同一研究报告契约。
 
 Phase 9 advisory chain 合约输出始终携带 `actionable=false` 和
 `execution_signal=ResearchOnly`。Phase 10 回测/模拟盘和 Phase 11

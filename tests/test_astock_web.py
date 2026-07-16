@@ -156,16 +156,18 @@ class TestWebPageRendering:
                 f"{route} appears to be using raw base.html without overriding content"
             )
 
-    @pytest.mark.parametrize("route,target", LEGACY_REDIRECTS)
-    def test_legacy_watch_pages_redirect_to_consolidated_tab(self, client, route, target):
-        resp = client.get(route, follow_redirects=False)
-        assert resp.status_code == 302
-        assert resp.headers["Location"].endswith(target)
+    def test_global_stock_search_script_has_one_template_literal_per_item(self):
+        template = (REPO_ROOT / "tradingagents/astock/web/templates/base.html").read_text(encoding="utf-8")
+        assert "</div>`\n      `).join('')" not in template
 
-    def test_tv_chart_legacy_url_preserves_symbol(self, client):
+    @pytest.mark.parametrize("route,target", LEGACY_REDIRECTS)
+    def test_removed_legacy_pages_are_not_public_routes(self, client, route, target):
+        resp = client.get(route, follow_redirects=False)
+        assert resp.status_code == 404
+
+    def test_removed_legacy_tv_chart_is_not_public(self, client):
         resp = client.get("/tv_chart?symbol=000001.SZ", follow_redirects=False)
-        assert resp.status_code == 302
-        assert resp.headers["Location"].endswith("/kc_chart?symbol=000001.SZ")
+        assert resp.status_code == 404
 
 
 class TestWebSpecificPages:
@@ -179,6 +181,12 @@ class TestWebSpecificPages:
         assert "heatmap-content" in html
         assert "recent-backtests-content" in html or "recent-backtests" in html
         assert "市场追踪中心" in html
+
+    def test_empty_local_store_treats_missing_watchlist_as_an_empty_state(self, app):
+        from tradingagents.astock.api._analysis_engine import load_watchlist
+
+        with app.app_context():
+            assert load_watchlist() == []
 
     def test_research_has_symbol_input(self, client):
         resp = client.get("/research")

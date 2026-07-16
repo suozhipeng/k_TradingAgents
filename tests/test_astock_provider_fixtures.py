@@ -1,4 +1,5 @@
 import json
+import time
 from pathlib import Path
 
 import pandas as pd
@@ -12,6 +13,8 @@ from tradingagents.astock.data_sources.adapters import (
     TencentFinanceAdapter,
 )
 from tradingagents.astock.data_sources.schema import AStockRequest
+from tradingagents.astock.data_sources.errors import AStockSourceUnavailableError
+from tradingagents.astock.data_sources.router import AStockDataFacade, DEFAULT_ROUTE_POLICY
 
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "astock_providers"
@@ -124,6 +127,37 @@ class FakeMootdxClient:
 
 @pytest.mark.unit
 class TestProviderFixtures:
+    def test_kline_policy_prefers_the_bounded_mootdx_path(self):
+        assert DEFAULT_ROUTE_POLICY["kline"][0] == "mootdx"
+
+    def test_data_facade_fetch_uses_the_capability_router(self):
+        class Router:
+            def query(self, capability, symbol, **kwargs):
+                return capability, symbol, kwargs
+
+        assert AStockDataFacade(router=Router()).fetch(
+            "kline", "600519.SH", start_date="2026-07-01", interval="1d",
+        ) == ("kline", "600519.SH", {"start_date": "2026-07-01", "interval": "1d"})
+
+    def test_akshare_adapter_enforces_hard_provider_deadline(self, monkeypatch):
+        class SlowAkshareModule:
+            def stock_zh_a_hist(self, **kwargs):
+                time.sleep(1)
+
+        monkeypatch.setattr(
+            "tradingagents.astock.data_sources.adapters.providers.akshare._random_sleep",
+            lambda *_args: None,
+        )
+        adapter = AkshareAdapter(module=SlowAkshareModule(), timeout=0.1)
+        request = AStockRequest(
+            capability="kline", raw_symbol="600519", symbol="600519.SH",
+        )
+
+        started = time.monotonic()
+        with pytest.raises(AStockSourceUnavailableError, match="exceeded"):
+            adapter.get_kline(request)
+        assert time.monotonic() - started < 0.5
+
     def test_akshare_adapter_parses_market_research_news_and_financials(self):
         adapter = AkshareAdapter(module=FakeAkshareModule())
         kline_request = AStockRequest(capability="kline", raw_symbol="600519", symbol="600519.SH", start_date="2026-06-01", end_date="2026-06-10")
@@ -240,6 +274,17 @@ class TestProviderFixtures:
         assert trades["items"][0]["time"] == "09:33:31"
         assert f10["code"] == "600519"
         assert f10["industry"] == "酿酒行业"
+
+    def test_mootdx_kline_honours_incremental_date_window(self):
+        adapter = MootdxAdapter(client=FakeMootdxClient())
+        request = AStockRequest(
+            capability="kline", raw_symbol="600519", symbol="600519.SH",
+            start_date="2026-06-10", end_date="2026-06-10",
+        )
+
+        kline = adapter.get_kline(request)
+
+        assert [str(bar["date"])[:10] for bar in kline["bars"]] == ["2026-06-10"]
 
     def test_iwencai_adapter_parses_search_and_expectation(self):
         adapter = IwencaiAdapter(wencai_module=FakeWencaiModule(), cookie="test-cookie")

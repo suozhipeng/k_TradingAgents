@@ -63,55 +63,18 @@ def _show_banner():
 [bold #2962FF]│[/]  [green]●[/] [bold]Trading[/bold]  |  [blue]●[/] [bold]Research[/bold]  |  [yellow]●[/] [bold]Risk[/bold]  [bold #2962FF]│[/]
 [bold #2962FF]│[/]  [dim]Agent-driven Quantitative Framework[/]        [bold #2962FF]│[/]
 [bold #2962FF]├──────────────────────────────────────────────┤[/]
-[bold #2962FF]│[/]  WebUI: [underline #2962FF]http://localhost:5001[/]         [bold #2962FF]│[/]
+[bold #2962FF]│[/]  Local Web: [underline #2962FF]http://127.0.0.1:5860[/]      [bold #2962FF]│[/]
 [bold #2962FF]│[/]  Help:  [italic]tradingagents --help[/]                 [bold #2962FF]│[/]
 [bold #2962FF]├──────────────────────────────────────────────┤[/]
 [bold #2962FF]│[/]  [dim]Commands:[/]                                      [bold #2962FF]│[/]
 [bold #2962FF]│[/]  [bold]research[/bold]  — AI-driven multi-agent analysis  [bold #2962FF]│[/]
 [bold #2962FF]│[/]  [bold]analyze[/bold]   — Quick stock analysis           [bold #2962FF]│[/]
-[bold #2962FF]│[/]  [bold]webui[/bold]     — Launch WebUI dashboard         [bold #2962FF]│[/]
 [bold #2962FF]│[/]  [bold]backtest[/bold]  — Run strategy backtest          [bold #2962FF]│[/]
 [bold #2962FF]└──────────────────────────────────────────────┘[/]"""),
         border_style="#1e2a3a",
         padding=(0, 1),
     )
     console.print(banner)
-
-
-# ── WebUI Launcher ──
-@app.command()
-def webui(
-    port: int = typer.Option(5001, "--port", "-p", help="WebUI port number"),
-    open_browser: bool = typer.Option(False, "--open", "-o", help="Open browser automatically"),
-):
-    """🚀 Launch AStock Pro WebUI dashboard."""
-    import subprocess
-    import sys
-    from pathlib import Path
-
-    repo = Path(__file__).resolve().parent.parent
-    webui_script = repo / "run_webui.py"
-
-    if not webui_script.exists():
-        console.print("[red]✗ run_webui.py not found[/red]")
-        raise typer.Exit(1)
-
-    console.print(f"[bold #2962FF]🚀 Starting AStock Pro WebUI on port {port}...[/]")
-    console.print(f"[dim]   Dashboard: http://localhost:{port}[/]")
-    if open_browser:
-        import webbrowser
-        webbrowser.open(f"http://localhost:{port}")
-
-    env = os.environ.copy()
-    env["PORT"] = str(port)
-    try:
-        subprocess.run(
-            [sys.executable, str(webui_script)],
-            env=env,
-            cwd=str(repo),
-        )
-    except KeyboardInterrupt:
-        console.print("\n[yellow]WebUI stopped.[/]")
 
 
 # ── Quick Backtest Command ──

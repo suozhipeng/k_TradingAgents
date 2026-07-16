@@ -41,10 +41,12 @@ TradingAgents-Astock 是**投研分析 + 策略验证 + 模拟盘 + 受控执行
 #### 启动 WebUI
 
 ```bash
-.venv/bin/python scripts/run_astock_api.py --local-release --port 5860
+.venv/bin/python scripts/run_astock_api.py --port 5860
 ```
 
 浏览器访问 http://127.0.0.1:5860。该模式只提供分析、数据查看、报告和回测；交易、模拟盘、QMT 与组合执行不可用。
+
+首次运行请先安装本地运行所需依赖：`.venv/bin/python -m pip install -e '.[astock-providers,test]'`。启动器只允许绑定 `127.0.0.1`、`::1` 或 `localhost`，避免本地无认证模式暴露到局域网。K 线查询默认只读本地库：首次使用请在 Data Hub 发起刷新，或显式请求 `GET /api/v1/market/kline?symbol=600519.SH&refresh=1`；响应中的 `data_state=not_initialized` 表示本地库尚未初始化，而不是已获得空的真实行情。
 
 #### 启动 CLI
 
@@ -245,7 +247,7 @@ conda activate astock
 pip install .
 
 # 安装 A 股可选依赖（数据源）
-pip install ".[astock-providers]"
+pip install -e ".[astock-providers,test]"
 ```
 
 ### 配置
@@ -276,7 +278,7 @@ LLM_API_KEY=your_key_here
 ### 启动 WebUI
 
 ```bash
-.venv/bin/python scripts/run_astock_api.py --local-release --port 5860
+.venv/bin/python scripts/run_astock_api.py --port 5860
 ```
 
 浏览器访问 http://127.0.0.1:5860；这是本地正式版的唯一 Web 入口。
@@ -310,7 +312,7 @@ python3 -m pytest -q
 python scripts/run_astock_api.py
 
 # 本地正式版：只开放分析、报告、数据和回测（推荐）
-.venv/bin/python scripts/run_astock_api.py --local-release --port 5860
+.venv/bin/python scripts/run_astock_api.py --port 5860
 
 # 禁用 WebUI
 python scripts/run_astock_api.py --no-web
@@ -372,13 +374,13 @@ python scripts/smoke_structured_output.py
   A: 确认 `.env` 中有有效的 API KEY，且 `TRADINGAGENTS_ASTOCK_RUNTIME_PROFILE` 设置为 `live_research`。
 
 - **Q: WebUI 打不开？**
-  A: 确认端口未被占用，或改用 `.venv/bin/python scripts/run_astock_api.py --local-release --port 其他端口`。
+  A: 确认端口未被占用，或改用 `.venv/bin/python scripts/run_astock_api.py --port 其他端口`。
 
 - **Q: Flask API 启动失败？**
   A: 确认已安装 `pip install '.[astock-providers]'`，且 DuckDB 数据库文件路径可写。
 
-- **Q: React WebUI 实验前端？**
-  A: `webui/` 目录为 React/TS 开发前端。需使用 Node.js 18+；构建产物位于 `webui/dist/`，由 Flask 通过 `/assets/<path>` 和 `/react/<path>` 路由 serve；SPA fallback 对非 API 路径返回 `index.html`。本地正式版同时支持 Jinja2 模板页面（`/dashboard`, `/backtest` 等）和 React SPA。
+- **Q: WebUI 如何启动？**
+  A: 唯一入口是 `.venv/bin/python scripts/run_astock_api.py`。默认访问 `http://127.0.0.1:5860/dashboard`；React、Streamlit 和旧动量启动器不属于当前产品面。
 
 ### 下一步
 
@@ -638,7 +640,7 @@ Phase 30 的目标不是增加更多策略，而是把现有策略、回测、�
 A 股定制模块有额外的可选依赖。安装时指定：
 
 ```bash
-pip install ".[astock-providers]"
+pip install -e ".[astock-providers,test]"
 ```
 
 ### Q3: conda 环境创建失败？
@@ -648,13 +650,13 @@ pip install ".[astock-providers]"
 ```bash
 python3.12 -m venv .venv
 source .venv/bin/activate
-pip install -e ".[astock-providers]"
+pip install -e ".[astock-providers,test]"
 ```
 
 ### Q4: WebUI 启动后页面打不开？
 
 - 确认端口未被占用（默认 5860）
-- 尝试更换端口：`.venv/bin/python scripts/run_astock_api.py --local-release --port 5000`
+- 尝试更换端口：`.venv/bin/python scripts/run_astock_api.py --port 5000`
 - 确认防火墙未阻止本地端口
 
 ## 数据源

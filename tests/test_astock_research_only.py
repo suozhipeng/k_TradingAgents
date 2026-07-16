@@ -122,8 +122,10 @@ class TestResearchOnlyMarketQuote:
     def test_market_quote_exists(self, research_client):
         resp = research_client.get("/api/v1/market/quote?symbol=600519.SH")
         assert resp.status_code == 200
-        data = resp.get_json()
-        assert data is not None
+        body = resp.get_json()
+        assert body is not None
+        assert body["ok"] is True
+        data = body["data"]
         assert "last_price" in data or "symbol" in data
 
     def test_research_html_uses_market_quote_not_legacy_trade_quote(self, research_client):
@@ -172,8 +174,10 @@ class TestResearchOnlyDashboard:
             store.init_schema()
             resp = client.get("/api/v1/dashboard/overview")
         assert resp.status_code == 200
-        data = resp.get_json()
-        assert data is not None
+        body = resp.get_json()
+        assert body is not None
+        assert body["ok"] is True
+        data = body["data"]
         # Core research fields should remain
         assert "statistics" in data
         assert "symbols_tracked" in data["statistics"]

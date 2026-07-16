@@ -724,7 +724,7 @@ searchInput.addEventListener('input', function() {
           <span class="name">${s.name || s.short_name || '?'}</span>
           <span class="code">${s.code || s.symbol || ''}</span>
           <span class="meta">${s.exchange || s.board || s.sector || ''}</span>
-        </div>`
+        </div>
       `).join('');
       suggestions.style.display = 'block';
       suggestions.querySelectorAll('.item').forEach(el => {

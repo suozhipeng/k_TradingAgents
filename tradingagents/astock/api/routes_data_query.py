@@ -67,7 +67,7 @@ def _with_meta(payload: dict, resp: Any) -> dict:
     return payload
 
 
-def _refresh_daily_kline_incrementally(symbol: str) -> dict[str, Any]:
+def _refresh_daily_kline_incrementally(symbol: str, *, force: bool = False) -> dict[str, Any]:
     """Refresh a symbol's daily bars without letting a provider stall a query.
 
     The refresh begins at the newest locally stored daily bar so provider data
@@ -76,7 +76,7 @@ def _refresh_daily_kline_incrementally(symbol: str) -> dict[str, Any]:
     per request; consequently the API can still return the last good local
     data if one upstream module is slow or unavailable.
     """
-    if not current_app.config.get("ASTOCK_AUTO_REFRESH_DAILY_KLINE", True):
+    if not force and not current_app.config.get("ASTOCK_AUTO_REFRESH_DAILY_KLINE", True):
         return {"status": "disabled", "rows_upserted": 0}
 
     timeout = float(current_app.config.get("ASTOCK_DAILY_KLINE_REFRESH_TIMEOUT_SECONDS", 8))
@@ -106,7 +106,8 @@ def _refresh_daily_kline_incrementally(symbol: str) -> dict[str, Any]:
         flight.set_result(result)
         return result
     except Exception as exc:
-        result = {"status": "failed", "rows_upserted": 0, "mode": "incremental", "error": str(exc)[:300]}
+        logger.warning("daily K-line refresh failed for %s: %s", symbol, exc)
+        result = {"status": "failed", "rows_upserted": 0, "mode": "incremental", "error": {"code": "refresh_failed"}}
         flight.set_result(result)
         return result
     finally:
@@ -152,7 +153,7 @@ def _perform_daily_kline_incremental_refresh(symbol: str, timeout: float) -> dic
         return result
     except Exception as exc:
         logger.warning("daily K-line refresh failed for %s: %s", symbol, exc)
-        return {"status": "failed", "rows_upserted": 0, "mode": "incremental", "error": str(exc)[:300]}
+        return {"status": "failed", "rows_upserted": 0, "mode": "incremental", "error": {"code": "refresh_failed"}}
 
 
 def _refresh_intraday_for_current_daily_bar(
@@ -192,7 +193,7 @@ def _refresh_intraday_for_current_daily_bar(
         return result
     except Exception as exc:
         logger.warning("intraday K-line refresh failed for %s: %s", symbol, exc)
-        return {"status": "failed", "rows_upserted": 0, "error": str(exc)[:300]}
+        return {"status": "failed", "rows_upserted": 0, "error": {"code": "refresh_failed"}}
 
 
 def _mirror_kline_to_permanent(store: Any, symbol: str, interval: str, start: str | None) -> dict[str, Any]:
@@ -227,7 +228,10 @@ def _mirror_kline_to_permanent(store: Any, symbol: str, interval: str, start: st
         }
     except Exception as exc:
         logger.warning("permanent K-line mirror failed for %s %s: %s", symbol, interval, exc)
-        return {"status": "failed", "rows_upserted": 0, "error": str(exc)[:300]}
+        return {
+            "status": "failed", "rows_upserted": 0,
+            "error": {"code": "permanent_store_sync_failed"},
+        }
 
 
 # ---------------------------------------------------------------------------
@@ -251,13 +255,25 @@ def get_kline() -> tuple[Response, int]:
             current_app.config.get("ASTOCK_AUTO_REFRESH_DAILY_KLINE", False),
         )
         daily_refresh = (
-            _refresh_daily_kline_incrementally(symbol)
+            _refresh_daily_kline_incrementally(symbol, force=True)
             if refresh_requested else {"status": "not_requested", "rows_upserted": 0}
         )
         store = get_store()
         store_limit = limit + 1 if limit > 0 else None
         df = store.query_kline(symbol, start=start, end=end, interval=interval, limit=store_limit, include_cold=include_cold)
         bars = df_to_json(df)
+
+        refresh_status = str(daily_refresh.get("status", "not_requested"))
+        if not bars and refresh_status in {"failed", "unavailable", "pending"}:
+            return error_response(
+                "market_data_unavailable", 503,
+                code="market_data_unavailable",
+            )
+
+        # An empty local repository is a normal first-run state, not a fake
+        # successful data response.  Keep it as a 200 so charts can render an
+        # empty state, but make the required next action machine-readable.
+        data_state = "ready" if bars else "not_initialized"
 
         has_more = False
         if limit > 0 and len(bars) > limit:
@@ -275,7 +291,7 @@ def get_kline() -> tuple[Response, int]:
         return jsonify({
             "symbol": symbol, "interval": interval, "bars": bars,
             "count": bar_count, "limit": limit, "has_more": has_more, "range": date_range,
-            "daily_refresh": daily_refresh,
+            "data_state": data_state, "daily_refresh": daily_refresh,
         }), 200
     except Exception as exc:
         return error_response(str(exc), 500)

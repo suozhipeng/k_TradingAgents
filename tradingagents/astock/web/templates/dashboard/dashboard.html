@@ -231,6 +231,7 @@
   </div>
 </div>
 
+{% if not config.get('ASTOCK_LOCAL_RELEASE', false) %}
 <!-- ── Row 5: AI Task Status ── -->
 <div class="dash-row">
   <div class="dash-card">
@@ -252,6 +253,7 @@
     </div>
   </div>
 </div>
+{% endif %}
 
 <!-- ── 下一步操作区 (Next Actions) — bottom ── -->
 <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px;padding:10px 14px;background:linear-gradient(145deg, #1c2538 0%, #141d2e 100%);border:1px solid #1e2a3a;border-radius:8px;align-items:center;">
@@ -439,6 +441,22 @@ const MARKET_INDICES = [
   { symbol: '000300.SH', name: '沪深300', field: 'latest_price' },
   { symbol: '399006.SZ', name: '创业板指', field: 'latest_price' },
 ];
+const MARKET_SUMMARY_TIMEOUT_MS = 2500;
+
+async function fetchMarketSummary(idx) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), MARKET_SUMMARY_TIMEOUT_MS);
+  try {
+    const response = await fetch(
+      `/api/v1/market/summary?symbol=${encodeURIComponent(idx.symbol)}`,
+      { signal: controller.signal },
+    );
+    if (!response.ok) throw new Error(`market summary ${response.status}`);
+    return { ...idx, data: APIClient.unwrap(await response.json()) };
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 async function loadMarketSummary() {
   const el = document.getElementById('market-summary-content');
@@ -446,11 +464,7 @@ async function loadMarketSummary() {
 
   try {
     const results = await Promise.allSettled(
-      MARKET_INDICES.map(idx =>
-        fetch(`/api/v1/market/summary?symbol=${encodeURIComponent(idx.symbol)}`)
-          .then(r => r.json()).then(APIClient.unwrap)
-          .then(data => ({ ...idx, data }))
-      )
+      MARKET_INDICES.map(fetchMarketSummary)
     );
 
     let html = '';
@@ -562,6 +576,7 @@ async function loadLatestReports() {
 // ── AI Task Status ──
 async function loadAITasks() {
   const el = document.getElementById('ai-tasks-content');
+  if (!el) return;
 
   try {
     const res = await fetch('/api/v1/ops/tasks?limit=10');

@@ -25,7 +25,11 @@ DEFAULT_ELIMINATED_SOURCES = frozenset(("tushare", "ashare"))
 
 DEFAULT_ROUTE_POLICY = {
     # 行情层
-    "kline": ("baostock", "mootdx", "tencent", "akshare", "qmt", "tdx"),
+    # mootdx is the only default history source with a bounded, verified local
+    # path.  Baostock login can block before the router reaches a fallback, so
+    # it is retained as a secondary source rather than holding up first-run
+    # charts and backtests.
+    "kline": ("mootdx", "baostock", "tencent", "akshare", "qmt", "tdx"),
     "order_book": ("mootdx", "tencent", "qmt", "tdx"),
     "trade_tape": ("mootdx", "tencent", "qmt", "tdx"),
     "valuation": ("tencent", "akshare", "mootdx"),
@@ -523,6 +527,16 @@ class AStockDataFacade(object):
 
     def query(self, capability: str, symbol: str, **kwargs: Any) -> AStockResponse:
         return self.router.query(capability, symbol, **kwargs)
+
+    def fetch(self, capability: str, symbol: str, **kwargs: Any) -> AStockResponse:
+        """Compatibility-neutral loader entry point for a capability request.
+
+        Store loaders operate on capabilities rather than bespoke facade
+        methods.  Keeping that abstraction here prevents the request-time
+        K-line refresh worker from selecting a different data path than the
+        rest of the local product.
+        """
+        return self.query(capability, symbol, **kwargs)
 
     def get_kline(self, symbol: str, **kwargs: Any) -> AStockResponse:
         return self.router.get_kline(symbol, **kwargs)

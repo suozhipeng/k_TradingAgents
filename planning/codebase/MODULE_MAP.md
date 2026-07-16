@@ -2,7 +2,7 @@
 
 > 生成范围：`README.md`、`cli/`、`tradingagents/`。
 > 约束：只读分析业务代码；未运行真实交易；未调用外部金融数据 API。
-> WebUI 数据源：`webui-data/modules.json` → 同步副本 `webui/src/data/modules.json`。
+> 本地 Web：Flask/Jinja2 模板位于 `tradingagents/astock/web/`，由 `scripts/run_astock_api.py --local-release` 启动。
 > 说明：这是当前源码基线映射；A 股目标态请结合 `planning/codebase/ASTOCK_RESOURCE_PLAN.md` 与 `planning/a-stock-resource/` 一起阅读。
 
 
@@ -49,7 +49,7 @@
 | A 股 Interface / Analyst | `tradingagents/astock/interface.py / tools.py / analyst.py` | analyst | 将五层 provider 能力收敛成结构化 section，并写入 A 股研究状态。 | 缺失 provider 会降级；section 完成不等于完整交易决策链完成 |
 | A 股 Research Runtime | `tradingagents/astock/runtime.py` | researcher | 执行 AStockAnalyst、Bull、Bear、Research Manager、Phase 9 advisory chain（ResearchConclusion → TraderProposal → RiskDecision → PortfolioDecision），生成 `AStockGraphReport`。 | 默认 BridgeLLM 是确定性验证实现；输出固定为 research-only，不可作为交易执行信号 |
 | A 股 Runtime Profile & Phase 9 Schema | `tradingagents/astock/runtime_profile.py / phase9_schemas.py` | config | 定义 `RuntimeProfile`（deterministic_verification / live_research）隔离策略，以及 Phase 9 advisory 合约 schema。 | `require_live_research_clients` 防 BridgeLLM fallback；合约 schema 与 CLI/UI 渲染耦合 |
-| A 股 CLI / Read-only Viewer | `cli/main.py / tradingagents/ui/*` | cli | CLI 和 Streamlit 共享 AStockGraphReport 展示 schema，并通过 dispatcher 兼容 legacy payload。 | 当前只有只读展示；WebUI 为产品端入口（静态仪表盘 + 报告查看器），Streamlit 为运行时 viewer 后端 |
+| A 股 CLI / 本地工作台 | `cli/main.py / tradingagents/astock/web/*` | cli/web | CLI 与 Flask/Jinja2 工作台使用 AStockGraphReport 契约；后者是唯一浏览器产品面。 | 本地正式版仅提供研究、数据与回测，未提供执行入口 |
 | A 股 回测引擎 | `tradingagents/astock/execution/backtest_engine.py` | dataflow | Phase 10 交付。按历史数据执行策略信号回放，支持周期调仓、费率模拟、多策略对比。 | 需要历史数据源；结果依赖数据完整性；费率模型和真实券商可能不一致 |
 | A 股 模拟盘引擎 | `tradingagents/astock/execution/paper_trader.py` | dataflow | Phase 10 交付。虚拟券商 + 真实费率，定时调度自动调仓，风控拦截和仓位记录。 | 虚拟成交不代表真实流动性环境；需持续运行积累跟踪记录 |
 | A 股 QMT 桥接 | `tradingagents/astock/execution/qmt_bridge.py` | dataflow | Phase 11 交付。通过 HTTP :58609 桥接 Python 3.6.8 QMT 环境，分离 xtdata（只读）和 xttrader（下单）权限。 | 需要真实 QMT 客户端；默认 safety mode；降级到模拟盘路径 |
@@ -90,8 +90,8 @@
 - 结构化 schema 在不同 LLM provider 下的失败降级路径。
 - checkpoint resume 与 memory/reflection 的边界行为。
 
-## WebUI 使用说明
+## 本地 Web 工作台说明
 
-- 静态文件：`webui/src/data/modules.json`
-- WebUI 不直接 import 或执行 TradingAgents 业务代码。
-- WebUI 只读展示模块树、详情、风险与 Agent Flow。
+- 模板与静态资源位于 `tradingagents/astock/web/`。
+- 工作台通过 `/api/v1` 读取业务数据，不直接 import 或执行 Agent 业务代码。
+- local-release 仅展示数据、研究和回测；交易与执行 API 被服务端拒绝。
