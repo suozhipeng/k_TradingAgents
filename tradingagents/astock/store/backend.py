@@ -147,7 +147,9 @@ class BackendManager:
 
     @property
     def current_backend(self) -> str:
-        return self._config.current_backend
+        """Thread-safe snapshot of the active backend name."""
+        with self._lock:
+            return self._config.current_backend
 
     @property
     def config(self) -> BackendConfig:
@@ -156,8 +158,14 @@ class BackendManager:
     # -- store accessors -----------------------------------------------------
 
     def get_store(self) -> Any:
-        """Return the *active* store (DuckDB or PG depending on backend)."""
-        if self._config.current_backend == "postgresql":
+        """Return the *active* store (DuckDB or PG depending on backend).
+
+        Reads the backend name under lock to prevent a concurrent
+        ``switch_to()`` from returning a mismatched store.
+        """
+        with self._lock:
+            backend = self._config.current_backend
+        if backend == "postgresql":
             return self.get_pg_store()
         return self.get_duck_store()
 
@@ -289,19 +297,24 @@ class BackendManager:
 
     def status(self) -> dict[str, Any]:
         """Return a status dict for API consumption."""
-        duck_ok = self._duck_initialised and self._duck_store is not None
-        pg_ok = self._pg_initialised and self._pg_store is not None
+        with self._lock:
+            duck_ok = self._duck_initialised and self._duck_store is not None
+            pg_ok = self._pg_initialised and self._pg_store is not None
+            backend = self._config.current_backend
+            pg_host = self._config.pg_host
+            pg_port = self._config.pg_port
+            pg_database = self._config.pg_database
 
-        pg_info = {}
-        if pg_ok and self._pg_store is not None:
+        pg_info: dict[str, Any] = {}
+        if pg_ok:
             pg_info = {
-                "host": self._config.pg_host,
-                "port": self._config.pg_port,
-                "database": self._config.pg_database,
+                "host": pg_host,
+                "port": pg_port,
+                "database": pg_database,
             }
 
         return {
-            "backend": self._config.current_backend,
+            "backend": backend,
             "duckdb_connected": duck_ok,
             "postgresql_connected": pg_ok,
             "postgresql": pg_info,

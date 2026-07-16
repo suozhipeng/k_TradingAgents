@@ -133,6 +133,7 @@ from .models import (
     DataQualityRule,
     DataQuarantine,
     NotificationChannel,
+    Watchlist,
 )
 
 # ---------------------------------------------------------------------------
@@ -172,6 +173,7 @@ ALL_MODEL_CLASSES: list[type[Base]] = [
     DataQualityRule,
     DataQuarantine,
     NotificationChannel,
+    Watchlist,
 ]
 
 ALL_TABLE_NAMES: list[str] = [cls.__tablename__ for cls in ALL_MODEL_CLASSES]

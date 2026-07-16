@@ -675,6 +675,18 @@ _register(TableDef(
     primary_key=["name"],
 ))
 
+# --- watchlist ---
+_register(TableDef(
+    name="watchlist",
+    columns=[
+        ColumnDef("symbol", "VARCHAR", "TEXT", nullable=False),
+        ColumnDef("name", "VARCHAR", "TEXT", nullable=True),
+        ColumnDef("added_at", "TIMESTAMP", "TIMESTAMP", nullable=True),
+        ColumnDef("source", "VARCHAR", "TEXT", nullable=True, default="'manual'"),
+    ],
+    primary_key=["symbol"],
+))
+
 # ---------------------------------------------------------------------------
 # Index definitions (derived from TABLE_DEFS + explicit definitions)
 # ---------------------------------------------------------------------------

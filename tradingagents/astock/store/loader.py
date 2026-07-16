@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 import multiprocessing
 import os
+import json
 import pickle
 import tempfile
 import threading
@@ -83,8 +84,14 @@ def _fetch_response_worker(
         # Queue pipes are small; sending a DataFrame/report through one can
         # block process exit while the parent is waiting in join().  Persist
         # the payload first and keep Queue traffic to a tiny status message.
-        with open(result_path, "wb") as handle:
-            pickle.dump(response, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        # Prefer JSON for serializable data; fall back to pickle for
+        # non-serializable types (numpy, pandas, etc.).
+        try:
+            with open(result_path, "w", encoding="utf-8") as handle:
+                json.dump(response, handle, ensure_ascii=False, default=str)
+        except (TypeError, ValueError):
+            with open(result_path, "wb") as handle:
+                pickle.dump(response, handle, protocol=pickle.HIGHEST_PROTOCOL)
         output.put(("ok", retry_count))
     except Exception as exc:
         output.put(("error", serialize_load_error(exc), getattr(exc, "retry_count", 0)))
@@ -440,6 +447,9 @@ class BatchLoader:
         status = packet[0]
         if status == "ok":
             try:
+                with open(result_path, "r", encoding="utf-8") as handle:
+                    return json.load(handle), int(packet[1])
+            except (json.JSONDecodeError, ValueError):
                 with open(result_path, "rb") as handle:
                     return pickle.load(handle), int(packet[1])
             finally:

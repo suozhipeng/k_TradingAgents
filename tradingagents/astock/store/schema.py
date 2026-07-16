@@ -953,14 +953,8 @@ class AStockStore:
         return row_count[0] if row_count else 0
 
     def replace_watchlist(self, items: list[dict[str, Any]]) -> int:
-        """Atomically replace the local Watchlist through the Store lock."""
+        """Atomically replace the schema-managed local watchlist."""
         with self._lock:
-            self.conn.execute(
-                """CREATE TABLE IF NOT EXISTS watchlist (
-                    symbol VARCHAR PRIMARY KEY, name VARCHAR, added_at TIMESTAMP,
-                    source VARCHAR DEFAULT 'manual'
-                )"""
-            )
             self.conn.execute("DELETE FROM watchlist")
             for item in items:
                 self.conn.execute(

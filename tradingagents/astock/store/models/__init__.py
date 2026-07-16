@@ -61,6 +61,7 @@ from .governance import (
     DataQualityRule,
     DataQuarantine,
     NotificationChannel,
+    Watchlist,
 )
 
 __all__ = [
@@ -101,4 +102,5 @@ __all__ = [
     "DataQualityRule",
     "DataQuarantine",
     "NotificationChannel",
+    "Watchlist",
 ]

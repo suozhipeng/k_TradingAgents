@@ -195,3 +195,11 @@ class NotificationChannel(Base):
     config_json: Mapped[str | None] = mapped_column(String, nullable=True)
     created_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, server_default=text("CURRENT_TIMESTAMP"))
     updated_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, server_default=text("CURRENT_TIMESTAMP"))
+
+
+class Watchlist(Base):
+    __tablename__ = "watchlist"
+    symbol: Mapped[str] = mapped_column(String, primary_key=True)
+    name: Mapped[str | None] = mapped_column(String, nullable=True)
+    added_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, nullable=True)
+    source: Mapped[str | None] = mapped_column(String, default="manual")
