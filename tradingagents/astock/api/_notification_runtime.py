@@ -8,6 +8,8 @@ import threading
 from datetime import datetime
 from typing import Any
 
+from tradingagents.astock.time_utils import utc_now_iso
+
 from ._notification_delivery import dispatch_event
 
 logger = logging.getLogger(__name__)
@@ -77,7 +79,7 @@ class NotificationRuntime:
                    ON CONFLICT(name) DO UPDATE SET
                        kind=excluded.kind, url=excluded.url, enabled=excluded.enabled,
                        config_json=excluded.config_json, updated_at=excluded.updated_at""",
-                [name, kind, url, enabled, config_json, datetime.utcnow().isoformat()],
+                [name, kind, url, enabled, config_json, utc_now_iso()],
             )
         except Exception as exc:
             logger.warning("Failed to persist channel %s: %s", channel.get("name"), exc)

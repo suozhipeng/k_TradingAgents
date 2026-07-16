@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import copy
+import json
 import multiprocessing
 import os
 import pickle
@@ -190,8 +191,14 @@ def _analysis_worker(kind: str, payload: dict[str, Any], output: Any, result_pat
         # Keep Queue payloads tiny.  A report can exceed the OS pipe buffer;
         # serializing it to a parent-owned temporary file avoids child-exit
         # deadlocks while the parent waits for completion.
-        with open(result_path, "wb") as handle:
-            pickle.dump(result, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        # Use JSON for serializable results; fall back to pickle for
+        # non-serializable types (e.g. numpy arrays, pandas objects).
+        try:
+            with open(result_path, "w", encoding="utf-8") as handle:
+                json.dump(result, handle, ensure_ascii=False, default=str)
+        except (TypeError, ValueError):
+            with open(result_path, "wb") as handle:
+                pickle.dump(result, handle, protocol=pickle.HIGHEST_PROTOCOL)
         output.put(("ok",))
     except Exception as exc:
         output.put(("error", f"{type(exc).__name__}: {exc}"))
@@ -231,8 +238,14 @@ def _run_isolated_analysis(kind: str, payload: dict[str, Any], timeout: float, f
             raise RuntimeError(f"{kind} worker exited without a response") from exc
         if packet[0] != "ok":
             raise RuntimeError(str(packet[1]))
-        with open(result_path, "rb") as handle:
-            return pickle.load(handle)
+        # Try JSON first (written by worker when result is serializable),
+        # fall back to pickle for non-serializable objects.
+        try:
+            with open(result_path, "r", encoding="utf-8") as handle:
+                return json.load(handle)
+        except (json.JSONDecodeError, ValueError):
+            with open(result_path, "rb") as handle:
+                return pickle.load(handle)
     finally:
         output.close()
         output.join_thread()

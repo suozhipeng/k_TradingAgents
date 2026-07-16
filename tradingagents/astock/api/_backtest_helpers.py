@@ -3,54 +3,105 @@
 from __future__ import annotations
 
 import logging
-
+import threading
 import json
 import math
 import re
 from datetime import datetime
 from typing import Any
+
 logger = logging.getLogger(__name__)
 
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+# Thread-safe strategy registry with version tracking
 _STRATEGY_REGISTRY: dict[str, type] | None = None
+_REGISTRY_LOCK = threading.Lock()
+_REGISTRY_VERSION: int = 0
 
 
-def get_strategy_registry() -> dict[str, type]:
-    """Lazy-build the strategy registry on first use."""
-    global _STRATEGY_REGISTRY
+def get_strategy_registry(version: int | None = None) -> dict[str, type]:
+    """Lazy-build the strategy registry on first use.
+
+    Parameters
+    ----------
+    version : int or None
+        If provided, forces a rebuild of the registry.  This allows
+        callers to invalidate the cache after dynamically registering
+        new strategies.
+
+    Returns
+    -------
+    dict[str, type]
+        Strategy name → class mapping.
+    """
+    global _STRATEGY_REGISTRY, _REGISTRY_VERSION
+
+    # If a version is provided and differs from the current one, rebuild
+    if version is not None and version != _REGISTRY_VERSION:
+        _STRATEGY_REGISTRY = None
+
     if _STRATEGY_REGISTRY is not None:
         return _STRATEGY_REGISTRY
 
-    from tradingagents.astock.execution.strategy_base import (
-        BollingerBandsReversionStrategy,
-        BullTrendStrategy,
-        DefensiveMomentumStrategy,
-        GridTradingStrategy,
-        MACDTrendStrategy,
-        MeanReversionStrategy,
-        MomentumRotationStrategy,
-        MovingAverageTrendStrategy,
-        PutWriteStrategy,
-        RSIRangeStrategy,
-        StockFlow,
-        ValueAverageStrategy,
-    )
+    with _REGISTRY_LOCK:
+        # Double-check after acquiring lock
+        if _STRATEGY_REGISTRY is not None:
+            return _STRATEGY_REGISTRY
 
-    _STRATEGY_REGISTRY = {
-        "MovingAverageTrend": MovingAverageTrendStrategy,
-        "BullTrend": BullTrendStrategy,
-        "ValueAverage": ValueAverageStrategy,
-        "MeanReversion": MeanReversionStrategy,
-        "RSIRange": RSIRangeStrategy,
-        "DefensiveMomentum": DefensiveMomentumStrategy,
-        "PutWrite": PutWriteStrategy,
-        "MACDTrend": MACDTrendStrategy,
-        "BollingerBands": BollingerBandsReversionStrategy,
-        "GridTrading": GridTradingStrategy,
-        "MomentumRotation": MomentumRotationStrategy,
-        "StockFlow": StockFlow,
-    }
+        from tradingagents.astock.execution.strategy_base import (
+            BollingerBandsReversionStrategy,
+            BullTrendStrategy,
+            DefensiveMomentumStrategy,
+            GridTradingStrategy,
+            MACDTrendStrategy,
+            MeanReversionStrategy,
+            MomentumRotationStrategy,
+            MovingAverageTrendStrategy,
+            PutWriteStrategy,
+            RSIRangeStrategy,
+            StockFlow,
+            ValueAverageStrategy,
+        )
+
+        _STRATEGY_REGISTRY = {
+            "MovingAverageTrend": MovingAverageTrendStrategy,
+            "BullTrend": BullTrendStrategy,
+            "ValueAverage": ValueAverageStrategy,
+            "MeanReversion": MeanReversionStrategy,
+            "RSIRange": RSIRangeStrategy,
+            "DefensiveMomentum": DefensiveMomentumStrategy,
+            "PutWrite": PutWriteStrategy,
+            "MACDTrend": MACDTrendStrategy,
+            "BollingerBands": BollingerBandsReversionStrategy,
+            "GridTrading": GridTradingStrategy,
+            "MomentumRotation": MomentumRotationStrategy,
+            "StockFlow": StockFlow,
+        }
+        _REGISTRY_VERSION += 1
+
     return _STRATEGY_REGISTRY
+
+
+def invalidate_strategy_registry() -> None:
+    """Force the next ``get_strategy_registry()`` call to rebuild.
+
+    Call this after dynamically adding/removing strategies so that
+    the change takes effect immediately.
+    """
+    global _STRATEGY_REGISTRY, _REGISTRY_VERSION
+    with _REGISTRY_LOCK:
+        _STRATEGY_REGISTRY = None
+        _REGISTRY_VERSION += 1
+
+
+def get_strategy_registry_json() -> str:
+    """Return the registry as a JSON string (for API responses)."""
+    registry = get_strategy_registry()
+    return json.dumps(
+        {"strategies": list(registry.keys()), "count": len(registry)},
+        ensure_ascii=False,
+    )
 
 
 def get_optimizer_cls() -> Any:

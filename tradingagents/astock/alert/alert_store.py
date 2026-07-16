@@ -391,3 +391,22 @@ class AlertStore:
                 row["resolved_at"] = now
                 return self._row_to_event(row)
             return None
+
+    # ---- Lifecycle --------------------------------------------------------
+
+    def close(self) -> None:
+        """Close the DuckDB connection if open."""
+        with self._lock:
+            if self._conn is not None:
+                try:
+                    self._conn.close()
+                except Exception:
+                    logger.debug("AlertStore: failed to close DuckDB connection", exc_info=True)
+                self._conn = None
+                self._use_db = False
+
+    def __enter__(self) -> "AlertStore":
+        return self
+
+    def __exit__(self, *args: Any) -> None:
+        self.close()

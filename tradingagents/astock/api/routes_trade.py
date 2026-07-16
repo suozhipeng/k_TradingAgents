@@ -7,8 +7,9 @@ Uses lazy imports for ``tradingagents.astock.execution.paper_trader``.
 
 from __future__ import annotations
 
-import re
 import logging
+import os
+import re
 from datetime import datetime
 from hashlib import sha256
 from threading import Lock
@@ -30,8 +31,14 @@ _cache_lock = Lock()
 _CACHE_TTL_SECONDS = 60                          # 缓存有效期 60 秒
 _CACHE_MAX_SIZE = 500                            # 缓存上限（LRU 淘汰）
 
-EM_QUOTE_URL = "https://push2.eastmoney.com/api/qt/stock/get"
-SINA_QUOTE_URL = "https://hq.sinajs.cn/list={code}"
+EM_QUOTE_URL = os.environ.get(
+    "ASTOCK_EM_QUOTE_URL",
+    "https://push2.eastmoney.com/api/qt/stock/get",
+)
+SINA_QUOTE_URL = os.environ.get(
+    "ASTOCK_SINA_QUOTE_URL",
+    "https://hq.sinajs.cn/list={code}",
+)
 
 EM_FIELDS = (
     "f43,f44,f45,f46,f47,f48,f50,f51,f57,f58,"

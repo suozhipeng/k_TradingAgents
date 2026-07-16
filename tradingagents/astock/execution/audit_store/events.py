@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Any
+
+from tradingagents.astock.time_utils import utc_now_iso
 from uuid import uuid4
 
 
@@ -13,7 +15,7 @@ def record_event_impl(store, event: Any) -> str:
     if not d.get("event_id"):
         d["event_id"] = f"evt_{uuid4().hex[:12]}"
     if not d.get("created_at"):
-        d["created_at"] = datetime.utcnow().isoformat()
+        d["created_at"] = utc_now_iso()
 
     with store._lock:
         store._audit_events[d["event_id"]] = d

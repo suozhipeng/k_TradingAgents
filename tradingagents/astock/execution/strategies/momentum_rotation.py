@@ -15,6 +15,7 @@ Reference:
 from __future__ import annotations
 
 import logging
+import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any
@@ -55,6 +56,7 @@ _DEFAULT_LEADING_STOCKS: list[dict[str, str]] = [
 
 _LEADING_STOCKS_CACHE: list[dict[str, str]] | None = None
 _LEADING_STOCKS_SOURCE: str = "default"
+_leading_stocks_lock = threading.Lock()
 
 
 def get_leading_stocks() -> tuple[list[dict[str, str]], str]:
@@ -65,6 +67,11 @@ def get_leading_stocks() -> tuple[list[dict[str, str]], str]:
     global _LEADING_STOCKS_CACHE, _LEADING_STOCKS_SOURCE
     if _LEADING_STOCKS_CACHE is not None:
         return _LEADING_STOCKS_CACHE, _LEADING_STOCKS_SOURCE
+
+    with _leading_stocks_lock:
+        # Double-check after acquiring lock
+        if _LEADING_STOCKS_CACHE is not None:
+            return _LEADING_STOCKS_CACHE, _LEADING_STOCKS_SOURCE
 
     # Try EastMoney: all A-shares sorted by market cap
     try:

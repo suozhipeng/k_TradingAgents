@@ -82,7 +82,7 @@ class TaskRun(BaseModel):
         self.status.validate_transition(self.status, target)
         prev = self.status
         self.status = target
-        now = __import__("datetime").datetime.utcnow().isoformat()
+        now = __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat()
         if target == TaskStatus.RUNNING and prev != TaskStatus.RUNNING:
             self.started_at = now
         if target in (TaskStatus.SUCCESS, TaskStatus.FAILED, TaskStatus.CANCELLED):

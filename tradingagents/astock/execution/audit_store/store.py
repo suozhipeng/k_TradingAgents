@@ -6,10 +6,13 @@ optional DuckDB persistence.
 
 from __future__ import annotations
 
+import logging
 import threading
 from datetime import datetime
 from typing import Any
 from uuid import uuid4
+
+logger = logging.getLogger(__name__)
 
 from ...schemas.ops_audit import AuditEvent, TaskRun, TaskType
 from .tasks import record_task_impl, update_task_impl, cancel_task_impl, get_task_impl, list_tasks_impl
@@ -229,6 +232,23 @@ class AuditStore:
 
     def _persist_event(self, event: dict[str, Any]) -> None:
         _persist_event_impl(self, event)
+
+    # ---- Lifecycle --------------------------------------------------------
+
+    def close(self) -> None:
+        """Close the DuckDB connection if open."""
+        if self._conn is not None:
+            try:
+                self._conn.close()
+            except Exception:
+                logger.debug("AuditStore: failed to close DuckDB connection", exc_info=True)
+            self._conn = None
+
+    def __enter__(self) -> "AuditStore":
+        return self
+
+    def __exit__(self, *args: Any) -> None:
+        self.close()
 
 
 __all__ = [
