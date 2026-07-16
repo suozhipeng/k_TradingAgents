@@ -25,6 +25,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
+from tradingagents.astock.time_utils import utc_now
 from typing import Any, Optional
 
 
@@ -96,7 +97,7 @@ class DataQualityTag(str, Enum):
             except (ValueError, TypeError):
                 return DataQualityTag.DEGRADED
 
-        age = datetime.utcnow() - generated_at
+        age = utc_now() - generated_at
         if age > degraded_after:
             return DataQualityTag.DEGRADED
         if age > stale_after:
@@ -158,7 +159,7 @@ class FreshnessInfo:
 
         try:
             dt = datetime.fromisoformat(generated_at)
-            age = (datetime.utcnow() - dt).total_seconds()
+            age = (utc_now() - dt).total_seconds()
         except (ValueError, TypeError):
             return cls(
                 generated_at=generated_at,

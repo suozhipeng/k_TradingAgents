@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from tradingagents.astock.time_utils import utc_now
 from typing import Any, Dict, List, Optional
 
 from ..base import AStockAdapterBase
@@ -177,7 +178,7 @@ class MootdxAdapter(AStockAdapterBase):
             symbol=astock_code(request.symbol),
             start=int(request.extras.get("start", 0)),
             offset=int(request.limit or request.extras.get("offset", 80)),
-            date=str(request.extras.get("date", datetime.utcnow().strftime("%Y%m%d"))),
+            date=str(request.extras.get("date", utc_now().strftime("%Y%m%d"))),
         )
         return self._parse_transactions(request, payload)
 

@@ -949,6 +949,19 @@ class TdxProvider:
 
     # ── Cleanup ──────────────────────────────────────────────────────
 
-    def __del__(self):
-        """Ensure connection is closed on garbage collection."""
+    def close(self) -> None:
+        """Disconnect the pytdx client if connected."""
         self._disconnect()
+
+    def __enter__(self) -> "TdxProvider":
+        return self
+
+    def __exit__(self, *args: Any) -> None:
+        self.close()
+
+    def __del__(self):
+        """Safety net: ensure connection is closed on garbage collection."""
+        try:
+            self._disconnect()
+        except Exception:
+            pass

@@ -29,6 +29,7 @@ import threading
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
+from tradingagents.astock.time_utils import utc_now, utc_now_iso
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -201,7 +202,7 @@ class TdxCache:
         source : str
             Source identifier (e.g. ``tdx_pytdx``, ``tdx_vipdoc``).
         """
-        now = datetime.utcnow().isoformat() + "Z"
+        now = utc_now().isoformat() + "Z"
 
         with self._lock:
             if self._use_csv:
@@ -254,7 +255,7 @@ class TdxCache:
             return False  # No expiry
         try:
             updated_dt = datetime.fromisoformat(updated_at_str.replace("Z", ""))
-            age = (datetime.utcnow() - updated_dt).total_seconds()
+            age = (utc_now() - updated_dt).total_seconds()
             return age > max_age
         except (ValueError, TypeError):
             return True  # Can't parse timestamp — treat as expired
@@ -430,5 +431,15 @@ class TdxCache:
 
     # ── Cleanup ───────────────────────────────────────────────────────
 
-    def __del__(self) -> None:
+    def __enter__(self) -> "TdxCache":
+        return self
+
+    def __exit__(self, *args: Any) -> None:
         self.close()
+
+    def __del__(self) -> None:
+        """Safety net: ensure connection is closed on garbage collection."""
+        try:
+            self.close()
+        except Exception:
+            pass

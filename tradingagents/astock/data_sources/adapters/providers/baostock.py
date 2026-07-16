@@ -4,11 +4,14 @@ from __future__ import annotations
 
 import logging
 import socket
+import threading
 from typing import Any, Dict
 
 from ..base import AStockAdapterBase
 
 logger = logging.getLogger(__name__)
+# Module-level lock to protect process-global socket timeout during baostock login
+_baostock_login_lock = threading.Lock()
 from ..common import (
     _coerce_float,
     _ensure_records,
@@ -37,6 +40,7 @@ class BaoStockAdapter(AStockAdapterBase):
     def __init__(self, **config: Any) -> None:
         super().__init__(**config)
         self._logged_in = False
+        self._login_lock = threading.Lock()
 
     def _login(self) -> None:
         if self._logged_in:
@@ -47,11 +51,16 @@ class BaoStockAdapter(AStockAdapterBase):
             raise AStockSourceUnavailableError(
                 self.name, "baostock package not installed. Run: pip install baostock"
             )
-        socket.setdefaulttimeout(5.0)
-        try:
-            lg = bs.login()
-        finally:
-            socket.setdefaulttimeout(None)
+        # Per-instance lock protects process-global socket timeout so that
+        # concurrent threads on the same adapter don't interfere with each
+        # other.  A module-level lock (_baostock_login_lock) is also held
+        # to prevent cross-instance interference.
+        with self._login_lock, _baostock_login_lock:
+            try:
+                socket.setdefaulttimeout(5.0)
+                lg = bs.login()
+            finally:
+                socket.setdefaulttimeout(None)
         if lg.error_code != "0":
             raise AStockSourceUnavailableError(
                 self.name, "baostock login failed: {0}".format(lg.error_msg)
@@ -149,4 +158,14 @@ class BaoStockAdapter(AStockAdapterBase):
         return _retry_with_backoff(_do_query, max_retries=2, base_delay=0.5, name="baostock.kline")
 
     def __del__(self):
+        """Safety net: ensure logout on garbage collection."""
+        try:
+            self._logout()
+        except Exception:
+            pass
+
+    def __enter__(self) -> "BaoStockAdapter":
+        return self
+
+    def __exit__(self, *args: Any) -> None:
         self._logout()

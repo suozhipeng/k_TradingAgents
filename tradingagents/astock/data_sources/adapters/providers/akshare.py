@@ -4,11 +4,14 @@ from __future__ import annotations
 
 import importlib
 import inspect
+import json
 import logging
 import queue
 import threading
 import time
 from datetime import datetime
+from tradingagents.astock.time_utils import utc_now
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from ..base import AStockAdapterBase
@@ -57,6 +60,40 @@ class AkshareAdapter(AStockAdapterBase):
         self._max_daily_calls = int(config.get("max_daily_calls", _env("ASTOCK_AKSHARE_MAX_DAILY_CALLS", "5000")))
         self._call_count = 0
         self._last_reset_day = datetime.now().strftime("%Y-%m-%d")
+        # File-based counter so the limit survives process restarts
+        # (akshare enforces the limit server-side regardless of our process state)
+        self._counter_file = config.get(
+            "call_counter_file",
+            str(Path.home() / ".tradingagents" / "astock" / "akshare_call_count.json"),
+        )
+        self._load_call_counter()
+
+    def _load_call_counter(self) -> None:
+        """Restore call count from disk if the file exists and is from today."""
+        try:
+            p = Path(self._counter_file)
+            if p.exists():
+                data = json.loads(p.read_text(encoding="utf-8"))
+                if data.get("date") == datetime.now().strftime("%Y-%m-%d"):
+                    self._call_count = int(data.get("count", 0))
+                    self._last_reset_day = data.get("date", self._last_reset_day)
+        except Exception:
+            pass
+
+    def _persist_call_counter(self) -> None:
+        """Write current call count to disk for process restart resilience."""
+        try:
+            p = Path(self._counter_file)
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text(
+                json.dumps({
+                    "date": self._last_reset_day,
+                    "count": self._call_count,
+                }, ensure_ascii=False),
+                encoding="utf-8",
+            )
+        except Exception:
+            pass  # Non-critical — if we can't write, we just reset on restart
 
     def _load(self):
         if self._module is not None:
@@ -94,6 +131,9 @@ class AkshareAdapter(AStockAdapterBase):
                 "daily call limit ({0}) exceeded for {1}".format(self._max_daily_calls, func_name),
                 capability=request.capability,
             )
+        # Persist to disk periodically (every 100 calls) to survive restarts
+        if self._call_count % 100 == 0:
+            self._persist_call_counter()
 
         # Circuit breaker check
         now = time.time()
@@ -479,7 +519,7 @@ class AkshareAdapter(AStockAdapterBase):
         return {"items": items, "count": len(items), "query": query}
 
     def get_quarterly_financials(self, request: AStockRequest):
-        default_start_year = str(datetime.utcnow().year - 6)
+        default_start_year = str(utc_now().year - 6)
         payload = self._call(
             request,
             "stock_financial_analysis_indicator",
