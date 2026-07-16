@@ -283,6 +283,22 @@ LLM_API_KEY=your_key_here
 
 浏览器访问 http://127.0.0.1:5860；这是本地正式版的唯一 Web 入口。
 
+### 本地 K 线与分钟线增量刷新
+
+所有 Web 查询先读取应用热库，再读取永久本地库 `kline/kline.duckdb`；仅在显式刷新时才访问 provider。首次加载或更新日线：
+
+```bash
+curl 'http://127.0.0.1:5860/api/v1/market/kline?symbol=600519.SH&interval=1d&refresh=1'
+```
+
+分钟线使用相同接口，例如 5 分钟 K：
+
+```bash
+curl 'http://127.0.0.1:5860/api/v1/market/kline?symbol=600519.SH&interval=5m&refresh=1'
+```
+
+刷新会从该 `symbol:interval` 的本地水位增量拉取（分钟线保留两根重叠 bar），校验时间与 OHLC 数值后 upsert 至热库和永久库。网络载荷缺少 `bars/items/kline`、缺失 OHLC、日期非法或数值非法时，接口返回 `422 invalid_kline_data`；不会把未验证数据返回页面。批量刷新使用 `POST /api/v1/data/jobs/refresh`，并支持 `1m`、`5m`、`15m`、`30m`、`60m` 等周期。
+
 ### 启动 CLI
 
 ```bash

@@ -10,6 +10,7 @@
 - 当前唯一未闭环 live 依赖为 `ASTOCK_IWENCAI_COOKIE`；未配置时 Iwencai 用例按设计跳过
 - 默认产品范围为 Research-only：投研分析 + 策略回测 + 市场盯盘；执行页面与 `/api/v1/trade/*`、`/paper/*`、`/qmt/*`、`/portfolio/*` API 默认不可用。`ASTOCK_RESEARCH_ONLY=false` 仅保留兼容模式；**不接入真实券商**。
 - 本地正式版（仅分析与回测）的问题整改、任务拆分和验收结果见 [`LOCAL_RELEASE_READINESS_PLAN.md`](LOCAL_RELEASE_READINESS_PLAN.md)。Flask/Jinja2 是唯一 Web 工作台。
+- K 线数据的本地优先查询、分钟线增量刷新、永久仓库与并发边界统一见 [`03-operations.md`](03-operations.md#数据刷新与本地缓存)；不要再以历史交接文档作为运行依据。
 - 行情响应统一包含 `source`、`as_of`、`age_seconds`、`is_mock`、`is_stale`，UI 与调用方必须据此区分实时、缓存、降级与模拟数据。
 - Jinja2 WebUI 已收敛为 22 个非共享页面模板与 2 个共享模板；旧盯盘 URL 以 `302` 跳转到 Market Leaders，唯一支持的图表入口为 KC Chart。
 
@@ -21,6 +22,7 @@ docs/
 ├── CHANGELOG.md           ← 版本白皮书
 ├── BACKLOG.md             ← 待完成任务清单
 ├── LOCAL_RELEASE_READINESS_PLAN.md ← 本地正式版发布就绪计划（仅分析与回测）
+├── LOCAL_RELEASE_VERIFICATION.md   ← 本地发布验证命令与浏览器门禁
 │
 ├── 01-architecture.md         ← 架构设计（API + ADR 整合）
 ├── 02-user-guide.md         ← 上手与使用（用户手册 + 快速入门 + 术语表 + 策略开发）

@@ -1,6 +1,6 @@
 # 本地正式版 Web 发布就绪计划（仅分析与回测）
 
-> 状态：completed（2026-07-13）
+> 状态：completed（2026-07-17，v0.3.2）
 > 范围：本机单用户部署；投研分析、数据查看、报告与策略回测。
 > 明确不包含：实盘交易、模拟盘交易循环、QMT 连接/订单/持仓、任何 `/api/v1/trade/*`、`/paper/*`、`/qmt/*`、`/portfolio/*` 执行能力。
 
@@ -57,7 +57,7 @@
 
 ### 验证边界
 
-本地正式版发布门禁是 `scripts/verify_local_release.sh`；完整离线回归和 Chromium 浏览器测试由 CI 执行。可复现的本机安装、Parquet/Pydantic gate 和浏览器运行路径见 [`LOCAL_RELEASE_VERIFICATION.md`](LOCAL_RELEASE_VERIFICATION.md)。安装 `.venv/bin/python -m pip install -e ".[local-release]"` 后，运行 `.venv/bin/python -m playwright install chromium` 和 `scripts/verify_local_release.sh --browser` 即可执行完整门禁。在空本地库中，先显式 `/api/v1/market/kline?symbol=600519.SH&refresh=1` 初始化；mootdx 的 TDX 尾部窗口会按请求的本地水位日期过滤后再 upsert 和同步永久仓库。真实 LLM 和有 cookie 的 Provider 验收不使用离线基线伪造通过，见用户手册的外部凭据前置条件。
+本地正式版发布门禁是 `scripts/verify_local_release.sh`；完整离线回归和 Chromium 浏览器测试由 CI 执行。可复现的本机安装、Parquet/Pydantic gate 和浏览器运行路径见 [`LOCAL_RELEASE_VERIFICATION.md`](LOCAL_RELEASE_VERIFICATION.md)。安装 `.venv/bin/python -m pip install -e ".[local-release]"` 后，运行 `.venv/bin/python -m playwright install chromium` 和 `scripts/verify_local_release.sh --browser` 即可执行完整门禁。在空本地库中，先显式 `/api/v1/market/kline?symbol=600519.SH&interval=1d&refresh=1` 初始化；分钟线使用 `interval=1m|5m|15m|30m|60m`，同样会增量写入热库与永久仓库。真实 LLM 和有 cookie 的 Provider 验收不使用离线基线伪造通过，见用户手册的外部凭据前置条件。
 
 已配置有效 `DEEPSEEK_API_KEY` 时，`tests/test_deepseek_reasoning.py::TestDeepSeekLiveStructuredOutput::test_v4_flash_returns_structured_output` 已于 2026-07-13 通过 live 验收。凭据只应由运行环境注入，禁止写入代码、文档或版本库。
 

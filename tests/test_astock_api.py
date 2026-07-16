@@ -1232,6 +1232,36 @@ def test_kline_explicit_refresh_works_when_automatic_refresh_is_disabled(app, mo
     assert payload["daily_refresh"]["status"] == "succeeded"
 
 
+def test_kline_explicit_minute_refresh_is_incremental_and_persisted(app, monkeypatch):
+    """A minute-bar refresh uses the provider once and serves its DB cache."""
+    from types import SimpleNamespace
+
+    class Facade:
+        calls: list[dict[str, Any]] = []
+
+        def fetch(self, **kwargs):
+            self.calls.append(kwargs)
+            return SimpleNamespace(
+                status="ok", source="minute-test",
+                data={"bars": [{
+                    "datetime": "2024-01-04 09:35:00", "open": 10.0,
+                    "high": 10.5, "low": 9.9, "close": 10.2, "volume": 100,
+                }]},
+            )
+
+    monkeypatch.setenv("ASTOCK_PROVIDER_PROCESS_ISOLATION", "false")
+    facade = Facade()
+    app.application.config["DATA_FACADE"] = facade
+    response = app.get("/api/v1/market/kline?symbol=000001.SZ&interval=5m&refresh=1")
+
+    assert response.status_code == 200
+    assert response.get_json()["data"]["count"] == 1
+    assert facade.calls[0]["interval"] == "5m"
+    cached = app.get("/api/v1/market/kline?symbol=000001.SZ&interval=5m")
+    assert cached.status_code == 200
+    assert cached.get_json()["data"]["count"] == 1
+
+
 def test_market_regime_rejects_invalid_lookback_with_contract_error(app):
     response = app.get("/api/v1/market/regime?lookback=not-a-number")
 

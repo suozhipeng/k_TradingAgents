@@ -19,6 +19,7 @@ from typing import Any
 
 from flask import Blueprint, Response, current_app, jsonify, request
 from .envelope import error_response
+from tradingagents.astock.quality import BlockedImportError
 
 bp = Blueprint("tv", __name__)
 logger = logging.getLogger(__name__)
@@ -438,28 +439,22 @@ def tv_history() -> tuple[Response, int]:
         store = get_store()
         start_str = __import__("datetime").datetime.utcfromtimestamp(from_ts).strftime("%Y-%m-%d") if from_ts else None  # noqa: E501
         end_str = __import__("datetime").datetime.utcfromtimestamp(to_ts).strftime("%Y-%m-%d") if to_ts else None
-        df = store.query_kline(symbol, interval=interval, start=start_str, end=end_str, limit=max_bars, include_cold=include_cold)
-        # The canonical warehouse is also local storage.  Always consult it
-        # before making the chart's provider fallback request.
-        if df.empty and current_app.config.get("ASTOCK_PERMANENT_KLINE_ENABLED", True):
-            try:
-                from tradingagents.astock.store.permanent_kline import get_permanent_kline_store
-
-                permanent = get_permanent_kline_store(
-                    current_app.config.get("ASTOCK_PERMANENT_KLINE_DB_PATH", "kline/kline.duckdb")
-                )
-                if permanent is not store and permanent is not getattr(store, "_store", None):
-                    df = permanent.query_kline(
-                        symbol, interval=interval, start=start_str, end=end_str,
-                        limit=max_bars, include_cold=include_cold,
-                    )
-            except Exception as exc:
-                logger.warning("TV permanent local K-line query failed for %s: %s", symbol, exc)
+        # Reuse the market-data local-first path: hot store then permanent
+        # local warehouse.  Keeping this logic in one place prevents the
+        # chart endpoint from drifting into an unnecessary provider request.
+        from .routes_data_query import _query_local_kline
+        df, _local_source = _query_local_kline(
+            store, symbol, start=start_str, end=end_str, interval=interval,
+            limit=max_bars, include_cold=include_cold,
+        )
         bars = df_to_json(df)
 
         # Weekly/Monthly/Yearly: aggregate from daily data
         if not bars and interval in ("1w", "1mo", "1y"):
-            df_daily = store.query_kline(symbol, interval="1d", start=start_str, end=end_str, limit=max_bars)
+            df_daily, _daily_source = _query_local_kline(
+                store, symbol, start=start_str, end=end_str, interval="1d",
+                limit=max_bars, include_cold=include_cold,
+            )
             daily_bars = df_to_json(df_daily)
             if daily_bars:
                 bars = _aggregate_bars(daily_bars, interval)
@@ -469,32 +464,24 @@ def tv_history() -> tuple[Response, int]:
                 try:
                     resp = router.get_kline(symbol, interval=interval, source="mootdx", limit=400)
                     if resp.status == "ok" and resp.data:
-                        items = resp.data.get("bars") or resp.data.get("items", [])
-                        if isinstance(items, list) and len(items) > 0:
-                            # Copy to avoid mutating cached source data (mootdx reuses objects)
-                            items = [dict(item) for item in items]
-                            first_date = items[0].get("date") or ""
-                            if " " in str(first_date):
-                                for item in items:
-                                    if "date" in item and "trade_date" not in item:
-                                        item["trade_date"] = item.pop("date")
-                            # Provider fallback is a cache fill, not a
-                            # throwaway chart response: persist it so zooming
-                            # or reopening the same range stays local.
-                            try:
-                                import pandas as pd
-                                store.insert_kline(symbol, pd.DataFrame(items), interval=interval, source=resp.source or "mootdx")
-                                if current_app.config.get("ASTOCK_PERMANENT_KLINE_ENABLED", True):
-                                    from tradingagents.astock.store.permanent_kline import (
-                                        get_permanent_kline_store, mirror_kline_frame,
-                                    )
-                                    mirror_kline_frame(
-                                        get_permanent_kline_store(current_app.config.get("ASTOCK_PERMANENT_KLINE_DB_PATH", "kline/kline.duckdb")),
-                                        symbol, pd.DataFrame(items), interval=interval, source=resp.source or "mootdx",
-                                    )
-                            except Exception as exc:
-                                logger.warning("TV fallback cache write failed for %s: %s", symbol, exc)
-                            bars = items
+                        from tradingagents.astock.store.loader import KlineLoader
+                        from tradingagents.astock.store.permanent_kline import get_permanent_kline_store
+
+                        permanent = (
+                            get_permanent_kline_store(current_app.config.get("ASTOCK_PERMANENT_KLINE_DB_PATH", "kline/kline.duckdb"))
+                            if current_app.config.get("ASTOCK_PERMANENT_KLINE_ENABLED", True) else None
+                        )
+                        KlineLoader(store, router, permanent_store=permanent).write_response(
+                            symbol, resp, interval=interval, source=resp.source or "mootdx"
+                        )
+                        df, _local_source = _query_local_kline(
+                            store, symbol, start=start_str, end=end_str, interval=interval,
+                            limit=max_bars, include_cold=include_cold,
+                        )
+                        bars = df_to_json(df)
+                except (ValueError, BlockedImportError) as exc:
+                    logger.warning("TV provider returned malformed K-line data for %s: %s", symbol, exc)
+                    return jsonify({"s": "error", "errmsg": "invalid_kline_data"}), 422
                 except Exception:
                     logger.warning("TV intraday fetch failed for %s", symbol, exc_info=True)
 

@@ -24,22 +24,23 @@
 ### 数据刷新与本地缓存
 
 - 正式 Data Hub 通过 `GET /api/v1/data/refresh/options` 获取标的、周期与模式，前端不得自行硬编码周期或增量规则。
-- `POST /api/v1/data/jobs/refresh` 支持 `range` 与 `incremental`：后者由服务端从本地该标的/周期的最新 bar 前推一个周期作为重叠刷新起点，再以 upsert 写入本地 Store。
+- `POST /api/v1/data/jobs/refresh` 支持 `range` 与 `incremental`：后者由服务端从本地该标的/周期的最新 bar 推导起点再以 upsert 写入本地 Store；分钟周期保留两根 bar 重叠，日线保留最新 bar 以覆盖盘中更新。
 - 刷新计划会对重复的 `symbols` 和 `intervals` 去重；每个 `symbol:interval` 在一次任务中只执行一次。超过 3 个 K 线请求时使用线程池并发拉取，但写入仍由 Store 的锁顺序化，避免破坏本地数据库一致性。
 - 所有 provider 调用经过进程内共享的按源治理器：默认全局最多 5 条在途网络请求、单源最多 1 条、相邻请求最少间隔 0.25 秒；检测到 429/频率限制后，该源默认冷却 15 秒并继续尝试路由 fallback。可通过 `ASTOCK_NETWORK_MAX_CONCURRENCY`、`ASTOCK_PROVIDER_MAX_CONCURRENCY`、`ASTOCK_PROVIDER_MIN_INTERVAL_SECONDS` 和 `ASTOCK_PROVIDER_COOLDOWN_SECONDS` 调整；生产环境应从保守值逐步放宽。
 - Data Hub 刷新请求可传入 `max_concurrency`（1～5，默认 5）与 `timeout_seconds`（1～3600，默认 300）。等待网络槽位、节流和整批刷新均有截止时间；到期的未完成项返回可重试的 `timeout`，不再无限等待；超时后迟到的 K 线结果不会再写入本地库。第三方 HTTP/SDK adapter 仍必须保留自身连接/读取超时。
 - provider 主动返回超时时，刷新会在 deadline 内做指数退避重试：K 线默认最多重试 3 次，估值默认最多重试 2 次；可通过 `timeout_retries`（0～3）覆盖 K 线次数，或通过 `ASTOCK_KLINE_TIMEOUT_RETRIES`、`ASTOCK_VALUATION_TIMEOUT_RETRIES` 配置默认值。任务结果以 `retry_count` 记录实际重试次数。
-- 单个标的请求失败不会中止整批刷新。任务结果的 K 线项返回 `status`、`requested_start`、`requested_end`、`rows_upserted`；失败项额外返回稳定的 `error.code`、受限长度的 `error.message` 与 `error.retryable`。当前错误码包括 `rate_limited`、`timeout`、`source_unavailable`、`network_error`、`no_data` 和 `unexpected_error`。调用方应以 `failure_count` 判断部分失败，不应只根据任务总状态判断数据完整性。
+- 单个标的请求失败不会中止整批刷新。任务结果的 K 线项返回 `status`、`requested_start`、`requested_end`、`rows_upserted`；失败项额外返回稳定的 `error.code`、受限长度的 `error.message` 与 `error.retryable`。当前错误码包括 `rate_limited`、`timeout`、`source_unavailable`、`network_error`、`no_data`、`invalid_kline_data` 和 `unexpected_error`。调用方应以 `failure_count` 判断部分失败，不应只根据任务总状态判断数据完整性。
 - 本地 DuckDB 是单写入分析库：网络和计算可并发，写入由 Store 锁批处理；需要多进程/多用户高并发写入时必须切换 PostgreSQL/TimescaleDB（连接池由 `PG_POOL_SIZE` 配置）。入库层兼容常见中英文行情字段和数值字符串；无法解析日期或 OHLC 的行会写入 `data_quarantine`（`rule_id=field_compatibility`、`severity=error`）并输出 `KLINE_FIELD_EXCEPTION` 结构化错误日志，同批有效数据继续写入，管理员可通过隔离记录手动修复和关闭。
 - 刷新任务会持久化状态事件用于审计；任务列表本身仍是进程内视图，服务重启后不承诺恢复为可轮询任务。
 - `rows_upserted` 是本次受影响行数，不等同于新增、更新或跳过的拆分计数；在没有数据库差分计数器前不得展示这些虚假明细。
-- 用于回测的永久 K 线仓库默认是项目根目录的 `kline/kline.duckdb`（可用 `ASTOCK_PERMANENT_KLINE_DB_PATH` 覆盖）。本地正式版的 K 线 GET 默认只读，必须由 Data Hub 或显式 `refresh=1` 初始化；刷新从本地水位重叠拉取并 upsert，随后同步永久仓库。响应的 `data_state` 明确区分 `ready` 和首次运行的 `not_initialized`；上游刷新失败且没有本地数据时返回 `503 market_data_unavailable`，不再伪装成空数据。
+- 用于回测的永久 K 线仓库默认是项目根目录的 `kline/kline.duckdb`（可用 `ASTOCK_PERMANENT_KLINE_DB_PATH` 覆盖）。Web 与图表请求固定按“热库 → 永久本地库 → 显式网络刷新”查询；图表周/月/年线也会从永久库日线聚合，避免本地已有数据时重复联网。`GET /api/v1/market/kline` 默认只读，使用 `refresh=1` 可拉取日线或 `1m`/`5m`/`15m`/`30m`/`60m` 分钟线；校验成功后才同步永久仓库。响应的 `data_state` 明确区分 `ready` 和首次运行的 `not_initialized`；上游刷新失败且没有本地数据时返回 `503 market_data_unavailable`，不再伪装成空数据。
+- provider 载荷必须包含 `bars`、`items` 或 `kline` 之一，并具备可解析时间与完整 OHLC。缺失字段、非法日期或非数值会拒绝写入并返回 `422 invalid_kline_data`；图表不会回传未通过本地校验的数据。
 - 分钟 K 的归档/清理只针对应用热库，默认仅预览；永久仓库不参与清理。只有在已确认永久库同步成功且归档文件校验通过时，才应以 `confirm_delete=true` 删除热库历史数据。可用 `ASTOCK_PERMANENT_KLINE_ENABLED=false` 显式关闭永久镜像（不建议用于回测环境）。
 - 回测默认只读永久仓库，结果会记录 `permanent_local_duckdb` 数据来源；如确有需要才设置 `ASTOCK_BACKTEST_ALLOW_LIVE_FALLBACK=true` 允许网络回补。回测历史接口支持 `limit`、`offset`，列表页可使用 `include_curve=false` 避免传输完整净值曲线。
 - `GET /api/v1/market/screener` 以单次窗口查询读取最近 120 根日 K，默认最多扫描 2,000 个标的（`scan_limit` 最大 5,000）。`/api/v1/tv/history` 单次最多返回 5,000 根 bar。
 - 后台数据任务有有界等待队列（默认 `ASTOCK_DATA_JOB_MAX_QUEUED=100`）；队列饱和返回 HTTP 429。仪表盘表统计默认缓存 30 秒（`ASTOCK_DASHBOARD_STATS_TTL_SECONDS`）。`POST /api/v1/data/maintenance` 仅供受认证的运维模式使用，本地正式版的 allowlist 不开放它。
 - 历史回测默认不会访问外部停牌/涨跌停接口，确保本地数据可复现；需要该附加校验时，在回测请求中传入 `enable_external_constraints=true`，同一运行内会按标的和日期缓存。Alpha Vantage 使用共享连接与 Provider 限流器，超时由 `ASTOCK_ALPHA_VANTAGE_TIMEOUT_SECONDS` 控制（默认 15 秒）。
-- 本地正式版固定单 API worker。`WEB_CONCURRENCY>1` 会直接拒绝启动；启动器不再提供 scheduler 开关，也不会启动 scheduler。本地免鉴权仅开放产品 API allowlist，通知、运维、管理、执行、SSE 和 scheduler 一律返回 410；本地范围不承诺 Redis、多 worker 或横向扩展。
+- 本地正式版固定单 API worker。`WEB_CONCURRENCY>1` 会直接拒绝启动；启动器不再提供 scheduler 开关，也不会启动 scheduler。单应用内相同 `symbol:interval` 的并发刷新会合并为一个 flight，且 flight 按 Flask 应用实例隔离，不会向另一应用泄漏刷新结果。本地免鉴权仅开放产品 API allowlist，通知、运维、管理、执行、SSE 和 scheduler 一律返回 410；本地范围不承诺 Redis、多 worker 或横向扩展。
 - 已归档的分钟 K 写入按月 Parquet，并在热库创建 `kline_bars_cold` DuckDB 视图供审计和冷数据查询；永久回测库不清理这些分钟 K。
 - 市场领先池刷新仅允许 `POST /api/v1/market/leading-pool/refresh`；`GET /market/leading-pool` 与 `GET /market/momentum` 保持只读，不再由 `refresh=1` 改变服务端状态。健康探针分为 `/api/v1/health/live`（进程存活）与 `/api/v1/health/ready`（实际探测热库和永久库）；旧 `/health` 保持为 readiness 兼容别名。
 - 每个 API 响应携带 `X-Request-ID` 与 `X-Response-Time-Ms`。`GET /api/v1/ops/metrics` 可查看进程内请求量、平均延迟和数据任务状态。它用于单进程本地运维；横向扩展请接入集中式指标系统。
@@ -55,7 +56,7 @@
 
 - 永久回测仓库 `kline/kline.duckdb` 与应用热库必须分别备份；分钟 Parquet 归档目录也必须纳入同一保留策略。恢复后先运行 `/api/v1/health/ready`，随机核对一个标的的日线、5 分钟线行数与最新时间，再恢复对外流量。
 - 数据库结构变更应先在备份副本演练升级和回滚。迁移前记录版本与校验和；若回滚不可逆，使用恢复到迁移前备份而不是手工删表。
-- 本地发布先验证 readiness、`/ops/metrics`、日线增量刷新、回测输入指纹和 webhook 签名；出现 provider 错误率、队列饱和或延迟异常时，停止使用并检查本地数据与配置。
+- 本地发布先验证 readiness、`/ops/metrics`、日线与 5 分钟线增量刷新、回测输入指纹和 webhook 签名；出现 provider 错误率、队列饱和或延迟异常时，停止使用并检查本地数据与配置。
 - 进行压测时使用 mock/provider stub 与独立数据库；重点覆盖并发 K 线查询、带相同 `Idempotency-Key` 的重试、数据任务队列饱和和回测超时，禁止以第三方免费行情源作为压测目标。
 
 ### 本地边界与容量控制

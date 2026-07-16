@@ -108,15 +108,24 @@ def refresh_kline() -> tuple[Response, int]:
     start = body.get("start")
     end = body.get("end")
     interval = body.get("interval", "1d")
+    mode = str(body.get("mode", "incremental")).lower()
+    if mode not in {"incremental", "range"}:
+        return error_response("mode must be incremental or range", 400)
     try:
         from tradingagents.astock.store.loader import KlineLoader
         store = get_store()
+        if mode == "incremental" and not start:
+            from .routes_data_jobs import _latest_kline_start
+            start = _latest_kline_start(store, symbol, str(interval))
         router = current_app.config.get("DATA_FACADE")
         if not router:
             return error_response("data router not available", 503)
         loader = KlineLoader(store, router, permanent_store=_permanent_kline_store())
         count = loader.load(symbol, start=start, end=end, interval=interval)
-        return jsonify({"symbol": symbol, "rows_inserted": count, "status": "ok"}), 200
+        return jsonify({
+            "symbol": symbol, "interval": interval, "mode": mode,
+            "start": start, "rows_inserted": count, "status": "ok",
+        }), 200
     except Exception as exc:
         error_msg = str(exc)
         from tradingagents.astock.quality import BlockedImportError

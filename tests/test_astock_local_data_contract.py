@@ -66,3 +66,14 @@ def test_malformed_provider_kline_is_rejected_without_partial_local_write() -> N
         assert store.query_kline("000001.SZ").empty
     finally:
         store.close()
+
+
+def test_provider_response_without_bar_container_is_rejected() -> None:
+    store = AStockStore(":memory:")
+    store.init_schema()
+    loader = KlineLoader(store, data_facade=object())
+    try:
+        with pytest.raises(ValueError, match="expected one of bars, items, or kline"):
+            loader.write_response("000001.SZ", SimpleNamespace(status="ok", data={}))
+    finally:
+        store.close()

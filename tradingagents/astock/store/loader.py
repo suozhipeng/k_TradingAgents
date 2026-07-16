@@ -250,8 +250,9 @@ class KlineLoader:
         else:
             bars = None
         if bars is None:
-            logger.warning("No kline bars in response for %s", symbol)
-            return 0
+            raise ValueError(
+                "invalid kline payload: expected one of bars, items, or kline"
+            )
 
         if isinstance(bars, pd.DataFrame):
             df = bars.copy()

@@ -4,6 +4,13 @@
 
 ## Unreleased
 
+### 2026-07-17 本地优先分钟线与数据链路收敛
+
+- Web/TradingView K 线查询统一为热库、永久本地库、网络刷新三层；周/月/年线可从永久库日线聚合，避免重复联网。
+- 显式 `refresh=1` 支持 `1m`、`5m`、`15m`、`30m`、`60m` 分钟 K 线增量拉取、格式校验、热库 upsert 与永久 DuckDB 同步。
+- 多 Flask 应用的同标的刷新 flight 按应用实例隔离；provider 载荷缺少 bar 容器或 OHLC/时间格式非法时返回 `422 invalid_kline_data`，不再向 Web 返回未验证数据。
+- 图表端移除重复的本地查询和缓存写入分支，复用市场数据本地优先路径。
+
 ### 2026-07-16 本地入口与数据边界收敛
 
 - 唯一启动器固定为 `scripts/run_astock_api.py`：local-release、单 worker 与 scheduler 禁用不再有可绕过的命令行开关。

@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 # independently hit the upstream provider and contend for the same DuckDB
 # write lock.
 _daily_refresh_lock = threading.Lock()
-_daily_refresh_flights: dict[str, Future[dict[str, Any]]] = {}
+_daily_refresh_flights: dict[tuple[int, str, str], Future[dict[str, Any]]] = {}
 _permanent_write_lock = threading.Lock()
 
 
@@ -67,7 +67,9 @@ def _with_meta(payload: dict, resp: Any) -> dict:
     return payload
 
 
-def _refresh_daily_kline_incrementally(symbol: str, *, force: bool = False) -> dict[str, Any]:
+def _refresh_daily_kline_incrementally(
+    symbol: str, *, force: bool = False, interval: str = "1d"
+) -> dict[str, Any]:
     """Refresh a symbol's daily bars without letting a provider stall a query.
 
     The refresh begins at the newest locally stored daily bar so provider data
@@ -80,11 +82,13 @@ def _refresh_daily_kline_incrementally(symbol: str, *, force: bool = False) -> d
         return {"status": "disabled", "rows_upserted": 0}
 
     timeout = float(current_app.config.get("ASTOCK_DAILY_KLINE_REFRESH_TIMEOUT_SECONDS", 8))
+    app_key = id(current_app._get_current_object())
+    flight_key = (app_key, symbol, interval)
     with _daily_refresh_lock:
-        existing = _daily_refresh_flights.get(symbol)
+        existing = _daily_refresh_flights.get(flight_key)
         if existing is None:
             flight: Future[dict[str, Any]] = Future()
-            _daily_refresh_flights[symbol] = flight
+            _daily_refresh_flights[flight_key] = flight
             is_leader = True
         else:
             flight = existing
@@ -102,7 +106,7 @@ def _refresh_daily_kline_incrementally(symbol: str, *, force: bool = False) -> d
             }
 
     try:
-        result = _perform_daily_kline_incremental_refresh(symbol, timeout)
+        result = _perform_daily_kline_incremental_refresh(symbol, timeout, interval=interval)
         flight.set_result(result)
         return result
     except Exception as exc:
@@ -112,11 +116,13 @@ def _refresh_daily_kline_incrementally(symbol: str, *, force: bool = False) -> d
         return result
     finally:
         with _daily_refresh_lock:
-            _daily_refresh_flights.pop(symbol, None)
+            _daily_refresh_flights.pop(flight_key, None)
 
 
-def _perform_daily_kline_incremental_refresh(symbol: str, timeout: float) -> dict[str, Any]:
-    """Perform the leader side of a coalesced daily K-line refresh."""
+def _perform_daily_kline_incremental_refresh(
+    symbol: str, timeout: float, *, interval: str = "1d"
+) -> dict[str, Any]:
+    """Perform a coalesced incremental refresh for daily or minute K-lines."""
     router = _router()
     if router is None:
         return {"status": "unavailable", "rows_upserted": 0, "reason": "data router not available"}
@@ -124,10 +130,16 @@ def _perform_daily_kline_incremental_refresh(symbol: str, timeout: float) -> dic
     store = get_store()
     start = None
     try:
-        latest = store.query_kline(symbol, interval="1d", limit=1)
+        latest = store.query_kline(symbol, interval=interval, limit=1)
         if not latest.empty and "bar_time" in latest.columns:
             value = latest.iloc[-1]["bar_time"]
-            start = pd.Timestamp(value).date().isoformat()
+            watermark = pd.Timestamp(value)
+            if interval.endswith("m") and interval != "1mo":
+                start = (watermark - pd.Timedelta(minutes=int(interval[:-1]) * 2)).isoformat()
+            else:
+                # Daily refresh keeps the current bar in the provider request
+                # so an in-progress trading-day candle is replaced in place.
+                start = watermark.date().isoformat()
     except Exception as exc:
         logger.warning("could not determine local K-line watermark for %s: %s", symbol, exc)
 
@@ -141,15 +153,16 @@ def _perform_daily_kline_incremental_refresh(symbol: str, timeout: float) -> dic
                 current_app.config.get("ASTOCK_PERMANENT_KLINE_DB_PATH", "kline/kline.duckdb")
             )
         result = BatchLoader(store, router, max_workers=1, permanent_store=permanent).load_kline_requests(
-            [{"symbol": symbol, "start": start, "interval": "1d"}],
+            [{"symbol": symbol, "start": start, "interval": interval}],
             timeout_seconds=timeout,
             timeout_retries=0,
         )[f"{symbol}:1d"]
         result["mode"] = "incremental"
-        result["permanent_store"] = _mirror_kline_to_permanent(store, symbol, "1d", start)
-        result["intraday_refresh"] = _refresh_intraday_for_current_daily_bar(
-            store, router, symbol, timeout
-        )
+        result["permanent_store"] = _mirror_kline_to_permanent(store, symbol, interval, start)
+        if interval == "1d":
+            result["intraday_refresh"] = _refresh_intraday_for_current_daily_bar(
+                store, router, symbol, timeout
+            )
         return result
     except Exception as exc:
         logger.warning("daily K-line refresh failed for %s: %s", symbol, exc)
@@ -288,7 +301,7 @@ def get_kline() -> tuple[Response, int]:
             current_app.config.get("ASTOCK_AUTO_REFRESH_DAILY_KLINE", False),
         )
         daily_refresh = (
-            _refresh_daily_kline_incrementally(symbol, force=True)
+            _refresh_daily_kline_incrementally(symbol, force=True, interval=interval)
             if refresh_requested else {"status": "not_requested", "rows_upserted": 0}
         )
         store = get_store()
