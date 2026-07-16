@@ -7,16 +7,21 @@ cycles can broadcast progress events to SSE endpoints without coupling.
 from __future__ import annotations
 
 import json
+import logging
 import threading
+import time
+import uuid
 from collections import deque
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 class EventBus:
     """In-memory ring-buffer event bus for SSE.
 
     Thread-safe: publish / poll / subscribe use a per-subscriber deque
-    protected by a ``threading.Lock``.
+    protected by a ``threading.RLock`` (reentrant lock).
 
     Usage::
 
@@ -24,12 +29,49 @@ class EventBus:
         event = EventBus.poll()   # oldest unseen event or None
     """
 
-    _lock = threading.Lock()
+    _lock = threading.RLock()
     _buffer: deque[dict[str, Any]] = deque(maxlen=1000)
     _subscribers: dict[str, deque[dict[str, Any]]] = {}
+    # Tracks when each subscriber was last polled (for stale cleanup)
+    _subscriber_last_seen: dict[str, float] = {}
+    # Per-subscriber locks to protect individual deque mutations during poll
+    _subscriber_locks: dict[str, threading.Lock] = {}
 
     MAX_EVENTS: int = 1000
     MAX_SUBSCRIBERS: int = 50
+    STALE_TIMEOUT_SECONDS: float = 300.0  # 5 minutes
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    @classmethod
+    def _get_subscriber_lock(cls, subscriber_id: str) -> threading.Lock:
+        """Return (or create) a per-subscriber lock."""
+        with cls._lock:
+            if subscriber_id not in cls._subscriber_locks:
+                cls._subscriber_locks[subscriber_id] = threading.Lock()
+            return cls._subscriber_locks[subscriber_id]
+
+    @classmethod
+    def _cleanup_stale_subscribers(cls) -> None:
+        """Remove subscribers that haven't been polled within STALE_TIMEOUT."""
+        now = time.monotonic()
+        stale_ids: list[str] = []
+        with cls._lock:
+            for sid, last_seen in cls._subscriber_last_seen.items():
+                if now - last_seen > cls.STALE_TIMEOUT_SECONDS:
+                    stale_ids.append(sid)
+            for sid in stale_ids:
+                cls._subscribers.pop(sid, None)
+                cls._subscriber_locks.pop(sid, None)
+                cls._subscriber_last_seen.pop(sid, None)
+        for sid in stale_ids:
+            logger.debug("Removed stale SSE subscriber: %s", sid)
+
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
 
     @classmethod
     def publish(cls, event: dict[str, Any]) -> None:
@@ -49,29 +91,39 @@ class EventBus:
     @classmethod
     def subscribe(cls, max_subscribers: int | None = None) -> str | None:
         """Create an independent event cursor for one SSE client."""
-        import uuid
-
         subscriber_id = uuid.uuid4().hex
         with cls._lock:
             limit = cls.MAX_SUBSCRIBERS if max_subscribers is None else max(1, int(max_subscribers))
             if len(cls._subscribers) >= limit:
                 return None
-            # New clients receive the current retained context once, then only
-            # their own subsequent events.  The bounded deque prevents a slow
-            # browser from consuming unbounded process memory.
-            cls._subscribers[subscriber_id] = deque(cls._buffer, maxlen=cls.MAX_EVENTS)
+            cls._cleanup_stale_subscribers()
+            # Copy current buffer contents into a new bounded deque
+            snapshot = list(cls._buffer)
+            cls._subscribers[subscriber_id] = deque(snapshot, maxlen=cls.MAX_EVENTS)
+            cls._subscriber_last_seen[subscriber_id] = time.monotonic()
         return subscriber_id
 
     @classmethod
     def poll_subscriber(cls, subscriber_id: str) -> dict[str, Any] | None:
-        with cls._lock:
+        """Poll the next event for a specific subscriber."""
+        sub_lock = cls._get_subscriber_lock(subscriber_id)
+        with sub_lock:
             queue = cls._subscribers.get(subscriber_id)
-            return queue.popleft() if queue else None
+            if queue is None:
+                return None
+            item = queue.popleft() if queue else None
+        # Update last-seen outside the sub-lock to avoid holding it too long
+        with cls._lock:
+            cls._subscriber_last_seen[subscriber_id] = time.monotonic()
+        return item
 
     @classmethod
     def unsubscribe(cls, subscriber_id: str) -> None:
+        """Remove a subscriber and its lock."""
         with cls._lock:
             cls._subscribers.pop(subscriber_id, None)
+            cls._subscriber_locks.pop(subscriber_id, None)
+            cls._subscriber_last_seen.pop(subscriber_id, None)
 
     @classmethod
     def poll(cls) -> dict[str, Any] | None:
@@ -101,11 +153,14 @@ class EventBus:
 
     @classmethod
     def clear(cls) -> None:
-        """Clear all buffered events."""
+        """Clear all buffered events and remove all subscribers."""
         with cls._lock:
             cls._buffer.clear()
             for queue in cls._subscribers.values():
                 queue.clear()
+            cls._subscribers.clear()
+            cls._subscriber_last_seen.clear()
+            cls._subscriber_locks.clear()
 
     @classmethod
     def size(cls) -> int:

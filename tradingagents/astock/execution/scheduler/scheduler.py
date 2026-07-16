@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import json
 import logging
+import threading
 import time
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from datetime import datetime
@@ -31,6 +32,8 @@ from typing import Any, Callable
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from apscheduler.triggers.cron import CronTrigger
+
+from tradingagents.astock.time_utils import utc_now_iso
 
 from ..infrastructure.event_bus import EventBus
 from ..paper_trader import PaperTrader
@@ -128,6 +131,9 @@ class PaperTradeScheduler:
             ["000300.SH", "000001.SH", "399001.SZ", "600519.SH", "000858.SZ"],
         )
         self._cycle_count = 0
+        # Thread safety: protect _cycle_count and _persistent_jobs from
+        # concurrent access (scheduler threads + API request threads).
+        self._state_lock = threading.Lock()
         # Keep a bounded worker pool for the scheduler lifetime.  A timed-out
         # Python future cannot stop a running provider call, but reusing this
         # pool prevents every timeout from creating another orphan thread.
@@ -190,6 +196,8 @@ class PaperTradeScheduler:
         self._persist_all_jobs()
         if self._scheduler.running:
             self._scheduler.shutdown(wait=False)
+        # Shut down the symbol worker pool to prevent orphan threads.
+        self._symbol_executor.shutdown(wait=False, cancel_futures=True)
         logger.info("PaperTradeScheduler stopped (cycles=%d)", self._cycle_count)
 
     def pause(self) -> None:
@@ -270,7 +278,8 @@ class PaperTradeScheduler:
             trigger_args={"hour": hour, "minute": minute, "day_of_week": day_of_week},
             enabled=enabled,
         )
-        self._persistent_jobs[job_id] = record
+        with self._state_lock:
+            self._persistent_jobs[job_id] = record
         self._persist_job(record)
 
         if not enabled:
@@ -314,7 +323,8 @@ class PaperTradeScheduler:
             trigger_args={"minutes": minutes},
             enabled=enabled,
         )
-        self._persistent_jobs[job_id] = record
+        with self._state_lock:
+            self._persistent_jobs[job_id] = record
         self._persist_job(record)
 
         if not enabled:
@@ -332,7 +342,8 @@ class PaperTradeScheduler:
             logger.warning("Failed to remove APScheduler job: %s", job_id)
 
         # Remove from persistent registry
-        record = self._persistent_jobs.pop(job_id, None)
+        with self._state_lock:
+            record = self._persistent_jobs.pop(job_id, None)
         if record:
             self._delete_job_from_db(job_id)
             logger.info("Job removed: %s", job_id)
@@ -425,7 +436,8 @@ class PaperTradeScheduler:
                     trigger_args=json.loads(str(row.get("trigger_args", "{}"))) if row.get("trigger_args") else {},
                     enabled=bool(row.get("enabled", True)),
                 )
-                self._persistent_jobs[record.job_id] = record
+                with self._state_lock:
+                    self._persistent_jobs[record.job_id] = record
             logger.info("Loaded %d persistent jobs from DB", len(self._persistent_jobs))
         except Exception as exc:
             logger.warning("Failed to load scheduled jobs from DB: %s", exc)
@@ -437,7 +449,7 @@ class PaperTradeScheduler:
         self._ensure_jobs_table()
         try:
             trigger_args_json = json.dumps(record.trigger_args, ensure_ascii=False)
-            now = datetime.utcnow().isoformat()
+            now = utc_now_iso()
             self._store.conn.execute(
                 """INSERT INTO scheduled_jobs (job_id, job_type, func_name, trigger_type, trigger_args, enabled, updated_at)
                    VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -513,14 +525,15 @@ class PaperTradeScheduler:
         single symbol's data fetch or strategy computation cannot block
         the entire cycle indefinitely.
         """
-        self._cycle_count += 1
-        cycle_id = self._cycle_count
+        with self._state_lock:
+            self._cycle_count += 1
+            cycle_id = self._cycle_count
         logger.info("Scheduled cycle #%d starting", cycle_id)
 
         EventBus.publish({
             "type": "cycle_start",
             "cycle": cycle_id,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": utc_now_iso(),
         })
 
         signals: dict[str, float] = {}
@@ -531,7 +544,7 @@ class PaperTradeScheduler:
                 "type": "cycle_complete", "cycle": cycle_id,
                 "total_value": 0.0, "cash": 0.0, "trade_count": 0,
                 "symbol_count": 0, "note": "no_symbols",
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": utc_now_iso(),
             })
             logger.info("Cycle #%d skipped: no symbols configured", cycle_id)
             return
@@ -567,7 +580,7 @@ class PaperTradeScheduler:
                         logger.warning("Error processing symbol %s: %s", symbol, exc)
                         EventBus.publish({
                             "type": "cycle_error", "cycle": cycle_id, "symbol": symbol,
-                            "message": str(exc), "timestamp": datetime.utcnow().isoformat(),
+                            "message": str(exc), "timestamp": utc_now_iso(),
                         })
                 now = time.monotonic()
                 expired = [future for future in pending if now - submitted_at[future] >= self.SYMBOL_TIMEOUT]
@@ -580,7 +593,7 @@ class PaperTradeScheduler:
                     EventBus.publish({
                         "type": "cycle_error", "cycle": cycle_id, "symbol": symbol,
                         "message": f"processing timed out after {self.SYMBOL_TIMEOUT}s",
-                        "timestamp": datetime.utcnow().isoformat(),
+                        "timestamp": utc_now_iso(),
                     })
             for future in pending:
                 symbol = futures[future]
@@ -588,7 +601,7 @@ class PaperTradeScheduler:
                 EventBus.publish({
                     "type": "cycle_error", "cycle": cycle_id, "symbol": symbol,
                     "message": f"cycle deadline exceeded after {self.CYCLE_TIMEOUT}s",
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": utc_now_iso(),
                 })
         finally:
             # DuckDB queries are interrupted above before a Future is removed.
@@ -607,7 +620,7 @@ class PaperTradeScheduler:
                         "direction": trade.get("type", ""),
                         "price": trade.get("price", 0.0),
                         "volume": trade.get("shares", 0.0),
-                        "timestamp": datetime.utcnow().isoformat(),
+                        "timestamp": utc_now_iso(),
                     })
                 EventBus.publish({
                     "type": "cycle_complete",
@@ -616,7 +629,7 @@ class PaperTradeScheduler:
                     "cash": state.cash,
                     "trade_count": trade_count,
                     "symbol_count": len(signals),
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": utc_now_iso(),
                 })
                 logger.info(
                     "Cycle #%d done: %d symbols, %d trades, total_value=%.2f",
@@ -628,7 +641,7 @@ class PaperTradeScheduler:
                     "type": "cycle_error",
                     "cycle": cycle_id,
                     "message": str(exc),
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": utc_now_iso(),
                 })
         else:
             EventBus.publish({
@@ -636,7 +649,7 @@ class PaperTradeScheduler:
                 "total_value": 0.0, "cash": 0.0,
                 "trade_count": 0, "symbol_count": 0,
                 "note": "no_signals",
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": utc_now_iso(),
             })
             logger.info("Cycle #%d done: no signals generated", cycle_id)
 

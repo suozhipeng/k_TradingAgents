@@ -37,6 +37,8 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Any
+
+from tradingagents.astock.time_utils import utc_now_iso
 from threading import Lock
 
 
@@ -105,7 +107,7 @@ class KillSwitch:
         """
         with self._lock:
             self._active = True
-            self._activated_at = datetime.utcnow().isoformat()
+            self._activated_at = utc_now_iso()
             self._activated_by = by
             self._reason = reason
             self._deactivated_at = None
@@ -124,7 +126,7 @@ class KillSwitch:
         """
         with self._lock:
             self._active = False
-            self._deactivated_at = datetime.utcnow().isoformat()
+            self._deactivated_at = utc_now_iso()
             self._reason = reason
             self._activated_by = by
 
