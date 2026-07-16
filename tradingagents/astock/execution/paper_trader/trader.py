@@ -17,6 +17,8 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
+from tradingagents.astock.time_utils import utc_now, utc_now_iso
+
 from ..backtest.fee_model import AStockFeeConfig, calculate_fees
 from ..qmt_execution import QmtExecutionEngine
 from ..risk_gate import RiskGate, RiskGateResult
@@ -59,7 +61,7 @@ class PaperTrader(QmtIntegrationMixin):
             total_value=initial_cash,
             trades=[],
             pnl=0.0,
-            last_updated=datetime.utcnow().isoformat(),
+            last_updated=utc_now_iso(),
         )
         self._fee_config = fee_config or AStockFeeConfig()
         self._risk_gate = RiskGate()
@@ -145,7 +147,7 @@ class PaperTrader(QmtIntegrationMixin):
                 total_position_value += shs * mkt_price
 
             self._state.total_value = round(self._state.cash + total_position_value, 2)
-            self._state.last_updated = datetime.utcnow().isoformat()
+            self._state.last_updated = utc_now_iso()
             return self._state
 
     def _execute_buy(self, symbol: str, price: float) -> None:
@@ -188,7 +190,7 @@ class PaperTrader(QmtIntegrationMixin):
 
         # Record purchase date for T+1 settlement check
         if self._t_plus_1:
-            self._purchase_dates[symbol] = datetime.utcnow().strftime("%Y-%m-%d")
+            self._purchase_dates[symbol] = utc_now().strftime("%Y-%m-%d")
 
         self._state.trades.append({
             "symbol": symbol,
@@ -198,7 +200,7 @@ class PaperTrader(QmtIntegrationMixin):
             "fees": fees["total"],
             "actionable": False,
             "decision_scope": "paper_trading_only",
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": utc_now_iso(),
         })
 
     def _check_t_plus_1(self, symbol: str) -> bool:
@@ -208,7 +210,7 @@ class PaperTrader(QmtIntegrationMixin):
         """
         if not self._t_plus_1:
             return True
-        today = datetime.utcnow().strftime("%Y-%m-%d")
+        today = utc_now().strftime("%Y-%m-%d")
         purchase_date = self._purchase_dates.get(symbol)
         return purchase_date is None or purchase_date != today
 
@@ -242,7 +244,7 @@ class PaperTrader(QmtIntegrationMixin):
             "pnl": round(trade_pnl, 2),
             "actionable": False,
             "decision_scope": "paper_trading_only",
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": utc_now_iso(),
         })
 
     def get_state(self) -> PaperTradeState:
@@ -340,7 +342,7 @@ class PaperTrader(QmtIntegrationMixin):
 
         # Record purchase date for T+1 settlement check
         if self._t_plus_1:
-            self._purchase_dates[symbol] = datetime.utcnow().strftime("%Y-%m-%d")
+            self._purchase_dates[symbol] = utc_now().strftime("%Y-%m-%d")
 
         trade = {
             "symbol": symbol,
@@ -350,13 +352,13 @@ class PaperTrader(QmtIntegrationMixin):
             "fees": fees["total"],
             "actionable": False,
             "decision_scope": "paper_trading_only",
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": utc_now_iso(),
         }
         self._state.trades.append(trade)
         self._state.total_value = round(self._state.cash + quantity * price, 2)
-        self._state.last_updated = datetime.utcnow().isoformat()
+        self._state.last_updated = utc_now_iso()
 
-        order_id = f"po-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}-{hash(symbol) % 10000:04d}"
+        order_id = f"po-{utc_now().strftime('%Y%m%d%H%M%S')}-{hash(symbol) % 10000:04d}"
         fill = Fill(
             fill_id=f"{order_id}-f1",
             order_id=order_id,
@@ -365,7 +367,7 @@ class PaperTrader(QmtIntegrationMixin):
             quantity=float(quantity),
             price=price,
             fees=round(fees["total"], 2),
-            timestamp=datetime.utcnow().isoformat(),
+            timestamp=utc_now_iso(),
         )
         return Order(
             order_id=order_id,
@@ -376,7 +378,7 @@ class PaperTrader(QmtIntegrationMixin):
             price=price,
             status=OrderStatus.FILLED,
             risk_status="allowed",
-            created_at=datetime.utcnow().isoformat(),
+            created_at=utc_now_iso(),
         )
 
     def _place_sell_order(self, symbol: str, price: float, quantity: int) -> Order:
@@ -416,12 +418,12 @@ class PaperTrader(QmtIntegrationMixin):
             "pnl": round(trade_pnl, 2),
             "actionable": False,
             "decision_scope": "paper_trading_only",
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": utc_now_iso(),
         }
         self._state.trades.append(trade)
-        self._state.last_updated = datetime.utcnow().isoformat()
+        self._state.last_updated = utc_now_iso()
 
-        order_id = f"po-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}-{hash(symbol) % 10000:04d}"
+        order_id = f"po-{utc_now().strftime('%Y%m%d%H%M%S')}-{hash(symbol) % 10000:04d}"
         return Order(
             order_id=order_id,
             mode=OrderTradeMode.PAPER,
@@ -431,5 +433,5 @@ class PaperTrader(QmtIntegrationMixin):
             price=price,
             status=OrderStatus.FILLED,
             risk_status="allowed",
-            created_at=datetime.utcnow().isoformat(),
+            created_at=utc_now_iso(),
         )
