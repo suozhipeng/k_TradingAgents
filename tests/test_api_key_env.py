@@ -20,7 +20,7 @@ def test_every_select_llm_provider_choice_has_an_entry():
     # stay in lockstep. Region-specific keys (qwen-cn / minimax-cn / glm-cn)
     # are reached via the secondary region prompt, so they must also be present.
     expected = {
-        "openai", "google", "anthropic", "xai", "deepseek",
+        "openai", "anthropic", "xai", "deepseek",
         "qwen", "qwen-cn",
         "glm", "glm-cn",
         "minimax", "minimax-cn",
@@ -34,7 +34,7 @@ def test_every_select_llm_provider_choice_has_an_entry():
     [
         ("openai",     "OPENAI_API_KEY"),
         ("anthropic",  "ANTHROPIC_API_KEY"),
-        ("google",     "GOOGLE_API_KEY"),
+
         ("azure",      "AZURE_OPENAI_API_KEY"),
         ("xai",        "XAI_API_KEY"),
         ("deepseek",   "DEEPSEEK_API_KEY"),
@@ -57,6 +57,11 @@ def test_ollama_has_no_key():
 
 def test_unknown_provider_returns_none():
     assert get_api_key_env("not-a-real-provider") is None
+
+
+def test_google_is_not_an_interactive_provider() -> None:
+    assert "google" not in PROVIDER_API_KEY_ENV
+    assert get_api_key_env("google") is None
 
 
 def test_case_insensitive_lookup():

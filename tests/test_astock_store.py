@@ -120,7 +120,7 @@ def sample_trade_tape_df() -> pd.DataFrame:
 
 
 def test_init_schema(store: AStockStore) -> None:
-    """Verify all managed tables exist after init_schema (currently 32 tables)."""
+    """Verify all managed tables exist after init_schema (currently 33 tables)."""
     tables = store.list_tables()
     expected = [
         "database_storage_profiles",
@@ -155,10 +155,17 @@ def test_init_schema(store: AStockStore) -> None:
             "data_quality_rules",
             "data_quarantine",
             "notification_channels",
+            "watchlist",
         ]
     for t in expected:
         assert t in tables, f"Missing table: {t}"
     assert len(tables) == len(expected)
+
+
+def test_watchlist_is_queryable_before_first_write(store: AStockStore) -> None:
+    """Fresh databases expose an empty watchlist without a lazy-DDL write."""
+    result = store.query_sql("SELECT symbol, name, added_at, source FROM watchlist")
+    assert result.empty
 
 
 def test_orm_column_order_matches_schema_defs() -> None:
@@ -176,7 +183,7 @@ def test_orm_column_order_matches_schema_defs() -> None:
 
 def test_drop_all_tables(store: AStockStore) -> None:
     """drop_all_tables removes all managed tables."""
-    assert len(store.list_tables()) == 32
+    assert len(store.list_tables()) == 33
     store.drop_all_tables()
     assert store.list_tables() == []
 
@@ -689,7 +696,7 @@ def test_kline_field_aliases_and_bad_rows_are_compatible(store: AStockStore) -> 
 def test_init_astock_db_factory() -> None:
     store = init_astock_db(":memory:")
     assert store.db_path == ":memory:"
-    assert len(store.list_tables()) == 32
+    assert len(store.list_tables()) == 33
     store.close()
 
 

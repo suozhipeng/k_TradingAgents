@@ -56,14 +56,10 @@ DEFAULT_CONFIG = _apply_env_overrides({
     "llm_provider": "openai",
     "deep_think_llm": "gpt-5.5",
     "quick_think_llm": "gpt-5.4-mini",
-    # When None, each provider's client falls back to its own default endpoint
-    # (api.openai.com for OpenAI, generativelanguage.googleapis.com for Gemini, ...).
-    # The CLI overrides this per provider when the user picks one. Keeping a
-    # provider-specific URL here would leak (e.g. OpenAI's /v1 was previously
-    # being forwarded to Gemini, producing malformed request URLs).
+    # When None, each provider's client falls back to its own default endpoint.
+    # The CLI overrides this per provider when the user picks one.
     "backend_url": None,
     # Provider-specific thinking configuration
-    "google_thinking_level": None,      # "high", "minimal", etc.
     "openai_reasoning_effort": None,    # "medium", "high", "low"
     "anthropic_effort": None,           # "high", "medium", "low"
     # A-share runtime profile

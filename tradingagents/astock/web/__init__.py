@@ -46,3 +46,8 @@ bp.register_blueprint(ops_bp, name="ops")
 @bp.route("/")
 def root():
     return redirect("/dashboard", 302)
+
+
+__all__ = [
+    "bp",
+]

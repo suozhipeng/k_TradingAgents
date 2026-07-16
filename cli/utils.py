@@ -286,7 +286,7 @@ def _llm_provider_table() -> list[tuple[str, str, str | None]]:
     ollama_url = os.environ.get("OLLAMA_BASE_URL") or "http://localhost:11434/v1"
     return [
         ("OpenAI", "openai", "https://api.openai.com/v1"),
-        ("Google (Gemini, temporarily unavailable)", "google", None),
+
         ("Anthropic", "anthropic", "https://api.anthropic.com/"),
         ("xAI", "xai", "https://api.x.ai/v1"),
         ("DeepSeek", "deepseek", "https://api.deepseek.com"),
@@ -384,26 +384,6 @@ def ask_anthropic_effort() -> str | None:
             ("selected", "fg:cyan noinherit"),
             ("highlighted", "fg:cyan noinherit"),
             ("pointer", "fg:cyan noinherit"),
-        ]),
-    ).ask()
-
-
-def ask_gemini_thinking_config() -> str | None:
-    """Ask for Gemini thinking configuration.
-
-    Returns thinking_level: "high" or "minimal".
-    Client maps to appropriate API param based on model series.
-    """
-    return questionary.select(
-        "Select Thinking Mode:",
-        choices=[
-            questionary.Choice("Enable Thinking (recommended)", "high"),
-            questionary.Choice("Minimal/Disable Thinking", "minimal"),
-        ],
-        style=questionary.Style([
-            ("selected", "fg:green noinherit"),
-            ("highlighted", "fg:green noinherit"),
-            ("pointer", "fg:green noinherit"),
         ]),
     ).ask()
 

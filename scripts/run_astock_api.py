@@ -19,6 +19,7 @@ if _repo_root not in sys.path:
     sys.path.insert(0, _repo_root)
 
 from tradingagents.astock.api import create_app
+from tradingagents.astock.api.lifecycle import install_signal_handlers
 
 logging.basicConfig(
     level=logging.INFO,
@@ -104,7 +105,7 @@ if __name__ == "__main__":
             "(127.0.0.1, ::1, or localhost)"
         )
     app = create_app()
-    logging.getLogger("run_astock_api").info("Web UI enabled at http://localhost:%d (local analysis/backtest release)", args.port)
+    install_signal_handlers(app)
 
     debug_enabled = resolve_debug_mode(
         requested=args.debug,

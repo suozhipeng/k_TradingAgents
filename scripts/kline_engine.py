@@ -35,10 +35,12 @@ KLINE_DIR = _PROJECT_ROOT / "kline"
 DEFAULT_DUCKDB_PATH = KLINE_DIR / "kline.duckdb"
 DEFAULT_SQLITE_PATH = KLINE_DIR / "kline.sqlite"
 
-# Baostock K 线字段（日/分钟通用）
+# Baostock K 线字段
 # ``time`` is empty for daily bars but essential for minute bars.  Omitting it
 # collapses every intraday bar onto the trade date when written to DuckDB.
-BAOSTOCK_FIELDS = "date,time,open,high,low,close,volume,amount"
+# Baostock daily API rejects the ``time`` field entirely, so we use two sets.
+BAOSTOCK_FIELDS_DAILY  = "date,open,high,low,close,volume,amount"
+BAOSTOCK_FIELDS_MINUTE = "date,time,open,high,low,close,volume,amount"
 
 # 频率映射：CLI 参数 → baostock frequency 值 → 归一化 interval
 FREQUENCY_MAP: dict[str, tuple[str, str]] = {
@@ -86,8 +88,13 @@ def _rows_to_kline_frame(
     Baostock returns intraday timestamps as ``YYYYMMDDHHMMSSmmm`` in its
     ``time`` field.  Preserve them in ``bar_time`` before the generic store
     normalisation so minute bars remain distinct.
+
+    Daily frequency omits the ``time`` field altogether (baostock rejects it).
     """
-    columns = ["date", "time", "open", "high", "low", "close", "volume", "amount"]
+    if is_daily_freq(frequency):
+        columns = ["date", "open", "high", "low", "close", "volume", "amount"]
+    else:
+        columns = ["date", "time", "open", "high", "low", "close", "volume", "amount"]
     if include_symbol:
         columns.insert(0, "symbol")
     df = pd.DataFrame(rows, columns=columns)
@@ -223,8 +230,9 @@ def _fetch_single(symbol: str, bs_code: str, start: str, end: str,
     for attempt in range(max_retries):
         try:
             bs = _get_bs_conn()
+            fields = BAOSTOCK_FIELDS_DAILY if is_daily_freq(bs_freq) else BAOSTOCK_FIELDS_MINUTE
             rs = bs.query_history_k_data_plus(
-                bs_code, BAOSTOCK_FIELDS,
+                bs_code, fields,
                 start_date=start, end_date=end,
                 frequency=bs_freq, adjustflag=adjust,
             )
@@ -772,8 +780,9 @@ class BaostockSync:
                 query_ok = False
                 for attempt in range(self.backfill_retries):
                     try:
+                        fields = BAOSTOCK_FIELDS_DAILY if is_daily_freq(bs_freq) else BAOSTOCK_FIELDS_MINUTE
                         rs = bs.query_history_k_data_plus(
-                            bs_code, BAOSTOCK_FIELDS,
+                            bs_code, fields,
                             start_date=start, end_date=today_bs,
                             frequency=bs_freq, adjustflag=adjust,
                         )
@@ -876,8 +885,9 @@ class BaostockSync:
                 end_str = end or today_bs
 
                 bs_code = _to_baostock_code(sym)
+                fields = BAOSTOCK_FIELDS_DAILY if is_daily_freq(frequency) else BAOSTOCK_FIELDS_MINUTE
                 rs = bs.query_history_k_data_plus(
-                    bs_code, BAOSTOCK_FIELDS,
+                    bs_code, fields,
                     start_date=start_str, end_date=end_str,
                     frequency=frequency, adjustflag=adjust,
                 )

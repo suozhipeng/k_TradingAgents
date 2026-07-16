@@ -150,12 +150,7 @@ class TradingAgentsGraph:
         kwargs = {}
         provider = self.config.get("llm_provider", "").lower()
 
-        if provider == "google":
-            thinking_level = self.config.get("google_thinking_level")
-            if thinking_level:
-                kwargs["thinking_level"] = thinking_level
-
-        elif provider == "openai":
+        if provider == "openai":
             reasoning_effort = self.config.get("openai_reasoning_effort")
             if reasoning_effort:
                 kwargs["reasoning_effort"] = reasoning_effort
@@ -371,9 +366,6 @@ class TradingAgentsGraph:
 
         if TradingAgentsGraph._should_use_astock_runtime(self, company_name, asset_type):
             return self._run_astock_runtime(company_name, trade_date, asset_type=asset_type)
-
-        # Re-run any pending memory-log entries for the generic pipeline before the pipeline runs.
-        self._resolve_pending_entries(company_name)
 
         # Recompile with a checkpointer if the user opted in.
         if self.config.get("checkpoint_enabled"):

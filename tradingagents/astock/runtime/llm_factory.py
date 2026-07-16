@@ -34,9 +34,7 @@ def _provider_kwargs_from_config(config: Mapping[str, Any]) -> Dict[str, Any]:
 
     kwargs: Dict[str, Any] = {}
     provider = str(config.get("llm_provider", "")).lower()
-    if provider == "google" and config.get("google_thinking_level"):
-        kwargs["thinking_level"] = config["google_thinking_level"]
-    elif provider == "openai" and config.get("openai_reasoning_effort"):
+    if provider == "openai" and config.get("openai_reasoning_effort"):
         kwargs["reasoning_effort"] = config["openai_reasoning_effort"]
     elif provider == "anthropic" and config.get("anthropic_effort"):
         kwargs["effort"] = config["anthropic_effort"]

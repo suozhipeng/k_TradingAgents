@@ -250,21 +250,23 @@ class AStockGraphRuntimeTests(unittest.TestCase):
                 "store_decision": lambda *args, **kwargs: None,
             },
         )()
-        graph._resolve_pending_entries = lambda *args, **kwargs: None
+        resolve_pending_entries = patch.object(TradingAgentsGraph, "_resolve_pending_entries")
         graph._log_state = lambda *args, **kwargs: None
         graph.process_signal = lambda signal: f"processed:{signal}"
         graph.resolve_instrument_context = lambda ticker, asset_type="stock": f"context:{ticker}:{asset_type}"
 
-        with patch.object(TradingAgentsGraph, "_run_astock_runtime") as run_astock:
-            with patch.object(
-                TradingAgentsGraph,
-                "_run_graph",
-                return_value=({"final_trade_decision": "GENERIC"}, "processed:GENERIC"),
-            ) as run_generic:
-                final_state, decision = TradingAgentsGraph.propagate(graph, "AAPL", "2026-06-10")
+        with resolve_pending_entries as pending_entries, patch.object(
+            TradingAgentsGraph, "_run_astock_runtime"
+        ) as run_astock, patch.object(
+            TradingAgentsGraph,
+            "_run_graph",
+            return_value=({"final_trade_decision": "GENERIC"}, "processed:GENERIC"),
+        ) as run_generic:
+            final_state, decision = TradingAgentsGraph.propagate(graph, "AAPL", "2026-06-10")
 
         run_astock.assert_not_called()
         run_generic.assert_called_once()
+        pending_entries.assert_called_once_with("AAPL")
         self.assertEqual(final_state["final_trade_decision"], "GENERIC")
         self.assertEqual(decision, "processed:GENERIC")
 
@@ -321,7 +323,6 @@ class Phase09RuntimeProfileTests(unittest.TestCase):
             "deep_think_llm": "deepseek-v4-pro",
             "backend_url": "https://api.deepseek.com",
             "temperature": None,
-            "google_thinking_level": None,
             "openai_reasoning_effort": None,
             "anthropic_effort": None,
         }

@@ -12,3 +12,14 @@ from tradingagents.astock.execution.infrastructure.registry import (  # noqa: F4
     register,
     get_strategy,
 )
+
+__all__ = [
+    "EventBus",
+    "KillSwitch",
+    "StrategyRegistryEntry",
+    "get_registry",
+    "get_strategy",
+    "kill_switch",
+    "list_strategies",
+    "register",
+]

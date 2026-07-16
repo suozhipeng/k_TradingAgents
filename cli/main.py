@@ -731,7 +731,6 @@ def get_user_selections():
         selected_deep_thinker = select_deep_thinking_agent(selected_llm_provider)
 
     # Step 8: Provider-specific thinking configuration
-    thinking_level = None
     reasoning_effort = None
     anthropic_effort = None
 
@@ -740,17 +739,8 @@ def get_user_selections():
     # non-interactive and use the config defaults (None = each provider's own
     # default reasoning/thinking behavior) instead of prompting.
     if provider_from_env:
-        thinking_level = DEFAULT_CONFIG["google_thinking_level"]
         reasoning_effort = DEFAULT_CONFIG["openai_reasoning_effort"]
         anthropic_effort = DEFAULT_CONFIG["anthropic_effort"]
-    elif provider_lower == "google":
-        console.print(
-            create_question_box(
-                "Step 8: Thinking Mode",
-                "Configure Gemini thinking mode"
-            )
-        )
-        thinking_level = ask_gemini_thinking_config()
     elif provider_lower == "openai":
         console.print(
             create_question_box(
@@ -778,7 +768,6 @@ def get_user_selections():
         "backend_url": backend_url,
         "shallow_thinker": selected_shallow_thinker,
         "deep_thinker": selected_deep_thinker,
-        "google_thinking_level": thinking_level,
         "openai_reasoning_effort": reasoning_effort,
         "anthropic_effort": anthropic_effort,
         "output_language": output_language,
@@ -1321,7 +1310,6 @@ def run_analysis(checkpoint: bool = False):
     config["backend_url"] = selections["backend_url"]
     config["llm_provider"] = selections["llm_provider"].lower()
     # Provider-specific thinking configuration
-    config["google_thinking_level"] = selections.get("google_thinking_level")
     config["openai_reasoning_effort"] = selections.get("openai_reasoning_effort")
     config["anthropic_effort"] = selections.get("anthropic_effort")
     config["output_language"] = selections.get("output_language", "English")
