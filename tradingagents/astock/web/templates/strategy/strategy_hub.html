@@ -822,11 +822,7 @@ async function shRunSingle(symbol, start, end, statusEl) {
   const strategy = document.getElementById('sh-strategy').value;
   statusEl.textContent = '⏳ 刷新数据中...';
   try {
-    await fetch('/api/v1/data/refresh/kline', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ symbol, start, end }),
-    });
+    await APIClient.postJson('/api/v1/data/refresh/kline', { symbol, start, end });
     statusEl.textContent = '⏳ 运行回测...';
     const res = await fetch('/api/v1/backtest/run', {
       method: 'POST',
@@ -847,16 +843,12 @@ async function shRunSingle(symbol, start, end, statusEl) {
     shRenderSingleResults(btData, analyzeData.error ? btData : analyzeData);
     statusEl.textContent = '✅ ' + strategy + ' · ' + symbol + ' 完成';
     // Strategy→alert hook: fire a strategy signal alert on successful backtest
-    fetch('/api/v1/alerts', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        symbol: symbol,
-        trigger_type: 'strategy',
-        severity: 'info',
-        message: strategy + ' 策略回测完成 · ' + symbol + ' · ' + start + ' ~ ' + end,
-        source: 'strategy_hub'
-      })
+    APIClient.postJson('/api/v1/alerts', {
+      symbol: symbol,
+      trigger_type: 'strategy',
+      severity: 'info',
+      message: strategy + ' 策略回测完成 · ' + symbol + ' · ' + start + ' ~ ' + end,
+      source: 'strategy_hub'
     }).catch(function(){}); // fire-and-forget
     shLoadHistory();
     if (shActiveTab !== 'single') shSwitchTab('single');

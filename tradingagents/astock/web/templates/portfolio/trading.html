@@ -540,7 +540,7 @@ async function handleSymbolChange(symbol) {
   try {
     const [quoteRes, orderbookRes] = await Promise.all([
       fetch(`/api/v1/trade/quote?symbol=${encodeURIComponent(sym)}`),
-      fetch(`/api/v1/orderbook?symbol=${encodeURIComponent(sym)}`),
+      fetch(`/api/v1/market/orderbook?symbol=${encodeURIComponent(sym)}`),
     ]);
 
     const quote  = APIClient.unwrap(await quoteRes.json());

@@ -1,0 +1,99 @@
+{
+  "goal": "Optimize and verify concurrent operation across storage, background services, and web/API lifecycle, prioritizing correct functionality and eliminating reproducible resource contention.",
+  "mode": "durable",
+  "limits": {
+    "max_concurrent": 6,
+    "max_total": 8,
+    "reserved_slots": 0
+  },
+  "tasks": [
+    {
+      "role": "database-health-probe",
+      "model": "gpt-5.6-luna",
+      "thinking": "xhigh",
+      "ownership": ["tradingagents/astock/store/", "tradingagents/astock/quality/", "tests/test_astock_store.py", "tests/test_local_release.py"],
+      "thread_id": "019f6b73-43c7-7d43-a71a-333f8fb3a995",
+      "status": "completed",
+      "attempts": 1,
+      "adopted": true,
+      "archived": true
+    },
+    {
+      "role": "backend-diagnosis",
+      "model": "gpt-5.6-luna",
+      "thinking": "xhigh",
+      "ownership": ["tradingagents/astock/api/", "scripts/run_astock_api.py", "tests/test_astock_api_security_hardening.py"],
+      "thread_id": "019f6b74-32c7-7601-9979-31a93ee86d84",
+      "status": "completed",
+      "attempts": 1,
+      "adopted": true,
+      "archived": true
+    },
+    {
+      "role": "web-diagnosis",
+      "model": "gpt-5.6-luna",
+      "thinking": "xhigh",
+      "ownership": ["tradingagents/astock/web/", "tests/test_astock_web.py", "tests/test_local_release_browser.py"],
+      "thread_id": "019f6b74-33da-7361-aade-887cd83ecd0d",
+      "status": "completed",
+      "attempts": 1,
+      "adopted": true,
+      "archived": true
+    },
+    {
+      "role": "test-dependency-browser",
+      "model": "gpt-5.6-luna",
+      "thinking": "xhigh",
+      "ownership": ["pyproject.toml", "scripts/verify_local_release.sh", "tests/test_local_release_browser.py", "docs/"],
+      "thread_id": "019f6b87-2836-7321-893b-559bb43f9b09",
+      "status": "completed",
+      "attempts": 1,
+      "adopted": true,
+      "archived": true
+    },
+    {
+      "role": "shutdown-deadline",
+      "model": "gpt-5.6-luna",
+      "thinking": "xhigh",
+      "ownership": ["tradingagents/astock/api/lifecycle.py", "tradingagents/astock/api/app_factory.py", "tests/test_astock_lifecycle.py"],
+      "thread_id": "019f6b87-724f-7933-b65b-5c8a147bd46e",
+      "status": "completed",
+      "attempts": 1,
+      "adopted": true,
+      "archived": true
+    },
+    {
+      "role": "provider-preflight",
+      "model": "gpt-5.6-luna",
+      "thinking": "xhigh",
+      "ownership": ["scripts/check_astock_live_research_env.py", "scripts/verify_astock_live_pipeline.py", "docs/03-operations.md", "tests/test_astock_live_providers.py"],
+      "thread_id": "019f6b87-7336-7da2-a3ec-0c6014761e66",
+      "status": "completed",
+      "attempts": 1,
+      "adopted": true,
+      "archived": true
+    },
+    {
+      "role": "concurrency-store-audit",
+      "model": "gpt-5.6-luna",
+      "thinking": "xhigh",
+      "ownership": ["tradingagents/astock/store/", "tradingagents/astock/data_sources/tdx_cache.py", "tests/test_astock_store_concurrency.py"],
+      "thread_id": "019f6ba0-3752-71c3-9cfd-7c057304755a",
+      "status": "completed",
+      "attempts": 1,
+      "adopted": true,
+      "archived": true
+    },
+    {
+      "role": "concurrency-api-audit",
+      "model": "gpt-5.6-luna",
+      "thinking": "xhigh",
+      "ownership": ["tradingagents/astock/api/", "tradingagents/astock/execution/scheduler/", "tests/test_astock_api_concurrency.py"],
+      "thread_id": "019f6ba0-8193-7542-abda-82e28361efbd",
+      "status": "completed",
+      "attempts": 1,
+      "adopted": true,
+      "archived": true
+    }
+  ]
+}

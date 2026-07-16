@@ -81,6 +81,12 @@ def create_app(
     app = Flask(__name__)
     app.config.setdefault("MAX_CONTENT_LENGTH", int(os.environ.get("ASTOCK_MAX_REQUEST_BYTES", str(1024 * 1024))))
     app.config.setdefault("ASTOCK_ENABLE_WEB_UI", True)
+    # Apply caller overrides before constructing any app-owned services.  In
+    # particular, DataJobManager and the scheduler read their limits during
+    # construction; applying test_config later silently left those services
+    # with environment/default values.
+    if test_config:
+        app.config.update(test_config)
     local_release = _env_enabled("ASTOCK_LOCAL_RELEASE")
     app.config.setdefault("ASTOCK_LOCAL_RELEASE", local_release)
     # The supported product surface is a loopback-only, single-user local
@@ -134,6 +140,15 @@ def create_app(
     app.config.setdefault("ASTOCK_PERMANENT_KLINE_DB_PATH", os.environ.get("ASTOCK_PERMANENT_KLINE_DB_PATH", "kline/kline.duckdb"))
     app.config.setdefault("ASTOCK_BACKTEST_ALLOW_LIVE_FALLBACK", _env_enabled("ASTOCK_BACKTEST_ALLOW_LIVE_FALLBACK"))
     app.config.setdefault("ASTOCK_DATA_JOB_MAX_QUEUED", int(os.environ.get("ASTOCK_DATA_JOB_MAX_QUEUED", "100")))
+    # A test process creates many app instances. Do not leave one
+    # APScheduler thread per compatibility-mode test app unless a test
+    # explicitly opts in. Production/default behaviour remains enabled when
+    # ASTOCK_TESTING is not set, and the guards below still force it off for
+    # local-release/research-only apps.
+    app.config.setdefault(
+        "ASTOCK_SCHEDULER_ENABLED",
+        _env_bool("ASTOCK_SCHEDULER_ENABLED", not _env_enabled("ASTOCK_TESTING")),
+    )
     app.config.setdefault("ASTOCK_DASHBOARD_STATS_TTL_SECONDS", float(os.environ.get("ASTOCK_DASHBOARD_STATS_TTL_SECONDS", "30")))
     app.config.setdefault("ASTOCK_IDEMPOTENCY_TTL_SECONDS", float(os.environ.get("ASTOCK_IDEMPOTENCY_TTL_SECONDS", "300")))
     app.config.setdefault("ASTOCK_IDEMPOTENCY_MAX_ENTRIES", int(os.environ.get("ASTOCK_IDEMPOTENCY_MAX_ENTRIES", "1000")))
@@ -166,10 +181,6 @@ def create_app(
         "RESEARCH_MODEL",
         os.environ.get("TRADINGAGENTS_DEEP_THINK_LLM", "agnes-2.0-flash"),
     )
-
-    # Override config for testing before components read app config.
-    if test_config:
-        app.config.update(test_config)
 
     # The local formal release is analysis/backtest-only.  Apply this after
     # test configuration as a non-bypassable product-scope guard.

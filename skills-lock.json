@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "codex-model-routing-team": {
+      "source": "zjp1997720/codex-model-routing-team",
+      "sourceType": "github",
+      "skillPath": "skills/codex-model-routing-team/SKILL.md",
+      "computedHash": "b534d59a200fccf0f88fcf9ed3de4c996924584b83187328e23353c999508d3b"
+    }
+  }
+}

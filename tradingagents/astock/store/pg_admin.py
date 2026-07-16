@@ -308,7 +308,7 @@ class PGAdminMixin:
         import re
 
         pattern = re.compile(r"^V(\d{8})_(\d{3})__(.+)\.py$")
-        count = 0
+        discovered: dict[str, tuple[str, str, str | None, str | None]] = {}
         for fpath in sorted(mig_dir.iterdir()):
             if not fpath.is_file() or not fpath.name.endswith(".py"):
                 continue
@@ -324,33 +324,24 @@ class PGAdminMixin:
             if ds_match:
                 description = ds_match.group(1)
 
+            # Callable migration functions often have prose docstrings.  This
+            # compatibility registry accepts only explicitly declared SQL;
+            # callable migrations are handled by migrations.runner instead.
             upgrade_sql = None
-            up_match = re.search(r'def upgrade\([^)]*\):.*?"""(.*?)"""', content, re.DOTALL)
-            if up_match:
-                sql_block = up_match.group(1).strip()
-                if sql_block and sql_block != "TODO: Write your upgrade SQL here":
-                    upgrade_sql = sql_block
-            if upgrade_sql is None:
-                sql_assign = re.search(r'(?:upgrade_sql|ddl)\s*=\s*"""(.*?)"""', content, re.DOTALL)
-                if sql_assign:
-                    upgrade_sql = sql_assign.group(1).strip()
+            sql_assign = re.search(r'(?:upgrade_sql|ddl)\s*=\s*"""(.*?)"""', content, re.DOTALL)
+            if sql_assign:
+                upgrade_sql = sql_assign.group(1).strip() or None
 
             rollback_sql = None
-            rb_match = re.search(r'def downgrade\([^)]*\):.*?"""(.*?)"""', content, re.DOTALL)
-            if rb_match:
-                sql_block = rb_match.group(1).strip()
-                if sql_block and sql_block != "TODO: Write your downgrade SQL here":
-                    rollback_sql = sql_block
-            if rollback_sql is None:
-                sql_assign = re.search(r'(?:rollback_sql|rollback_ddl)\s*=\s*"""(.*?)"""', content, re.DOTALL)
-                if sql_assign:
-                    rollback_sql = sql_assign.group(1).strip()
+            sql_assign = re.search(r'(?:rollback_sql|rollback_ddl)\s*=\s*"""(.*?)"""', content, re.DOTALL)
+            if sql_assign:
+                rollback_sql = sql_assign.group(1).strip() or None
 
-            self._MIGRATIONS.append((version_id, description, upgrade_sql, rollback_sql))
-            count += 1
+            discovered[version_id] = (version_id, description, upgrade_sql, rollback_sql)
 
-        self._MIGRATIONS.sort(key=lambda x: x[0])
-        return count
+        existing = [entry for entry in self._MIGRATIONS if entry[0] not in discovered]
+        self._MIGRATIONS = sorted(existing + list(discovered.values()), key=lambda x: x[0])
+        return len(discovered)
 
     # ---- maintenance --------------------------------------------------------
 

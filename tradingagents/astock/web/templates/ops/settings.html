@@ -3,7 +3,7 @@
 {% block content %}
 <h2 class="text-2xl font-bold text-white mb-6">⚙️ 设置</h2>
 
-{% if section == "notifications" %}
+{% if section == "notifications" and not local_release %}
 <!-- ── Notification Settings Focus ── -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
@@ -33,6 +33,7 @@ document.addEventListener('DOMContentLoaded', function() {
         <label class="block text-xs text-gray-400 mb-1">API 基础 URL</label>
         <input type="text" id="cfg-api-url" value="/api/v1" class="tv-input w-full" readonly>
       </div>
+      {% if not local_release %}
       <label class="flex items-center gap-2 text-sm text-gray-200">
         <input type="checkbox" id="cfg-mock-data" class="tv-checkbox">
         全局使用 Mock 数据
@@ -43,10 +44,16 @@ document.addEventListener('DOMContentLoaded', function() {
       </div>
       <button onclick="saveSettings()" class="tv-btn tv-btn-primary">保存设置</button>
       <div id="save-status" class="text-xs text-gray-400"></div>
+      {% else %}
+      <div class="text-xs text-amber-400/90">
+        本地发布仅提供研究与回测；Mock 管理、缓存管理和通知接口不在此工作台范围内。
+      </div>
+      {% endif %}
     </div>
   </div>
 
   <!-- Cache Management -->
+  {% if not local_release %}
   <div class="card">
     <h3 class="text-lg font-semibold text-white mb-4">💾 缓存管理</h3>
     <div id="cache-info" class="text-gray-400 text-sm space-y-2">
@@ -62,6 +69,7 @@ document.addEventListener('DOMContentLoaded', function() {
     </div>
     <div id="cache-action-status" class="mt-2 text-xs text-gray-400"></div>
   </div>
+  {% endif %}
 </div>
 
 <!-- ── Notification Settings ── -->
@@ -204,13 +212,16 @@ async function loadSettings() {
     const data = APIClient.unwrap(await res.json());
     document.getElementById('sys-version').textContent = data?.version || '0.1.0';
     document.getElementById('sys-status').textContent = data?.status === 'ok' ? 'Online' : 'Degraded';
+    {% if not local_release %}
     document.getElementById('cfg-mock-data').checked = data?.mock_data_enabled === true;
+    {% endif %}
   } catch (e) {
     document.getElementById('sys-status').textContent = 'Offline';
     document.getElementById('sys-version').textContent = 'ERR';
   }
 }
 
+{% if not local_release %}
 async function saveSettings() {
   const status = document.getElementById('save-status');
   const key = document.getElementById('cfg-admin-key').value.trim();
@@ -284,12 +295,12 @@ async function testWebhook() {
   status.textContent = '测试中...';
   status.className = 'tv-badge tv-badge-amber';
   try {
-    const res = await fetch('/api/v1/notifications/test-webhook', {
+    const result = await APIClient.fetchJson('/api/v1/notifications/test-webhook', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({url, message: 'AStock Pro 通知测试'})
     }).catch(() => null);
-    if (res && res.ok) {
+    if (result?.response?.ok) {
       status.textContent = '已验证';
       status.className = 'tv-badge tv-badge-green';
     } else {
@@ -330,6 +341,7 @@ async function clearCache() {
     el.textContent = '❌ 请求失败: ' + e.message;
   }
 }
+{% endif %}
 
 // ── Data Refresh ──
 async function refreshKline() {
@@ -378,8 +390,10 @@ async function refreshValuation() {
 
 // ── Init ──
 loadSettings();
+{% if not local_release %}
 refreshCacheStatus();
 loadNotifPrefs();
+{% endif %}
 KCDataLoader.setupSearch('refresh-symbol', symbol => { refreshKline() });
 </script>
 {% endblock %}

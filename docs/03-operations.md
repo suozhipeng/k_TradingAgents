@@ -588,6 +588,12 @@ TRADINGAGENTS_OUTPUT_LANGUAGE=Chinese
 TRADINGAGENTS_TEMPERATURE=0.0
 ```
 
+### 配置优先级与安全边界
+
+两个 live 脚本使用同一优先级：当前进程环境（shell 或 app 注入） > 仓库根目录 `.env`（只补充缺失变量，绝不覆盖进程环境） > `DEFAULT_CONFIG` 默认值。脚本不会创建或修改 `.env`，也不会打印 API key、cookie 或其他凭证；`.env` 不应提交到版本库。
+
+`check_astock_live_research_env.py` 只做本地检查，不发网络请求；它会列出 LLM provider、模型、key、可选行情 provider 依赖和缺失项。`live_research` 的必需 LLM client 不满足时，验证脚本会在任何网络调用前停止。
+
 ### 推荐本地流程
 
 ## AStock API 安全配置
@@ -614,7 +620,27 @@ cp .env.example .env
 python3 scripts/check_astock_live_research_env.py
 ```
 
-4. 通过 CLI 运行 A 股分析：
+4. 只看 preflight（等价于上一步，不发网络请求）：
+
+```bash
+python3 scripts/verify_astock_live_pipeline.py --preflight-only
+```
+
+5. 只运行行情/研究 provider 的只读探针，不运行 LLM：
+
+```bash
+python3 scripts/verify_astock_live_pipeline.py --providers-only --symbol 600519.SH
+```
+
+可用 `--provider tencent`（可重复）只复跑单个 provider。探针按 provider 直接调用，不使用隐式 fallback；输出会分别列出 `PASS`、`EMPTY`、`SKIP` 和 `FAIL`，并汇总当前可用 provider。`EMPTY` 不是 live capability 验收通过，`SKIP` 会给出缺少的依赖或 cookie；QMT、订单和其他执行接口永远不在此命令范围内。
+
+6. 在凭证和网络均可用时运行完整的只读研究验收：
+
+```bash
+python3 scripts/verify_astock_live_pipeline.py --symbol 600519.SH
+```
+
+7. 通过 CLI 运行 A 股分析：
 
 ```bash
 python3 -m cli.main run-analysis
@@ -634,15 +660,21 @@ python3 -m cli.main run-analysis
 - `live_research` profile 如果缺少 provider 配置或 API key，必须在分析开始前失败。
 - `live_research` 运行不得回退到 `BridgeLLM`。
 
-### 数据源说明
+### provider 前提与能力
 
-#### ### mootdx（通达信）
+| provider | 本地前提 | 只读探针覆盖 | 缺失时行为 |
+|---|---|---|---|
+| `akshare` | 安装 `akshare`；无额外 key | 日 K、估值、财务、新闻、研报列表 | `SKIP`，不伪造可用 |
+| `tencent` | 安装基础 `requests` | 五档、逐笔、换手率 | `SKIP` 或逐项 `FAIL` |
+| `cninfo` | 安装基础 `requests` | 公告摘要、公告元数据 | `SKIP` 或逐项 `FAIL` |
+| `mootdx` | 安装 `mootdx` | 日 K、五档、逐笔、F10 | `SKIP` |
+| `iwencai` | 安装 `pywencai` 且设置 `ASTOCK_IWENCAI_COOKIE` | 语义搜索、机构预期 | 未配置 cookie 时 `SKIP` |
 
-mootdx 0.11.7 已在本地验证通过，可连接通达信行情服务器获取实时 K 线和报价。无需额外配置。支持的 symbol 格式为不带后缀的数字代码，例如 `600519`；`AStockDataRouter` 会自动转换。
+支持的默认 route 顺序仍由 `tradingagents.astock.data_sources.router.DEFAULT_ROUTE_POLICY` 决定；live 验收脚本为了可审计性会显式锁定单个 provider，不把备用源的成功当成主源成功。
 
-#### ### iwencai（问财）
+#### iwencai cookie
 
-pywencai 0.13.1 已安装，但需要设置 `ASTOCK_IWENCAI_COOKIE` 环境变量才能启用。
+pywencai 需要 `ASTOCK_IWENCAI_COOKIE` 才能启用语义搜索和机构预期查询。cookie 只放在当前进程环境或本地 `.env` 中，脚本只显示“已配置/缺失”，不会回显值。
 
 获取 iwencai cookie：
 
@@ -664,24 +696,30 @@ ASTOCK_IWENCAI_COOKIE=your_cookie_value_here
 
 配置后可启用语义搜索和机构预期查询能力。
 
-### 当前主机状态
+### 验收结果解释与退出码
 
-当前仓库已经把 `live_research` 路径接入 config、CLI 和本地 Web 工作台。真实运行仍要求当前 shell 或 app 进程环境中存在匹配 provider 的有效 key。
+- `check_astock_live_research_env.py`：`0` 表示必需 LLM 前提满足；`2` 表示 profile/provider/model/key 等前提缺失；`1` 表示 client 构建等本地校验失败。
+- `verify_astock_live_pipeline.py`：缺少必需前提时返回 `2`，网络探针出现 `EMPTY`/`FAIL` 或研究链契约失败时返回 `1`；只有逐项结果和研究-only 契约均通过才返回 `0`。
+- 历史 `verification_provenance` 只说明过去某次运行的证据，不等于当前网络仍可用；当前验收必须查看本次命令的 provider 输出。
+- `live_research` 仍然必须输出 `actionable=false` 和 `execution_signal=ResearchOnly`，不得将该脚本结果解释为交易准入。
 
-live provider 的历史验证证据由 `tradingagents/astock/verification_provenance.py` 管理。这些记录是 provider 可用性溯源，不等同于当前网络环境仍可用；重新验证需要运行 live provider 测试并追加新的 dated provenance。
+当前仓库已经把 `live_research` 路径接入 config、CLI 和本地 Web 工作台，但 provider 可用性、网络状态和 key 有效性必须以当前运行结果为准。上游限流、SSL、cookie 过期和非交易日无数据都应记录为本次 `SKIP`/`EMPTY`/`FAIL`，不能用历史通过记录覆盖。
 
-#### ### 2026-07-08 实测结果
+### 2026-07-16 当前主机验收证据（未通过）
 
-- 使用显式环境变量 `TRADINGAGENTS_LLM_PROVIDER=deepseek`、`TRADINGAGENTS_QUICK_THINK_LLM=deepseek-v4-flash`、`TRADINGAGENTS_DEEP_THINK_LLM=deepseek-v4-pro`、`TRADINGAGENTS_ASTOCK_RUNTIME_PROFILE=live_research`、`DEEPSEEK_API_KEY=<real key>` 后，`python3 scripts/check_astock_live_research_env.py` 校验通过
-- `pytest -q tests/test_deepseek_reasoning.py -k live -m integration -vv` → `1 passed`
-- `pytest -q tests/test_astock_live_providers.py -m integration -vv` → `7 passed, 1 skipped`
-- `python3 scripts/verify_astock_live_pipeline.py` → `VERIFICATION PASSED`
+本次只读验收没有把任何失败结果记为 live-verified：
 
-#### ### 当前已知约束
+| 项目 | 当前结果 | 精确原因/边界 |
+|---|---|---|
+| Tencent | `PASS` | order book、trade tape、turnover rate 均返回非空数据 |
+| Cninfo | `PASS` | announcement summary、announcement full 均返回非空数据 |
+| Mootdx | `PASS` | kline、order book、trade tape、F10 均返回非空数据 |
+| Akshare | `PARTIAL/FAIL` | news 返回 10 条；kline/financials/research 多次出现 `... exceeded 2.0s deadline`；另一次出现 `dlsym(0xe9627c90, mr_eval_context): symbol not found`；估值返回 `akshare valuation endpoints unavailable and Tencent supplement disabled` |
+| Iwencai | `SKIP` | `pywencai` 已安装，但 `ASTOCK_IWENCAI_COOKIE` 未配置 |
+| 默认 runtime 的 tdx fallback | `FAIL/未纳入验收` | `BaseSocketClient.connect() got an unexpected keyword argument 'host'`；该错误在多个 TDX endpoint host 上重复出现 |
+| DeepSeek LLM runtime | `FAIL` | live 请求返回 HTTP 401，`invalid_request_error` / API key invalid；凭证值不记录 |
 
-- 默认仓库配置仍是 `llm_provider=openai`；若只设置 `DEEPSEEK_API_KEY` 而未切换 provider/model，`live_research` 会按设计 fail-closed
-- Iwencai live 用例仍依赖 `ASTOCK_IWENCAI_COOKIE`；未配置时会跳过，不应记为失败
-- Tencent live 路径在首次验收中出现过一次 `600519.SH` 瞬时失败，但单点复跑与全量复跑均已通过；当前更像上游波动而非稳定代码缺陷
+一次使用默认 provider 路径的 runtime 运行在 tdx 错误日志后未产生 Python traceback 或最终报告，按 native extension / 潜在 segmentation-fault 风险处理并停止复跑；这不是通过证据。后续脚本的 research-only runtime 验证在本地排除了 `akshare`、`tdx`、`baostock`、`qmt`，但由于 LLM 401 仍未形成完整 live runtime 通过结论。
 
 ---
 

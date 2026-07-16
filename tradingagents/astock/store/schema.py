@@ -91,6 +91,138 @@ VALUATION_COLUMN_MAP: dict[str, str] = {
 # ---------------------------------------------------------------------------
 
 
+class _ThreadSafeDuckDBResult:
+    """Guard a DuckDB result cursor for the lifetime of a query result.
+
+    ``DuckDBPyConnection.execute`` returns a cursor, and fetching from that
+    cursor happens after ``execute`` has returned.  Locking only the execute
+    call therefore leaves a race with another query or with store shutdown.
+    This small proxy keeps the existing ``execute(...).fetchdf()`` API while
+    serialising every cursor method and rejecting use after the owning
+    connection has been closed.
+    """
+
+    def __init__(
+        self,
+        cursor: duckdb.DuckDBPyConnection,
+        owner: "_ThreadSafeDuckDBConnection",
+    ) -> None:
+        self._cursor_value = cursor
+        self._owner = owner
+
+    def __getattr__(self, name: str) -> Any:
+        with self._owner._lock:
+            self._owner._ensure_open()
+            target = getattr(self._cursor_value, name)
+            if not callable(target):
+                return target
+
+        def _call(*args: Any, **kwargs: Any) -> Any:
+            with self._owner._lock:
+                self._owner._ensure_open()
+                result = getattr(self._cursor_value, name)(*args, **kwargs)
+                if isinstance(result, duckdb.DuckDBPyConnection):
+                    return _ThreadSafeDuckDBResult(result, self._owner)
+                return result
+
+        return _call
+
+
+class _ThreadSafeDuckDBConnection:
+    """Serialize access to one DuckDB connection and its result cursors.
+
+    DuckDB's Python connection object is shared by Flask request threads and
+    data-job workers.  Every operation, including result fetching and close,
+    uses the same store lock.  A fresh cursor is created per execute so a
+    later query in the same thread cannot overwrite an earlier result.
+    """
+
+    def __init__(self, connection: duckdb.DuckDBPyConnection, lock: threading.RLock) -> None:
+        self._connection = connection
+        self._lock = lock
+        self._closed = False
+        self._local = threading.local()
+
+    def _ensure_open(self) -> None:
+        if self._closed:
+            raise RuntimeError("AStockStore connection is closed")
+
+    def _new_cursor(self) -> duckdb.DuckDBPyConnection:
+        self._ensure_open()
+        return self._connection.cursor()
+
+    def _cursor_for_execute(self) -> duckdb.DuckDBPyConnection:
+        """Use a registration cursor when a dataframe is being inserted."""
+        cursor = getattr(self._local, "registered_cursor", None)
+        if cursor is not None:
+            return cursor
+        return self._new_cursor()
+
+    def execute(self, query: str, parameters: Any = None) -> _ThreadSafeDuckDBResult:
+        with self._lock:
+            cursor = self._cursor_for_execute()
+            if parameters is None:
+                cursor.execute(query)
+            else:
+                cursor.execute(query, parameters)
+            return _ThreadSafeDuckDBResult(cursor, self)
+
+    def executemany(self, query: str, parameters: Any) -> _ThreadSafeDuckDBResult:
+        with self._lock:
+            cursor = self._cursor_for_execute()
+            cursor.executemany(query, parameters)
+            return _ThreadSafeDuckDBResult(cursor, self)
+
+    def cursor(self) -> _ThreadSafeDuckDBResult:
+        with self._lock:
+            return _ThreadSafeDuckDBResult(self._new_cursor(), self)
+
+    def register(self, name: str, obj: Any, *, replace: bool = False) -> _ThreadSafeDuckDBResult:
+        with self._lock:
+            cursor = getattr(self._local, "registered_cursor", None)
+            if cursor is None:
+                cursor = self._new_cursor()
+            if replace:
+                try:
+                    cursor.unregister(name)
+                except Exception:
+                    pass
+            cursor.register(name, obj)
+            self._local.registered_cursor = cursor
+            return _ThreadSafeDuckDBResult(cursor, self)
+
+    def unregister(self, name: str) -> _ThreadSafeDuckDBResult:
+        with self._lock:
+            cursor = getattr(self._local, "registered_cursor", None)
+            if cursor is None:
+                cursor = self._new_cursor()
+            try:
+                cursor.unregister(name)
+            finally:
+                self._local.registered_cursor = None
+            return _ThreadSafeDuckDBResult(cursor, self)
+
+    def close(self) -> None:
+        with self._lock:
+            if self._closed:
+                return
+            self._closed = True
+            self._connection.close()
+
+    def __getattr__(self, name: str) -> Any:
+        """Delegate uncommon connection attributes under the same lock."""
+        if name.startswith("_"):
+            raise AttributeError(name)
+
+        def _call(*args: Any, **kwargs: Any) -> Any:
+            with self._lock:
+                self._ensure_open()
+                target = getattr(self._connection, name)
+                return target(*args, **kwargs)
+
+        return _call
+
+
 class AStockStore:
     """DuckDB-backed local database for A-share data.
 
@@ -106,18 +238,39 @@ class AStockStore:
     def __init__(self, db_path: str = "~/.tradingagents/astock/astock.duckdb") -> None:
         resolved = os.path.expanduser(db_path)
         self._db_path = resolved
-        self._conn: duckdb.DuckDBPyConnection | None = None
-        self._lock = threading.Lock()
+        self._conn: _ThreadSafeDuckDBConnection | None = None
+        self._lock = threading.RLock()
         self._owns_conn = False
+
+    def __getattribute__(self, name: str) -> Any:
+        """Serialize public store methods around the shared DuckDB handle.
+
+        The explicit method-level lock is intentionally centralised here so
+        newly added store methods cannot silently bypass the concurrency
+        contract.  ``RLock`` permits existing methods to call one another.
+        Connection internals and properties are excluded; the connection
+        proxy serializes its own operations.
+        """
+        attr = object.__getattribute__(self, name)
+        if name.startswith("_") or name in {"conn", "db_path"} or not callable(attr):
+            return attr
+        lock = object.__getattribute__(self, "_lock")
+
+        def _locked(*args: Any, **kwargs: Any) -> Any:
+            with lock:
+                return attr(*args, **kwargs)
+
+        return _locked
 
     # ---- connection management -------------------------------------------
 
     @property
-    def conn(self) -> duckdb.DuckDBPyConnection:
-        if self._conn is None:
-            self.connect()
-        assert self._conn is not None
-        return self._conn
+    def conn(self) -> _ThreadSafeDuckDBConnection:
+        with self._lock:
+            if self._conn is None:
+                self.connect()
+            assert self._conn is not None
+            return self._conn
 
     @property
     def db_path(self) -> str:
@@ -125,12 +278,14 @@ class AStockStore:
 
     def connect(self) -> None:
         """Open (or reuse) the DuckDB connection."""
-        if self._conn is not None:
-            return
-        if self._db_path != ":memory:":
-            Path(self._db_path).parent.mkdir(parents=True, exist_ok=True)
-        self._conn = duckdb.connect(self._db_path)
-        self._owns_conn = True
+        with self._lock:
+            if self._conn is not None:
+                return
+            if self._db_path != ":memory:":
+                Path(self._db_path).parent.mkdir(parents=True, exist_ok=True)
+            raw_connection = duckdb.connect(self._db_path)
+            self._conn = _ThreadSafeDuckDBConnection(raw_connection, self._lock)
+            self._owns_conn = True
 
     def close(self) -> None:
         """Close the DuckDB connection if owned."""
@@ -310,7 +465,7 @@ class AStockStore:
         import re
 
         pattern = re.compile(r"^V(\d{8})_(\d{3})__(.+)\.py$")
-        count = 0
+        discovered: dict[str, tuple[str, str, str | None, str | None]] = {}
         for fpath in sorted(mig_dir.iterdir()):
             if not fpath.is_file() or not fpath.name.endswith(".py"):
                 continue
@@ -326,33 +481,27 @@ class AStockStore:
             if ds_match:
                 description = ds_match.group(1)
 
+            # Migration files may expose callable upgrade()/downgrade()
+            # functions whose docstrings are prose, not executable SQL.  Only
+            # explicit SQL assignments belong in this tuple-based adapter.
             upgrade_sql = None
-            up_match = re.search(r'def upgrade\([^)]*\):.*?"""(.*?)"""', content, re.DOTALL)
-            if up_match:
-                sql_block = up_match.group(1).strip()
-                if sql_block and sql_block != "TODO: Write your upgrade SQL here":
-                    upgrade_sql = sql_block
-            if upgrade_sql is None:
-                sql_assign = re.search(r'(?:upgrade_sql|ddl)\s*=\s*"""(.*?)"""', content, re.DOTALL)
-                if sql_assign:
-                    upgrade_sql = sql_assign.group(1).strip()
+            sql_assign = re.search(r'(?:upgrade_sql|ddl)\s*=\s*"""(.*?)"""', content, re.DOTALL)
+            if sql_assign:
+                upgrade_sql = sql_assign.group(1).strip() or None
 
             rollback_sql = None
-            rb_match = re.search(r'def downgrade\([^)]*\):.*?"""(.*?)"""', content, re.DOTALL)
-            if rb_match:
-                sql_block = rb_match.group(1).strip()
-                if sql_block and sql_block != "TODO: Write your downgrade SQL here":
-                    rollback_sql = sql_block
-            if rollback_sql is None:
-                sql_assign = re.search(r'(?:rollback_sql|rollback_ddl)\s*=\s*"""(.*?)"""', content, re.DOTALL)
-                if sql_assign:
-                    rollback_sql = sql_assign.group(1).strip()
+            sql_assign = re.search(r'(?:rollback_sql|rollback_ddl)\s*=\s*"""(.*?)"""', content, re.DOTALL)
+            if sql_assign:
+                rollback_sql = sql_assign.group(1).strip() or None
 
-            self._MIGRATIONS.append((version_id, description, upgrade_sql, rollback_sql))
-            count += 1
+            discovered[version_id] = (version_id, description, upgrade_sql, rollback_sql)
 
-        self._MIGRATIONS.sort(key=lambda x: x[0])
-        return count
+        # ``_MIGRATIONS`` historically lived on the class, so every store
+        # instance appended the same file again.  Replace discovered versions
+        # atomically and retain only explicitly registered custom migrations.
+        existing = [entry for entry in self._MIGRATIONS if entry[0] not in discovered]
+        self._MIGRATIONS = sorted(existing + list(discovered.values()), key=lambda x: x[0])
+        return len(discovered)
 
     # ── schema ----------------------------------------------------------
 

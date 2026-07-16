@@ -674,6 +674,69 @@ def test_concurrent_writes(store: AStockStore) -> None:
     assert total.iloc[0]["cnt"] == n_threads * rows_per_thread
 
 
+def test_concurrent_queries_and_writes(store: AStockStore) -> None:
+    """Shared DuckDB access remains responsive when reads and writes interleave."""
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    store.insert_kline(
+        "BASE.SZ",
+        pd.DataFrame([{
+            "trade_date": date(2024, 1, 2),
+            "open": 10.0,
+            "high": 11.0,
+            "low": 9.0,
+            "close": 10.5,
+        }]),
+    )
+
+    def write(symbol_number: int) -> int:
+        return store.insert_kline(
+            f"MIXED.{symbol_number:04d}",
+            pd.DataFrame([{
+                "trade_date": date(2024, 1, 2),
+                "open": 10.0,
+                "high": 11.0,
+                "low": 9.0,
+                "close": 10.5,
+            }]),
+        )
+
+    def read(_: int) -> int:
+        return len(store.query_kline("BASE.SZ"))
+
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        futures = [
+            executor.submit(write, i) if i % 2 == 0 else executor.submit(read, i)
+            for i in range(40)
+        ]
+        results = [future.result(timeout=5) for future in as_completed(futures)]
+
+    assert len(results) == 40
+    assert store.query_sql("SELECT count(*) AS cnt FROM kline_bars").iloc[0]["cnt"] == 21
+
+
+def test_concurrent_ingestion_job_events_are_persisted(store: AStockStore) -> None:
+    """Data-job status persistence must not deadlock on schema introspection."""
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    def persist(event_number: int) -> int:
+        return store.store_ingestion_job_event({
+            "job_id": f"job-{event_number}",
+            "status": "queued",
+            "message": "queued",
+        })
+
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        futures = [executor.submit(persist, i) for i in range(20)]
+        results = [future.result(timeout=5) for future in as_completed(futures)]
+
+    assert results == [1] * 20
+    count = store.query_sql(
+        "SELECT count(*) AS cnt FROM data_ingestion_job_events"
+    ).iloc[0]["cnt"]
+    assert count == 20
+
+
 def test_kline_field_aliases_and_bad_rows_are_compatible(store: AStockStore) -> None:
     rows = pd.DataFrame([
         {"日期": "2024-01-02", "开盘": "10", "最高": "11", "最低": "9", "收盘": "10.5", "成交量": "100"},
@@ -774,6 +837,25 @@ def test_migration_engine(store: AStockStore) -> None:
     store._MIGRATIONS = []
 
 
+def test_migration_discovery_is_idempotent_and_ignores_function_docstrings() -> None:
+    """Callable migration prose must not be sent to DuckDB as SQL."""
+    first = AStockStore(":memory:")
+    second = AStockStore(":memory:")
+    try:
+        first.connect()
+        first.init_schema()
+        second.connect()
+        second.init_schema()
+
+        assert len(first._MIGRATIONS) == 1
+        assert len(second._MIGRATIONS) == 1
+        assert second._MIGRATIONS[0][2] is None
+        assert second.migrate()[0]["version_id"] == "V20260628_001"
+    finally:
+        first.close()
+        second.close()
+
+
 def test_migration_rollback(store: AStockStore) -> None:
     """Roll back a migration that has rollback_sql."""
     store._MIGRATIONS = []
@@ -784,6 +866,29 @@ def test_migration_rollback(store: AStockStore) -> None:
     store.rollback_migration("test_rollback_v1")
     assert not store.table_exists("_mig_rb")
     store._MIGRATIONS = []
+
+
+def test_backend_environment_overrides_persisted_config(tmp_path, monkeypatch) -> None:
+    """Runtime DB env vars must override stale user-level backend.json."""
+    import json
+
+    from tradingagents.astock.store.backend import BackendConfig
+
+    config_path = tmp_path / "backend.json"
+    config_path.write_text(json.dumps({
+        "current_backend": "postgresql",
+        "duckdb_path": "saved.duckdb",
+        "pg_port": 5432,
+    }), encoding="utf-8")
+    monkeypatch.setenv("ASTOCK_DB_BACKEND", "duckdb")
+    monkeypatch.setenv("ASTOCK_DB_PATH", "env.duckdb")
+    monkeypatch.setenv("PG_PORT", "15432")
+
+    config = BackendConfig.load(config_path)
+
+    assert config.current_backend == "duckdb"
+    assert config.duckdb_path == "env.duckdb"
+    assert config.pg_port == 15432
 
 
 def test_audit_log(store: AStockStore) -> None:

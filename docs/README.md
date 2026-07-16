@@ -5,7 +5,7 @@
 ## 当前状态
 
 | 当前本地状态以 [`phase-archive.md`](phase-archive.md)、[`CHANGELOG.md`](CHANGELOG.md) 和 [`04-development.md`](04-development.md) 为准 |
-- 2026-07-15 本次本地 Web 收敛后的离线验证：`ASTOCK_TESTING=1 .venv/bin/python -m pytest -m 'not integration and not browser' --ignore=tests/test_deepseek_reasoning.py -q --tb=short` → `1174 passed, 7 skipped, 9 deselected`；本地发布门禁 → `170 passed`。Chromium 冒烟由 CI 安装浏览器运行时后执行；`TEST_PYDANTIC_BT=1` gate 单测已补跑通过。
+- 本地正式版的可复现依赖安装、Parquet/Pydantic gate 和 Chromium 运行入口统一见 [`LOCAL_RELEASE_VERIFICATION.md`](LOCAL_RELEASE_VERIFICATION.md)；发布脚本默认执行后端 gate，追加 `--browser` 执行真实浏览器回归。
 - 2026-07-08 已完成真实 live 验收：DeepSeek live API `1 passed`，live provider `7 passed, 1 skipped`，端到端 `live_research` pipeline `VERIFICATION PASSED`
 - 当前唯一未闭环 live 依赖为 `ASTOCK_IWENCAI_COOKIE`；未配置时 Iwencai 用例按设计跳过
 - 默认产品范围为 Research-only：投研分析 + 策略回测 + 市场盯盘；执行页面与 `/api/v1/trade/*`、`/paper/*`、`/qmt/*`、`/portfolio/*` API 默认不可用。`ASTOCK_RESEARCH_ONLY=false` 仅保留兼容模式；**不接入真实券商**。

@@ -98,13 +98,20 @@ if __name__ == "__main__":
             "loopback address."
         ),
     )
+    parser.add_argument(
+        "--no-web",
+        action="store_true",
+        help="Disable the Jinja2 WebUI while keeping the loopback API available.",
+    )
     args = parser.parse_args()
     if os.environ.get("ASTOCK_LOCAL_RELEASE", "").lower() in {"1", "true", "yes", "on"} and not is_loopback_host(args.host):
         parser.error(
             "local-release disables bearer authentication and must bind to a loopback host "
             "(127.0.0.1, ::1, or localhost)"
         )
-    app = create_app()
+    app = create_app(
+        test_config={"ASTOCK_ENABLE_WEB_UI": False} if args.no_web else None,
+    )
     install_signal_handlers(app)
 
     debug_enabled = resolve_debug_mode(

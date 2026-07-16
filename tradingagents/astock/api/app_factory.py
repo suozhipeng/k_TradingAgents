@@ -9,7 +9,6 @@ from __future__ import annotations
 import logging
 import os
 import time
-from typing import Any
 
 from flask import Flask
 
@@ -29,6 +28,11 @@ def _build_store_config(app: Flask, db_path: str | None = None) -> None:
         Explicit DuckDB file path. When provided, bypasses the
         process-wide ``BackendManager`` and creates an isolated store.
     """
+    app.config.setdefault(
+        "ASTOCK_SHUTDOWN_TIMEOUT_SECONDS",
+        float(os.environ.get("ASTOCK_SHUTDOWN_TIMEOUT_SECONDS", "5")),
+    )
+
     # -- Backend selection via BackendManager ---------------------------------
     if db_path is not None:
         from tradingagents.astock.store.schema import init_astock_db
@@ -88,16 +92,27 @@ def _build_store_config(app: Flask, db_path: str | None = None) -> None:
 
 def _build_scheduler_config(app: Flask) -> None:
     """Auto-start PaperTradeScheduler with APScheduler (configurable)."""
-    from ._helpers import _bool_config, _int_config, _as_bool, _bool_env
+    from ._helpers import _bool_config, _int_config
 
     try:
         from tradingagents.astock.execution.scheduler import PaperTradeScheduler as PTS
 
+        enabled = _bool_config(app, "ASTOCK_SCHEDULER_ENABLED", True)
+        paper_trader = app.config.get("PAPER_TRADER")
+        # The scheduler is app-owned. Construct its paper-trader dependency
+        # in the same app config instead of allowing a later request or the
+        # execution module singleton to supply a process-shared instance.
+        if enabled and paper_trader is None:
+            from tradingagents.astock.execution.paper_trader import PaperTrader
+
+            paper_trader = PaperTrader()
+            app.config["PAPER_TRADER"] = paper_trader
+
         pts = PTS(
-            paper_trader=app.config.get("PAPER_TRADER"),
+            paper_trader=paper_trader,
             store=app.config.get("STORE"),
             interval_minutes=_int_config(app, "ASTOCK_SCHEDULER_INTERVAL_MIN", 30),
-            enabled=_bool_config(app, "ASTOCK_SCHEDULER_ENABLED", True),
+            enabled=enabled,
         )
         pts.start()
         app.config["SCHEDULER"] = pts

@@ -153,6 +153,26 @@ def test_app_creation():
     assert app.config["STORE"] is not None
 
 
+def test_factory_applies_service_config_before_background_components():
+    """App overrides must reach components constructed by the factory."""
+    from tradingagents.astock.api import create_app
+
+    app = create_app(
+        db_path=":memory:",
+        test_config={
+            "ASTOCK_ENABLE_WEB_UI": False,
+            "ASTOCK_SCHEDULER_ENABLED": False,
+            "ASTOCK_DATA_JOB_MAX_QUEUED": 0,
+        },
+    )
+
+    manager = app.config["DATA_JOB_MANAGER"]
+    # DataJobManager uses four execution slots by default. With zero queued
+    # capacity the admission semaphore must therefore start at four, not the
+    # historical default of 104.
+    assert manager._admission._value == 4
+
+
 # ---------------------------------------------------------------------------
 # Test: health endpoint
 # ---------------------------------------------------------------------------
@@ -392,6 +412,46 @@ class TestDataEndpoints:
         data = resp.get_json()
         assert data["error"] == "data_quality_blocked"
         assert "violations" in data["details"]
+
+    def test_manual_insert_rejects_malformed_ohlc_value(self, app):
+        """Bad local input must fail clearly before it reaches DuckDB."""
+        resp = app.post(
+            "/api/v1/data/manual/kline_bars",
+            json={
+                "symbol": "000001.SZ",
+                "trade_date": "2024-01-02",
+                "record": {
+                    "open": "not-a-number", "high": 11.0,
+                    "low": 9.5, "close": 10.5,
+                },
+            },
+        )
+        assert resp.status_code == 400
+        data = resp.get_json()
+        assert data["error"] == "invalid_input"
+        assert "open must be a finite number" in data["details"]["detail"]
+
+    def test_refresh_endpoint_reports_malformed_provider_data(self, app):
+        """Web clients receive a useful 422 instead of a generic failure."""
+        from types import SimpleNamespace
+
+        class MalformedProvider:
+            def fetch(self, **_kwargs):
+                return SimpleNamespace(
+                    status="ok", source="malformed-test",
+                    data={"bars": [{
+                        "date": "2024-01-02", "high": 11.0,
+                        "low": 9.0, "close": 10.5,
+                    }]},
+                )
+
+        app.application.config["DATA_FACADE"] = MalformedProvider()
+        response = app.post("/api/v1/data/refresh/kline", json={"symbol": "000001.SZ"})
+
+        assert response.status_code == 422
+        payload = response.get_json()
+        assert payload["error"] == "invalid_kline_data"
+        assert "missing required field(s): open" in payload["details"]["detail"]
 
     def test_database_import_job_status(self, app):
         with tempfile.NamedTemporaryFile(suffix=".sqlite", delete=False) as tmp:

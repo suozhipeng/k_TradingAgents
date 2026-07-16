@@ -44,6 +44,24 @@ _DB_FILENAME = "tdx_cache.db"
 _CSV_SUBDIR = "csv"
 _TABLE_NAME = "tdx_cache"
 
+# TdxCache instances can be created independently by provider instances.  A
+# per-instance lock protects one connection, but does not protect two cache
+# objects pointing at the same SQLite file (or the same CSV fallback files).
+# Keep one re-entrant lock per canonical cache directory for in-process users;
+# SQLite's WAL/busy-timeout settings continue to protect other processes.
+_CACHE_LOCKS: Dict[str, threading.RLock] = {}
+_CACHE_LOCKS_GUARD = threading.Lock()
+
+
+def _cache_lock(base_dir: Path) -> threading.RLock:
+    key = str(base_dir.expanduser().resolve())
+    with _CACHE_LOCKS_GUARD:
+        lock = _CACHE_LOCKS.get(key)
+        if lock is None:
+            lock = threading.RLock()
+            _CACHE_LOCKS[key] = lock
+        return lock
+
 # Default max age per capability (seconds)
 # - Daily kline: 1 hour (safe to reuse during trading day)
 # - Minute kline: 5 minutes
@@ -150,18 +168,20 @@ class TdxCache:
         self._db_path = self._base_dir / _DB_FILENAME
         self._conn: Optional[sqlite3.Connection] = None
         self._use_csv = False
-        self._lock = threading.RLock()
+        self._lock = _cache_lock(self._base_dir)
+        self._closed = False
 
         # Try initialising SQLite
-        try:
-            self._conn = _init_sqlite(self._db_path)
-            logger.debug("tdx_cache: using SQLite at %s", self._db_path)
-        except Exception as exc:
-            logger.warning(
-                "tdx_cache: SQLite init failed (%s), falling back to CSV", exc
-            )
-            self._use_csv = True
-            self._base_dir.mkdir(parents=True, exist_ok=True)
+        with self._lock:
+            try:
+                self._conn = _init_sqlite(self._db_path)
+                logger.debug("tdx_cache: using SQLite at %s", self._db_path)
+            except Exception as exc:
+                logger.warning(
+                    "tdx_cache: SQLite init failed (%s), falling back to CSV", exc
+                )
+                self._use_csv = True
+                self._base_dir.mkdir(parents=True, exist_ok=True)
 
     # ── Public API ────────────────────────────────────────────────────
 
@@ -175,6 +195,7 @@ class TdxCache:
         key = self._cache_key(capability, interval)
 
         with self._lock:
+            self._ensure_open()
             if self._use_csv:
                 return self._get_csv(symbol, capability, interval, key)
             return self._get_sqlite(symbol, capability, interval, key)
@@ -205,6 +226,7 @@ class TdxCache:
         now = utc_now().isoformat() + "Z"
 
         with self._lock:
+            self._ensure_open()
             if self._use_csv:
                 self._set_csv(symbol, capability, interval, data, source, now)
             else:
@@ -227,6 +249,7 @@ class TdxCache:
     def clear(self, symbol: Optional[str] = None) -> None:
         """Clear all cache entries, or entries for a specific symbol."""
         with self._lock:
+            self._ensure_open()
             if self._use_csv:
                 self._clear_csv(symbol)
             else:
@@ -235,6 +258,9 @@ class TdxCache:
     def close(self) -> None:
         """Close the SQLite connection if open."""
         with self._lock:
+            if self._closed:
+                return
+            self._closed = True
             if self._conn is not None:
                 try:
                     self._conn.close()
@@ -243,6 +269,10 @@ class TdxCache:
                 self._conn = None
 
     # ── Internal helpers ──────────────────────────────────────────────
+
+    def _ensure_open(self) -> None:
+        if self._closed:
+            raise RuntimeError("TdxCache is closed")
 
     @staticmethod
     def _cache_key(capability: str, interval: str) -> str:

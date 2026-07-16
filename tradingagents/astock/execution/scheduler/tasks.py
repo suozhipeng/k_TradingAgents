@@ -7,6 +7,7 @@ Contains:
 
 from __future__ import annotations
 
+import threading
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -14,17 +15,26 @@ if TYPE_CHECKING:
 
 # Singleton scheduler instance (set by create_app)
 _scheduler_instance: Any = None
+_scheduler_lock = threading.Lock()
 
 
 def get_scheduler() -> Any:
-    """Return the app-level PaperTradeScheduler singleton."""
-    return _scheduler_instance
+    """Return an explicitly registered legacy scheduler.
+
+    Flask API requests resolve their scheduler from ``current_app.config``;
+    this process-level fallback remains only for non-Flask legacy callers.
+    ``PaperTradeScheduler`` no longer registers itself here, so constructing a
+    second app cannot silently replace the first app's resource owner.
+    """
+    with _scheduler_lock:
+        return _scheduler_instance
 
 
 def set_scheduler(scheduler: Any) -> None:
-    """Update the singleton scheduler instance."""
+    """Update the explicit legacy scheduler fallback."""
     global _scheduler_instance
-    _scheduler_instance = scheduler
+    with _scheduler_lock:
+        _scheduler_instance = scheduler
 
 
 def _bool_env(key: str, default: bool = False) -> bool:

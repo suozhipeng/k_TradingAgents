@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, current_app, has_app_context, jsonify, request
 from .auth import require_capability
 
 from .envelope import error_response
@@ -17,7 +17,7 @@ from ._notification_delivery import (
     validate_public_host,
     validate_public_url,
 )
-from ._notification_runtime import runtime
+from ._notification_runtime import NotificationRuntime, runtime
 from ._helpers import _as_bool
 
 logger = logging.getLogger(__name__)
@@ -25,6 +25,17 @@ bp = Blueprint("notifications", __name__)
 
 _HTTP_CHANNELS = frozenset(("generic", "dingtalk", "feishu", "work_weixin"))
 _CHANNEL_KINDS = _HTTP_CHANNELS | {"email", "desktop"}
+
+
+def _get_runtime() -> NotificationRuntime:
+    """Resolve notification state from the active app, not a module singleton."""
+    if has_app_context():
+        configured = current_app.config.get("NOTIFICATION_RUNTIME")
+        if isinstance(configured, NotificationRuntime):
+            return configured
+    # Keep direct non-Flask callers and old tests working through the explicit
+    # compatibility runtime. App requests never use this fallback.
+    return runtime
 
 
 def _public_channel(channel: dict[str, Any]) -> dict[str, Any]:
@@ -57,7 +68,7 @@ def _validate_channel(channel: dict[str, Any]) -> None:
 
 def set_notification_store(store: Any) -> None:
     """Inject the AStockStore for persistence. Called from create_app."""
-    runtime.set_store(store)
+    _get_runtime().set_store(store)
 
 
 @bp.route("/notifications/test-webhook", methods=["POST"])
@@ -181,10 +192,11 @@ def send_desktop_notification() -> tuple[Any, int]:
 @require_capability("notifications:read", roles=["admin", "operator"])
 def list_dispatchers() -> tuple[Any, int]:
     """List configured notification channels."""
+    app_runtime = _get_runtime()
     return jsonify(
         {
-            "dispatchers": [_public_channel(channel) for channel in runtime.list_channels()],
-            "consumer_running": runtime.is_consumer_running(),
+            "dispatchers": [_public_channel(channel) for channel in app_runtime.list_channels()],
+            "consumer_running": app_runtime.is_consumer_running(),
         }
     ), 200
 
@@ -212,7 +224,7 @@ def register_dispatcher() -> tuple[Any, int]:
         _validate_channel(channel)
     except ValueError as exc:
         return error_response("invalid_input", 400)
-    runtime.register_channel(channel)
+    _get_runtime().register_channel(channel)
     logger.info("Registered notification dispatcher: %s (kind=%s)", name, kind)
     return jsonify({"status": "ok", "dispatcher": _public_channel(channel)}), 201
 
@@ -222,14 +234,15 @@ def register_dispatcher() -> tuple[Any, int]:
 def update_dispatcher(name: str) -> tuple[Any, int]:
     """Update a notification channel."""
     data = request.get_json(silent=True) or {}
-    existing = next((item for item in runtime.list_channels() if item.get("name") == name), None)
+    app_runtime = _get_runtime()
+    existing = next((item for item in app_runtime.list_channels() if item.get("name") == name), None)
     if existing is None:
         return error_response(f"Dispatcher not found: {name}", 404)
     try:
         _validate_channel({**existing, **data})
     except ValueError as exc:
         return error_response("invalid_input", 400)
-    channel = runtime.update_channel(name, data)
+    channel = app_runtime.update_channel(name, data)
     if channel is None:
         return error_response(f"Dispatcher not found: {name}", 404)
     logger.info("Updated notification dispatcher: %s", name)
@@ -240,7 +253,7 @@ def update_dispatcher(name: str) -> tuple[Any, int]:
 @require_capability("notifications:manage", roles=["admin", "operator"])
 def delete_dispatcher(name: str) -> tuple[Any, int]:
     """Delete a notification channel by name."""
-    runtime.delete_channel(name)
+    _get_runtime().delete_channel(name)
     logger.info("Deleted notification dispatcher: %s", name)
     return jsonify({"status": "ok"}), 200
 
@@ -249,14 +262,14 @@ def delete_dispatcher(name: str) -> tuple[Any, int]:
 @require_capability("notifications:read", roles=["admin", "operator"])
 def list_notification_events() -> tuple[Any, int]:
     """Return recent filtered events from the EventBus ring buffer."""
-    return jsonify({"events": runtime.recent_events()}), 200
+    return jsonify({"events": _get_runtime().recent_events()}), 200
 
 
 @bp.route("/notifications/consumer/start", methods=["POST"])
 @require_capability("notifications:manage", roles=["admin", "operator"])
 def start_consumer() -> tuple[Any, int]:
     """Start the notification consumer thread."""
-    runtime.start_consumer()
+    _get_runtime().start_consumer()
     return jsonify({"status": "ok", "running": True}), 200
 
 
@@ -264,7 +277,7 @@ def start_consumer() -> tuple[Any, int]:
 @require_capability("notifications:manage", roles=["admin", "operator"])
 def stop_consumer_route() -> tuple[Any, int]:
     """Stop the notification consumer thread."""
-    runtime.stop_consumer()
+    _get_runtime().stop_consumer()
     return jsonify({"status": "ok", "running": False}), 200
 
 

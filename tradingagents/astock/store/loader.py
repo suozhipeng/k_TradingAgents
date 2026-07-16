@@ -254,13 +254,21 @@ class KlineLoader:
             return 0
 
         if isinstance(bars, pd.DataFrame):
-            df = bars
+            df = bars.copy()
         elif isinstance(bars, list) and bars and isinstance(bars[0], dict):
             df = pd.DataFrame(bars)
         else:
-            df = None
+            raise ValueError(
+                "invalid kline payload: expected a non-empty DataFrame or a list of bar objects"
+            )
         if df is None or df.empty:
             return 0
+
+        # Providers use a mixture of English, Chinese and CSV-style column
+        # names.  Canonicalise and validate *before* the quality gate so a
+        # malformed provider response cannot become a vague 500, nor reach
+        # the local warehouse as partially coercible data.
+        df = _normalise_kline_payload(df)
 
         if not source:
             source = getattr(response, "source", "") or ""
@@ -269,6 +277,54 @@ class KlineLoader:
             from .permanent_kline import mirror_kline_frame
             mirror_kline_frame(self._permanent_store, symbol, df, interval=interval, source=source)
         return rows
+
+
+def _normalise_kline_payload(frame: pd.DataFrame) -> pd.DataFrame:
+    """Return a canonical, write-safe K-line frame or raise ``ValueError``.
+
+    This is deliberately stricter than the Store's quarantine compatibility
+    layer: an upstream refresh is an atomic cache-fill operation, so callers
+    must be told when its payload is malformed rather than silently treating
+    the refresh as successful with zero usable rows.
+    """
+    from .schema import FIELD_ALIASES, KLINE_COLUMN_MAP
+
+    df = frame.copy()
+    rename: dict[Any, str] = {}
+    for column in df.columns:
+        raw = str(column).strip()
+        normalized = raw.lower().replace(" ", "_").replace("-", "_")
+        canonical = KLINE_COLUMN_MAP.get(raw) or KLINE_COLUMN_MAP.get(normalized)
+        canonical = canonical or FIELD_ALIASES.get(raw) or FIELD_ALIASES.get(normalized)
+        if canonical in set(KLINE_COLUMN_MAP.values()):
+            rename[column] = canonical
+    df = df.rename(columns=rename)
+    df = df.loc[:, ~df.columns.duplicated()].copy()
+
+    required = ("bar_time", "open", "high", "low", "close")
+    missing = [column for column in required if column not in df.columns]
+    if missing:
+        raise ValueError(
+            "invalid kline payload: missing required field(s): " + ", ".join(missing)
+        )
+
+    parsed_time = pd.to_datetime(df["bar_time"], errors="coerce")
+    if parsed_time.isna().any():
+        bad_rows = ", ".join(str(index) for index in df.index[parsed_time.isna()].tolist()[:5])
+        raise ValueError(f"invalid kline payload: bar_time is invalid at row(s): {bad_rows}")
+    df["bar_time"] = parsed_time
+
+    for column in ("open", "high", "low", "close", "volume", "amount", "turnover_rate"):
+        if column not in df.columns:
+            continue
+        values = pd.to_numeric(df[column], errors="coerce")
+        if values.isna().any():
+            bad_rows = ", ".join(str(index) for index in df.index[values.isna()].tolist()[:5])
+            raise ValueError(
+                f"invalid kline payload: {column} must be numeric at row(s): {bad_rows}"
+            )
+        df[column] = values
+    return df
 
 
 # ---------------------------------------------------------------------------

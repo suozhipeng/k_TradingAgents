@@ -57,7 +57,7 @@
 
 ### 验证边界
 
-本地正式版发布门禁是 `scripts/verify_local_release.sh`；完整离线回归和 Chromium 浏览器测试由 CI 执行。浏览器本地验收可运行 `.venv/bin/python -m playwright install chromium` 后执行 `.venv/bin/python -m pytest -m browser -q`。在空本地库中，先显式 `/api/v1/market/kline?symbol=600519.SH&refresh=1` 初始化；mootdx 的 TDX 尾部窗口会按请求的本地水位日期过滤后再 upsert 和同步永久仓库。真实 LLM 和有 cookie 的 Provider 验收不使用离线基线伪造通过，见用户手册的外部凭据前置条件。
+本地正式版发布门禁是 `scripts/verify_local_release.sh`；完整离线回归和 Chromium 浏览器测试由 CI 执行。可复现的本机安装、Parquet/Pydantic gate 和浏览器运行路径见 [`LOCAL_RELEASE_VERIFICATION.md`](LOCAL_RELEASE_VERIFICATION.md)。安装 `.venv/bin/python -m pip install -e ".[local-release]"` 后，运行 `.venv/bin/python -m playwright install chromium` 和 `scripts/verify_local_release.sh --browser` 即可执行完整门禁。在空本地库中，先显式 `/api/v1/market/kline?symbol=600519.SH&refresh=1` 初始化；mootdx 的 TDX 尾部窗口会按请求的本地水位日期过滤后再 upsert 和同步永久仓库。真实 LLM 和有 cookie 的 Provider 验收不使用离线基线伪造通过，见用户手册的外部凭据前置条件。
 
 已配置有效 `DEEPSEEK_API_KEY` 时，`tests/test_deepseek_reasoning.py::TestDeepSeekLiveStructuredOutput::test_v4_flash_returns_structured_output` 已于 2026-07-13 通过 live 验收。凭据只应由运行环境注入，禁止写入代码、文档或版本库。
 

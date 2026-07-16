@@ -10,7 +10,16 @@ from werkzeug.serving import make_server
 
 @pytest.mark.browser
 def test_local_dashboard_loads_without_browser_errors():
-    playwright = pytest.importorskip("playwright.sync_api")
+    try:
+        import playwright.sync_api as playwright
+    except ModuleNotFoundError:
+        pytest.fail(
+            "Playwright is not installed. Run "
+            "'.venv/bin/python -m pip install -e \".[local-release]\"' "
+            "before running the browser gate.",
+            pytrace=False,
+        )
+
     from tradingagents.astock.api import create_app
 
     app = create_app(
@@ -22,24 +31,69 @@ def test_local_dashboard_loads_without_browser_errors():
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     errors: list[str] = []
+    unexpected_responses: list[str] = []
+    browser = None
+
+    def record_console_error(message):
+        if message.type != "error":
+            return
+        # The local workbench intentionally allows only same-origin styles.
+        # Chromium reports the optional Google Fonts stylesheet as a CSP error
+        # when the page is tested offline; it is not an application error.
+        if "fonts.googleapis.com" in message.text and "style-src" in message.text:
+            return
+        # Dashboard sections still probe the deliberately disabled audit/task
+        # APIs.  The response assertion below makes sure only those expected
+        # local-release 410s are ignored here.
+        if "status of 410 (GONE)" in message.text:
+            return
+        errors.append(message.text)
+
+    def record_response(response):
+        if response.status < 400:
+            return
+        expected_blocked = (
+            "/api/v1/ops/audit" in response.url,
+            "/api/v1/ops/tasks" in response.url,
+        )
+        if response.status == 410 and any(expected_blocked):
+            return
+        unexpected_responses.append(f"{response.status} {response.url}")
+
     try:
         with playwright.sync_playwright() as p:
-            browser = p.chromium.launch()
-            page = browser.new_page()
-            page.on("console", lambda message: errors.append(message.text) if message.type == "error" else None)
-            page.goto(f"http://127.0.0.1:{server.server_port}/dashboard", wait_until="domcontentloaded")
-            page.wait_for_timeout(750)
-            assert page.locator("main").count() == 1
-            assert "市场追踪中心" in page.locator("main").inner_text()
-            # Exercise a real user navigation instead of only asserting that
-            # the initial HTML was returned.  The Research Centre is one of
-            # the analysis-only paths intentionally kept in local release.
-            page.locator('a[href="/research"]').first.click()
-            page.wait_for_load_state("domcontentloaded")
-            assert page.url.endswith("/research")
-            assert page.locator("main").count() == 1
-            assert not errors
-            browser.close()
+            try:
+                try:
+                    browser = p.chromium.launch(headless=True)
+                except playwright.Error as exc:
+                    pytest.fail(
+                        "Playwright Chromium is not installed. Run "
+                        "'.venv/bin/python -m playwright install chromium' "
+                        f"before running the browser gate ({exc}).",
+                        pytrace=False,
+                    )
+                page = browser.new_page()
+                page.on("console", record_console_error)
+                page.on("pageerror", lambda error: errors.append(str(error)))
+                page.on("response", record_response)
+                page.goto(f"http://127.0.0.1:{server.server_port}/dashboard", wait_until="domcontentloaded")
+                page.wait_for_load_state("networkidle", timeout=15000)
+                assert page.locator("main").count() == 1
+                assert "市场追踪中心" in page.locator("main").inner_text()
+                # Exercise a real user navigation instead of only asserting that
+                # the initial HTML was returned.  The Research Centre is one of
+                # the analysis-only paths intentionally kept in local release.
+                page.locator('a[href="/research"]').first.click()
+                page.wait_for_load_state("domcontentloaded")
+                page.wait_for_load_state("networkidle", timeout=15000)
+                assert page.url.endswith("/research")
+                assert page.locator("main").count() == 1
+                assert not errors
+                assert not unexpected_responses
+            finally:
+                if browser is not None:
+                    browser.close()
+                    browser = None
     finally:
         server.shutdown()
         thread.join(timeout=2)

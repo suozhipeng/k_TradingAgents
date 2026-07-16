@@ -11,7 +11,7 @@ import json
 import logging
 from typing import Any
 
-from flask import Blueprint, Response, jsonify, request
+from flask import Blueprint, Response, current_app, has_app_context, jsonify, request
 from .auth import require_capability
 from .envelope import error_response
 
@@ -20,6 +20,11 @@ logger = logging.getLogger(__name__)
 
 
 def _get_sched() -> Any:
+    # The app factory owns the scheduler lifecycle. API requests must not
+    # cross-wire two Flask app instances through the execution singleton.
+    # Keep the fallback for legacy callers outside a Flask request.
+    if has_app_context():
+        return current_app.config.get("SCHEDULER")
     from tradingagents.astock.execution.scheduler import get_scheduler
     return get_scheduler()
 

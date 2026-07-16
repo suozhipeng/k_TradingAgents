@@ -119,7 +119,10 @@ def register_hooks(app: Flask) -> None:
     # avoiding the previous split where only decorator-protected routes shared
     # rate-limit state across workers.
     app.extensions["astock_rate_limiter"] = build_rate_limiter()
+    from .lifecycle import request_gate
+    request_gate(app)
     _register_before_request(app)
+    _register_request_teardown(app)
     _register_after_request(app)
     _register_error_handlers(app)
 
@@ -129,6 +132,19 @@ def register_hooks(app: Flask) -> None:
 # ---------------------------------------------------------------------------
 
 def _register_before_request(app: Flask) -> None:
+    @app.before_request
+    def _admit_request() -> tuple[Any, int] | None:
+        from .lifecycle import request_gate
+
+        if request_gate(app).enter():
+            g.astock_request_admitted = True
+            return None
+        return jsonify({
+            "error": "application_shutting_down",
+            "message": "The application is shutting down",
+            "status": 503,
+        }), 503
+
     @app.before_request
     def _start_request_timer() -> None:
         g.request_started_at = time.perf_counter()
@@ -257,6 +273,17 @@ def _register_before_request(app: Flask) -> None:
         response = jsonify({"error": "rate_limited", "status": 429, "retry_after_seconds": retry_after})
         response.headers["Retry-After"] = str(retry_after)
         return response, 429
+
+
+def _register_request_teardown(app: Flask) -> None:
+    @app.teardown_request
+    def _release_request(_error: BaseException | None) -> None:
+        if not getattr(g, "astock_request_admitted", False):
+            return
+        from .lifecycle import request_gate
+
+        request_gate(app).leave()
+        g.astock_request_admitted = False
 
 
 # ---------------------------------------------------------------------------

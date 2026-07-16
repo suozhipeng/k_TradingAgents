@@ -19,6 +19,7 @@ class NotificationRuntime:
     def __init__(self) -> None:
         self.channels: dict[str, dict[str, Any]] = {}
         self.channels_lock = threading.Lock()
+        self.consumer_lock = threading.Lock()
         self.consumer_stop = threading.Event()
         self.consumer_thread: threading.Thread | None = None
         self.store: Any = None
@@ -93,22 +94,25 @@ class NotificationRuntime:
             logger.warning("Failed to delete channel %s from DB: %s", name, exc)
 
     def start_consumer(self) -> None:
-        if self.consumer_thread is not None and self.consumer_thread.is_alive():
-            return
-        self.consumer_stop.clear()
-        self.consumer_thread = threading.Thread(
-            target=self._notification_consumer,
-            daemon=True,
-            name="notify-consumer",
-        )
-        self.consumer_thread.start()
+        with self.consumer_lock:
+            if self.consumer_thread is not None and self.consumer_thread.is_alive():
+                return
+            self.consumer_stop.clear()
+            self.consumer_thread = threading.Thread(
+                target=self._notification_consumer,
+                daemon=True,
+                name="notify-consumer",
+            )
+            self.consumer_thread.start()
 
     def stop_consumer(self) -> None:
-        self.consumer_stop.set()
-        thread = self.consumer_thread
-        if thread is not None:
-            thread.join(timeout=3)
-            self.consumer_thread = None
+        with self.consumer_lock:
+            self.consumer_stop.set()
+            thread = self.consumer_thread
+            if thread is not None:
+                thread.join(timeout=3)
+                if not thread.is_alive():
+                    self.consumer_thread = None
 
     def is_consumer_running(self) -> bool:
         return self.consumer_thread is not None and self.consumer_thread.is_alive()

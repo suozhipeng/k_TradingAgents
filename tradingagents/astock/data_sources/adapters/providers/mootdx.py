@@ -48,10 +48,11 @@ class MootdxAdapter(AStockAdapterBase):
         kwargs: Dict[str, Any] = {}
         host = self.config.get("host") or _env("ASTOCK_MOOTDX_HOST")
         port = self.config.get("port") or _env("ASTOCK_MOOTDX_PORT")
+        # mootdx forwards arbitrary keyword arguments to BaseSocketClient.
+        # That client does not accept ``host``/``port``; its supported explicit
+        # endpoint is the ``server=(host, port)`` tuple instead.
         if host:
-            kwargs["host"] = host
-        if port:
-            kwargs["port"] = int(port)
+            kwargs["server"] = (str(host), int(port or 7709))
         try:
             self._client = Quotes.factory(market=self.config.get("market") or _env("ASTOCK_MOOTDX_MARKET", "std"), **kwargs)
             return self._client

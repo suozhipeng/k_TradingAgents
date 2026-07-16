@@ -56,38 +56,15 @@ class BackendConfig:
 
     @classmethod
     def load(cls, path: Path = CONFIG_FILE) -> BackendConfig:
-        """Load from JSON file, falling back to defaults + env vars."""
+        """Load persisted config, then apply environment overrides.
+
+        Environment variables are deployment-local settings and must win over
+        a stale user-level ``backend.json`` (for example, a test or local
+        release selecting DuckDB while a previous session selected PG).
+        """
         config = cls()
 
-        # Env var overrides (highest priority at first load)
-        config.current_backend = (
-            os.environ.get("ASTOCK_DB_BACKEND", "duckdb").strip().lower()
-        )
-        config.duckdb_path = os.environ.get(
-            "ASTOCK_DB_PATH", config.duckdb_path
-        )
-        config.pg_host = os.environ.get("PG_HOST", config.pg_host)
-        try:
-            config.pg_port = int(os.environ.get("PG_PORT", str(config.pg_port)))
-        except (ValueError, TypeError):
-            pass
-        config.pg_database = os.environ.get("PG_DB", config.pg_database)
-        config.pg_user = os.environ.get("PG_USER", config.pg_user)
-        config.pg_password = os.environ.get("PG_PASSWORD", config.pg_password)
-        try:
-            config.pg_pool_size = int(
-                os.environ.get("PG_POOL_SIZE", str(config.pg_pool_size))
-            )
-        except (ValueError, TypeError):
-            pass
-        config.pg_use_timescaledb = (
-            os.environ.get("PG_USE_TIMESCALEDB", "true").lower() == "true"
-        )
-        config.mock_data_enabled = os.environ.get("ASTOCK_MOCK_DATA_ENABLED", "false").lower() in (
-            "true", "1", "yes", "on"
-        )
-
-        # File overrides (lower priority, survives manual edit)
+        # File values provide the persistent baseline.
         if path.exists():
             try:
                 data = json.loads(path.read_text(encoding="utf-8"))
@@ -96,6 +73,36 @@ class BackendConfig:
                         setattr(config, k, v)
             except Exception as exc:
                 logger.warning("Failed to load backend config: %s", exc)
+
+        # Environment values are the highest-priority runtime overlay.
+        if "ASTOCK_DB_BACKEND" in os.environ:
+            config.current_backend = os.environ["ASTOCK_DB_BACKEND"].strip().lower()
+        if "ASTOCK_DB_PATH" in os.environ:
+            config.duckdb_path = os.environ["ASTOCK_DB_PATH"]
+        if "PG_HOST" in os.environ:
+            config.pg_host = os.environ["PG_HOST"]
+        try:
+            if "PG_PORT" in os.environ:
+                config.pg_port = int(os.environ["PG_PORT"])
+        except (ValueError, TypeError):
+            pass
+        if "PG_DB" in os.environ:
+            config.pg_database = os.environ["PG_DB"]
+        if "PG_USER" in os.environ:
+            config.pg_user = os.environ["PG_USER"]
+        if "PG_PASSWORD" in os.environ:
+            config.pg_password = os.environ["PG_PASSWORD"]
+        try:
+            if "PG_POOL_SIZE" in os.environ:
+                config.pg_pool_size = int(os.environ["PG_POOL_SIZE"])
+        except (ValueError, TypeError):
+            pass
+        if "PG_USE_TIMESCALEDB" in os.environ:
+            config.pg_use_timescaledb = os.environ["PG_USE_TIMESCALEDB"].lower() == "true"
+        if "ASTOCK_MOCK_DATA_ENABLED" in os.environ:
+            config.mock_data_enabled = os.environ["ASTOCK_MOCK_DATA_ENABLED"].lower() in (
+                "true", "1", "yes", "on"
+            )
 
         return config
 

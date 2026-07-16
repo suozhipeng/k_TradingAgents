@@ -581,7 +581,8 @@ async function loadAITasks() {
   try {
     const res = await fetch('/api/v1/ops/tasks?limit=10');
     if (!res.ok) throw new Error('tasks failed');
-    const tasks = APIClient.unwrap(await res.json());
+    const taskPayload = APIClient.unwrap(await res.json());
+    const tasks = taskPayload?.tasks || [];
 
     if (!tasks || !tasks.length) {
       el.innerHTML = '<div class="dash-empty">暂无 AI 任务记录</div>';
@@ -686,7 +687,8 @@ async function loadAlertsSummary() {
     // Fallback: use ops/audit for recent error events as a proxy for alerts
     const fallbackRes = await fetch('/api/v1/ops/audit?limit=10');
     if (!fallbackRes.ok) throw new Error('audit failed');
-    const events = APIClient.unwrap(await fallbackRes.json());
+    const auditPayload = APIClient.unwrap(await fallbackRes.json());
+    const events = auditPayload?.events || [];
 
     if (!events || !events.length) {
       el.innerHTML = '<div class="dash-empty">暂无告警</div>';
@@ -942,7 +944,8 @@ async function loadAIStatus() {
     // Check ops/audit for recent AI agent activity
     const res = await fetch('/api/v1/ops/audit?limit=5');
     if (!res.ok) throw new Error('audit failed');
-    const events = APIClient.unwrap(await res.json());
+    const auditPayload = APIClient.unwrap(await res.json());
+    const events = auditPayload?.events || [];
 
     // Look for AI-related events
     const aiEvents = events.filter(e => {

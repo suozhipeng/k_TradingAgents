@@ -26,7 +26,6 @@ import logging
 import threading
 import time
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
-from datetime import datetime
 from typing import Any, Callable
 
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -38,7 +37,7 @@ from tradingagents.astock.time_utils import utc_now_iso
 from ..infrastructure.event_bus import EventBus
 from ..paper_trader import PaperTrader
 from ..strategy_base import StrategyBase
-from .tasks import _bool_env, _int_env, _list_env, _scheduler_instance
+from .tasks import _bool_env, _int_env, _list_env
 
 logger = logging.getLogger(__name__)
 
@@ -131,25 +130,33 @@ class PaperTradeScheduler:
             ["000300.SH", "000001.SH", "399001.SZ", "600519.SH", "000858.SZ"],
         )
         self._cycle_count = 0
-        # Thread safety: protect _cycle_count and _persistent_jobs from
-        # concurrent access (scheduler threads + API request threads).
+        # Protect stateful scheduler operations without serialising symbol
+        # processing or unrelated API requests.
+        self._lifecycle_lock = threading.RLock()
         self._state_lock = threading.Lock()
+        self._cycle_condition = threading.Condition(threading.Lock())
+        self._active_cycles = 0
+        # Direct callers historically could execute a cycle before calling
+        # start(); retain that behavior while still rejecting cycles after an
+        # explicit stop or application shutdown.
+        self._accept_cycles = bool(self._enabled)
         # Keep a bounded worker pool for the scheduler lifetime.  A timed-out
         # Python future cannot stop a running provider call, but reusing this
         # pool prevents every timeout from creating another orphan thread.
         self._symbol_executor = ThreadPoolExecutor(max_workers=8, thread_name_prefix="astock-scheduler")
+        self._retired_symbol_executors: list[ThreadPoolExecutor] = []
 
         self._scheduler = BackgroundScheduler(daemon=True)
+        self._scheduler_stopped = False
         self._job_id = "paper_trade_cycle"
         self._job: Any = None
 
         # Persistent jobs registry: job_id -> JobRecord
         self._persistent_jobs: dict[str, JobRecord] = {}
 
-        from .tasks import _scheduler_instance, get_scheduler, set_scheduler
-
-        # Update the singleton
-        set_scheduler(self)
+        # The Flask app factory owns this instance.  Do not update the
+        # process-level legacy fallback here: a second app must not replace
+        # the first app's scheduler for non-request code during teardown.
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -157,60 +164,75 @@ class PaperTradeScheduler:
 
     def start(self) -> None:
         """Start the scheduler loop."""
-        if not self._enabled:
-            logger.info("PaperTradeScheduler disabled via config")
-            return
-        if self._scheduler.running:
-            logger.warning("PaperTradeScheduler is already running")
-            return
+        with self._lifecycle_lock:
+            if not self._enabled:
+                logger.info("PaperTradeScheduler disabled via config")
+                return
+            if self._scheduler.running:
+                logger.warning("PaperTradeScheduler is already running")
+                return
+            self._prepare_new_generation_locked()
 
-        # Load persistent jobs from DB
-        self._load_jobs_from_db()
+            # Load persistent jobs from DB
+            self._load_jobs_from_db()
 
-        # Add the main interval job
-        self._job = self._scheduler.add_job(
-            self._execute_scheduled_cycle,
-            trigger=IntervalTrigger(minutes=self._interval_minutes),
-            id=self._job_id,
-            name="PaperTradeCycle",
-            replace_existing=True,
-            misfire_grace_time=60,
-        )
+            # Add the main interval job
+            self._job = self._scheduler.add_job(
+                self._execute_scheduled_cycle,
+                trigger=IntervalTrigger(minutes=self._interval_minutes),
+                id=self._job_id,
+                name="PaperTradeCycle",
+                replace_existing=True,
+                misfire_grace_time=60,
+            )
 
-        # Restore user cron jobs
-        for job_id, record in self._persistent_jobs.items():
-            if record.enabled and job_id != self._job_id:
-                self._restore_job(record)
+            # Restore user cron jobs
+            with self._state_lock:
+                persisted_jobs = list(self._persistent_jobs.items())
+            for job_id, record in persisted_jobs:
+                if record.enabled and job_id != self._job_id:
+                    self._restore_job(record)
 
-        self._scheduler.start()
-        logger.info(
-            "PaperTradeScheduler started (interval=%dmin, symbols=%s, strategies=%d, enabled=%s)",
-            self._interval_minutes,
-            self._symbols,
-            len(self._strategies),
-            self._enabled,
-        )
+            with self._cycle_condition:
+                self._accept_cycles = True
+            self._scheduler.start()
+            logger.info(
+                "PaperTradeScheduler started (interval=%dmin, symbols=%s, strategies=%d, enabled=%s)",
+                self._interval_minutes,
+                self._symbols,
+                len(self._strategies),
+                self._enabled,
+            )
 
     def stop(self) -> None:
         """Stop the scheduler loop and persist all jobs."""
-        self._persist_all_jobs()
-        if self._scheduler.running:
-            self._scheduler.shutdown(wait=False)
-        # Shut down the symbol worker pool to prevent orphan threads.
-        self._symbol_executor.shutdown(wait=False, cancel_futures=True)
-        logger.info("PaperTradeScheduler stopped (cycles=%d)", self._cycle_count)
+        with self._lifecycle_lock:
+            with self._cycle_condition:
+                self._accept_cycles = False
+                self._cycle_condition.notify_all()
+            self._persist_all_jobs()
+            if self._scheduler.running:
+                self._scheduler.shutdown(wait=False)
+            # Keep shutdown responsive for the HTTP route.  The application
+            # lifecycle calls wait_for_idle() and drains this pool before it
+            # closes the shared store.
+            self._symbol_executor.shutdown(wait=False, cancel_futures=True)
+            self._scheduler_stopped = True
+            logger.info("PaperTradeScheduler stopped (cycles=%d)", self._cycle_count)
 
     def pause(self) -> None:
         """Pause the scheduler (jobs remain registered)."""
-        if self._job:
-            self._job.pause()
-        logger.info("PaperTradeScheduler paused")
+        with self._lifecycle_lock:
+            if self._job:
+                self._job.pause()
+            logger.info("PaperTradeScheduler paused")
 
     def resume(self) -> None:
         """Resume the scheduler after pause."""
-        if self._job:
-            self._job.resume()
-        logger.info("PaperTradeScheduler resumed")
+        with self._lifecycle_lock:
+            if self._job:
+                self._job.resume()
+            logger.info("PaperTradeScheduler resumed")
 
     @property
     def enabled(self) -> bool:
@@ -218,21 +240,58 @@ class PaperTradeScheduler:
 
     @property
     def running(self) -> bool:
-        return self._scheduler.running and self._job is not None and self._job.next_run_time is not None
+        with self._lifecycle_lock:
+            return self._scheduler.running and self._job is not None and self._job.next_run_time is not None
 
     @property
     def paused(self) -> bool:
-        return self._job is not None and self._job.next_run_time is None
+        with self._lifecycle_lock:
+            return self._job is not None and getattr(self._job, "next_run_time", None) is None
 
     @property
     def cycle_count(self) -> int:
-        return self._cycle_count
+        with self._state_lock:
+            return self._cycle_count
 
     @property
     def next_run_time(self) -> str | None:
-        if self._job and self._job.next_run_time:
-            return self._job.next_run_time.strftime("%Y-%m-%d %H:%M:%S")
-        return None
+        with self._lifecycle_lock:
+            next_run_time = getattr(self._job, "next_run_time", None) if self._job else None
+            if next_run_time:
+                return next_run_time.strftime("%Y-%m-%d %H:%M:%S")
+            return None
+
+    def wait_for_idle(self, timeout: float | None = None) -> bool:
+        """Wait for already accepted cycles to finish before store teardown."""
+        deadline = None if timeout is None else time.monotonic() + max(0.0, timeout)
+        with self._cycle_condition:
+            while self._active_cycles:
+                if deadline is None:
+                    self._cycle_condition.wait()
+                    continue
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    return False
+                self._cycle_condition.wait(timeout=remaining)
+            return True
+
+    @property
+    def _symbol_executors(self) -> list[ThreadPoolExecutor]:
+        """Return current and retired pools for bounded application cleanup."""
+        with self._lifecycle_lock:
+            return [self._symbol_executor, *self._retired_symbol_executors]
+
+    def _prepare_new_generation_locked(self) -> None:
+        """Create restartable APScheduler/executor state after ``stop()``."""
+        if not self._scheduler_stopped:
+            return
+        self._retired_symbol_executors.append(self._symbol_executor)
+        self._symbol_executor = ThreadPoolExecutor(
+            max_workers=8, thread_name_prefix="astock-scheduler"
+        )
+        self._scheduler = BackgroundScheduler(daemon=True)
+        self._job = None
+        self._scheduler_stopped = False
 
     # ------------------------------------------------------------------
     # Job management (CRUD + persistence)
@@ -259,32 +318,34 @@ class PaperTradeScheduler:
         enabled : bool
             Whether the job is active immediately.
         """
-        target = func or self._execute_scheduled_cycle
-        aps_trigger = CronTrigger(hour=hour, minute=minute, day_of_week=day_of_week)
-        aps_job = self._scheduler.add_job(
-            target,
-            trigger=aps_trigger,
-            id=job_id,
-            name=f"Cron:{job_id}",
-            replace_existing=True,
-            misfire_grace_time=120,
-        )
+        with self._lifecycle_lock:
+            self._prepare_new_generation_locked()
+            target = func or self._execute_scheduled_cycle
+            aps_trigger = CronTrigger(hour=hour, minute=minute, day_of_week=day_of_week)
+            aps_job = self._scheduler.add_job(
+                target,
+                trigger=aps_trigger,
+                id=job_id,
+                name=f"Cron:{job_id}",
+                replace_existing=True,
+                misfire_grace_time=120,
+            )
 
-        record = JobRecord(
-            job_id=job_id,
-            job_type="cron",
-            func_name=getattr(func, "__name__", "<cycle>"),
-            trigger_type="cron",
-            trigger_args={"hour": hour, "minute": minute, "day_of_week": day_of_week},
-            enabled=enabled,
-        )
-        with self._state_lock:
-            self._persistent_jobs[job_id] = record
-        self._persist_job(record)
+            record = JobRecord(
+                job_id=job_id,
+                job_type="cron",
+                func_name=getattr(func, "__name__", "<cycle>"),
+                trigger_type="cron",
+                trigger_args={"hour": hour, "minute": minute, "day_of_week": day_of_week},
+                enabled=enabled,
+            )
+            with self._state_lock:
+                self._persistent_jobs[job_id] = record
+            self._persist_job(record)
 
-        if not enabled:
-            aps_job.pause()
-        logger.info("Cron job added: %s at %s:%s (enabled=%s)", job_id, hour, minute, enabled)
+            if not enabled:
+                aps_job.pause()
+            logger.info("Cron job added: %s at %s:%s (enabled=%s)", job_id, hour, minute, enabled)
 
     def add_interval_job(
         self,
@@ -305,94 +366,103 @@ class PaperTradeScheduler:
         enabled : bool
             Whether the job is active immediately.
         """
-        target = func or self._execute_scheduled_cycle
-        aps_job = self._scheduler.add_job(
-            target,
-            trigger=IntervalTrigger(minutes=max(1, minutes)),
-            id=job_id,
-            name=f"Interval:{job_id}",
-            replace_existing=True,
-            misfire_grace_time=60,
-        )
+        with self._lifecycle_lock:
+            self._prepare_new_generation_locked()
+            target = func or self._execute_scheduled_cycle
+            aps_job = self._scheduler.add_job(
+                target,
+                trigger=IntervalTrigger(minutes=max(1, minutes)),
+                id=job_id,
+                name=f"Interval:{job_id}",
+                replace_existing=True,
+                misfire_grace_time=60,
+            )
 
-        record = JobRecord(
-            job_id=job_id,
-            job_type="interval",
-            func_name=getattr(func, "__name__", "<cycle>"),
-            trigger_type="interval",
-            trigger_args={"minutes": minutes},
-            enabled=enabled,
-        )
-        with self._state_lock:
-            self._persistent_jobs[job_id] = record
-        self._persist_job(record)
+            record = JobRecord(
+                job_id=job_id,
+                job_type="interval",
+                func_name=getattr(func, "__name__", "<cycle>"),
+                trigger_type="interval",
+                trigger_args={"minutes": minutes},
+                enabled=enabled,
+            )
+            with self._state_lock:
+                self._persistent_jobs[job_id] = record
+            self._persist_job(record)
 
-        if not enabled:
-            aps_job.pause()
-        logger.info("Interval job added: %s every %dmin (enabled=%s)", job_id, minutes, enabled)
+            if not enabled:
+                aps_job.pause()
+            logger.info("Interval job added: %s every %dmin (enabled=%s)", job_id, minutes, enabled)
 
     def remove_job(self, job_id: str) -> bool:
         """Remove a job by ID. Returns True if found and removed."""
-        # Remove from APScheduler
-        try:
-            aps_job = self._scheduler.get_job(job_id)
-            if aps_job:
-                aps_job.remove()
-        except Exception:
-            logger.warning("Failed to remove APScheduler job: %s", job_id)
+        with self._lifecycle_lock:
+            # Remove from APScheduler
+            try:
+                aps_job = self._scheduler.get_job(job_id)
+                if aps_job:
+                    aps_job.remove()
+            except Exception:
+                logger.warning("Failed to remove APScheduler job: %s", job_id)
 
-        # Remove from persistent registry
-        with self._state_lock:
-            record = self._persistent_jobs.pop(job_id, None)
-        if record:
-            self._delete_job_from_db(job_id)
-            logger.info("Job removed: %s", job_id)
-            return True
-        return False
+            # Remove from persistent registry
+            with self._state_lock:
+                record = self._persistent_jobs.pop(job_id, None)
+            if record:
+                self._delete_job_from_db(job_id)
+                logger.info("Job removed: %s", job_id)
+                return True
+            return False
 
     def list_jobs(self) -> list[dict[str, Any]]:
         """List all jobs (registered + persistent)."""
-        jobs = []
-        # Active APScheduler jobs
-        for aps_job in self._scheduler.get_jobs():
-            jobs.append({
-                "job_id": aps_job.id,
-                "name": aps_job.name,
-                "next_run_time": aps_job.next_run_time.strftime("%Y-%m-%d %H:%M:%S") if aps_job.next_run_time else None,
-                "paused": aps_job.next_run_time is None,
-                "source": "apscheduler",
-            })
-        # Persistent jobs not in APScheduler (e.g., scheduler not started yet)
-        for job_id, record in self._persistent_jobs.items():
-            if not any(j["job_id"] == job_id for j in jobs):
+        with self._lifecycle_lock:
+            jobs = []
+            # Active APScheduler jobs
+            for aps_job in self._scheduler.get_jobs():
+                next_run_time = getattr(aps_job, "next_run_time", None)
                 jobs.append({
-                    "job_id": job_id,
-                    "job_type": record.job_type,
-                    "trigger_args": record.trigger_args,
-                    "enabled": record.enabled,
-                    "source": "persistent",
+                    "job_id": aps_job.id,
+                    "name": aps_job.name,
+                    "next_run_time": next_run_time.strftime("%Y-%m-%d %H:%M:%S") if next_run_time else None,
+                    "paused": next_run_time is None,
+                    "source": "apscheduler",
                 })
-        return jobs
+            # Persistent jobs not in APScheduler (e.g., scheduler not started yet)
+            with self._state_lock:
+                persisted_jobs = list(self._persistent_jobs.items())
+            for job_id, record in persisted_jobs:
+                if not any(j["job_id"] == job_id for j in jobs):
+                    jobs.append({
+                        "job_id": job_id,
+                        "job_type": record.job_type,
+                        "trigger_args": dict(record.trigger_args),
+                        "enabled": record.enabled,
+                        "source": "persistent",
+                    })
+            return jobs
 
     def toggle_job(self, job_id: str, enabled: bool) -> bool:
         """Enable or disable a job. Returns True if found."""
-        record = self._persistent_jobs.get(job_id)
-        if not record:
-            return False
-        record.enabled = enabled
-        self._persist_job(record)
+        with self._lifecycle_lock:
+            with self._state_lock:
+                record = self._persistent_jobs.get(job_id)
+                if not record:
+                    return False
+                record.enabled = enabled
+            self._persist_job(record)
 
-        try:
-            aps_job = self._scheduler.get_job(job_id)
-            if aps_job:
-                if enabled:
-                    aps_job.resume()
-                else:
-                    aps_job.pause()
-        except Exception:
-            logger.warning("Failed to toggle job %s (enabled=%s)", job_id, enabled)
-        logger.info("Job toggled: %s -> enabled=%s", job_id, enabled)
-        return True
+            try:
+                aps_job = self._scheduler.get_job(job_id)
+                if aps_job:
+                    if enabled:
+                        aps_job.resume()
+                    else:
+                        aps_job.pause()
+            except Exception:
+                logger.warning("Failed to toggle job %s (enabled=%s)", job_id, enabled)
+            logger.info("Job toggled: %s -> enabled=%s", job_id, enabled)
+            return True
 
     # ------------------------------------------------------------------
     # Persistence (DuckDB)
@@ -472,7 +542,9 @@ class PaperTradeScheduler:
 
     def _persist_all_jobs(self) -> None:
         """Persist all jobs to DB (called on shutdown)."""
-        for record in self._persistent_jobs.values():
+        with self._state_lock:
+            records = list(self._persistent_jobs.values())
+        for record in records:
             self._persist_job(record)
 
     def _delete_job_from_db(self, job_id: str) -> None:
@@ -519,15 +591,28 @@ class PaperTradeScheduler:
     CYCLE_TIMEOUT: float = 300.0
 
     def _execute_scheduled_cycle(self) -> None:
+        """Run one cycle if this scheduler generation still owns the app."""
+        with self._cycle_condition:
+            if not self._accept_cycles:
+                return
+            self._active_cycles += 1
+            with self._state_lock:
+                self._cycle_count += 1
+                cycle_id = self._cycle_count
+        try:
+            self._run_scheduled_cycle(cycle_id)
+        finally:
+            with self._cycle_condition:
+                self._active_cycles -= 1
+                self._cycle_condition.notify_all()
+
+    def _run_scheduled_cycle(self, cycle_id: int) -> None:
         """Execute one full scheduled cycle.
 
         Thread-safe: uses a ThreadPoolExecutor with a timeout so that a
         single symbol's data fetch or strategy computation cannot block
         the entire cycle indefinitely.
         """
-        with self._state_lock:
-            self._cycle_count += 1
-            cycle_id = self._cycle_count
         logger.info("Scheduled cycle #%d starting", cycle_id)
 
         EventBus.publish({

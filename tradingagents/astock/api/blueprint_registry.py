@@ -84,16 +84,24 @@ def register_blueprints(app: Flask) -> None:
 
 def wire_notification_store(app: Flask) -> None:
     """Wire notification store and auto-start consumer after blueprints are registered."""
-    from . import routes_notifications
+    from ._notification_runtime import NotificationRuntime
 
     try:
+        # Notification channels and their consumer belong to the app that
+        # owns the store. A module-level runtime would let the next app
+        # replace the previous app's store and background thread.
+        app_runtime = NotificationRuntime()
+        app.config["NOTIFICATION_RUNTIME"] = app_runtime
         store = app.config.get("STORE")
         if store is not None:
-            routes_notifications.set_notification_store(store)
+            app_runtime.set_store(store)
             # Auto-start consumer if any channels exist
-            with routes_notifications._channels_lock:
-                if routes_notifications._channels:
-                    routes_notifications._start_consumer()
-                    app.logger.info("Notification consumer started with %d channels", len(routes_notifications._channels))
+            with app_runtime.channels_lock:
+                if app_runtime.channels:
+                    app_runtime.start_consumer()
+                    app.logger.info(
+                        "Notification consumer started with %d channels",
+                        len(app_runtime.channels),
+                    )
     except Exception as exc:
         app.logger.warning("Failed to initialize notification consumer: %s", exc)

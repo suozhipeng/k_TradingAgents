@@ -288,7 +288,7 @@ async function generateReport() {
   try {
     let data;
     if (rptType === 'single') {
-      const res = await fetch(`/api/v1/research?symbol=${symbol}`);
+      const res = await fetch(`/api/v1/market/research?symbol=${symbol}`);
       data = APIClient.unwrap(await res.json());
     } else if (rptType === 'market') {
       const res = await fetch(`/api/v1/dashboard/overview`);
@@ -358,17 +358,13 @@ async function generateReport() {
 
     // Save to archive automatically
     try {
-      await fetch('/api/v1/reports/save', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-          symbol: symbol,
-          report_type: rptType,
-          source: source === 'auto' ? 'deepseek' : source,
-          summary: (data?.summary || '报告已生成').substring(0, 200),
-          advisory_only: advisory,
-          trade_date: new Date().toISOString().slice(0, 10),
-        })
+      await APIClient.postJson('/api/v1/reports/save', {
+        symbol: symbol,
+        report_type: rptType,
+        source: source === 'auto' ? 'deepseek' : source,
+        summary: (data?.summary || '报告已生成').substring(0, 200),
+        advisory_only: advisory,
+        trade_date: new Date().toISOString().slice(0, 10),
       });
     } catch {}
 

@@ -11,9 +11,11 @@ This eliminates the circular import pattern::
 
 from __future__ import annotations
 
+import threading
 from typing import Any
 
 _paper_trader: Any = None
+_paper_trader_lock = threading.Lock()
 
 
 def get_paper_trader() -> Any:
@@ -24,18 +26,30 @@ def get_paper_trader() -> Any:
 
         trader = current_app.config.get("PAPER_TRADER")
         if trader is None:
-            from tradingagents.astock.execution.paper_trader import PaperTrader
+            # The factory normally creates this dependency. The lock covers
+            # research-only/disabled-scheduler apps where the first request
+            # may lazily initialise it from several request threads.
+            lock = current_app.extensions.setdefault(
+                "astock_paper_trader_init_lock", threading.Lock()
+            )
+            with lock:
+                trader = current_app.config.get("PAPER_TRADER")
+                if trader is None:
+                    from tradingagents.astock.execution.paper_trader import PaperTrader
 
-            trader = PaperTrader()
-            current_app.config["PAPER_TRADER"] = trader
+                    trader = PaperTrader()
+                    current_app.config["PAPER_TRADER"] = trader
         return trader
     except RuntimeError:
         # Scheduler/unit callers may run outside a Flask application context.
         pass
 
     if _paper_trader is None:
-        from tradingagents.astock.execution.paper_trader import PaperTrader
-        _paper_trader = PaperTrader()
+        with _paper_trader_lock:
+            if _paper_trader is None:
+                from tradingagents.astock.execution.paper_trader import PaperTrader
+
+                _paper_trader = PaperTrader()
     return _paper_trader
 
 

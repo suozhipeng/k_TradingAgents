@@ -6,8 +6,11 @@ Routes: /data/refresh/*, /data/manual/<table>
 from __future__ import annotations
 
 import logging
+import math
 from pathlib import Path
 from typing import Any
+
+import pandas as pd
 
 from flask import Blueprint, Response, current_app, jsonify, request
 
@@ -116,6 +119,12 @@ def refresh_kline() -> tuple[Response, int]:
         return jsonify({"symbol": symbol, "rows_inserted": count, "status": "ok"}), 200
     except Exception as exc:
         error_msg = str(exc)
+        from tradingagents.astock.quality import BlockedImportError
+        if isinstance(exc, (ValueError, BlockedImportError)):
+            logger.warning("Refresh kline rejected malformed data for %s: %s", symbol, exc)
+            return error_response(
+                "invalid_kline_data", 422, detail=error_msg, code="invalid_kline_data"
+            )
         # 提供更有意义的错误信息
         if "timeout" in error_msg.lower() or "timed out" in error_msg.lower():
             logger.warning("Refresh kline timed out for %s: %s", symbol, exc)
@@ -226,6 +235,7 @@ def _validate_manual_rows(table_name: str, rows: list[dict[str, Any]]) -> None:
 
     if table_name == "kline_bars":
         date_fields = {"bar_time", "trade_date", "date", "datetime", "time"}
+        required_price_fields = ("open", "high", "low", "close")
         for idx, row in enumerate(rows):
             if not row.get("symbol"):
                 raise ValueError(f"records[{idx}].symbol is required")
@@ -233,6 +243,20 @@ def _validate_manual_rows(table_name: str, rows: list[dict[str, Any]]) -> None:
                 raise ValueError(
                     f"records[{idx}] requires one of: bar_time, trade_date, date, datetime, time"
                 )
+            date_value = next(row[field] for field in date_fields if row.get(field))
+            if pd.isna(pd.to_datetime(date_value, errors="coerce")):
+                raise ValueError(f"records[{idx}] has an invalid date/time value")
+            missing_prices = [field for field in required_price_fields if field not in row]
+            if missing_prices:
+                raise ValueError(
+                    f"records[{idx}] missing required OHLC field(s): {', '.join(missing_prices)}"
+                )
+            for field in (*required_price_fields, "volume", "amount", "turnover_rate"):
+                if field not in row or row[field] is None:
+                    continue
+                value = pd.to_numeric(pd.Series([row[field]]), errors="coerce").iloc[0]
+                if pd.isna(value) or not math.isfinite(float(value)):
+                    raise ValueError(f"records[{idx}].{field} must be a finite number")
             if row.get("interval"):
                 normalise = getattr(raw, "_normalise_interval", None)
                 if normalise is not None:

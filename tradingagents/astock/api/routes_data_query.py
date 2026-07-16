@@ -234,6 +234,39 @@ def _mirror_kline_to_permanent(store: Any, symbol: str, interval: str, start: st
         }
 
 
+def _query_local_kline(
+    store: Any, symbol: str, *, start: str | None, end: str | None,
+    interval: str, limit: int | None, include_cold: bool,
+) -> tuple[pd.DataFrame, str]:
+    """Read the hot cache first, then the permanent local warehouse.
+
+    Both stores are local-only.  This gives Web requests a durable local
+    fallback without accidentally invoking a provider; the caller alone
+    decides whether an explicit refresh should be requested afterwards.
+    """
+    df = store.query_kline(
+        symbol, start=start, end=end, interval=interval,
+        limit=limit, include_cold=include_cold,
+    )
+    if not df.empty or not current_app.config.get("ASTOCK_PERMANENT_KLINE_ENABLED", True):
+        return df, "hot"
+    try:
+        from tradingagents.astock.store.permanent_kline import get_permanent_kline_store
+
+        permanent = get_permanent_kline_store(
+            current_app.config.get("ASTOCK_PERMANENT_KLINE_DB_PATH", "kline/kline.duckdb")
+        )
+        if permanent is store or permanent is getattr(store, "_store", None):
+            return df, "hot"
+        return permanent.query_kline(
+            symbol, start=start, end=end, interval=interval,
+            limit=limit, include_cold=include_cold,
+        ), "permanent"
+    except Exception as exc:
+        logger.warning("permanent local K-line query failed for %s: %s", symbol, exc)
+        return df, "hot"
+
+
 # ---------------------------------------------------------------------------
 # Kline bars
 # ---------------------------------------------------------------------------
@@ -260,7 +293,10 @@ def get_kline() -> tuple[Response, int]:
         )
         store = get_store()
         store_limit = limit + 1 if limit > 0 else None
-        df = store.query_kline(symbol, start=start, end=end, interval=interval, limit=store_limit, include_cold=include_cold)
+        df, local_source = _query_local_kline(
+            store, symbol, start=start, end=end, interval=interval,
+            limit=store_limit, include_cold=include_cold,
+        )
         bars = df_to_json(df)
 
         refresh_status = str(daily_refresh.get("status", "not_requested"))
@@ -291,7 +327,8 @@ def get_kline() -> tuple[Response, int]:
         return jsonify({
             "symbol": symbol, "interval": interval, "bars": bars,
             "count": bar_count, "limit": limit, "has_more": has_more, "range": date_range,
-            "data_state": data_state, "daily_refresh": daily_refresh,
+            "data_state": data_state, "local_source": local_source,
+            "daily_refresh": daily_refresh,
         }), 200
     except Exception as exc:
         return error_response(str(exc), 500)

@@ -47,6 +47,18 @@ def client(app):
     return app.test_client()
 
 
+@pytest.fixture
+def local_release_app():
+    """Create the supported loopback analysis/backtest workbench profile."""
+    from tradingagents.astock.api import create_app
+
+    return create_app(
+        db_path=":memory:",
+        cors_origin="*",
+        test_config={"ASTOCK_LOCAL_RELEASE": True},
+    )
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -200,6 +212,57 @@ class TestWebSpecificPages:
         assert "TV Pro" not in html
         assert "/tv_chart" not in html
         assert "kc-link" in html
+
+    def test_research_detail_calls_use_registered_market_routes(self, client):
+        """The data-query blueprint is mounted below /api/v1/market."""
+        html = client.get("/research").get_data(as_text=True)
+        for legacy_path in (
+            "/api/v1/valuation",
+            "/api/v1/news",
+            "/api/v1/research",
+            "/api/v1/fundamentals",
+            "/api/v1/kline",
+            "/api/v1/f10",
+        ):
+            assert legacy_path not in html
+        for market_path in (
+            "/api/v1/market/valuation",
+            "/api/v1/market/news",
+            "/api/v1/market/research",
+            "/api/v1/market/fundamentals",
+            "/api/v1/market/kline",
+            "/api/v1/market/f10",
+        ):
+            assert market_path in html
+        assert "/api/v1/market/research/search?symbol=" in html
+        assert "&query=" in html
+
+    def test_compatibility_pages_use_current_market_routes(self, client):
+        assert "/api/v1/market/research?symbol=" in client.get("/reports").get_data(as_text=True)
+        assert "/api/v1/market/orderbook?symbol=" in client.get("/trading").get_data(as_text=True)
+
+    def test_ops_audit_reads_events_from_envelope_data(self, client):
+        html = client.get("/ops_audit").get_data(as_text=True)
+        assert "const payload = APIClient.unwrap(await resp.json());" in html
+        assert "const events = payload?.events || [];" in html
+
+    def test_dashboard_unpacks_task_and_audit_collections(self, client):
+        html = client.get("/dashboard").get_data(as_text=True)
+        assert "const taskPayload = APIClient.unwrap(await res.json());" in html
+        assert "const tasks = taskPayload?.tasks || [];" in html
+        assert html.count("const auditPayload = APIClient.unwrap") >= 2
+        assert html.count("const events = auditPayload?.events || [];") >= 2
+
+    def test_local_release_settings_do_not_render_blocked_api_controls(self, local_release_app):
+        html = local_release_app.test_client().get("/settings").get_data(as_text=True)
+        for blocked_path in (
+            "/api/v1/admin/mock-data",
+            "/api/v1/cache/status",
+            "/api/v1/cache/clear",
+            "/api/v1/notifications/test-webhook",
+        ):
+            assert blocked_path not in html
+        assert "本地发布仅提供研究与回测" in html
 
     def test_kc_chart_has_loader_race_guards(self, client):
         resp = client.get("/kc_chart")

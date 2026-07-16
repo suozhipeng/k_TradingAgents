@@ -439,6 +439,22 @@ def tv_history() -> tuple[Response, int]:
         start_str = __import__("datetime").datetime.utcfromtimestamp(from_ts).strftime("%Y-%m-%d") if from_ts else None  # noqa: E501
         end_str = __import__("datetime").datetime.utcfromtimestamp(to_ts).strftime("%Y-%m-%d") if to_ts else None
         df = store.query_kline(symbol, interval=interval, start=start_str, end=end_str, limit=max_bars, include_cold=include_cold)
+        # The canonical warehouse is also local storage.  Always consult it
+        # before making the chart's provider fallback request.
+        if df.empty and current_app.config.get("ASTOCK_PERMANENT_KLINE_ENABLED", True):
+            try:
+                from tradingagents.astock.store.permanent_kline import get_permanent_kline_store
+
+                permanent = get_permanent_kline_store(
+                    current_app.config.get("ASTOCK_PERMANENT_KLINE_DB_PATH", "kline/kline.duckdb")
+                )
+                if permanent is not store and permanent is not getattr(store, "_store", None):
+                    df = permanent.query_kline(
+                        symbol, interval=interval, start=start_str, end=end_str,
+                        limit=max_bars, include_cold=include_cold,
+                    )
+            except Exception as exc:
+                logger.warning("TV permanent local K-line query failed for %s: %s", symbol, exc)
         bars = df_to_json(df)
 
         # Weekly/Monthly/Yearly: aggregate from daily data

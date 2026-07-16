@@ -117,7 +117,9 @@ class DataJobManager:
         self._bulk_executor = ThreadPoolExecutor(max_workers=max(1, workers - 1), thread_name_prefix="astock-bulk")
         self._jobs: dict[str, DataJob] = {}
         self._futures: dict[str, Future[Any]] = {}
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
+        self._shutdown_call_lock = threading.Lock()
+        self._shutdown_started = False
         self._store = store
         # ``ThreadPoolExecutor`` itself has an unbounded work queue.  Reserve
         # capacity for currently running workers plus a bounded waiting room.
@@ -158,6 +160,9 @@ class DataJobManager:
         DataJob
             The job record (reference; status updates are mutable).
         """
+        with self._lock:
+            if self._shutdown_started:
+                raise RuntimeError("data job manager is shut down")
         if not self._admission.acquire(blocking=False):
             raise RuntimeError("data job queue is full; retry after active jobs finish")
         job = DataJob(
@@ -168,29 +173,60 @@ class DataJobManager:
             priority=priority,
             max_retries=max_retries,
         )
-        with self._lock:
-            self._jobs[job.job_id] = job
-        self._persist_event(job, "queued")
-        executor = self._interactive_executor if priority > 0 else self._bulk_executor
         # Do not let the worker transition the job to ``running`` before its
         # Future is registered.  Otherwise a caller can cancel in the narrow
         # submit/register window and the worker may overwrite ``cancelled``.
         start_gate = threading.Event()
         try:
-            future = executor.submit(self._run_limited, job.job_id, fn, start_gate)
             with self._lock:
+                if self._shutdown_started:
+                    raise RuntimeError("data job manager is shut down")
+                self._jobs[job.job_id] = job
+                # Persist while holding the lifecycle lock so shutdown cannot
+                # observe a job that has been admitted but has no Future yet.
+                self._persist_event(job, "queued")
+                executor = (
+                    self._interactive_executor if priority > 0 else self._bulk_executor
+                )
+                future = executor.submit(self._run_limited, job.job_id, fn, start_gate)
                 self._futures[job.job_id] = future
-            start_gate.set()
+                start_gate.set()
         except Exception:
             start_gate.set()
+            with self._lock:
+                self._jobs.pop(job.job_id, None)
+                self._futures.pop(job.job_id, None)
             self._admission.release()
             raise
         return job
 
     def shutdown(self, *, wait: bool = False) -> None:
         """Release both execution lanes during controlled application shutdown."""
-        self._interactive_executor.shutdown(wait=wait, cancel_futures=True)
-        self._bulk_executor.shutdown(wait=wait, cancel_futures=True)
+        # Serialise repeated/concurrent shutdown calls, but never hold the job
+        # lock while waiting for workers: workers take that lock for every
+        # state update and event snapshot.
+        with self._shutdown_call_lock:
+            cancelled: list[DataJob] = []
+            with self._lock:
+                first_shutdown = not self._shutdown_started
+                self._shutdown_started = True
+                if first_shutdown:
+                    for job_id, future in list(self._futures.items()):
+                        if not future.cancel():
+                            continue  # The worker is already running.
+                        job = self._jobs.get(job_id)
+                        self._futures.pop(job_id, None)
+                        self._admission.release()
+                        if job is not None and job.status in ("queued", "running"):
+                            job.status = "cancelled"
+                            job.updated_at = time.time()
+                            job.cancellation_event.set()
+                            cancelled.append(job)
+
+            for job in cancelled:
+                self._persist_event(job, "cancelled")
+            self._interactive_executor.shutdown(wait=wait, cancel_futures=True)
+            self._bulk_executor.shutdown(wait=wait, cancel_futures=True)
 
     # ── accessors ──────────────────────────────────────────────────────
 
@@ -217,10 +253,11 @@ class DataJobManager:
 
     def cancel(self, job_id: str) -> bool:
         """Cancel a queued/running job."""
-        job = self.get(job_id)
-        if job is None:
-            return False
+        release_admission = False
         with self._lock:
+            job = self._jobs.get(job_id)
+            if job is None:
+                return False
             if job.status not in ("queued", "running"):
                 return False
             job.status = "cancelled"
@@ -228,7 +265,14 @@ class DataJobManager:
             job.cancellation_event.set()
             future = self._futures.get(job_id)
             if future is not None:
-                future.cancel()
+                # A cancelled Future will never enter _run_limited, so its
+                # admission slot must be released here.  Running futures
+                # release their slot in _run_limited's finally block.
+                release_admission = future.cancel()
+                if release_admission:
+                    self._futures.pop(job_id, None)
+        if release_admission:
+            self._admission.release()
         self._persist_event(job, "cancelled")
         return True
 
@@ -273,18 +317,23 @@ class DataJobManager:
         """Write a job status transition event to the store if configured."""
         if self._store is None:
             return
-        try:
-            self._store.store_ingestion_job_event({
-                "job_id": job.job_id,
+        with self._lock:
+            current = self._jobs.get(job.job_id)
+            if current is None:
+                return
+            payload = {
+                "job_id": current.job_id,
                 "status": event_status,
-                "processed_rows": job.completed,
-                "message": job.message,
-                "error_message": job.error,
+                "processed_rows": current.completed,
+                "message": current.message,
+                "error_message": current.error,
                 "metadata_json": (
-                    f'{{"kind":"{job.kind}","priority":{job.priority},'
-                    f'"retry_count":{job.retry_count}}}'
+                    f'{{"kind":"{current.kind}","priority":{current.priority},'
+                    f'"retry_count":{current.retry_count}}}'
                 ),
-            })
+            }
+        try:
+            self._store.store_ingestion_job_event(payload)
         except Exception as exc:
             logger.warning("Failed to persist job event for %s: %s", job.job_id, exc)
 

@@ -486,17 +486,17 @@ async function loadResearch() {
   // 5. 并行拉取估值 + 财务 + 新闻(店库+实时+个股) + 报价 + 研报
   const days = 5;
   const [valRes, newsRes, newsLiveRes, stockNewsRes, quoteRes, researchRes] = await Promise.allSettled([
-    fetchJson(`/api/v1/valuation?symbol=${encodeURIComponent(symbol)}&limit=${days}`, 8000),
-    fetchJson(`/api/v1/news?symbol=${encodeURIComponent(symbol)}&limit=5`, 8000),
-    fetchJson(`/api/v1/news/live?symbol=${encodeURIComponent(symbol)}&limit=10&type=flash&source=em`, 10000),
-    fetchJson(`/api/v1/news/stock?symbol=${encodeURIComponent(symbol)}&limit=10`, 10000),
+    fetchJson(`/api/v1/market/valuation?symbol=${encodeURIComponent(symbol)}&limit=${days}`, 8000),
+    fetchJson(`/api/v1/market/news?symbol=${encodeURIComponent(symbol)}&limit=5`, 8000),
+    fetchJson(`/api/v1/market/news/live?symbol=${encodeURIComponent(symbol)}&limit=10&type=flash&source=em`, 10000),
+    fetchJson(`/api/v1/market/news/stock?symbol=${encodeURIComponent(symbol)}&limit=10`, 10000),
     fetchJson(`/api/v1/market/quote?symbol=${encodeURIComponent(symbol)}`, 8000),
-    fetchJson(`/api/v1/research?symbol=${encodeURIComponent(symbol)}&limit=5`, 8000),
+    fetchJson(`/api/v1/market/research?symbol=${encodeURIComponent(symbol)}&limit=5`, 8000),
   ]);
   // 财务基本面 — akshare.stock_financial_analysis_indicator 后端路由
   const _fundSymbol = symbol;
   document.getElementById('valuation-meta').textContent = '⏳ 加载财务...';
-  fetchJson(`/api/v1/fundamentals?symbol=${encodeURIComponent(symbol)}&limit=12`, 45000)
+  fetchJson(`/api/v1/market/fundamentals?symbol=${encodeURIComponent(symbol)}&limit=12`, 45000)
     .then(data => {
       if (data?.items && data.items.length > 0) {
         const el = document.getElementById('val-body');
@@ -640,9 +640,9 @@ async function generateTrendSummary(symbol) {
   try {
     // 并行拉取三个周期 K 线：近5日(一周)、近22日(一月)、近66日(一季)
     const [wRes, mRes, qRes] = await Promise.allSettled([
-      fetchJson(`/api/v1/kline?symbol=${encodeURIComponent(symbol)}&interval=1d&limit=5`),
-      fetchJson(`/api/v1/kline?symbol=${encodeURIComponent(symbol)}&interval=1d&limit=22`),
-      fetchJson(`/api/v1/kline?symbol=${encodeURIComponent(symbol)}&interval=1d&limit=90`),
+      fetchJson(`/api/v1/market/kline?symbol=${encodeURIComponent(symbol)}&interval=1d&limit=5`),
+      fetchJson(`/api/v1/market/kline?symbol=${encodeURIComponent(symbol)}&interval=1d&limit=22`),
+      fetchJson(`/api/v1/market/kline?symbol=${encodeURIComponent(symbol)}&interval=1d&limit=90`),
     ]);
 
     // ── 近一周表现 ──
@@ -958,7 +958,7 @@ function fillMetricsFallback(symbol) {
 }
 
 function useFallbackFinance(symbol) {
-  fetch(`/api/v1/f10?symbol=${encodeURIComponent(symbol)}`)
+  fetch(`/api/v1/market/f10?symbol=${encodeURIComponent(symbol)}`)
     .then(r => r.json()).then(APIClient.unwrap)
     .then(data => {
       if (data.f10?.financials) {
@@ -1051,7 +1051,8 @@ async function searchResearch() {
   if (!q) { st.textContent = '请输入查询'; return; }
   st.textContent = '⏳ 搜索中...';
   try {
-    const data = await fetchJson(`/api/v1/research/search?q=${encodeURIComponent(q)}&limit=${limit}`, 60000);
+    const symbol = getSymbol();
+    const data = await fetchJson(`/api/v1/market/research/search?symbol=${encodeURIComponent(symbol)}&query=${encodeURIComponent(q)}&limit=${limit}`, 60000);
     const items = data?.results || data?.items || [];
     if (items.length === 0) { st.textContent = '未找到'; return; }
     el.innerHTML = items.map(r => {
@@ -1115,7 +1116,7 @@ async function refreshStockNews() {
   const symbol = getSymbol();
   document.getElementById('refresh-msg').textContent = '⏳ 获取个股新闻...';
   try {
-    const data = await fetchJson(`/api/v1/news/stock?symbol=${encodeURIComponent(symbol)}&limit=10`, 10000);
+    const data = await fetchJson(`/api/v1/market/news/stock?symbol=${encodeURIComponent(symbol)}&limit=10`, 10000);
     const items = data?.items || [];
     if (items.length > 0) {
       renderStockNews(items);
@@ -1128,7 +1129,7 @@ async function requestLiveNews() {
   const symbol = getSymbol();
   document.getElementById('refresh-msg').textContent = '⏳ 获取新闻...';
   try {
-    const data = await fetchJson(`/api/v1/news/live?symbol=${encodeURIComponent(symbol)}&limit=10&type=flash&source=em`, 30000);
+    const data = await fetchJson(`/api/v1/market/news/live?symbol=${encodeURIComponent(symbol)}&limit=10&type=flash&source=em`, 30000);
     const items = data?.items || [];
     if (items.length > 0) {
       renderNews(items);
@@ -1143,7 +1144,7 @@ async function requestAnalysisSummary() {
   const symbol = getSymbol();
   document.getElementById('refresh-msg').textContent = '⏳ 获取分析...';
   try {
-    const data = await fetchJson(`/api/v1/research/expectation?symbol=${encodeURIComponent(symbol)}&limit=5`, 30000);
+    const data = await fetchJson(`/api/v1/market/research/expectation?symbol=${encodeURIComponent(symbol)}&limit=5`, 30000);
     renderExpectation(data?.items || []);
     // 切到研报 tab
     document.querySelectorAll('.r-tab-btn')[1].click();

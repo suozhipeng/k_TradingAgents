@@ -1,5 +1,7 @@
 import json
+import sys
 import time
+import types
 from pathlib import Path
 
 import pandas as pd
@@ -274,6 +276,27 @@ class TestProviderFixtures:
         assert trades["items"][0]["time"] == "09:33:31"
         assert f10["code"] == "600519"
         assert f10["industry"] == "酿酒行业"
+
+    def test_mootdx_adapter_passes_configured_endpoint_as_server_tuple(self, monkeypatch):
+        captured = {}
+
+        class FakeQuotes:
+            @staticmethod
+            def factory(*, market, **kwargs):
+                captured["market"] = market
+                captured.update(kwargs)
+                return FakeMootdxClient()
+
+        mootdx_module = types.ModuleType("mootdx")
+        quotes_module = types.ModuleType("mootdx.quotes")
+        quotes_module.Quotes = FakeQuotes
+        monkeypatch.setitem(sys.modules, "mootdx", mootdx_module)
+        monkeypatch.setitem(sys.modules, "mootdx.quotes", quotes_module)
+
+        client = MootdxAdapter(host="127.0.0.1", port=7711)._load_client()
+
+        assert isinstance(client, FakeMootdxClient)
+        assert captured == {"market": "std", "server": ("127.0.0.1", 7711)}
 
     def test_mootdx_kline_honours_incremental_date_window(self):
         adapter = MootdxAdapter(client=FakeMootdxClient())
