@@ -638,10 +638,9 @@ async function generateTrendSummary(symbol) {
   const el = document.getElementById('trend-text');
 
   try {
-    // 并行拉取三个周期 K 线：近5日(一周)、近22日(一月)、近66日(一季)
-    const [wRes, mRes, qRes] = await Promise.allSettled([
-      fetchJson(`/api/v1/market/kline?symbol=${encodeURIComponent(symbol)}&interval=1d&limit=5`),
-      fetchJson(`/api/v1/market/kline?symbol=${encodeURIComponent(symbol)}&interval=1d&limit=22`),
+    // 一次读取 90 根本地日线，再派生周/月/季度窗口，避免同页三次
+    // 对同一 DuckDB series 的重复查询与序列化。
+    const [qRes] = await Promise.allSettled([
       fetchJson(`/api/v1/market/kline?symbol=${encodeURIComponent(symbol)}&interval=1d&limit=90`),
     ]);
 
@@ -661,67 +660,65 @@ async function generateTrendSummary(symbol) {
       return [];
     }
 
-    if (wRes.status === 'fulfilled') {
-      const bars = extractBars(wRes);
-      if (bars.length >= 2) {
-        const first = bars[0];
-        const last = bars[bars.length - 1];
-        const chg = ((last.close - first.close) / first.close) * 100;
-        weekChg = (chg >= 0 ? '+' : '') + chg.toFixed(1) + '%';
-        curPrice = last.close;
-      }
+    const allBars = qRes.status === 'fulfilled' ? extractBars(qRes) : [];
+    const weekBars = allBars.slice(-5);
+    const monthBars = allBars.slice(-22);
+
+    if (weekBars.length >= 2) {
+      const bars = weekBars;
+      const first = bars[0];
+      const last = bars[bars.length - 1];
+      const chg = ((last.close - first.close) / first.close) * 100;
+      weekChg = (chg >= 0 ? '+' : '') + chg.toFixed(1) + '%';
+      curPrice = last.close;
     }
 
     // ── 近一月表现 + 均线计算 ──
-    if (mRes.status === 'fulfilled') {
-      const bars = extractBars(mRes);
-      if (bars.length >= 2) {
-        const first = bars[0];
-        const last = bars[bars.length - 1];
-        const chg = ((last.close - first.close) / first.close) * 100;
-        monthChg = (chg >= 0 ? '+' : '') + chg.toFixed(1) + '%';
-        curPrice = last.close;
+    if (monthBars.length >= 2) {
+      const bars = monthBars;
+      const first = bars[0];
+      const last = bars[bars.length - 1];
+      const chg = ((last.close - first.close) / first.close) * 100;
+      monthChg = (chg >= 0 ? '+' : '') + chg.toFixed(1) + '%';
+      curPrice = last.close;
 
-        // MA5, MA20
-        const closes = bars.map(b => b.close);
-        ma5 = closes.length >= 5 ? closes.slice(-5).reduce((a, b) => a + b, 0) / 5 : 0;
-        ma20 = closes.length >= 20 ? closes.slice(-20).reduce((a, b) => a + b, 0) / 20 : 0;
+      // MA5, MA20
+      const closes = bars.map(b => b.close);
+      ma5 = closes.length >= 5 ? closes.slice(-5).reduce((a, b) => a + b, 0) / 5 : 0;
+      ma20 = closes.length >= 20 ? closes.slice(-20).reduce((a, b) => a + b, 0) / 20 : 0;
 
-        // 日收益率用于波动率
-        for (let i = 1; i < bars.length; i++) {
-          dailyReturns.push((bars[i].close - bars[i-1].close) / bars[i-1].close);
-        }
+      // 日收益率用于波动率
+      for (let i = 1; i < bars.length; i++) {
+        dailyReturns.push((bars[i].close - bars[i-1].close) / bars[i-1].close);
       }
     }
 
     // ── 近一季度表现 + 价格区间 + 波动率 ──
-    if (qRes.status === 'fulfilled') {
-      const bars = extractBars(qRes);
-      if (bars.length >= 2) {
-        const first = bars[0];
-        const last = bars[bars.length - 1];
-        const chg = ((last.close - first.close) / first.close) * 100;
-        quarterChg = (chg >= 0 ? '+' : '') + chg.toFixed(1) + '%';
+    if (allBars.length >= 2) {
+      const bars = allBars;
+      const first = bars[0];
+      const last = bars[bars.length - 1];
+      const chg = ((last.close - first.close) / first.close) * 100;
+      quarterChg = (chg >= 0 ? '+' : '') + chg.toFixed(1) + '%';
 
-        // 价格区间
-        bars.forEach(b => {
-          if (b.high > maxPrice) maxPrice = b.high;
-          if (b.low > 0 && b.low < minPrice) minPrice = b.low;
-        });
+      // 价格区间
+      bars.forEach(b => {
+        if (b.high > maxPrice) maxPrice = b.high;
+        if (b.low > 0 && b.low < minPrice) minPrice = b.low;
+      });
 
-        // MA60（近66日）
-        if (!ma20 || ma20 === 0) {
-          const closes = bars.map(b => b.close);
-          ma20 = closes.length >= 20 ? closes.slice(-20).reduce((a, b) => a + b, 0) / 20 : 0;
-        }
+      // MA60（近66日）
+      if (!ma20 || ma20 === 0) {
         const closes = bars.map(b => b.close);
-        ma60 = closes.length >= 60 ? closes.slice(-60).reduce((a, b) => a + b, 0) / 60 : 0;
+        ma20 = closes.length >= 20 ? closes.slice(-20).reduce((a, b) => a + b, 0) / 20 : 0;
+      }
+      const closes = bars.map(b => b.close);
+      ma60 = closes.length >= 60 ? closes.slice(-60).reduce((a, b) => a + b, 0) / 60 : 0;
 
-        // 补充日收益率
-        if (dailyReturns.length === 0) {
-          for (let i = 1; i < bars.length; i++) {
-            dailyReturns.push((bars[i].close - bars[i-1].close) / bars[i-1].close);
-          }
+      // 补充日收益率
+      if (dailyReturns.length === 0) {
+        for (let i = 1; i < bars.length; i++) {
+          dailyReturns.push((bars[i].close - bars[i-1].close) / bars[i-1].close);
         }
       }
     }

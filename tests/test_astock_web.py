@@ -342,10 +342,9 @@ class TestWebSpecificPages:
         assert "sh-run-btn" in html
 
     @pytest.mark.parametrize("path", ("/compare", "/comparison", "/performance"))
-    def test_legacy_strategy_routes_redirect_to_strategy_hub(self, client, path):
+    def test_legacy_strategy_routes_are_not_public(self, client, path):
         response = client.get(path, follow_redirects=False)
-        assert response.status_code == 301
-        assert response.headers["Location"].endswith("/strategy_hub")
+        assert response.status_code == 404
 
     def test_screener_has_filter_panel(self, client):
         resp = client.get("/screener")

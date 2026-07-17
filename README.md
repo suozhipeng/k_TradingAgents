@@ -28,7 +28,7 @@
 # TradingAgents: Multi-Agents LLM Financial Trading Framework
 
 ## News
-- [2026-07] **TradingAgents-Astock** current local workspace has completed Phase 0–39 and the main Web workbench flow under the current product scope: A 股五层数据路由、DuckDB 本地数据库、Flask REST API、Jinja2 WebUI 主工作台、结构化 daily review、批量分析入口、模拟盘 + mock/read-only QMT managed 试运行、AI Research Center、Strategy Lab、Portfolio / Ops Audit / Market Leaders 等模块。当前状态见 [`docs/phase-archive.md`](docs/phase-archive.md) 与 [`docs/04-development.md`](docs/04-development.md)。
+- [2026-07] **TradingAgents-Astock v0.3.2** provides a local, single-user research and backtest workbench: A 股五层数据路由、DuckDB 本地数据库、Flask REST API、Jinja2 WebUI、结构化 daily review、批量分析、AI Research Center 与 Strategy Lab。它不是公网、多用户或实盘交易服务；投入使用前须完成凭据、Provider、数据备份与供应链验收，详见 [`docs/LOCAL_RELEASE_READINESS_PLAN.md`](docs/LOCAL_RELEASE_READINESS_PLAN.md)。
 - [2026-05] **TradingAgents v0.2.5** released with the grounded Sentiment Analyst, GPT-5.5 etc. model coverage, Qwen/GLM/MiniMax dual-region support, `TRADINGAGENTS_*` env-var configurability with API-key auto-detection, remote Ollama support, non-US alpha benchmarks, and ticker path-traversal hardening. See [CHANGELOG.md](CHANGELOG.md) for the full list.
 - [2026-04] **TradingAgents v0.2.4** released with structured-output agents (Research Manager, Trader, Portfolio Manager), LangGraph checkpoint resume, persistent decision log, DeepSeek/Qwen/GLM/Azure provider support, Docker, and a Windows UTF-8 encoding fix.
 - [2026-03] **TradingAgents v0.2.3** released with multi-language support, GPT-5.4 family models, unified model catalog, backtesting date fidelity, and proxy support.

@@ -6,7 +6,7 @@ Templates live in templates/strategy/
 
 from __future__ import annotations
 
-from flask import Blueprint, redirect, url_for, render_template
+from flask import Blueprint, render_template
 
 bp = Blueprint("web_strategy", __name__)
 
@@ -29,14 +29,3 @@ def strategy_monitor() -> str:
 @bp.route("/backtest")
 def backtest_console() -> str:
     return render_template("strategy/backtest.html")
-
-
-@bp.route("/comparison")
-@bp.route("/compare")
-def comparison_redirect():
-    return redirect(url_for("web.strategy.strategy_hub"), 301)
-
-
-@bp.route("/performance")
-def performance_redirect():
-    return redirect(url_for("web.strategy.strategy_hub"), 301)
