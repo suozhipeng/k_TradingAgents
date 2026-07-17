@@ -39,7 +39,7 @@ TradingAgents/
   - 拉取公告并显示
 
 结论：
-- CLI 是原始多智能体框架的交互入口；A 股本地 Web 产品入口是 `scripts/run_astock_api.py --local-release`。
+- CLI 是原始多智能体框架的交互入口；A 股本地 Web 产品入口是固定 local-release 的 `scripts/run_astock_api.py`。
 
 ### 2. `tradingagents/`
 职责：核心业务实现

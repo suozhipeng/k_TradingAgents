@@ -271,6 +271,8 @@
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <script>
+const isLocalRelease = {{ config.get('ASTOCK_LOCAL_RELEASE', false) | tojson }};
+
 // ── Helper: safe number formatting ──
 function safePct(v) {
   if (v === null || v === undefined || v === '--') return '--';
@@ -646,6 +648,11 @@ async function loadAITasks() {
 // ── Alerts Summary (BL-309) ──
 async function loadAlertsSummary() {
   const el = document.getElementById('alerts-summary-content');
+  if (isLocalRelease) {
+    el.innerHTML = '<div class="dash-empty">本地模式未启用运维告警</div>';
+    _dashTrack('alerts', true);
+    return;
+  }
 
   try {
     // Primary: use new /api/v1/alerts endpoint
@@ -780,33 +787,36 @@ async function loadSectorLeaders() {
       leaderHtml = '<div class="dash-empty">⚠️ 龙头接口不可用</div>';
     }
 
-    // Also try momentum endpoint for leaders
-    try {
-      const momentumRes = await fetch('/api/v1/market/momentum-rotation', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ start_date: '', end_date: '', n: 20, k: 5, l: 5 }),
-      });
-      if (momentumRes.ok) {
-        const momentumData = APIClient.unwrap(await momentumRes.json());
-        const leadingStocks = momentumData.leading_stocks || [];
-        if (leadingStocks.length) {
-          const topLeaders = leadingStocks.slice(0, 3);
-          leaderHtml = topLeaders.map(ls => {
-            const name = ls.name || ls.symbol || '--';
-            const chg = ls.change_pct || ls.change || 0;
-            return `<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;border-radius:6px;background:rgba(13,17,28,0.5);margin-bottom:4px;">
-              <div style="display:flex;align-items:center;gap:6px;">
-                <span style="font-size:12px;color:#d1d4dc;font-weight:500;">${name}</span>
-                <span style="font-size:10px;color:#4a5a6a;">${ls.symbol || ''}</span>
-              </div>
-              <span class="${chgClass(chg)}" style="font-size:12px;font-weight:700;font-family:JetBrains Mono,monospace;">${chgSign(chg)}${safePct(chg)}%</span>
-            </div>`;
-          }).join('');
+    // Momentum rotation can invoke remote providers and a full backtest.
+    // Do not run it automatically on the local release dashboard.
+    if (!isLocalRelease) {
+      try {
+        const momentumRes = await fetch('/api/v1/market/momentum-rotation', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ start_date: '', end_date: '', n: 20, k: 5, l: 5 }),
+        });
+        if (momentumRes.ok) {
+          const momentumData = APIClient.unwrap(await momentumRes.json());
+          const leadingStocks = momentumData.leading_stocks || [];
+          if (leadingStocks.length) {
+            const topLeaders = leadingStocks.slice(0, 3);
+            leaderHtml = topLeaders.map(ls => {
+              const name = ls.name || ls.symbol || '--';
+              const chg = ls.change_pct || ls.change || 0;
+              return `<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;border-radius:6px;background:rgba(13,17,28,0.5);margin-bottom:4px;">
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <span style="font-size:12px;color:#d1d4dc;font-weight:500;">${name}</span>
+                  <span style="font-size:10px;color:#4a5a6a;">${ls.symbol || ''}</span>
+                </div>
+                <span class="${chgClass(chg)}" style="font-size:12px;font-weight:700;font-family:JetBrains Mono,monospace;">${chgSign(chg)}${safePct(chg)}%</span>
+              </div>`;
+            }).join('');
+          }
         }
+      } catch(e) {
+        // Momentum endpoint is optional; fall back to sector leaders
       }
-    } catch(e) {
-      // Momentum endpoint is optional; fall back to sector leaders
     }
 
     sectorsEl.innerHTML = sectorHtml;
@@ -940,6 +950,10 @@ async function loadGlobalDecisionSummary() {
 // ── AI Agent Status (dynamic) ──
 async function loadAIStatus() {
   const el = document.getElementById('ai-status-content');
+  if (isLocalRelease) {
+    _dashTrack('ai_status', true);
+    return;
+  }
   try {
     // Check ops/audit for recent AI agent activity
     const res = await fetch('/api/v1/ops/audit?limit=5');

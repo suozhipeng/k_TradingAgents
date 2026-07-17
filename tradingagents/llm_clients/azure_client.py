@@ -33,11 +33,32 @@ class AzureOpenAIClient(BaseLLMClient):
         super().__init__(model, base_url, **kwargs)
 
     def get_llm(self) -> Any:
-        """Return configured AzureChatOpenAI instance."""
+        """Return configured AzureChatOpenAI instance.
+
+        Validate the Azure settings before constructing the LangChain client so
+        callers receive one actionable project-level error instead of a
+        provider-specific validation traceback.
+        """
         self.warn_if_unknown_model()
+
+        required_settings = {
+            "AZURE_OPENAI_API_KEY": os.environ.get("AZURE_OPENAI_API_KEY"),
+            "AZURE_OPENAI_ENDPOINT": self.base_url or os.environ.get("AZURE_OPENAI_ENDPOINT"),
+            "OPENAI_API_VERSION": os.environ.get("OPENAI_API_VERSION"),
+        }
+        missing = [name for name, value in required_settings.items() if not value]
+        if missing:
+            raise ValueError(
+                "Azure OpenAI configuration incomplete. Set "
+                + ", ".join(missing)
+                + "."
+            )
 
         llm_kwargs = {
             "model": self.model,
+            "api_key": required_settings["AZURE_OPENAI_API_KEY"],
+            "azure_endpoint": required_settings["AZURE_OPENAI_ENDPOINT"],
+            "api_version": required_settings["OPENAI_API_VERSION"],
             "azure_deployment": os.environ.get("AZURE_OPENAI_DEPLOYMENT_NAME", self.model),
         }
 

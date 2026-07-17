@@ -52,7 +52,7 @@ cd "${repo_root}"
 missing_module="$(${python_bin} - <<'PY'
 from importlib.util import find_spec
 
-required = ("pytest", "pydantic", "pyarrow")
+required = ("pytest", "pydantic", "pyarrow", "duckdb")
 missing = [name for name in required if find_spec(name) is None]
 print(", ".join(missing))
 PY

@@ -76,6 +76,19 @@ def test_local_release_keeps_analysis_and_backtest_api_available(app):
     assert client.get("/api/v1/health").status_code == 200
     assert client.get("/api/v1/market/quote?symbol=600519.SH").status_code != 410
     assert client.get("/api/v1/backtest/results").status_code != 410
+    assert client.post("/api/v1/ai/analyze", json={}).status_code == 400
+
+
+def test_local_release_market_summary_does_not_fetch_live_data(app, monkeypatch):
+    from tradingagents.astock import data_sources
+
+    def fail_if_constructed():
+        raise AssertionError("local release must not fetch providers on dashboard load")
+
+    monkeypatch.setattr(data_sources, "AStockDataFacade", fail_if_constructed)
+    response = app.test_client().get("/api/v1/market/summary?symbol=000001.SH")
+    assert response.status_code == 200
+    assert response.get_json()["data"]["source"] == "store"
 
 
 def test_research_only_disables_scheduler_and_scheduler_routes():

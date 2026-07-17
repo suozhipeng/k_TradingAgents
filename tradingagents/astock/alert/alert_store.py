@@ -217,7 +217,7 @@ class AlertStore:
                     if not df.empty:
                         return self._row_to_rule(df.iloc[0].to_dict())
                 except Exception as e:
-                    logger.debug("Operation failed: {0}", e)
+                    logger.debug("AlertStore: get_rule failed for %s: %s", rule_id, e)
             row = self._mem_rules.get(rule_id)
             return self._row_to_rule(row) if row else None
 
@@ -234,7 +234,7 @@ class AlertStore:
                         for _, row in df.iterrows():
                             rules.append(self._row_to_rule(row.to_dict()))
                 except Exception as e:
-                    logger.debug("Operation failed: {0}", e)
+                    logger.debug("AlertStore: list_rules failed: %s", e)
             # Fallback to memory if DB failed or returned empty
             if not rules:
                 for row in self._mem_rules.values():
@@ -322,7 +322,7 @@ class AlertStore:
                         for _, row in df.iterrows():
                             events.append(self._row_to_event(row.to_dict()))
                 except Exception as e:
-                    logger.debug("Operation failed: {0}", e)
+                    logger.debug("AlertStore: get_open_alerts failed: %s", e)
             if not events:
                 all_events = sorted(
                     self._mem_events.values(),
@@ -351,7 +351,7 @@ class AlertStore:
                         for _, row in df.iterrows():
                             events.append(self._row_to_event(row.to_dict()))
                 except Exception as e:
-                    logger.debug("Operation failed: {0}", e)
+                    logger.debug("AlertStore: list_events failed: %s", e)
             if not events:
                 all_events = sorted(
                     self._mem_events.values(),

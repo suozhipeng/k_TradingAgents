@@ -148,7 +148,7 @@ pytest tests/test_astock_provider_fixtures.py -q
 pytest tests/test_astock_interface_analyst.py -q
 
 # Local Web workbench
-.venv/bin/python scripts/run_astock_api.py --local-release --port 5860
+.venv/bin/python scripts/run_astock_api.py --port 5860
 ```
 
 ## Code Conventions

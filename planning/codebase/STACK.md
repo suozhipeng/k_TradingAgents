@@ -107,7 +107,7 @@
 
 ## 本地 Web 运行
 
-- 唯一浏览器入口：`scripts/run_astock_api.py --local-release`。
+- 唯一浏览器入口：固定 local-release 的 `scripts/run_astock_api.py`。
 - 服务只绑定回环地址；本地进程使用 DuckDB、进程内任务、SSE 和缓存。
   - profile: `ollama`
 

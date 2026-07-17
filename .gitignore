@@ -249,4 +249,7 @@ hermes-*-profile-*.tar.gz
 /.hermes/*
 !/.hermes/dev-loop.yaml
 
+# AI agent generated files
+.agnes/
+
 /webui/dist/

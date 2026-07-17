@@ -77,7 +77,7 @@ TradingAgents is a multi-agent trading framework that mirrors the dynamics of re
 - **发布前验证**：`scripts/verify_local_release.sh`。
 - **环境配置**：参见 [`docs/03-operations.md`](docs/03-operations.md)。
 
-> A 股定制模块当前定位为投研分析 + 策略验证 + 模拟盘 + 受控执行试运行平台，不是完整自动实盘生产交易系统。当前产品范围明确 **不接入真实券商**。详见 [`docs/03-operations.md`](docs/03-operations.md) 与 [`docs/03-operations.md`](docs/03-operations.md)。
+> 当前正式 Web 发布范围仅为投研分析、数据查看、报告与策略回测；模拟盘、受控执行、QMT 与任何真实券商接入均不在该发布面内。详见 [`docs/03-operations.md`](docs/03-operations.md)。
 
 Our framework decomposes complex trading tasks into specialized roles.
 

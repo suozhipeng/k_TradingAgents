@@ -50,8 +50,8 @@ def _cached_store_statistics(store: Any) -> tuple[dict[str, Any], int]:
             try:
                 df = store.query_sql(f'SELECT count(DISTINCT symbol) as cnt FROM "{table}"')
                 symbols_tracked += int(df.iloc[0]["cnt"]) if not df.empty else 0
-            except Exception:
-                symbols_tracked += 1
+            except Exception as exc:
+                logger.debug("Query symbol count failed for %s: %s", table, exc)
     with _stats_lock:
         _stats_cache[key] = (now, stats, symbols_tracked)
     return stats, symbols_tracked
@@ -60,7 +60,8 @@ def _cached_store_statistics(store: Any) -> tuple[dict[str, Any], int]:
 def _get_paper_state() -> dict[str, Any]:
     try:
         return serialize_paper_state(get_paper_trader())
-    except Exception:
+    except Exception as exc:
+        logger.debug("Paper state serialization failed: %s", exc)
         return {}
 
 
@@ -164,7 +165,7 @@ def dashboard_overview() -> tuple[Response, int]:
                 paper_total_value = total_value
                 paper_return_pct = pnl_val / (total_value - pnl_val) if (total_value - pnl_val) > 0 else 0.0
         except Exception as e:
-            logger.debug("Operation failed: {0}", e)
+            logger.debug("Operation failed: %s", e)
 
         recent_backtests = _sanitize(_get_recent_backtests(store))
         latest_equity_curve = _get_latest_equity_curve(recent_backtests)
@@ -177,7 +178,7 @@ def dashboard_overview() -> tuple[Response, int]:
                 recent_trades = trades_list.to_dict(orient="records")
                 _sanitize(recent_trades)
         except Exception as e:
-            logger.debug("Operation failed: {0}", e)
+            logger.debug("Operation failed: %s", e)
 
         paper_positions_detail = []
         try:
@@ -192,7 +193,7 @@ def dashboard_overview() -> tuple[Response, int]:
                         for p in positions if p.get("quantity", 0) > 0
                     ]
         except Exception as e:
-            logger.debug("Operation failed: {0}", e)
+            logger.debug("Operation failed: %s", e)
 
         paper_equity_curve = _compute_paper_equity_curve(store)
         decision_summary = _get_decision_summary()
@@ -293,7 +294,8 @@ def _compute_paper_equity_curve(store: Any) -> list[dict]:
         result = curve[-60:]
         _paper_curve_cache = (now, id(store), result)
         return result
-    except Exception:
+    except Exception as exc:
+        logger.debug("Paper equity curve computation failed: %s", exc)
         return []
 
 

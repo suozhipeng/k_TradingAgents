@@ -501,7 +501,7 @@ Python 3.12 Main System
 - 实盘控制入口
 - 风控状态显示
 
-当前代码证据：A 股本地产品只保留 Flask/Jinja2 工作台（`tradingagents/astock/web/`），由 `scripts/run_astock_api.py --local-release` 启动；CLI（`cli/main.py`）保留为终端研究入口。React/Vite 与 Streamlit 展示壳已移除，不再维护独立浏览器产品面。
+当前代码证据：A 股本地产品只保留 Flask/Jinja2 工作台（`tradingagents/astock/web/`），由固定 local-release 的 `scripts/run_astock_api.py` 启动；CLI（`cli/main.py`）保留为终端研究入口。React/Vite 与 Streamlit 展示壳已移除，不再维护独立浏览器产品面。
 
 ### 12.2 CLI
 CLI 仍可保留，用于：

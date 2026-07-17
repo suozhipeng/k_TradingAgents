@@ -42,6 +42,8 @@ _LOCAL_RELEASE_ALLOWED_PREFIXES = (
     "/api/v1/daily/", "/api/v1/strategies/", "/api/v1/alerts",
     "/api/v1/kline", "/api/v1/valuation", "/api/v1/orderbook",
     "/api/v1/news", "/api/v1/research", "/api/v1/fundamentals", "/api/v1/f10",
+    # The local AI Research Center is a supported loopback-only workflow.
+    "/api/v1/ai/analyze",
 )
 
 

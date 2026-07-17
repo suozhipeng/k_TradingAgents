@@ -42,21 +42,10 @@ def test_local_dashboard_loads_without_browser_errors():
         # when the page is tested offline; it is not an application error.
         if "fonts.googleapis.com" in message.text and "style-src" in message.text:
             return
-        # Dashboard sections still probe the deliberately disabled audit/task
-        # APIs.  The response assertion below makes sure only those expected
-        # local-release 410s are ignored here.
-        if "status of 410 (GONE)" in message.text:
-            return
         errors.append(message.text)
 
     def record_response(response):
         if response.status < 400:
-            return
-        expected_blocked = (
-            "/api/v1/ops/audit" in response.url,
-            "/api/v1/ops/tasks" in response.url,
-        )
-        if response.status == 410 and any(expected_blocked):
             return
         unexpected_responses.append(f"{response.status} {response.url}")
 

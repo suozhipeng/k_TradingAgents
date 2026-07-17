@@ -45,13 +45,6 @@ tasks:
     phase: break
     completed_phases: []
     file_count_estimate: 6
-  - id: 4
-    description: 'P2-R2: React 正式首页 — 市场概览/数据源健康/数据新鲜度/自选/最近任务/报告/告警'
-    status: pending
-    track: b
-    phase: break
-    completed_phases: []
-    file_count_estimate: 6
   - id: 5
     description: 'P2-R3: 研究/报告/自选股闭环 — 报价/K线/F10/新闻/公告/AI分析/报告详情/决策摘要'
     status: pending

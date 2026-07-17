@@ -2,7 +2,7 @@
 
 > 生成范围：`README.md`、`cli/`、`tradingagents/`。
 > 约束：只读分析业务代码；未运行真实交易；未调用外部金融数据 API。
-> 本地 Web：Flask/Jinja2 模板位于 `tradingagents/astock/web/`，由 `scripts/run_astock_api.py --local-release` 启动。
+> 本地 Web：Flask/Jinja2 模板位于 `tradingagents/astock/web/`，由 `scripts/run_astock_api.py` 启动（启动器固定 local-release）。
 > 说明：这是当前源码基线映射；A 股目标态请结合 `planning/codebase/ASTOCK_RESOURCE_PLAN.md` 与 `planning/a-stock-resource/` 一起阅读。
 
 

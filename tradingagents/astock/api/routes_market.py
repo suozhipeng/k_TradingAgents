@@ -108,23 +108,28 @@ def market_summary() -> tuple[Response, int]:
         valuations = df_to_json(val_df)
         indicators = df_to_json(indicators_df)
 
-        # If store has no data, try live provider chain
+        # The local release dashboard must remain responsive without outbound
+        # provider access.  Data refresh is explicit, so an empty local store
+        # is reported as such instead of triggering a live fetch on page load.
         if not kline_bars:
-            try:
-                from tradingagents.astock.data_sources import AStockDataFacade
-                facade = AStockDataFacade()
-                # Get kline
-                kr = facade.get_kline(symbol=symbol, interval="1d", limit=120)
-                if kr.status == "ok" and kr.data and kr.data.get("bars"):
-                    kline_bars = kr.data["bars"]
-                # Get valuation
-                vr = facade.get_valuation(symbol=symbol)
-                if vr.status == "ok" and vr.data:
-                    valuations = [vr.data]
-                # Mark source
-                source_tag = kr.meta.get("source", "live") if kr.status == "ok" else "store"
-            except Exception as provider_err:
+            if current_app.config.get("ASTOCK_LOCAL_RELEASE", False):
                 source_tag = "store"
+            else:
+                try:
+                    from tradingagents.astock.data_sources import AStockDataFacade
+                    facade = AStockDataFacade()
+                    # Get kline
+                    kr = facade.get_kline(symbol=symbol, interval="1d", limit=120)
+                    if kr.status == "ok" and kr.data and kr.data.get("bars"):
+                        kline_bars = kr.data["bars"]
+                    # Get valuation
+                    vr = facade.get_valuation(symbol=symbol)
+                    if vr.status == "ok" and vr.data:
+                        valuations = [vr.data]
+                    # Mark source
+                    source_tag = kr.meta.get("source", "live") if kr.status == "ok" else "store"
+                except Exception:
+                    source_tag = "store"
         else:
             source_tag = _resolve_source(store, symbol, kline_bars, valuations)
 
