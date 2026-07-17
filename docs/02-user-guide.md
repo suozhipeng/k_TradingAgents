@@ -15,20 +15,18 @@
 
 # A 股定制模块用户手册
 
-本文档面向最终用户（投资研究者、量化策略验证者、交易员），提供从首次使用到核心功能操作的完整指南。
+本文档面向最终用户（投资研究者、量化策略验证者），提供本地正式版的核心功能操作指南。
 
 ### 系统定位
 
-TradingAgents-Astock 是**投研分析 + 策略验证 + 模拟盘 + 受控执行试运行平台**。
+TradingAgents-Astock 本地正式版是**投研分析 + 数据查看 + 报告 + 策略验证工作台**。
 
 **可以做：**
 - AI 辅助的 A 股研究报告生成
 - 策略回测与参数优化
-- 模拟盘试跑
-- 查看 QMT managed mock/read-only 边界状态（不接真实券商）
 
 **不能做：**
-- 自动实盘交易（默认不触发真实交易）
+- 模拟盘、受控执行、QMT 与自动实盘交易
 - 保证盈利的投资建议
 - 实时无误的数据服务
 
@@ -46,7 +44,7 @@ TradingAgents-Astock 是**投研分析 + 策略验证 + 模拟盘 + 受控执行
 
 浏览器访问 http://127.0.0.1:5860。该模式只提供分析、数据查看、报告和回测；交易、模拟盘、QMT 与组合执行不可用。
 
-首次运行请先安装本地运行所需依赖：`.venv/bin/python -m pip install -e '.[astock-providers,test]'`。启动器只允许绑定 `127.0.0.1`、`::1` 或 `localhost`，避免本地无认证模式暴露到局域网。K 线查询默认只读本地库：首次使用请在 Data Hub 发起刷新，或显式请求 `GET /api/v1/market/kline?symbol=600519.SH&refresh=1`；响应中的 `data_state=not_initialized` 表示本地库尚未初始化，而不是已获得空的真实行情。
+首次运行请先安装本地运行所需依赖：`.venv/bin/python -m pip install -e '.[local-release]'`。启动器只允许绑定 `127.0.0.1`、`::1` 或 `localhost`，避免本地无认证模式暴露到局域网。K 线查询默认只读本地库：首次使用请在 Data Hub 发起刷新，或显式请求 `GET /api/v1/market/kline?symbol=600519.SH&refresh=1`；响应中的 `data_state=not_initialized` 表示本地库尚未初始化，而不是已获得空的真实行情。
 
 #### 启动 CLI
 
@@ -114,50 +112,9 @@ python3 -m cli.main run-analysis
 2. 选择多个策略和参数组合
 3. 查看指标对比和净值曲线叠加
 
-### 模拟盘
+### 发布范围
 
-#### 启动模拟盘
-
-1. 进入 **Trading & Execution** → Paper
-2. 系统显示虚拟资金、虚拟持仓
-3. 可发起虚拟订单
-
-#### 查看模拟盘状态
-
-- 虚拟资金余额
-- 虚拟持仓
-- 虚拟成交记录
-- 风控拦截记录
-
-#### 注意事项
-
-- 模拟盘结果不代表真实交易表现
-- 所有交易标注为 `paper` 能力等级
-- 不涉及真实账户和真实资金
-
-### 受控执行
-
-#### 前置条件
-
-- 当前范围为 `managed` 模拟/只读模式
-- 不接入真实券商，不查询真实 QMT 委托，不启用自动实盘交易
-- QMT 真实接入统一列为 P3 延后项，需另行完成权限、风控、审计和回滚验收
-
-#### 执行流程
-
-1. 进入 **Trading & Execution** → Managed
-2. 系统显示当前模式（managed / mock / read-only）
-3. 发起模拟或受控交易请求
-4. 风控门检查（ATR 止损、最大单笔、最大持仓等）
-5. 人工确认
-6. 确认后仅进入当前支持的模拟/只读执行链路
-
-#### 安全机制
-
-- **Kill Switch**：一键阻断所有后续交易
-- **风控门**：每笔交易前的自动检查
-- **人工确认**：managed 模式下每笔交易必须人工确认
-- **券商边界**：QMT 页面只展示 mock/read-only 状态；真实券商接入为 P3 暂缓
+本地正式版不提供模拟盘、受控执行、QMT、交易风控页面或真实券商接入。相关遗留模块只供代码兼容与开发参考，不能作为可用功能或操作入口。
 
 ### 数据与健康
 
@@ -172,12 +129,12 @@ python3 -m cli.main run-analysis
 
 ```bash
 # 刷新 K 线数据
-curl -X POST http://localhost:8080/api/v1/data/refresh/kline \
+curl -X POST http://127.0.0.1:5860/api/v1/data/refresh/kline \
   -H "Content-Type: application/json" \
   -d '{"symbol": "600519.SH"}'
 
 # 刷新全部数据
-curl -X POST http://localhost:8080/api/v1/data/refresh/all
+curl -X POST http://127.0.0.1:5860/api/v1/data/refresh/all
 ```
 
 #### 缓存管理
@@ -373,8 +330,6 @@ python scripts/smoke_structured_output.py
 | AI 研究 | WebUI → AI Research Center 或 CLI `tradingagents analyze` | 输入 symbol，生成研究报告 |
 | 回测 | WebUI → Strategy Hub → 回测 | 选择策略、区间、参数，运行回测 |
 | 策略优化 | WebUI → Strategy Hub → 优化 | grid search 最优参数 |
-| 模拟盘 | WebUI → Paper Trading / API `POST /paper/cycle` | 虚拟资金试跑 |
-| 受控执行 | WebUI → Trading → Managed / QMT | 需要 QMT 环境和人工确认 |
 | 批量回测 | API `POST /backtest/batch` | 多策略批量回测 |
 | 数据管理 | API `POST /data/refresh/*` + DuckDB CLI | 数据刷新、导入/导出 |
 | 龙虎榜/北向 | WebUI → Market Leaders 对应 Tab | 主力资金追踪、沪深股通资金流；旧 URL 自动跳转 |
@@ -749,33 +704,9 @@ AI 可能存在幻觉、引用不完整或对行情理解错误。
 
 ## 交易与执行
 
-### Q15: 如何切换到实盘模式？
+### Q15: 如何切换到实盘、模拟盘或 QMT？
 
-当前系统**不支持**自动实盘交易。
-进入 `live-ready` 模式需要通过 Phase 30 Live Trading Readiness 的准入 checklist。
-详见 [`03-operations.md`](03-operations.md)。
-
-### Q16: QMT 连接失败怎么办？
-
-- 确认 QMT 环境已安装并可运行
-- 确认 `.env` 中配置了正确的 QMT 连接参数
-- QMT 不可用时系统会自动降级到模拟盘
-- 参见 [`03-operations.md`](03-operations.md)
-
-### Q17: 风控门拦截了我的订单怎么办？
-
-风控拦截会返回 `reason_code`，说明拦截原因。
-常见原因：
-- 超过最大单笔金额
-- 超过最大持仓限制
-- 超过最大日亏损
-- 非交易时段
-- ATR 止损触发
-
-### Q18: Kill Switch 怎么使用？
-
-Kill Switch 在交易页面顶部显示，激活后会阻断所有后续交易动作。
-这是最重要的安全机制，建议在不确定或异常情况时立即启用。
+本地正式版不提供这些功能，也没有可切换的入口；交易、模拟盘、QMT、组合执行和调度相关页面/API 会被服务端拒绝。任何未来执行能力都必须另行完成安全、权限、审计和回滚验收，不能复用本地发布配置。
 
 ## 系统运维
 
@@ -787,18 +718,12 @@ DuckDB 数据文件位于项目目录下的 DuckDB 存储路径。
 
 ### Q20: 如何清理缓存？
 
-```bash
-# 通过 API
-curl -X POST http://localhost:8080/api/v1/cache/clear
-
-# 或通过 WebUI
-# Data & Ops → 缓存管理 → 清理
-```
+本地正式版不开放缓存清理 API。先停止本地进程、备份数据目录，再按运维文档检查或清理可再生成的缓存；不要对服务端口发送旧版 `/api/v1/cache/clear` 请求。
 
 ### Q21: 如何查看系统健康状态？
 
 ```bash
-curl http://localhost:8080/api/v1/health
+curl http://127.0.0.1:5860/api/v1/health
 ```
 
 或通过 WebUI → Dashboard → 系统状态。

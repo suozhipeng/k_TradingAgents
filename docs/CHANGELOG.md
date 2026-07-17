@@ -54,7 +54,7 @@
 
 ## Local Release — 2026-07-13（analysis/backtest only）
 
-- 正式 Web 入口固定为 Flask/Jinja2：`.venv/bin/python scripts/run_astock_api.py --local-release --port 5860`。
+- 正式 Web 入口固定为 Flask/Jinja2：`.venv/bin/python scripts/run_astock_api.py --port 5860`（启动器始终启用 local-release，不能传 `--local-release`）。
 - `ASTOCK_LOCAL_RELEASE=true` 强制启用 research-only、关闭 PaperTradeScheduler，并拒绝交易、模拟盘、QMT、组合、调度和 paper SSE API；执行页面返回 404。
 - Jinja2 静态资源恢复由 `tradingagents/astock/web/static/` 提供；未知 Web 路由返回 404，不再返回 React shell。
 - 本地启动器默认进入 local-release 并仅绑定 `127.0.0.1`；`--standard` 仅用于遗留开发兼容。local-release 下 `/ops_audit` 返回 404，Settings 隐藏未完成的通知配置。
