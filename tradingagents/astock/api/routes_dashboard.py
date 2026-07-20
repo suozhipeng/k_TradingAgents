@@ -314,7 +314,11 @@ def _get_decision_summary() -> dict[str, Any]:
     """
     global _decision_cache
     now = time.monotonic()
-    ttl = float(current_app.config.get("ASTOCK_DECISION_SUMMARY_TTL_SECONDS", 60))
+    try:
+        ttl = float(current_app.config.get("ASTOCK_DECISION_SUMMARY_TTL_SECONDS", 60))
+    except RuntimeError:
+        # No Flask app context (e.g. unit tests) — skip cache entirely.
+        ttl = 0
     if _decision_cache and now - _decision_cache[0] < ttl:
         return _decision_cache[1]
 
