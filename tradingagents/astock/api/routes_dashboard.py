@@ -30,6 +30,8 @@ bp = Blueprint("dashboard", __name__)
 _stats_lock = threading.Lock()
 _stats_cache: dict[int, tuple[float, dict[str, Any], int]] = {}
 _paper_curve_cache: tuple[float, int, list[dict]] | None = None
+_decision_lock = threading.Lock()
+_decision_cache: tuple[float, dict[str, Any]] | None = None
 
 
 def _cached_store_statistics(store: Any) -> tuple[dict[str, Any], int]:
@@ -305,11 +307,22 @@ def _get_decision_summary() -> dict[str, Any]:
     Uses synchronous technical analysis for each stock.  Errors per-stock
     are caught and logged so a single bad symbol doesn't bring down the
     entire dashboard.
+
+    Results are cached with a TTL to avoid repeated full watchlist scans
+    when /api/v1/dashboard/overview is called multiple times (e.g. by
+    loadLatestReports).
     """
-    counts = {"buy": 0, "hold": 0, "sell": 0}
-    top_picks: list[dict] = []
-    research_only_count = 0
+    global _decision_cache
+    now = time.monotonic()
+    ttl = float(current_app.config.get("ASTOCK_DECISION_SUMMARY_TTL_SECONDS", 60))
+    if _decision_cache and now - _decision_cache[0] < ttl:
+        return _decision_cache[1]
+
+    result = None
     try:
+        counts = {"buy": 0, "hold": 0, "sell": 0}
+        top_picks: list[dict] = []
+        research_only_count = 0
         items = load_watchlist()
         if items:
             for item in items:
@@ -340,9 +353,13 @@ def _get_decision_summary() -> dict[str, Any]:
     except Exception as exc:
         logger.warning("Failed to compute decision summary: %s", exc)
     total = counts["buy"] + counts["hold"] + counts["sell"] + research_only_count
-    return {
+    summary = {
         "total": total, "counts": counts, "top_picks": top_picks,
         "research_only": research_only_count,
         "dominant": max(counts, key=counts.get) if (counts["buy"] + counts["hold"] + counts["sell"]) > 0 else "hold",
         "decision_scope": "research_only", "actionable": False,
     }
+
+    with _decision_lock:
+        _decision_cache = (now, summary)
+    return summary

@@ -244,6 +244,9 @@ webui/node_modules/
 webui/*.tsbuildinfo
 webui/dist/
 
+# Agnes AI agent artifacts (local generated)
+.agnes/
+
 # Hermes/local archives and runtime dumps
 hermes-*-profile-*.tar.gz
 /.hermes/*

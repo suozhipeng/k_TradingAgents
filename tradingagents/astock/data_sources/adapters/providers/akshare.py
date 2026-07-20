@@ -160,8 +160,24 @@ class AkshareAdapter(AStockAdapterBase):
             _random_sleep(0.5, 2.0)
 
         def _do_call():
-            with _temporarily_disable_proxies(bool(self.config.get("disable_env_proxy", True))):
-                return func(**kwargs)
+            try:
+                with _temporarily_disable_proxies(bool(self.config.get("disable_env_proxy", True))):
+                    return func(**kwargs)
+            except ValueError as exc:
+                msg = str(exc)
+                # Akshare's stock_zh_a_daily raises JSONDecodeError (a subclass
+                # of ValueError) when the symbol is an exchange index rather than
+                # a stock.  Treat this as "no data" rather than retrying 3 times
+                # with backoff (~5s).
+                if "No value to decode" in msg:
+                    raise AStockNoDataError(
+                        request.raw_symbol,
+                        request.symbol,
+                        "akshare stock API does not support index-level symbols",
+                        source=self.name,
+                        capability=request.capability,
+                    )
+                raise
 
         try:
             # Many AkShare functions do not expose a network timeout.  Run the

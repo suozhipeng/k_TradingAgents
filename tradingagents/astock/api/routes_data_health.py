@@ -3,13 +3,17 @@
 from __future__ import annotations
 
 import logging
+import threading
 import time
 from typing import Any
 
-from flask import Blueprint, Response, jsonify
+from flask import Blueprint, Response, current_app, jsonify
 
 bp = Blueprint("data_health", __name__)
 logger = logging.getLogger(__name__)
+
+_health_lock = threading.Lock()
+_health_cache: tuple[float, dict[str, Any]] | None = None
 
 
 def _probe_adapter(adapter_name: str, adapter_cls: Any) -> dict[str, Any]:
@@ -69,7 +73,19 @@ def data_health() -> tuple[Response, int]:
         sources (list[dict]) — per-adapter health info
         summary (dict) — total / available / degraded counts
         eastmoney (dict) — EastMoney rate-limited client info
+
+    Results are cached with a TTL to avoid repeated adapter probing on
+    dashboard auto-refresh.
     """
+    global _health_cache
+    now = time.monotonic()
+    ttl = float(current_app.config.get("ASTOCK_DATA_HEALTH_TTL_SECONDS", 300))
+
+    with _health_lock:
+        if _health_cache and now - _health_cache[0] < ttl:
+            return jsonify(_health_cache[1]), 200
+
+    # Build response (may take several seconds due to adapter probing)
     adapters: list[dict[str, Any]] = []
 
     # Built-in adapters
@@ -127,8 +143,6 @@ def data_health() -> tuple[Response, int]:
         "error": None,
     }
     try:
-        from flask import current_app
-
         store = current_app.config.get("STORE")
         if store:
             start = time.time()
@@ -166,15 +180,18 @@ def data_health() -> tuple[Response, int]:
     quality_priority = {"normal": 0, "fallback": 1, "degraded": 2, "mock": 3, "stale": 4, "partial": 5}
     overall_quality = max(quality_tags, key=lambda t: quality_priority.get(t, 0)) if quality_tags else "normal"
 
-    return jsonify(
-        {
-            "sources": adapters,
-            "summary": {
-                "total": total,
-                "available": available,
-                "degraded": degraded,
-            },
-            "quality_overall": overall_quality,
-            "cleaning": clean_stats,
-        }
-    ), 200
+    response_body = {
+        "sources": adapters,
+        "summary": {
+            "total": total,
+            "available": available,
+            "degraded": degraded,
+        },
+        "quality_overall": overall_quality,
+        "cleaning": clean_stats,
+    }
+
+    with _health_lock:
+        _health_cache = (now, response_body)
+
+    return jsonify(response_body), 200

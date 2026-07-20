@@ -172,7 +172,10 @@ def _analysis_worker(kind: str, payload: dict[str, Any], output: Any, result_pat
             from tradingagents.astock import AStockGraphRuntime, AStockInterface
             from tradingagents.astock.data_sources.router import AStockDataFacade
 
-            facade = AStockDataFacade()
+            from flask import current_app
+            facade = current_app.config.get("DATA_FACADE")
+            if facade is None:
+                raise RuntimeError("DataFacade not initialized")
             result = AStockGraphRuntime(
                 symbol=payload["symbol"],
                 interface=AStockInterface(facade=facade),

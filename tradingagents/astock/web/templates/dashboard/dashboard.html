@@ -301,6 +301,9 @@ function chgArrow(v) {
   return n >= 0 ? '▲' : '▼';
 }
 
+// ── Overview cache for sub-sections (avoids duplicate /overview calls) ──
+let _dashOverviewCache = null;
+
 // ── Load all dashboard data ──
 async function loadAll() {
   const tag = document.getElementById('refresh-tag');
@@ -313,6 +316,9 @@ async function loadAll() {
     ]);
     const overview = APIClient.unwrap(await overviewRes.json());
     const stratData = APIClient.unwrap(await stratRes.json());
+
+    // Cache overview for sub-sections that don't need their own API call
+    _dashOverviewCache = overview;
 
     // === Key Metrics ===
     const stats = overview.statistics || {};
@@ -522,10 +528,8 @@ async function loadLatestReports() {
       archiveItems = reportData.items || [];
     }
 
-    // Also get backtest-based reports for completeness
-    const overviewRes = await fetch('/api/v1/dashboard/overview');
-    const overview = APIClient.unwrap(await overviewRes.json());
-    const backtests = overview.recent_backtests || [];
+    // Use backtests from the overview response already loaded by loadAll()
+    const backtests = _dashOverviewCache?.recent_backtests || [];
 
     // Merge: archive items first, then backtest-derived items
     const reports = [];
@@ -1141,35 +1145,47 @@ async function runWatchlistAnalysis() {
 }
 
 // ── Init ──
+let _dashLoading = false;
 async function loadAllWithExtras() {
-  // Reset degraded tracker
-  _dashDegraded.reasons = [];
-  _dashDegraded.ok = 0;
-  _dashDegraded.fail = 0;
+  // Prevent re-entry: if a previous load is still running, skip this tick
+  if (_dashLoading) {
+    console.warn('[dashboard] loadAllWithExtras skipped: previous load still running');
+    return;
+  }
+  _dashLoading = true;
 
-  // Load core dashboard data
-  await loadAll();
+  try {
+    // Reset degraded tracker
+    _dashDegraded.reasons = [];
+    _dashDegraded.ok = 0;
+    _dashDegraded.fail = 0;
 
-  // Load all sections (fire-and-forget on error)
-  Promise.all([
-    loadMarketSummary().catch(e => console.error('Market summary err:', e)),
-    loadGlobalDecisionSummary().catch(e => console.error('Global decision err:', e)),
-    loadLatestReports().catch(e => console.error('Reports err:', e)),
-    loadAIStatus().catch(e => console.error('AI status err:', e)),
-    loadAITasks().catch(e => console.error('AI tasks err:', e)),
-    loadAlertsSummary().catch(e => console.error('Alerts err:', e)),
-    loadSectorLeaders().catch(e => console.error('Sectors err:', e)),
-  ]).finally(() => {
-    _dashShowDegradedBanner();
-    _dashStaleMark('market_summary');
-    _dashStaleMark('global_decision');
-    _dashStaleMark('reports');
-    _dashStaleMark('ai_status');
-    _dashStaleMark('ai_tasks');
-    _dashStaleMark('alerts');
-    _dashStaleMark('leaders');
-    _dashStaleShowAll();
-  });
+    // Load core dashboard data
+    await loadAll();
+
+    // Load all sections (fire-and-forget on error)
+    Promise.all([
+      loadMarketSummary().catch(e => console.error('Market summary err:', e)),
+      loadGlobalDecisionSummary().catch(e => console.error('Global decision err:', e)),
+      loadLatestReports().catch(e => console.error('Reports err:', e)),
+      loadAIStatus().catch(e => console.error('AI status err:', e)),
+      loadAITasks().catch(e => console.error('AI tasks err:', e)),
+      loadAlertsSummary().catch(e => console.error('Alerts err:', e)),
+      loadSectorLeaders().catch(e => console.error('Sectors err:', e)),
+    ]).finally(() => {
+      _dashShowDegradedBanner();
+      _dashStaleMark('market_summary');
+      _dashStaleMark('global_decision');
+      _dashStaleMark('reports');
+      _dashStaleMark('ai_status');
+      _dashStaleMark('ai_tasks');
+      _dashStaleMark('alerts');
+      _dashStaleMark('leaders');
+      _dashStaleShowAll();
+    });
+  } finally {
+    _dashLoading = false;
+  }
 }
 
 // Override the page onload to use the extended loader

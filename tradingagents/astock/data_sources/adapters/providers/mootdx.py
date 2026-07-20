@@ -69,7 +69,24 @@ class MootdxAdapter(AStockAdapterBase):
         _random_sleep(0.2, 0.8)
 
         def _do_call():
-            return method(**kwargs)
+            try:
+                return method(**kwargs)
+            except ValueError as exc:
+                msg = str(exc)
+                # mootdx internally calls pd.to_datetime on TDX response data.
+                # For some symbols (e.g. SZ exchange indices) the server returns
+                # garbled datetime strings that pandas cannot parse.  Treat this
+                # as "no data available" for the symbol rather than a transient
+                # error that would trigger retries + backoff (~4.6s).
+                if "doesn't match format" in msg or "time data" in msg:
+                    raise AStockNoDataError(
+                        request.raw_symbol,
+                        request.symbol,
+                        "mootdx returned garbled data for this symbol",
+                        source=self.name,
+                        capability=request.capability,
+                    )
+                raise
 
         try:
             return _retry_with_backoff(_do_call, max_retries=2, base_delay=0.5, name="mootdx." + method_name)

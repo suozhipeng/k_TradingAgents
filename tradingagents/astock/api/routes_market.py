@@ -195,9 +195,10 @@ def market_regime() -> tuple[Response, int]:
     end_date = datetime.now().strftime("%Y-%m-%d")
 
     try:
-        from tradingagents.astock.data_sources import AStockDataFacade
-
-        facade = AStockDataFacade()
+        from flask import current_app
+        facade = current_app.config.get("DATA_FACADE")
+        if facade is None:
+            return error_response("data_facade_unavailable", 503, code="data_facade_unavailable")
         resp = facade.get_kline(symbol=symbol, interval="1d")
         if resp.status != "ok" or not resp.data or not resp.data.get("bars"):
             return error_response(
@@ -256,9 +257,10 @@ def daily_market_recap() -> tuple[Response, int]:
         else:
             trade_date = request.args.get("trade_date")
 
-        from tradingagents.astock.data_sources import AStockDataFacade
-
-        facade = AStockDataFacade()
+        from flask import current_app
+        facade = current_app.config.get("DATA_FACADE")
+        if facade is None:
+            return error_response("data_facade_unavailable", 503, code="data_facade_unavailable")
         indices_data = []
         total_adv = {"up": 0, "down": 0, "flat": 0}
         sector_strength = []

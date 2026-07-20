@@ -25,11 +25,10 @@ DEFAULT_ELIMINATED_SOURCES = frozenset(("tushare", "ashare"))
 
 DEFAULT_ROUTE_POLICY = {
     # 行情层
-    # mootdx is the only default history source with a bounded, verified local
-    # path.  Baostock login can block before the router reaches a fallback, so
-    # it is retained as a secondary source rather than holding up first-run
-    # charts and backtests.
-    "kline": ("mootdx", "baostock", "tencent", "akshare", "qmt", "tdx"),
+    # mootdx is the fastest source for SH-listed stocks.  Akshare covers SZ/BJ
+    # stocks where mootdx returns garbled data.  Baostock is a last resort
+    # because its synchronous login() can block for 20+ seconds.
+    "kline": ("mootdx", "akshare", "qmt", "tdx", "tencent", "baostock"),
     "order_book": ("mootdx", "tencent", "qmt", "tdx"),
     "trade_tape": ("mootdx", "tencent", "qmt", "tdx"),
     "valuation": ("tencent", "akshare", "mootdx"),
