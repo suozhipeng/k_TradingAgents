@@ -5,7 +5,7 @@ from .provider_support import assert_provider_available
 
 # Providers that use the OpenAI-compatible chat completions API
 _OPENAI_COMPATIBLE = (
-    "openai", "xai", "deepseek",
+    "agnes", "openai", "xai", "deepseek",
     "qwen", "qwen-cn",
     "glm", "glm-cn",
     "minimax", "minimax-cn",

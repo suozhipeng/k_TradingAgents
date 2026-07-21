@@ -73,6 +73,18 @@ _MINIMAX_MODELS: Dict[str, List[ModelOption]] = {
 }
 
 
+_AGNES_MODELS: Dict[str, List[ModelOption]] = {
+    "quick": [
+        ("Agnes 2.0 Flash - Fast, strong coding and tool use", "agnes-2.0-flash"),
+        ("Custom model ID", "custom"),
+    ],
+    "deep": [
+        ("Agnes 2.5 Flash - Latest flagship, 512K ctx, thinking", "agnes-2.5-flash"),
+        ("Agnes 2.0 Flash - Fast, strong coding and tool use", "agnes-2.0-flash"),
+        ("Custom model ID", "custom"),
+    ],
+}
+
 MODEL_OPTIONS: ProviderModeOptions = {
     "openai": {
         "quick": [
@@ -115,6 +127,7 @@ MODEL_OPTIONS: ProviderModeOptions = {
             ("Grok 4 - Flagship (dated build)", "grok-4-0709"),
         ],
     },
+    "agnes": _AGNES_MODELS,
     "deepseek": {
         "quick": [
             ("DeepSeek V4 Flash - Latest V4 fast model", "deepseek-v4-flash"),

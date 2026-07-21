@@ -287,6 +287,7 @@ def _llm_provider_table() -> list[tuple[str, str, str | None]]:
     return [
         ("OpenAI", "openai", "https://api.openai.com/v1"),
 
+        ("Agnes AI", "agnes", "https://apihub.agnes-ai.com/v1"),
         ("Anthropic", "anthropic", "https://api.anthropic.com/"),
         ("xAI", "xai", "https://api.x.ai/v1"),
         ("DeepSeek", "deepseek", "https://api.deepseek.com"),

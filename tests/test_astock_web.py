@@ -185,6 +185,23 @@ class TestWebPageRendering:
 class TestWebSpecificPages:
     """Tests specific to individual page content."""
 
+    def test_dashboard_csp_allows_legacy_inline_loader_on_loopback(self, client):
+        response = client.get("/dashboard", environ_overrides={"REMOTE_ADDR": "127.0.0.1"})
+
+        assert response.status_code == 200
+        assert "script-src 'self' 'unsafe-inline'" in response.headers["Content-Security-Policy"]
+
+    def test_dashboard_uses_loading_controls_and_public_decision_summary(self, client):
+        html = client.get("/dashboard").get_data(as_text=True)
+
+        assert html.count("⏳ Loading...") >= 7
+        assert "fetch('/api/v1/analysis/watchlist', {method: 'POST'})" not in html
+
+    def test_dashboard_market_summary_uses_bounded_eight_second_timeout(self, client):
+        html = client.get("/dashboard").get_data(as_text=True)
+
+        assert "const MARKET_SUMMARY_TIMEOUT_MS = 8000;" in html
+
     def test_dashboard_has_stats_cards(self, client):
         resp = client.get("/dashboard")
         html = resp.data.decode("utf-8")

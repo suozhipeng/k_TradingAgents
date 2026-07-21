@@ -28,6 +28,7 @@
 .dash-glow-blue::after { content: ''; position: absolute; top: -40px; right: -40px; width: 80px; height: 80px; background: radial-gradient(circle, rgba(41,98,255,0.08), transparent); border-radius: 50%; }
 .dash-glow-red::after { content: ''; position: absolute; top: -40px; right: -40px; width: 80px; height: 80px; background: radial-gradient(circle, rgba(242,54,69,0.08), transparent); border-radius: 50%; }
 .dash-empty { color: #3a4a5a; font-size: 12px; text-align: center; padding: 20px 0; }
+.dash-loading { color: #787b86; font-size: 12px; padding: 5px 10px; border: 1px solid #2a3a4a; border-radius: 4px; background: #1e2a3a; cursor: wait; }
 .dash-degraded { color: #ff9800; font-size: 11px; text-align: center; padding: 8px 0; border-top: 1px solid rgba(255,152,0,0.15); margin-top: 6px; display: none; }
 .dash-section-title { font-size: 13px; font-weight: 600; color: #d1d4dc; margin-bottom: 10px; letter-spacing: 0.3px; }
 .dash-section-break { height: 1px; background: linear-gradient(90deg, #1e2a3a, transparent); margin: 16px 0; }
@@ -74,7 +75,7 @@
   "📊 市场追踪中心",
   "AStock Pro · A股研究、量化与回测每日工作台",
   "dashboard",
-  "<button class=\"tv-btn tv-btn-secondary tv-btn-sm\" onclick=\"loadAll();this.innerHTML='⟳ 刷新中...';setTimeout(()=>this.innerHTML='⟳ 刷新',800)\">⟳ 刷新</button><a href=\"/strategy_hub\" class=\"tv-btn tv-btn-primary tv-btn-sm\">🧪 策略研究 →</a>"
+  "<button id=\"dashboard-refresh-btn\" class=\"tv-btn tv-btn-secondary tv-btn-sm\" onclick=\"refreshDashboard()\">⟳ 刷新</button><a href=\"/strategy_hub\" class=\"tv-btn tv-btn-primary tv-btn-sm\">🧪 策略研究 →</a>"
 ) }}
 <div id="refresh-tag" style="font-size:10px;color:#4a5a6a;font-weight:400;font-family:'JetBrains Mono',monospace;margin-top:-10px;margin-bottom:10px;"></div>
 
@@ -95,7 +96,7 @@
     <span id="mkt-summary-tag" style="font-weight:400;color:#4a5a6a;font-size:10px;"></span>
   </div>
   <div id="market-summary-content" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
-    <div class="dash-empty" style="grid-column:1/-1;">加载中...</div>
+    <div class="dash-empty" style="grid-column:1/-1;"><button class="dash-loading" disabled>⏳ Loading...</button></div>
   </div>
 </div>
 
@@ -106,7 +107,7 @@
     <span id="global-decision-tag" style="font-weight:400;color:#4a5a6a;font-size:10px;"></span>
   </div>
   <div id="global-decision-content" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
-    <div class="dash-empty">加载中...</div>
+    <div class="dash-empty"><button class="dash-loading" disabled>⏳ Loading...</button></div>
   </div>
 </div>
 
@@ -145,7 +146,7 @@
       <a href="/strategy_hub" class="dash-footer-link" style="float:none;margin-left:auto;">查看全部 →</a>
     </div>
     <div id="heatmap-content">
-      <div class="dash-empty">加载中...</div>
+      <div class="dash-empty"><button class="dash-loading" disabled>⏳ Loading...</button></div>
     </div>
   </div>
 
@@ -156,7 +157,7 @@
       <a href="/strategy_hub" class="dash-footer-link" style="float:none;margin-left:auto;">更多 →</a>
     </div>
     <div id="recent-backtests-content">
-      <div class="dash-empty">加载中...</div>
+      <div class="dash-empty"><button class="dash-loading" disabled>⏳ Loading...</button></div>
     </div>
   </div>
 </div>
@@ -168,7 +169,7 @@
     <a href="/reports" class="dash-footer-link" style="float:none;margin-left:auto;">全部报告 →</a>
   </div>
   <div id="latest-reports-content">
-    <div class="dash-empty">加载中...</div>
+    <div class="dash-empty"><button class="dash-loading" disabled>⏳ Loading...</button></div>
   </div>
 </div>
 
@@ -181,7 +182,7 @@
       <a href="/market_leaders" class="dash-footer-link" style="float:none;margin-left:auto;">更多 →</a>
     </div>
     <div id="top-sectors-content">
-      <div class="dash-empty">加载中...</div>
+      <div class="dash-empty"><button class="dash-loading" disabled>⏳ Loading...</button></div>
     </div>
   </div>
   <!-- Top Leaders -->
@@ -191,7 +192,7 @@
       <a href="/market_leaders" class="dash-footer-link" style="float:none;margin-left:auto;">更多 →</a>
     </div>
     <div id="top-leaders-content">
-      <div class="dash-empty">加载中...</div>
+      <div class="dash-empty"><button class="dash-loading" disabled>⏳ Loading...</button></div>
     </div>
   </div>
 </div>
@@ -201,7 +202,7 @@
   <div class="dash-card">
     <div class="dash-card-title">🧩 数据状态</div>
     <div id="data-health-content" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-      <div class="dash-empty" style="grid-column:1/-1;">加载中...</div>
+      <div class="dash-empty" style="grid-column:1/-1;"><button class="dash-loading" disabled>⏳ Loading...</button></div>
     </div>
   </div>
   <div class="dash-card">
@@ -226,7 +227,7 @@
   <div class="dash-card">
     <div class="dash-card-title">🔔 告警摘要</div>
     <div id="alerts-summary-content">
-      <div class="dash-empty">加载中...</div>
+      <div class="dash-empty"><button class="dash-loading" disabled>⏳ Loading...</button></div>
     </div>
   </div>
 </div>
@@ -240,7 +241,7 @@
       <a href="/ops_audit" class="dash-footer-link" style="float:none;margin-left:auto;">全部任务 →</a>
     </div>
     <div id="ai-tasks-content">
-      <div class="dash-empty">加载中...</div>
+      <div class="dash-empty"><button class="dash-loading" disabled>⏳ Loading...</button></div>
     </div>
   </div>
   <div class="dash-card" style="display:flex;flex-direction:column;justify-content:center;align-items:center;">
@@ -304,6 +305,37 @@ function chgArrow(v) {
 // ── Overview cache for sub-sections (avoids duplicate /overview calls) ──
 let _dashOverviewCache = null;
 
+function dashboardLoadingMarkup() {
+  return '<div class="dash-empty"><button class="dash-loading" disabled>⏳ Loading...</button></div>';
+}
+
+function setDashboardLoadingState() {
+  [
+    'market-summary-content', 'global-decision-content', 'heatmap-content',
+    'recent-backtests-content', 'latest-reports-content', 'top-sectors-content',
+    'top-leaders-content', 'data-health-content', 'alerts-summary-content', 'ai-tasks-content',
+  ].forEach(id => {
+    const element = document.getElementById(id);
+    if (element) element.innerHTML = dashboardLoadingMarkup();
+  });
+}
+
+async function refreshDashboard() {
+  const button = document.getElementById('dashboard-refresh-btn');
+  if (button) {
+    button.disabled = true;
+    button.textContent = '⏳ Loading...';
+  }
+  try {
+    await loadAllWithExtras();
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = '⟳ 刷新';
+    }
+  }
+}
+
 // ── Load all dashboard data ──
 async function loadAll() {
   const tag = document.getElementById('refresh-tag');
@@ -331,8 +363,11 @@ async function loadAll() {
     // === Recent Backtests ===
     renderRecentBacktests(overview.recent_backtests || []);
 
+    // === Decision Dashboard ===
+    await runWatchlistAnalysis();
+
     // === Data Health ===
-    loadDataHealth();
+    await loadDataHealth();
 
     // Track core components
     _dashTrack('key_metrics', true);
@@ -449,7 +484,7 @@ const MARKET_INDICES = [
   { symbol: '000300.SH', name: '沪深300', field: 'latest_price' },
   { symbol: '399006.SZ', name: '创业板指', field: 'latest_price' },
 ];
-const MARKET_SUMMARY_TIMEOUT_MS = 2500;
+const MARKET_SUMMARY_TIMEOUT_MS = 8000;
 
 async function fetchMarketSummary(idx) {
   const controller = new AbortController();
@@ -586,7 +621,14 @@ async function loadAITasks() {
 
   try {
     const res = await fetch('/api/v1/ops/tasks?limit=10');
-    if (!res.ok) throw new Error('tasks failed');
+    if (!res.ok) {
+      if (res.status === 401 || res.status === 403) {
+        el.innerHTML = '<div class="dash-empty">运维任务仅对管理员/操作员可见</div>';
+        _dashTrack('ai_tasks', true);
+        return;
+      }
+      throw new Error('tasks failed');
+    }
     const taskPayload = APIClient.unwrap(await res.json());
     const tasks = taskPayload?.tasks || [];
 
@@ -913,12 +955,16 @@ async function loadGlobalDecisionSummary() {
   const el = document.getElementById('global-decision-content');
   const tag = document.getElementById('global-decision-tag');
   try {
-    const res = await fetch('/api/v1/analysis/watchlist', {method: 'POST'});
-    if (!res.ok) throw new Error('status ' + res.status);
-    const data = APIClient.unwrap(await res.json());
-    const s = data.summary || {total:0,buy:0,hold:0,sell:0,research_only:0};
+    const overview = _dashOverviewCache || await fetch('/api/v1/dashboard/overview')
+      .then(res => {
+        if (!res.ok) throw new Error('status ' + res.status);
+        return res.json();
+      })
+      .then(APIClient.unwrap);
+    const s = overview.decision_summary || {total:0, counts:{buy:0,hold:0,sell:0},research_only:0};
+    const counts = s.counts || s;
     const total = s.total || 0;
-    const researchOnly = s.research_only != null ? s.research_only : Math.max(0, total - s.buy - s.hold - s.sell);
+    const researchOnly = s.research_only != null ? s.research_only : Math.max(0, total - counts.buy - counts.hold - counts.sell);
 
     if (total === 0) {
       el.innerHTML = '<div class="dash-empty">暂无自选股数据</div>';
@@ -928,9 +974,9 @@ async function loadGlobalDecisionSummary() {
     }
 
     const items = [
-      { label: '买入', count: s.buy, color: '#dc2626', bg: 'rgba(220,38,38,0.12)' },
-      { label: '观望', count: s.hold, color: '#eab308', bg: 'rgba(234,179,8,0.12)' },
-      { label: '卖出', count: s.sell, color: '#16a34a', bg: 'rgba(22,163,74,0.12)' },
+      { label: '买入', count: counts.buy || 0, color: '#dc2626', bg: 'rgba(220,38,38,0.12)' },
+      { label: '观望', count: counts.hold || 0, color: '#eab308', bg: 'rgba(234,179,8,0.12)' },
+      { label: '卖出', count: counts.sell || 0, color: '#16a34a', bg: 'rgba(22,163,74,0.12)' },
       ...(researchOnly > 0 ? [{ label: '仅研究', count: researchOnly, color: '#9ca3af', bg: 'rgba(156,163,175,0.10)' }] : []),
       { label: '总计', count: total, color: '#d1d4dc', bg: 'rgba(209,212,220,0.08)' },
     ];
@@ -961,7 +1007,25 @@ async function loadAIStatus() {
   try {
     // Check ops/audit for recent AI agent activity
     const res = await fetch('/api/v1/ops/audit?limit=5');
-    if (!res.ok) throw new Error('audit failed');
+    if (!res.ok) {
+      if (res.status === 401 || res.status === 403) {
+        el.innerHTML = `
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #1e2a3a;">
+              <span style="font-size:12px;color:#787b86;">研究链路</span>
+              <span style="font-size:12px;color:#089981;">✅ 就绪</span>
+            </div>
+            <div style="font-size:10px;color:#4a5a6a;padding:0 8px;">活动记录仅对管理员/操作员可见</div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;">
+              <span style="font-size:12px;color:#787b86;">AI 研究中心</span>
+              <a href="/research" style="font-size:12px;color:#2962FF;text-decoration:none;">进入 →</a>
+            </div>
+          </div>`;
+        _dashTrack('ai_status', true);
+        return;
+      }
+      throw new Error('audit failed');
+    }
     const auditPayload = APIClient.unwrap(await res.json());
     const events = auditPayload?.events || [];
 
@@ -1103,21 +1167,23 @@ async function runBatchAnalysis() {
 async function runWatchlistAnalysis() {
   const container = document.getElementById('decision-cards');
   const summary = document.getElementById('decision-summary');
-  container.innerHTML = '<div class="dash-empty">分析中...</div>';
+  container.innerHTML = dashboardLoadingMarkup();
   try {
-    const res = await fetch('/api/v1/analysis/watchlist', {method:'POST'});
-    if (!res.ok) throw new Error('Analysis failed (' + res.status + ')');
+    const res = await fetch('/api/v1/dashboard/overview');
+    if (!res.ok) throw new Error('Overview failed (' + res.status + ')');
     const data = APIClient.unwrap(await res.json());
     // Render summary
-    const s = data.summary || {total:0,buy:0,hold:0,sell:0};
-    summary.textContent = `共${s.total}只 | 🟢买入:${s.buy} 🟡观望:${s.hold} 🔴卖出:${s.sell}`;
+    const s = data.decision_summary || {total:0,counts:{buy:0,hold:0,sell:0}};
+    const counts = s.counts || s;
+    summary.textContent = `共${s.total}只 | 🟢买入:${counts.buy || 0} 🟡观望:${counts.hold || 0} 🔴卖出:${counts.sell || 0}`;
     // Render cards
-    if (!data.stocks || data.stocks.length === 0) {
+    const stocks = s.top_picks || [];
+    if (!stocks.length) {
       container.innerHTML = '<div class="dash-empty">暂无自选股，请先在 /watchlist 添加</div>';
       return;
     }
-    container.innerHTML = data.stocks.map(stk => {
-      const rating = stk.rating || 'hold';
+    container.innerHTML = stocks.map(stk => {
+      const rating = stk.rating || 'buy';
       const colors = {
         buy:  {bg:'rgba(220,38,38,0.12)', border:'#dc2626', text:'#dc2626'},
         hold: {bg:'rgba(234,179,8,0.12)',  border:'#eab308', text:'#eab308'},
@@ -1160,11 +1226,13 @@ async function loadAllWithExtras() {
     _dashDegraded.ok = 0;
     _dashDegraded.fail = 0;
 
+    setDashboardLoadingState();
+
     // Load core dashboard data
     await loadAll();
 
-    // Load all sections (fire-and-forget on error)
-    Promise.all([
+    // Load all sections before permitting a subsequent refresh.
+    await Promise.all([
       loadMarketSummary().catch(e => console.error('Market summary err:', e)),
       loadGlobalDecisionSummary().catch(e => console.error('Global decision err:', e)),
       loadLatestReports().catch(e => console.error('Reports err:', e)),
@@ -1172,17 +1240,16 @@ async function loadAllWithExtras() {
       loadAITasks().catch(e => console.error('AI tasks err:', e)),
       loadAlertsSummary().catch(e => console.error('Alerts err:', e)),
       loadSectorLeaders().catch(e => console.error('Sectors err:', e)),
-    ]).finally(() => {
-      _dashShowDegradedBanner();
-      _dashStaleMark('market_summary');
-      _dashStaleMark('global_decision');
-      _dashStaleMark('reports');
-      _dashStaleMark('ai_status');
-      _dashStaleMark('ai_tasks');
-      _dashStaleMark('alerts');
-      _dashStaleMark('leaders');
-      _dashStaleShowAll();
-    });
+    ]);
+    _dashShowDegradedBanner();
+    _dashStaleMark('market_summary');
+    _dashStaleMark('global_decision');
+    _dashStaleMark('reports');
+    _dashStaleMark('ai_status');
+    _dashStaleMark('ai_tasks');
+    _dashStaleMark('alerts');
+    _dashStaleMark('leaders');
+    _dashStaleShowAll();
   } finally {
     _dashLoading = false;
   }

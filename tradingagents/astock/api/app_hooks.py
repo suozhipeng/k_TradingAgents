@@ -296,11 +296,14 @@ def _register_after_request(app: Flask) -> None:
     @app.after_request
     def _security_and_idempotency(response: Any) -> Any:
         # The local workbench still contains legacy inline handlers and a
-        # small number of chart CDN imports.  Keep that compatibility scoped
-        # to loopback local release; non-local API processes retain the strict
-        # policy.  The follow-up migration can remove this exception once all
-        # templates use external modules and event listeners.
-        if app.config.get("ASTOCK_LOCAL_RELEASE", False):
+        # small number of chart CDN imports. Keep that compatibility limited
+        # to loopback-rendered WebUI pages; API responses and remotely served
+        # pages retain the strict policy.
+        is_loopback_web_ui = (
+            (request.blueprint or "").startswith("web")
+            and request.remote_addr in {"127.0.0.1", "::1"}
+        )
+        if app.config.get("ASTOCK_LOCAL_RELEASE", False) or is_loopback_web_ui:
             csp = (
                 "default-src 'self'; base-uri 'self'; object-src 'none'; "
                 "frame-ancestors 'none'; img-src 'self' data:; "
