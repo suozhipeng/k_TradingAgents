@@ -22,18 +22,8 @@ if _REPO_ROOT not in sys.path:
 
 import duckdb
 import pandas as pd
+import pyarrow  # noqa: F401 — required for parquet support
 import pytest
-
-# Check if parquet support is available (pyarrow or fastparquet)
-try:
-    import pyarrow  # noqa: F401
-    _HAS_PARQUET = True
-except ImportError:
-    try:
-        import fastparquet  # noqa: F401
-        _HAS_PARQUET = True
-    except ImportError:
-        _HAS_PARQUET = False
 
 from tradingagents.astock.store.schema import AStockStore, init_astock_db
 from tradingagents.astock.store.loader import KlineLoader, ValuationLoader, BatchLoader
@@ -508,10 +498,6 @@ def test_export_json(store: AStockStore, sample_kline_df: pd.DataFrame) -> None:
             os.unlink(tmp_path)
 
 
-@pytest.mark.skipif(
-    not _HAS_PARQUET,
-    reason="Requires pyarrow or fastparquet for parquet support",
-)
 def test_export_parquet(store: AStockStore, sample_kline_df: pd.DataFrame) -> None:
     store.insert_kline("000001.SZ", sample_kline_df)
     with tempfile.NamedTemporaryFile(suffix=".parquet", delete=False) as f:
@@ -555,10 +541,6 @@ def test_import_csv(store: AStockStore, sample_kline_df: pd.DataFrame) -> None:
             os.unlink(tmp_path)
 
 
-@pytest.mark.skipif(
-    not _HAS_PARQUET,
-    reason="Requires pyarrow or fastparquet for parquet support",
-)
 def test_import_parquet(store: AStockStore, sample_kline_df: pd.DataFrame) -> None:
     store.insert_kline("000001.SZ", sample_kline_df)
     with tempfile.NamedTemporaryFile(suffix=".parquet", delete=False) as f:

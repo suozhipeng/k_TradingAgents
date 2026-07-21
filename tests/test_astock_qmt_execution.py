@@ -15,11 +15,7 @@ from unittest.mock import MagicMock, patch
 
 from tests.astock_import_helpers import load_astock_submodule
 
-try:
-    import pandas as pd  # noqa: F401
-    _HAS_PANDAS = True
-except ImportError:
-    _HAS_PANDAS = False
+_HAS_PANDAS = True  # pandas is a declared core dep
 
 # ---------------------------------------------------------------------------
 # Direct module imports

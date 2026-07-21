@@ -49,11 +49,6 @@ def _sina_retry(fn, max_attempts: int = 3, base_delay: float = 1.0):
                 time.sleep(delay)
     raise last_exc
 
-try:
-    import json
-except ImportError:
-    json = None  # type: ignore[assignment]
-
 
 # ── Offline mock data (final fallback) ──────────────────────────────────
 

@@ -43,6 +43,7 @@ astock-providers = [
     # that conflicts with mootdx 0.11.7 (<0.26.0) in the same environment.
     "mootdx>=0.11.7",
     "pywencai>=0.13.0",
+    "baostock>=0.9.3",
     "duckdb>=1.5.0",
 ]
 astock-artifacts = [
