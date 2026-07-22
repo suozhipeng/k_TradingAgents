@@ -260,3 +260,4 @@ hermes-*-profile-*.tar.gz
 .agnes/
 
 /webui/dist/
+*.hermes-workflow/RESUME.md
