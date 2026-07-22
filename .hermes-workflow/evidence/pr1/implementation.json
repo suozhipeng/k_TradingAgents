@@ -1,0 +1,28 @@
+{
+  "$schema": "../../evidence-schema.json",
+  "$id": "pr1/implementation.json",
+  "phase": "PR-1",
+  "type": "implementation",
+  "status": "completed",
+  "worktree_sha": "$(git rev-parse HEAD)",
+  "head_sha": "$(git rev-parse HEAD:scripts/astock_doctor.py)",
+  "completed_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "summary": "PR-1 runtime foundation implementation",
+  "verification": {
+    "doctor": {
+      "status": "passed",
+      "checks": ["Python>=3.12", "pytest_importable", "pydantic_importable", "duckdb_importable", "pyarrow_importable", "venv_exists", "ASTOCK_LOCAL_RELEASE_env", "DB_dir_writable", "local-release_extra_declared"]
+    },
+    "tests_passed": 3,
+    "tests_skipped": 1,
+    "test_update_note": "3 isolated-venv tests pass. 1 skip (app tests requiring full Hermes env — expected)"
+  },
+  "deliverables": [
+    "scripts/astock_doctor.py",
+    "scripts/setup_local.sh",
+    "scripts/start_local.sh",
+    "tests/test_astock_local_release_dependencies.py",
+    "tests/test_astock_local_startup.py"
+  ],
+  "modified": ["README.md", "docs/02-user-guide.md", "tests/test_astock_local_startup.py", "scripts/astock_doctor.py"]
+}
