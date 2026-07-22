@@ -34,6 +34,7 @@ from ._backtest_helpers import (
 )
 
 from ._helpers import _as_bool, get_store, mock_data_enabled
+from tradingagents.astock.backtest.canonical import CanonicalBacktest
 
 bp = Blueprint("backtest", __name__)
 logger = logging.getLogger(__name__)
@@ -537,3 +538,22 @@ def optimize_strategy_api() -> tuple[Response, int]:
         return success_response(result.model_dump())
     except Exception as exc:
         return error_response(str(exc), 500)
+
+
+@bp.route("/backtest/canonical", methods=["POST"])
+def run_canonical_backtest() -> tuple[Response, int]:
+    """Run and persist MA5/MA20 using Canonical DuckDB only."""
+    body = request.get_json(silent=True) or {}
+    symbol = str(body.get("symbol", "")).strip()
+    if not symbol:
+        return error_response("symbol is required", 400)
+    try:
+        engine = CanonicalBacktest()
+        result = engine.run(get_store(), symbol, body.get("start_date"), body.get("end_date"))
+        engine.persist(get_store(), result)
+        return jsonify(result), 200
+    except ValueError as exc:
+        return error_response(str(exc), 400)
+    except Exception as exc:
+        logger.exception("canonical backtest failed for %s", symbol)
+        return error_response(f"canonical backtest failed: {exc}", 500)
