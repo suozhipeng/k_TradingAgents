@@ -247,6 +247,31 @@ class BackendManager:
 
     # -- switch --------------------------------------------------------------
 
+    def _enforce_local_release_guards(self) -> None:
+        """Raise when local-release mode is active and a guard is violated.
+
+        Guard 1 — no mock data allowed under local-release.
+        Guard 2 — backend must be duckdb; PostgreSQL is forbidden.
+        """
+        if not os.environ.get("ASTOCK_LOCAL_RELEASE", ""):
+            return
+
+        # -- Guard: mock-data escape path ---------------------------------------
+        if self._config.mock_data_enabled:
+            raise RuntimeError(
+                "ASTOCK_LOCAL_RELEASE is true but ASTOCK_MOCK_DATA_ENABLED is also "
+                "true. Mock data is not permitted under local-release. Disable "
+                "ASTOCK_MOCK_DATA_ENABLED or unset ASTOCK_LOCAL_RELEASE."
+            )
+
+        # -- Guard: non-DuckDB backend disallowed --------------------------------
+        if self._config.current_backend not in ("duckdb",):
+            raise RuntimeError(
+                f"ASTOCK_LOCAL_RELEASE is true but ASTOCK_DB_BACKEND is "
+                f"{self._config.current_backend!r}. Local-release requires DuckDB "
+                f"only. Set ASTOCK_DB_BACKEND=duckdb or unset ASTOCK_LOCAL_RELEASE."
+            )
+
     def switch_to(self, backend: str) -> dict[str, Any]:
         """Switch the active backend at runtime.
 
@@ -256,6 +281,8 @@ class BackendManager:
         Returns:
             ``{"backend": ..., "connected": bool, "message": ...}``
         """
+        # Prevent switching away from DuckDB while local-release is active.
+        self._enforce_local_release_guards()
         backend = backend.strip().lower()
         if backend not in ("duckdb", "postgresql"):
             return {

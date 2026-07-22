@@ -193,6 +193,22 @@ def create_app(
         # Reads remain side-effect free.  The workbench explicitly uses the
         # refresh API/job when it needs to initialise or update local bars.
         app.config["ASTOCK_AUTO_REFRESH_DAILY_KLINE"] = False
+
+        # -- PR-2: Single canonical DuckDB enforced ----------------------------------
+        # Force every local-release instance to use exactly one database
+        # (~/.tradingagents/astock/astock.duckdb).  No second K-line warehouse,
+        # no PostgreSQL escape hatch, no mock-data fallback.
+        app.config["ASTOCK_PERMANENT_KLINE_ENABLED"] = False
+        app.config["ASTOCK_MOCK_DATA_ENABLED"] = False
+        app.config.setdefault("ASTOCK_DB_BACKEND", "duckdb")
+        app.config.setdefault(
+            "ASTOCK_DB_PATH",
+            os.path.expanduser("~/.tradingagents/astock/astock.duckdb"),
+        )
+        logger.info(
+            "PR-2 local-release: enforced single canonical DuckDB path, disabled "
+            "permanent_kline and mock_data"
+        )
     elif app.config.get("ASTOCK_RESEARCH_ONLY", True):
         # Research-only is a runtime boundary, not just an HTTP-route guard.
         app.config["ASTOCK_SCHEDULER_ENABLED"] = False
