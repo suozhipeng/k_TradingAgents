@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "schema_version": "1.0",
+  "title": "TradingAgents xg_dev Evidence",
+  "type": "object",
+  "required": ["schema_version", "phase", "verdict", "base_sha", "head_sha", "allowed_files_ok", "blocking_issues"],
+  "properties": {
+    "schema_version": {"type": "string", "const": "1.0"},
+    "phase": {"type": "string", "enum": ["preflight", "PR-1", "PR-2", "PR-3", "PR-4", "PR-5", "PR-5A", "PR-5B", "PR-6", "final"]},
+    "task_id": {"type": "string"},
+    "verdict": {"type": "string", "enum": ["PASS", "FAIL", "BLOCKED", "PARTIAL"]},
+    "base_sha": {"type": "string", "minLength": 7},
+    "head_sha": {"type": "string", "minLength": 7},
+    "allowed_files_ok": {"type": "boolean"},
+    "canonical_database_ok": {"type": "boolean"},
+    "implicit_mock_found": {"type": "boolean"},
+    "commands": {"type": "array", "items": {"type": "object"}},
+    "results": {"type": "object"},
+    "blocking_issues": {"type": "array", "items": {"type": "string"}}
+  },
+  "additionalProperties": true
+}

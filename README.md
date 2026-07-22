@@ -77,7 +77,15 @@ TradingAgents is a multi-agent trading framework that mirrors the dynamics of re
 - **发布前验证**：`scripts/verify_local_release.sh`。
 - **环境配置**：参见 [`docs/03-operations.md`](docs/03-operations.md)。
 
-> 当前正式 Web 发布范围仅为投研分析、数据查看、报告与策略回测；模拟盘、受控执行、QMT 与任何真实券商接入均不在该发布面内。详见 [`docs/03-operations.md`](docs/03-operations.md)。
+|> 当前正式 Web 发布范围仅为投研分析、数据查看、报告与策略回测；模拟盘、受控执行、QMT 与任何真实券商接入均不在该发布面内。详见 [`docs/03-operations.md`](docs/03-operations.md)。
+
+**快速启动（local-release）**：
+```bash
+bash scripts/setup_local.sh   # 一键安装（创建 .venv + 安装依赖 + 环境诊断）
+bash scripts/start_local.sh   # 启动本地服务（含 .venv 和依赖检查）
+# 或直接：.venv/bin/python scripts/run_astock_api.py --port 5860
+# 环境诊断：.venv/bin/python scripts/astock_doctor.py
+```
 
 Our framework decomposes complex trading tasks into specialized roles.
 

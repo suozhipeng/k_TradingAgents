@@ -1,0 +1,98 @@
+{
+  "schema_version": "1.2",
+  "phase": "PR-2",
+  "gate": "direction",
+  "task_id": "t_bf74fff5",
+  "verdict": "FAIL",
+  "review_mode": "read_only_direction_gate",
+  "commands_executed": [
+    "git status --short",
+    "git branch --show-current",
+    "git rev-parse HEAD",
+    "git log -1 --format=%s",
+    "shasum -a 256 .hermes-workflow/contracts/pr2.yaml",
+    "repository file/symbol inspection only"
+  ],
+  "commands_not_executed": [
+    "all implementation commands",
+    "all required_commands acceptance commands",
+    "pytest",
+    "migration script"
+  ],
+  "branch": {
+    "expected": "fix/xg-dev-data-loop-v033",
+    "actual": "fix/xg-dev-data-loop-v033",
+    "passed": true
+  },
+  "head": {
+    "sha": "be94638fa74a20d71301c255d2787b5e95358dc4",
+    "subject": "fix: 按 PR-2 Gate v2 反馈细化合同（具体迁移步骤/强制配置/runtime 守卫/回滚机制）"
+  },
+  "worktree": {
+    "status_short_before_evidence_write": "M .hermes-workflow/evidence/pr2/gate.json",
+    "preexisting_modified_path": ".hermes-workflow/evidence/pr2/gate.json",
+    "implementation_paths_modified": []
+  },
+  "contract": {
+    "path": ".hermes-workflow/contracts/pr2.yaml",
+    "sha256": "ffa7e0df754366f806a5591851fe9f3fa2e7f5356aec3a3105b3ef2a9ca7a2c3",
+    "goal": "Force all local-release reads/writes through ~/.tradingagents/astock/astock.duckdb. No second K-line DB, no PostgreSQL, no mock data.",
+    "allowed_file_count": 6,
+    "production_file_count": 4,
+    "max_production_files": 5,
+    "production_file_limit_passed": true,
+    "allowed_scope_count_controlled": true
+  },
+  "checks": [
+    {
+      "id": "G1-data-loop-and-second-database",
+      "passed": false,
+      "evidence": [
+        "Contract lines 4, 7 and 42-47 require no second K-line database while forbidding changes to kline_engine.py and permanent_kline.py.",
+        "scripts/kline_engine.py:3-14 describes dual DuckDB/SQLite writes and :33-36 fixes kline/kline.duckdb plus kline/kline.sqlite.",
+        "tradingagents/astock/store/permanent_kline.py:14-27 defaults to and creates kline/kline.duckdb.",
+        "tradingagents/astock/api/routes_data_query.py:149-155 and :193-205 still open the permanent store whenever ASTOCK_PERMANENT_KLINE_ENABLED is true."
+      ],
+      "blocker": "Forced app configuration can disable selected API paths, but the contract has neither a runtime block nor a reachability/exclusion proof for direct CLI/store consumers. The stated single-DB data-loop goal remains unprovable within its frozen scope."
+    },
+    {
+      "id": "G2-local-release-postgresql-and-mock-escape-paths",
+      "passed": false,
+      "evidence": [
+        "Contract lines 49-53 define only backend.py guards for environment-selected mock data and non-DuckDB backend.",
+        "tradingagents/astock/api/routes_admin.py:59-108 exposes POST /admin/backend and calls BackendManager.switch_to(); :125-144 exposes a persistent PUT /admin/mock-data switch. Both files are outside allowed_files.",
+        "tradingagents/astock/api/routes_market_data.py:97-99, :128-130, :161-163 and :200-204 return mock data from query flags or fallback; these reachable routes are outside allowed_files.",
+        "tradingagents/astock/store/backend.py:77-105 accepts environment overlays and :167-177 / :250-303 retain PostgreSQL store selection and runtime switching."
+      ],
+      "blocker": "The contract does not specify a complete route/switch matrix, response envelope/status, guard ordering, or tests covering every reachable PostgreSQL/mock path in ASTOCK_LOCAL_RELEASE; a backend-only RuntimeError cannot establish the no-mock/no-PG promise."
+    },
+    {
+      "id": "G3-migration-transaction-idempotency-and-rollback",
+      "passed": false,
+      "evidence": [
+        "Contract lines 15-32 name eight migration steps but do not name source/target tables, primary keys, type transforms, conflict update policy, checkpoint/evidence schema, or a per-table versus whole-run atomicity boundary.",
+        "Contract line 25 requires has_quality=true, but the contract does not identify an existing target schema field or compatibility mapping.",
+        "Contract line 26 names error_log but declares neither schema, row payload, error classification, nor operator recovery procedure.",
+        "Contract line 54 rollback renames the target and restores configuration, but does not identify the configuration snapshot location, lock/atomic rename rules, interruption state, or source/target restore preconditions."
+      ],
+      "blocker": "Rerun idempotency, partial failure behavior, reconciliation, and rollback cannot be implemented or independently tested deterministically from the stated contract."
+    },
+    {
+      "id": "G4-api-data-contract-quality-gates-and-acceptance",
+      "passed": false,
+      "evidence": [
+        "Contract lines 56-60 provide only a unit-test target, migration dry-run, one import-time mock guard, and git diff --check.",
+        "The referenced files scripts/migrate_astock_single_db.py and tests/test_astock_single_database.py do not exist in the current tree (read-only file-name search returned zero matches).",
+        "No required command or acceptance criterion verifies success reconciliation by table/PK, quarantine contents, rerun behavior, forced-failure rollback, configuration restore, direct K-line exclusion, route-level PG/mock rejection, or a stable API response schema."
+      ],
+      "blocker": "The command syntax is plausible but the acceptance set is incomplete for the contract's data, API, quality, idempotency, and rollback claims; it is not a runnable proof of PR-2 completion."
+    }
+  ],
+  "required_remediation": [
+    "Either include and migrate every local-release K-line writer/consumer needed to eliminate the second store, or narrow the product goal and add an enforceable runtime block plus a machine-verifiable reachability/exclusion matrix for all frozen CLI/store paths.",
+    "Define local-release behavior for every reachable PostgreSQL/mock control path: guard location/order, status and JSON envelope, persistence semantics, and dedicated route-level tests.",
+    "Replace migration prose with table-by-table source/target/PK/conflict/transform/quality/quarantine/reconciliation definitions; define checkpoint, locking, atomicity and interruption recovery; make rollback restore an explicit snapshot deterministically.",
+    "Add acceptance commands/tests for dry-run, success reconciliation, rerun idempotency, forced failure recovery, rollback/configuration restore, second-store prevention, and each PG/mock rejection path."
+  ],
+  "conclusion": "FAIL: file-count scope is controlled (4 production files, <= 5 and <= 8), but it cannot prove the PR-2 single-DuckDB data-loop objective or the required runtime, migration, rollback, quality, and acceptance contracts. Do not start implementation."
+}

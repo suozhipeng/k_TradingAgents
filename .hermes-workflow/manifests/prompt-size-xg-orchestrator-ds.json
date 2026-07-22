@@ -1,0 +1,41 @@
+{
+  "platform": "cli",
+  "model": "deepseek-v4-flash",
+  "system_prompt": {
+    "chars": 37958,
+    "bytes": 41187
+  },
+  "skills_index": {
+    "chars": 23087,
+    "bytes": 24125
+  },
+  "memory": {
+    "chars": 2279,
+    "bytes": 3177
+  },
+  "user_profile": {
+    "chars": 1515,
+    "bytes": 2752
+  },
+  "tools": {
+    "count": 28,
+    "json_bytes": 54258
+  },
+  "sections": [
+    [
+      "stable (identity/guidance/skills)",
+      32425,
+      33513
+    ],
+    [
+      "context (AGENTS.md/cwd files)",
+      1660,
+      1666
+    ],
+    [
+      "volatile (memory/profile/timestamp)",
+      3869,
+      6004
+    ]
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "phase": "PR-1",
+  "gate": "direction",
+  "gate_version": 2,
+  "task_id": "t_618234e6",
+  "verdict": "PASS",
+  "base_sha": "cabaa37",
+  "head_sha": "cabaa37",
+  "evidence_file": ".hermes-workflow/evidence/pr1/gate.json",
+  "checks": {
+    "branch": {"expected": "fix/xg-dev-data-loop-v033", "actual": "fix/xg-dev-data-loop-v033", "passed": true},
+    "pre_gate_worktree_clean": {"git_status_short": "", "passed": true},
+    "allowed_scope": {"allowed_file_count": 8, "production_file_count": 4, "max_production_files": 8, "passed": true},
+    "dependency_scope": {"only_allowed_dependency_file": "pyproject.toml", "passed": true},
+    "frozen_and_forbidden_scope": {"phase_diff_files": [], "database_migration": false, "second_database_introduced": false, "implicit_mock": false, "new_provider": false, "frozen_modules_changed": false, "passed": true},
+    "contracts": {"api_or_data_write_in_pr1": false, "canonical_database": "~/.tradingagents/astock/astock.duckdb", "transaction_idempotency_rollback": "deferred to data-write phases; no PR-1 business write path", "passed": true},
+    "commands": {"git_diff_check_exit_code": 0, "implementation_and_acceptance_commands": "recorded, not executed by pre-implementation direction gate", "passed": true}
+  },
+  "blocking_issues": [],
+  "conclusion": "PR-1 direction serves the stated install-to-data-loop goal without expanding into frozen production capabilities."
+}

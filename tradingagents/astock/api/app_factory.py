@@ -33,6 +33,17 @@ def _build_store_config(app: Flask, db_path: str | None = None) -> None:
         float(os.environ.get("ASTOCK_SHUTDOWN_TIMEOUT_SECONDS", "5")),
     )
 
+    # -- PR-2: local-release forces canonical DuckDB path ---------------------
+    # When local-release is active the caller (*api/__init__.py*) already set
+    # ASTOCK_DB_BACKEND / ASTOCK_DB_PATH into app.config.  Honour those here
+    # so *every* store-building path goes through the single canonical file.
+    local_release = app.config.get("ASTOCK_LOCAL_RELEASE", False)
+    if local_release:
+        forced_backend = app.config.get("ASTOCK_DB_BACKEND", "duckdb")
+        forced_db_path = app.config.get("ASTOCK_DB_PATH")
+        if forced_backend == "duckdb" and forced_db_path is not None:
+            db_path = forced_db_path  # force canonical DuckDB branch below
+
     # -- Backend selection via BackendManager ---------------------------------
     if db_path is not None:
         from tradingagents.astock.store.schema import init_astock_db

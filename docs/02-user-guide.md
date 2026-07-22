@@ -196,15 +196,19 @@ curl -X POST http://127.0.0.1:5860/api/v1/data/refresh/all
 git clone https://github.com/TauricResearch/TradingAgents.git
 cd TradingAgents
 
-# 创建虚拟环境
-conda create -n astock python=3.12
-conda activate astock
+# 一键安装（推荐 — 创建 .venv、安装依赖并检查环境）
+bash scripts/setup_local.sh
 
-# 安装基础包
-pip install .
+# 或分步手动安装：
+# conda create -n astock python=3.12
+# conda activate astock
+# pip install -e ".[astock-providers,test]"
+```
 
-# 安装 A 股可选依赖（数据源）
-pip install -e ".[astock-providers,test]"
+**local-release 最小依赖**：仅需 `duckdb`、`pyarrow`、`pydantic`、`pytest`。data-provider 依赖属于 `astock-providers` extra，首次运行可按需安装：
+
+```bash
+.venv/bin/python -m pip install -e ".[astock-providers]"
 ```
 
 ### 配置
@@ -235,10 +239,20 @@ LLM_API_KEY=your_key_here
 ### 启动 WebUI
 
 ```bash
+# 一键启动（推荐 — 含 .venv 检查和首次运行提示）
+bash scripts/start_local.sh --port 5860
+
+# 或直接启动：
 .venv/bin/python scripts/run_astock_api.py --port 5860
 ```
 
 浏览器访问 http://127.0.0.1:5860；这是本地正式版的唯一 Web 入口。
+
+**首次运行提示**：如果 `~/.tradingagents/astock/astock.duckdb` 不存在，start_local.sh 会在启动前输出提示。启动后请在 Data Hub 发起数据刷新，或通过 API 触发：
+
+```bash
+curl -X POST http://127.0.0.1:5860/api/v1/data/jobs/refresh
+```
 
 ### 本地 K 线与分钟线增量刷新
 

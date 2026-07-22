@@ -34,9 +34,9 @@ def test_order_state_is_shared_by_trading_paper_and_dashboard() -> None:
         )
         assert order.status_code == 200
 
-        trading = client.get("/api/v1/trade/state").get_json()["data"]
-        paper = client.get("/api/v1/paper/state").get_json()["data"]
-        overview = client.get("/api/v1/dashboard/overview").get_json()["data"]
+        trading = client.get("/api/v1/trade/state").get_json()
+        paper = client.get("/api/v1/paper/state").get_json()
+        overview = client.get("/api/v1/dashboard/overview").get_json()
 
     assert trading["positions"] == paper["positions"]
     assert paper["positions"][0]["price_source"] == "cost_basis"

@@ -1,0 +1,20 @@
+schema_version: '1.0'
+phase: PR-1
+name: Runtime foundation
+goal: Make local-release installable, diagnosable and first-run aware.
+allowed_files:
+  - pyproject.toml
+  - scripts/astock_doctor.py
+  - scripts/setup_local.sh
+  - scripts/start_local.sh
+  - tests/test_astock_local_release_dependencies.py
+  - tests/test_astock_local_startup.py
+  - docs/02-user-guide.md
+  - README.md
+forbidden: [database migration, new Provider, implicit mock, frozen execution modules]
+required_commands:
+  - env -u PYTHONPATH -u PYTHONHOME .venv/bin/python scripts/astock_doctor.py
+  - env -u PYTHONPATH -u PYTHONHOME .venv/bin/python -m pytest tests/test_astock_local_release_dependencies.py tests/test_astock_local_startup.py -v
+  - git diff --check
+max_production_files: 8
+roles: {gate: xg-gate-codex, implementation: xg-patch-ds, review: xg-review-agnes, acceptance: xg-gate-codex}

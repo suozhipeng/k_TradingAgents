@@ -1,0 +1,20 @@
+schema_version: '1.0'
+phase: PR-4
+name: Setup Bootstrap normalization and transactions
+goal: Add idempotent setup/bootstrap with normalize-before-quality-before-transactional-upsert.
+allowed_globs:
+  - tradingagents/astock/api/routes_setup.py
+  - tradingagents/astock/api/blueprint_registry.py
+  - tradingagents/astock/api/app_hooks.py
+  - tradingagents/astock/store/
+  - tradingagents/astock/quality/
+  - tradingagents/astock/api/routes_data_jobs.py
+  - tests/test_astock_setup_*.py
+  - tests/test_astock_bootstrap_idempotency.py
+  - tests/test_astock_transactional_ingest.py
+forbidden: [single all-symbol transaction, write-before-clean, implicit mock, second job system]
+required_commands:
+  - env -u PYTHONPATH -u PYTHONHOME .venv/bin/python -m pytest tests/test_astock_setup_status.py tests/test_astock_setup_bootstrap.py tests/test_astock_bootstrap_idempotency.py tests/test_astock_transactional_ingest.py -v
+  - git diff --check
+max_production_files: 8
+roles: {gate: xg-gate-codex, implementation: xg-implement-agnes, review: xg-review-agnes, acceptance: xg-accept-codex}

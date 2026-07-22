@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0",
+  "phase": "preflight",
+  "verdict": "PASS",
+  "base_sha": "241a717c28b454675f80f9f7478c2f1c10ed5bf0",
+  "head_sha": "241a717c28b454675f80f9f7478c2f1c10ed5bf0",
+  "allowed_files_ok": true,
+  "canonical_database_ok": true,
+  "implicit_mock_found": false,
+  "blocking_issues": []
+}

@@ -252,6 +252,10 @@ hermes-*-profile-*.tar.gz
 /.hermes/*
 !/.hermes/dev-loop.yaml
 
+# Hermes xg_dev recovery workflow
+/.worktrees/
+.hermes-workflow/logs/
+
 # AI agent generated files
 .agnes/
 

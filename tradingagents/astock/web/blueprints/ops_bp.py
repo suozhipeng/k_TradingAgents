@@ -1,11 +1,5 @@
-"""Ops & Audit page routes — Phase 17.
-
-Pages: /ops_audit, /data_health, /settings, /settings/notifications
-Templates live in templates/ops/
-"""
-
+"""Ops & Audit page routes — Phase 17 + PR-5 Data Hub."""
 from __future__ import annotations
-
 from flask import Blueprint, abort, current_app, render_template
 
 bp = Blueprint("web_ops", __name__)
@@ -13,8 +7,6 @@ bp = Blueprint("web_ops", __name__)
 
 @bp.route("/ops_audit")
 def ops_audit() -> str:
-    # This page still contains explicit "to be integrated" placeholders.
-    # Do not expose it in the supported local formal-release surface.
     if current_app.config.get("ASTOCK_LOCAL_RELEASE", False):
         abort(404)
     return render_template("ops/ops_audit.html")
@@ -27,16 +19,28 @@ def data_health() -> str:
 
 @bp.route("/settings")
 def settings() -> str:
-    return render_template(
-        "ops/settings.html",
-        local_release=current_app.config.get("ASTOCK_LOCAL_RELEASE", False),
-    )
+    return render_template("ops/settings.html",
+        local_release=current_app.config.get("ASTOCK_LOCAL_RELEASE", False))
 
 
 @bp.route("/settings/notifications")
 def settings_notifications() -> str:
-    return render_template(
-        "ops/settings.html",
+    return render_template("ops/settings.html",
         section="notifications",
-        local_release=current_app.config.get("ASTOCK_LOCAL_RELEASE", False),
-    )
+        local_release=current_app.config.get("ASTOCK_LOCAL_RELEASE", False))
+
+
+@bp.route("/data_hub")
+def data_hub() -> str:
+    """Data Hub page — shows data sources, table stats, ingestion status."""
+    return render_template("ops/data_hub.html")
+
+
+@bp.route("/market_review")
+def market_review_page() -> str:
+    return render_template("analysis/review.html", mode="market")
+
+
+@bp.route("/stock_analysis")
+def stock_analysis_page() -> str:
+    return render_template("analysis/review.html", mode="stock")

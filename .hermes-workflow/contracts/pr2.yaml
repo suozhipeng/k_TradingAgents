@@ -1,0 +1,68 @@
+schema_version: '1.2'
+phase: PR-2
+name: Single Canonical DuckDB
+goal: "Force all local-release reads/writes through ~/.tradingagents/astock/astock.duckdb. No second K-line DB, no PostgreSQL, no mock data."
+source_of_truth: "docs/TradingAgents_xg_dev_修复与Hermes低Token自动化实施方案_V1.5.md:1349-1409"
+
+approach: "PR-2 works by forced config + migration script, NOT by modifying kline_engine.py or permanent_kline.py. Setting ASTOCK_PERMANENT_KLINE_ENABLED=False silences the second K-line writer. Mock/PostgreSQL rejection is enforced by runtime guards in backend.py when ASTOCK_LOCAL_RELEASE is active."
+
+forced_config:
+  ASTOCK_PERMANENT_KLINE_ENABLED: false
+  ASTOCK_MOCK_DATA_ENABLED: false
+  ASTOCK_DB_BACKEND: duckdb
+  ASTOCK_DB_PATH: "~/.tradingagents/astock/astock.duckdb"
+
+migration:
+  rules:
+    - step: 1-backup
+      desc: "Backup existing data before any migration action"
+    - step: 2-dry-run
+      desc: "scripts/migrate_astock_single_db.py --dry-run runs first"
+    - step: 3-upsert-by-pk
+      desc: "Upsert by primary key; skip existing data, no duplicates"
+    - step: 4-normalize
+      desc: "Normalize column names and types to target schema"
+    - step: 5-quality
+      desc: "Set has_quality=true on migrated rows"
+    - step: 6-isolate-exceptions
+      desc: "Rows failing quality go to error_log table, not silently dropped"
+    - step: 7-reconciliation
+      desc: "Compare row count, symbol list, time range, duplicate count between source and target"
+    - step: 8-no-delete-source
+      desc: "Old database files preserved; operator deletes manually after verification"
+
+allowed_files:
+  - tradingagents/astock/api/__init__.py     # Set forced config flags in local-release
+  - tradingagents/astock/api/app_factory.py   # Wire forced config into app creation
+  - tradingagents/astock/store/backend.py     # Canonical path + mock/PG guard when ASTOCK_LOCAL_RELEASE
+  - scripts/migrate_astock_single_db.py       # Migration script (--dry-run, real, --rollback)
+  - tests/test_astock_single_database.py      # Full test suite
+  - .env.example                              # Doc update only
+
+forbidden:
+  - kline_engine.py or permanent_kline.py modifications
+  - SQLite business dual-write
+  - PostgreSQL runtime switch
+  - trade modules
+  - astock-providers imports (akshare, mootdx, baostock, pywencai)
+
+runtime_guards:
+  - "backend.py: when ASTOCK_LOCAL_RELEASE and ASTOCK_MOCK_DATA_ENABLED → raise RuntimeError"
+  - "backend.py: when ASTOCK_LOCAL_RELEASE and ASTOCK_DB_BACKEND != 'duckdb' → raise RuntimeError"
+  - "app_factory.py: force ASTOCK_PERMANENT_KLINE_ENABLED=False when local-release"
+
+rollback: "scripts/migrate_astock_single_db.py --rollback renames astock.duckdb → astock.duckdb.{ts}.bak and restores pre-migration configuration"
+
+required_commands:
+  - "env -u PYTHONPATH -u PYTHONHOME .venv/bin/python -m pytest tests/test_astock_single_database.py -v"
+  - "env -u PYTHONPATH -u PYTHONHOME .venv/bin/python scripts/migrate_astock_single_db.py --dry-run"
+  - "env -u PYTHONPATH -u PYTHONHOME ASTOCK_LOCAL_RELEASE=true ASTOCK_MOCK_DATA_ENABLED=true .venv/bin/python -c 'from tradingagents.astock.store.backend import get_store; get_store()' 2>&1 | grep -q RuntimeError"
+  - git diff --check
+
+max_production_files: 5
+
+roles:
+  gate: xg-gate-codex
+  implementation: xg-implement-agnes
+  review: xg-review-agnes
+  acceptance: xg-accept-codex

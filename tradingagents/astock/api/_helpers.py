@@ -133,10 +133,19 @@ def _bool_config(app: Any, key: str, default: bool = False) -> bool:
 
 
 def mock_data_enabled() -> bool:
-    """Return whether the process-wide mock-data mode is enabled."""
+    """Return whether the process-wide mock-data mode is enabled.
+
+    Under local-release mode (ASTOCK_LOCAL_RELEASE=true) mock data is
+    **never** enabled, even when explicitly requested via query parameter.
+    """
+    if os.environ.get("ASTOCK_LOCAL_RELEASE", "").lower() in ("true", "1", "yes"):
+        return False
     if not has_app_context():
         return _bool_env("ASTOCK_MOCK_DATA_ENABLED", False)
-    return _as_bool(current_app.config.get("ASTOCK_MOCK_DATA_ENABLED"), False)
+    app_val = current_app.config.get("ASTOCK_MOCK_DATA_ENABLED", None)
+    if app_val is not None:
+        return _as_bool(app_val, False)
+    return _bool_env("ASTOCK_MOCK_DATA_ENABLED", False)
 
 
 def _int_config(app: Any, key: str, default: int) -> int:

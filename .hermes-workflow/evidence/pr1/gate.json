@@ -1,0 +1,86 @@
+{
+  "schema_version": "1.0",
+  "phase": "PR-1",
+  "gate": "direction",
+  "gate_version": 2,
+  "task_id": "t_618234e6",
+  "verdict": "PASS",
+  "base_sha": "cabaa37",
+  "head_sha": "cabaa37",
+  "scope": {
+    "allowed_files": [
+      "pyproject.toml",
+      "scripts/astock_doctor.py",
+      "scripts/setup_local.sh",
+      "scripts/start_local.sh",
+      "tests/test_astock_local_release_dependencies.py",
+      "tests/test_astock_local_startup.py",
+      "docs/02-user-guide.md",
+      "README.md"
+    ],
+    "allowed_file_count": 8,
+    "production_files": [
+      "pyproject.toml",
+      "scripts/astock_doctor.py",
+      "scripts/setup_local.sh",
+      "scripts/start_local.sh"
+    ],
+    "production_file_count": 4,
+    "max_production_files": 8,
+    "allowed_files_ok": true,
+    "pyproject_only_dependency_scope": true
+  },
+  "checks": {
+    "branch": {
+      "expected": "fix/xg-dev-data-loop-v033",
+      "actual": "fix/xg-dev-data-loop-v033",
+      "passed": true
+    },
+    "worktree_clean_before_gate": {
+      "git_status_short": "",
+      "passed": true
+    },
+    "git_diff_check": {
+      "command": "git diff --check",
+      "exit_code": 0,
+      "passed": true
+    },
+    "phase_diff": {
+      "files": [],
+      "frozen_modules_changed": false,
+      "passed": true
+    },
+    "forbidden_scope": {
+      "database_migration": false,
+      "second_database_introduced": false,
+      "new_provider": false,
+      "implicit_mock": false,
+      "qmt_paper_scheduler_notifications_alerts_sse": false,
+      "passed": true
+    },
+    "data_and_api_contract": {
+      "pr1_has_no_api_or_business_data_write_scope": true,
+      "canonical_database_contract": "~/.tradingagents/astock/astock.duckdb",
+      "transaction_idempotency_and_rollback": "out_of_scope_for_PR-1; required for the later Bootstrap/data-write phases before release",
+      "passed": true
+    },
+    "acceptance_commands": {
+      "mode": "recorded_not_executed_pre_implementation_gate",
+      "commands": [
+        "env -u PYTHONPATH -u PYTHONHOME .venv/bin/python scripts/astock_doctor.py",
+        "env -u PYTHONPATH -u PYTHONHOME .venv/bin/python -m pytest tests/test_astock_local_release_dependencies.py tests/test_astock_local_startup.py -v",
+        "git diff --check"
+      ],
+      "passed": true
+    }
+  },
+  "risk_evidence": {
+    "source_of_truth": "docs/TradingAgents_xg_dev_修复与Hermes低Token自动化实施方案_V1.5.md",
+    "product_path": "Install -> Provider health -> normalize/quality gate -> transactional upsert -> Canonical DuckDB -> Dashboard/K-line -> market review -> stock analysis -> canonical A-share backtest -> restart persistence",
+    "blocking_issues": [],
+    "notes": [
+      "This is a read-only direction gate; PR-1 implementation and acceptance commands were intentionally not executed.",
+      "The current baseline may contain legacy K-line storage, but PR-1 introduces no database path or migration. Canonical single-database convergence remains a later-phase obligation."
+    ]
+  }
+}
