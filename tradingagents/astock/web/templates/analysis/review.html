@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}{% if mode == 'market' %}市场复盘{% else %}个股综合分析{% endif %}{% endblock %}
+{% block content %}
+<div style="max-width:1100px;margin:24px auto;padding:0 24px">
+  <h1>{% if mode == 'market' %}市场复盘{% else %}个股综合分析{% endif %}</h1>
+  {% if mode == 'stock' %}
+  <div style="display:flex;gap:8px;margin:16px 0"><input id="symbol" placeholder="输入股票代码，如 600519.SH" /><button onclick="loadStock()">分析</button></div>
+  {% else %}
+  <button onclick="loadMarket()" style="margin:16px 0">生成复盘</button>
+  {% endif %}
+  <pre id="result" style="white-space:pre-wrap;background:#111827;color:#e5e7eb;padding:20px;border-radius:10px">等待加载...</pre>
+</div>
+<script>
+async function show(url, options) {
+  const result = document.getElementById('result');
+  result.textContent = '加载中...';
+  try {
+    const response = await fetch(url, options);
+    const payload = await response.json();
+    result.textContent = JSON.stringify(payload, null, 2);
+  } catch (error) { result.textContent = '请求失败: ' + error.message; }
+}
+function loadMarket() { show('/api/v1/market/review', {method:'POST'}); }
+function loadStock() {
+  const symbol = document.getElementById('symbol').value.trim();
+  if (symbol) show('/api/v1/analysis/stock/' + encodeURIComponent(symbol));
+}
+</script>
+{% endblock %}

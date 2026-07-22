@@ -34,3 +34,13 @@ def settings_notifications() -> str:
 def data_hub() -> str:
     """Data Hub page — shows data sources, table stats, ingestion status."""
     return render_template("ops/data_hub.html")
+
+
+@bp.route("/market_review")
+def market_review_page() -> str:
+    return render_template("analysis/review.html", mode="market")
+
+
+@bp.route("/stock_analysis")
+def stock_analysis_page() -> str:
+    return render_template("analysis/review.html", mode="stock")
