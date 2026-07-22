@@ -1,0 +1,18 @@
+schema_version: '1.0'
+phase: PR-5
+name: Data Hub Dashboard and K-line
+goal: Expose first-run Data Hub and show only Canonical DuckDB data with source/quality metadata.
+allowed_files:
+  - tradingagents/astock/web/blueprints/ops_bp.py
+  - tradingagents/astock/web/templates/ops/data_hub.html
+  - tradingagents/astock/web/static/js/data-hub.js
+  - tradingagents/astock/web/templates/base.html
+  - tradingagents/astock/web/templates/dashboard.html
+  - tradingagents/astock/api/routes_dashboard.py
+  - tests/test_astock_web*.py
+forbidden: [automatic full download on homepage, implicit mock, LLM on first load, frozen pages]
+required_commands:
+  - env -u PYTHONPATH -u PYTHONHOME .venv/bin/python -m pytest tests/test_astock_web.py tests/test_astock_web_data_contracts.py -v
+  - git diff --check
+max_production_files: 8
+roles: {implementation: xg-implement-agnes, patch: xg-patch-ds, review: xg-review-agnes, acceptance: xg-gate-codex}

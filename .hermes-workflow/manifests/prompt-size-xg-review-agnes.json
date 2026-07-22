@@ -1,0 +1,41 @@
+{
+  "platform": "cli",
+  "model": "agnes-2.0-flash",
+  "system_prompt": {
+    "chars": 37109,
+    "bytes": 40334
+  },
+  "skills_index": {
+    "chars": 23087,
+    "bytes": 24125
+  },
+  "memory": {
+    "chars": 2279,
+    "bytes": 3177
+  },
+  "user_profile": {
+    "chars": 1515,
+    "bytes": 2752
+  },
+  "tools": {
+    "count": 30,
+    "json_bytes": 56373
+  },
+  "sections": [
+    [
+      "stable (identity/guidance/skills)",
+      31578,
+      32662
+    ],
+    [
+      "context (AGENTS.md/cwd files)",
+      1660,
+      1666
+    ],
+    [
+      "volatile (memory/profile/timestamp)",
+      3867,
+      6002
+    ]
+  ]
+}

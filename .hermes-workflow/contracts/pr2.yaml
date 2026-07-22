@@ -1,0 +1,18 @@
+schema_version: '1.0'
+phase: PR-2
+name: Single Canonical DuckDB
+goal: Force local-release reads and writes through ~/.tradingagents/astock/astock.duckdb.
+allowed_files:
+  - tradingagents/astock/api/__init__.py
+  - tradingagents/astock/api/app_factory.py
+  - tradingagents/astock/store/backend.py
+  - scripts/migrate_astock_single_db.py
+  - tests/test_astock_single_database.py
+  - .env.example
+forbidden: [SQLite business dual-write, PostgreSQL switch, second K-line DB, trade modules]
+required_commands:
+  - env -u PYTHONPATH -u PYTHONHOME .venv/bin/python -m pytest tests/test_astock_single_database.py -v
+  - env -u PYTHONPATH -u PYTHONHOME .venv/bin/python scripts/migrate_astock_single_db.py --dry-run
+  - git diff --check
+max_production_files: 5
+roles: {gate: xg-gate-codex, implementation: xg-implement-agnes, review: xg-review-agnes, acceptance: xg-accept-codex}

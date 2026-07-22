@@ -1,0 +1,24 @@
+schema_version: '1.0'
+phase: PR-5A
+name: Market review and stock analysis
+goal: Persist deterministic market facts, sentiment state, sector strength and fact-cited stock analysis with optional LLM interpretation.
+allowed_globs:
+  - tradingagents/astock/review/
+  - tradingagents/astock/analysis/
+  - tradingagents/astock/quality/
+  - tradingagents/astock/store/
+  - tradingagents/astock/api/routes_market_review.py
+  - tradingagents/astock/api/routes_analysis.py
+  - tradingagents/astock/web/blueprints/
+  - tradingagents/astock/web/templates/market_review/
+  - tradingagents/astock/web/templates/analysis/
+  - tradingagents/astock/web/static/js/
+  - tests/test_astock_market_*.py
+  - tests/test_astock_stock_analysis_*.py
+forbidden: [LLM-only conclusions, mock formal review, non-Canonical reads, missing fact lineage, future dates]
+required_commands:
+  - env -u PYTHONPATH -u PYTHONHOME .venv/bin/python -m pytest tests/test_astock_market_review_schema.py tests/test_astock_market_breadth.py tests/test_astock_market_sentiment.py tests/test_astock_limit_up_ladder.py tests/test_astock_sector_performance.py tests/test_astock_market_review_api.py tests/test_astock_market_review_persistence.py tests/test_astock_stock_analysis_facts.py tests/test_astock_stock_analysis_api.py tests/test_astock_stock_analysis_no_llm.py tests/test_astock_stock_analysis_lineage.py -v
+  - git diff --check
+max_production_files: 8
+roles: {gate: xg-gate-codex, implementation: xg-implement-agnes, patch: xg-patch-ds, review: xg-review-agnes, acceptance: xg-accept-codex}
+tasks: [schema, market-engine, analysis-engine, api-web, verify, review, accept]

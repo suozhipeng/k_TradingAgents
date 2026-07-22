@@ -1,0 +1,23 @@
+schema_version: '1.0'
+task_id: FIX-XXX
+phase: PR-X
+role: implementation
+goal: replace with one bounded goal
+source_of_truth: docs/TradingAgents_xg_dev_修复与Hermes低Token自动化实施方案_V1.5.md
+context_files:
+  - .hermes-workflow/context/PROJECT_BRIEF.md
+  - .hermes-workflow/context/REPO_MAP.md
+  - .hermes-workflow/context/QUALITY_GATES.md
+allowed_files: []
+forbidden:
+  - second business database
+  - implicit mock
+  - frozen modules
+required_commands: []
+required_artifact: .hermes-workflow/evidence/<phase>/<role>.json
+max_production_files: 8
+max_fix_attempts: 1
+completion:
+  - required commands pass
+  - Evidence JSON validates
+  - kanban_complete or kanban_block called

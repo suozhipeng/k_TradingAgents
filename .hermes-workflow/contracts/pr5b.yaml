@@ -1,0 +1,20 @@
+schema_version: '1.0'
+phase: PR-5B
+name: Canonical A-share backtest
+goal: Run MA5/MA20 against >=250 Canonical DuckDB daily bars and persist reproducible A-share-rule results.
+allowed_globs:
+  - tradingagents/astock/backtest/
+  - tradingagents/astock/api/routes_backtest.py
+  - tradingagents/astock/web/
+  - tests/test_astock_backtest_canonical_store.py
+  - tests/test_astock_backtest_api.py
+  - tests/test_astock_backtest_no_lookahead.py
+  - tests/test_astock_backtest_astock_rules.py
+  - tests/test_astock_backtest_reproducibility.py
+  - tests/test_astock_backtest_browser.py
+forbidden: [Provider call from backtest, second DB, mock bars, lookahead, missing persistence]
+required_commands:
+  - env -u PYTHONPATH -u PYTHONHOME .venv/bin/python -m pytest tests/test_astock_backtest_canonical_store.py tests/test_astock_backtest_api.py tests/test_astock_backtest_no_lookahead.py tests/test_astock_backtest_astock_rules.py tests/test_astock_backtest_reproducibility.py -v
+  - git diff --check
+max_production_files: 8
+roles: {gate: xg-gate-codex, implementation: xg-implement-agnes, review: xg-review-agnes, acceptance: xg-accept-codex}

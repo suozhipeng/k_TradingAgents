@@ -1,0 +1,19 @@
+schema_version: '1.0'
+phase: PR-6
+name: Extended quality CI and release gates
+goal: Verify the full offline/live/browser data loop and publish only machine-evidenced readiness.
+allowed_files:
+  - scripts/verify_astock_data_loop.sh
+  - scripts/astock_doctor.py
+  - tradingagents/astock/quality/
+  - tests/
+  - .github/workflows/
+  - docs/
+forbidden: [scope expansion, automatic production operations, deleting old DBs, implicit mock]
+required_commands:
+  - ./scripts/verify_astock_data_loop.sh
+  - env -u PYTHONPATH -u PYTHONHOME .venv/bin/python -m pytest -m browser -v
+  - git diff --check
+  - find . -name '*.duckdb' -not -path './.venv/*' -not -path './.worktrees/*/.venv/*'
+max_production_files: 8
+roles: {gate: xg-gate-codex, implementation: xg-implement-agnes, review: xg-review-agnes, acceptance: xg-accept-codex}

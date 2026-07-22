@@ -1,0 +1,75 @@
+schema_version: '1.0'
+release: '0.3.3'
+source_of_truth: docs/TradingAgents_xg_dev_修复与Hermes低Token自动化实施方案_V1.5.md
+source_branch: xg_dev
+integration_branch: fix/xg-dev-data-loop-v033
+workspace: dir:.worktrees/xg-integration
+max_parallel_implementation: 1
+same_failure_limit: 2
+auto_decompose: false
+phases:
+  - id: PR-1
+    name: Runtime foundation
+    depends_on: []
+    gate: xg-gate-codex
+    implementation: xg-patch-ds
+    review: xg-review-agnes
+    acceptance: xg-gate-codex
+    contract: .hermes-workflow/contracts/pr1.yaml
+  - id: PR-2
+    name: Single Canonical DuckDB
+    depends_on: [PR-1]
+    gate: xg-gate-codex
+    implementation: xg-implement-agnes
+    review: xg-review-agnes
+    acceptance: xg-accept-codex
+    contract: .hermes-workflow/contracts/pr2.yaml
+  - id: PR-3
+    name: Provider and real-data semantics
+    depends_on: [PR-2]
+    gate: xg-gate-codex
+    implementation: xg-implement-agnes
+    review: xg-review-agnes
+    acceptance: xg-accept-codex
+    contract: .hermes-workflow/contracts/pr3.yaml
+  - id: PR-4
+    name: Setup Bootstrap normalization and transactions
+    depends_on: [PR-3]
+    gate: xg-gate-codex
+    implementation: xg-implement-agnes
+    review: xg-review-agnes
+    acceptance: xg-accept-codex
+    contract: .hermes-workflow/contracts/pr4.yaml
+  - id: PR-5
+    name: Data Hub Dashboard and K-line
+    depends_on: [PR-4]
+    gate: null
+    implementation: xg-implement-agnes
+    review: xg-review-agnes
+    acceptance: xg-gate-codex
+    contract: .hermes-workflow/contracts/pr5.yaml
+  - id: PR-5A
+    name: Market review and stock analysis
+    depends_on: [PR-5]
+    gate: xg-gate-codex
+    implementation: xg-implement-agnes
+    review: xg-review-agnes
+    acceptance: xg-accept-codex
+    contract: .hermes-workflow/contracts/pr5a.yaml
+    tasks: [schema, market-engine, analysis-engine, api-web, verify, review, accept]
+  - id: PR-5B
+    name: Canonical A-share backtest
+    depends_on: [PR-5A]
+    gate: xg-gate-codex
+    implementation: xg-implement-agnes
+    review: xg-review-agnes
+    acceptance: xg-accept-codex
+    contract: .hermes-workflow/contracts/pr5b.yaml
+  - id: PR-6
+    name: Extended quality CI and release gates
+    depends_on: [PR-5B]
+    gate: xg-gate-codex
+    implementation: xg-implement-agnes
+    review: xg-review-agnes
+    acceptance: xg-accept-codex
+    contract: .hermes-workflow/contracts/pr6.yaml

@@ -1,0 +1,15 @@
+schema_version: '1.0'
+phase: PR-3
+name: Provider real-data semantics
+goal: Isolate Provider failures, bound health probes, and forbid implicit mock.
+allowed_files:
+  - tradingagents/astock/api/routes_data_health.py
+  - tradingagents/astock/api/routes_market_data.py
+  - tests/test_astock_provider_health_isolation.py
+  - tests/test_astock_no_implicit_mock.py
+forbidden: [full historical download in health check, implicit mock, new Provider, frozen execution modules]
+required_commands:
+  - env -u PYTHONPATH -u PYTHONHOME .venv/bin/python -m pytest tests/test_astock_provider_health_isolation.py tests/test_astock_no_implicit_mock.py -v
+  - git diff --check
+max_production_files: 2
+roles: {gate: xg-gate-codex, implementation: xg-implement-agnes, review: xg-review-agnes, acceptance: xg-accept-codex}
