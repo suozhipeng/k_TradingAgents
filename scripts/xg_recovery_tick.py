@@ -25,7 +25,7 @@ REQUIRED_WORKFLOW_FILES = (
     "scripts/xg_recovery_tick.py",
     "scripts/xg_recovery_watchdog.py",
 )
-REQUIRED_CONTRACTS = tuple(f".hermes-workflow/contracts/{name}.yaml" for name in ("pr1", "pr2", "pr3", "pr4", "pr5", "pr5a", "pr5b", "pr6"))
+REQUIRED_CONTRACTS = tuple(f".hermes-workflow/contracts/{name}.yaml" for name in ("pr1", "pr1-gate", "pr2", "pr3", "pr4", "pr5", "pr5a", "pr5b", "pr6"))
 
 
 def _run(argv: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:

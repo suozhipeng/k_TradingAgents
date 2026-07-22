@@ -1,0 +1,55 @@
+{
+  "schema_version": "1.0",
+  "phase": "PR-1",
+  "task_id": "t_51eb9976",
+  "verdict": "FAIL",
+  "base_sha": "6c8d3c9",
+  "head_sha": "6c8d3c9",
+  "allowed_files_ok": true,
+  "canonical_database_ok": false,
+  "implicit_mock_found": false,
+  "commands": [
+    {
+      "command": "env -u PYTHONPATH -u PYTHONHOME .venv/bin/python scripts/astock_doctor.py",
+      "exit_code": 127,
+      "result": "not executable: .venv/bin/python does not exist"
+    },
+    {
+      "command": "env -u PYTHONPATH -u PYTHONHOME .venv/bin/python -m pytest tests/test_astock_local_release_dependencies.py tests/test_astock_local_startup.py -v",
+      "exit_code": 127,
+      "result": "not executable: .venv/bin/python does not exist"
+    },
+    {
+      "command": "git diff --check",
+      "exit_code": 0,
+      "result": "passed"
+    }
+  ],
+  "results": {
+    "phase_diff_files": [],
+    "production_file_count": 0,
+    "missing_required_files": [
+      "scripts/astock_doctor.py",
+      "scripts/setup_local.sh",
+      "scripts/start_local.sh",
+      "tests/test_astock_local_release_dependencies.py",
+      "tests/test_astock_local_startup.py"
+    ],
+    "local_release_missing_dependencies": [
+      "akshare>=1.18.0",
+      "mootdx>=0.11.7",
+      "baostock>=0.9.3"
+    ],
+    "frozen_execution_modules_changed": false,
+    "second_database_introduced_by_phase": false,
+    "existing_second_database_remains": true,
+    "rollback_evidence": "absent: required setup/start scripts do not exist and the PR-1 contract defines no rollback behaviour"
+  },
+  "blocking_issues": [
+    "PR-1 has no implementation delta: all five required runtime scripts/tests are absent.",
+    "pyproject.toml local-release omits akshare, mootdx and baostock required by the PR-1 dependency contract.",
+    "Both required acceptance commands are non-executable because .venv/bin/python is absent; setup_local.sh is also absent, so the prerequisite cannot be established through the phase deliverable.",
+    "Canonical single-database compliance is not met in the current baseline: PROJECT_BRIEF documents the remaining K-line database; PR-2 owns its removal.",
+    "No Doctor/setup/startup contract evidence exists for dependency diagnosis, first-run routing, health readiness, or rollback."
+  ]
+}

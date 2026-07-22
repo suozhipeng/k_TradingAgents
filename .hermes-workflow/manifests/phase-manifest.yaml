@@ -16,6 +16,7 @@ phases:
     review: xg-review-agnes
     acceptance: xg-gate-codex
     contract: .hermes-workflow/contracts/pr1.yaml
+    gate_contract: .hermes-workflow/contracts/pr1-gate.yaml
   - id: PR-2
     name: Single Canonical DuckDB
     depends_on: [PR-1]

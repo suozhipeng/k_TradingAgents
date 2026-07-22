@@ -1,0 +1,36 @@
+schema_version: '1.0'
+phase: PR-1
+name: PR-1 direction gate
+role: gate
+goal: Validate that the proposed PR-1 implementation is within V1.5 scope before any code is changed.
+source_of_truth: docs/TradingAgents_xg_dev_修复与Hermes低Token自动化实施方案_V1.5.md
+context_files:
+  - .hermes-workflow/context/PROJECT_BRIEF.md
+  - .hermes-workflow/context/QUALITY_GATES.md
+allowed_files:
+  - pyproject.toml
+  - scripts/astock_doctor.py
+  - scripts/setup_local.sh
+  - scripts/start_local.sh
+  - tests/test_astock_local_release_dependencies.py
+  - tests/test_astock_local_startup.py
+  - docs/02-user-guide.md
+  - README.md
+forbidden:
+  - database migration
+  - new Provider
+  - implicit mock
+  - QMT, paper trading, scheduler, notifications, alerts, SSE
+  - implementation changes during this gate
+required_checks:
+  - current branch is fix/xg-dev-data-loop-v033
+  - current worktree is clean before gate
+  - proposed allowed file set is no larger than 8 production files
+  - local-release dependency changes remain within pyproject.toml
+  - no frozen module appears in the proposed scope
+  - required implementation and acceptance commands are recorded, not executed by this pre-implementation gate
+  - git diff --check
+required_artifact: .hermes-workflow/evidence/pr1/gate.json
+max_production_files: 8
+max_fix_attempts: 0
+verdict_rule: PASS when scope and prerequisites are valid; FAIL only for scope, branch, dirty-worktree, or contract violations.
