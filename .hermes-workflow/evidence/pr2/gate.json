@@ -1,0 +1,110 @@
+{
+  "schema_version": "1.0",
+  "phase": "PR-2",
+  "gate": "direction",
+  "task_id": "t_593a4357",
+  "verdict": "FAIL",
+  "base_sha": "a42d5a1",
+  "head_sha": "a42d5a1",
+  "evidence_file": ".hermes-workflow/evidence/pr2/gate.json",
+  "checks": {
+    "branch": {
+      "expected": "fix/xg-dev-data-loop-v033",
+      "actual": "fix/xg-dev-data-loop-v033",
+      "passed": true
+    },
+    "pre_gate_worktree_clean": {
+      "git_status_short": "",
+      "passed": true
+    },
+    "phase_order_and_goal": {
+      "pr2_depends_on": "PR-1",
+      "canonical_database": "~/.tradingagents/astock/astock.duckdb",
+      "product_path": "Install → Provider health → normalize/quality gate → transactional upsert → Canonical DuckDB → Dashboard/K-line → market review → stock analysis → canonical A-share backtest → restart persistence.",
+      "passed": true
+    },
+    "allowed_scope": {
+      "allowed_file_count": 6,
+      "production_file_count": 4,
+      "max_production_files": 5,
+      "allowed_files": [
+        "tradingagents/astock/api/__init__.py",
+        "tradingagents/astock/api/app_factory.py",
+        "tradingagents/astock/store/backend.py",
+        "scripts/migrate_astock_single_db.py",
+        "tests/test_astock_single_database.py",
+        ".env.example"
+      ],
+      "passed": true
+    },
+    "second_database_and_frozen_scope": {
+      "contract_forbids": [
+        "SQLite business dual-write",
+        "PostgreSQL switch",
+        "second K-line DB",
+        "trade modules"
+      ],
+      "current_machine_evidence": {
+        "permanent_kline_default": "kline/kline.duckdb",
+        "references": [
+          "tradingagents/astock/api/__init__.py:140",
+          "tradingagents/astock/api/routes_data_ingest.py:38-40",
+          "tradingagents/astock/api/routes_data_query.py:151-153",
+          "tradingagents/astock/api/routes_data_jobs.py:179-181",
+          "tradingagents/astock/api/routes_backtest.py:114-117"
+        ],
+        "postgresql_runtime_switch": "tradingagents/astock/store/backend.py:250-303",
+        "mock_switches_exist": [
+          "tradingagents/astock/store/backend.py:102-105",
+          "tradingagents/astock/api/routes_market_data.py:97,128,161,200",
+          "tradingagents/astock/api/routes_backtest.py:91,267,371,446,500"
+        ]
+      },
+      "passed": false,
+      "blocker": "Contract has no explicit, testable prohibition/compatibility matrix for current per-request mock switches, PostgreSQL admin switch, and K-line DB consumers."
+    },
+    "api_data_contract_quality": {
+      "existing_contract_requires": [
+        "response envelope helpers",
+        "data_state",
+        "data_cutoff",
+        "source",
+        "quality",
+        "fact lineage"
+      ],
+      "missing_from_pr2_contract": [
+        "migration source/target table mapping and record-count reconciliation",
+        "API-visible data_state/source/quality behavior during and after migration",
+        "quality-gate failure behavior and persisted evidence",
+        "explicit mock rejection/tagging behavior for every reachable read/write path"
+      ],
+      "passed": false
+    },
+    "transaction_idempotency_rollback": {
+      "quality_gate_requires": "Repeated operations are idempotent, leave no duplicate primary keys, and have post-write verification.",
+      "required_command_only": "scripts/migrate_astock_single_db.py --dry-run",
+      "missing_from_pr2_contract": [
+        "idempotency key or rerun semantics",
+        "per-table transaction boundary",
+        "rollback or resumable-failure procedure",
+        "post-migration duplicate/count/checksum verification"
+      ],
+      "passed": false
+    },
+    "verification_commands": {
+      "declared": [
+        "env -u PYTHONPATH -u PYTHONHOME .venv/bin/python -m pytest tests/test_astock_single_database.py -v",
+        "env -u PYTHONPATH -u PYTHONHOME .venv/bin/python scripts/migrate_astock_single_db.py --dry-run",
+        "git diff --check"
+      ],
+      "executed": false,
+      "reason": "Task explicitly prohibits implementation and acceptance commands during the direction gate.",
+      "passed": true
+    }
+  },
+  "blocking_issues": [
+    "PR-2 lacks an explicit migration/data contract covering table mapping, API observability, quality failure semantics, mock handling, transaction idempotency, rollback/resume, and post-write reconciliation.",
+    "The declared scope cannot prove removal of existing second-K-line-DB consumers and runtime PostgreSQL/mock escape paths without explicit behavioral acceptance criteria; frozen modules themselves must remain untouched."
+  ],
+  "conclusion": "Do not implement PR-2 until its contract defines the missing machine-verifiable migration and runtime-boundary semantics."
+}

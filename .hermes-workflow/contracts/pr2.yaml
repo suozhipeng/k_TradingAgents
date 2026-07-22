@@ -1,7 +1,31 @@
-schema_version: '1.0'
+schema_version: '1.1'
 phase: PR-2
 name: Single Canonical DuckDB
-goal: Force local-release reads and writes through ~/.tradingagents/astock/astock.duckdb.
+goal: Force all local-release reads and writes through ~/.tradingagents/astock/astock.duckdb
+
+migration_contract:
+  scope: "Converge existing per-module DuckDB paths (kline/kline.duckdb + inline stores) into canonical path. No dual-write, no PostgreSQL, no trade modules."
+  source_paths:
+    - kline/kline.duckdb
+  target: "~/.tradingagents/astock/astock.duckdb"
+  table_mapping: "source: kline/kline.duckdb.* → target: astock.kline_*"
+  quality_gate:
+    - pre: verify-source-exists
+    - pre: verify-target-directory-writable
+    - during: per-table transaction boundary, rollback on any failure
+    - post: record-count parity (source vs target, per table)
+    - post: has_quality flag on migrated rows
+    - on_failure: roll back entire transaction, persist evidence
+  idempotency: skip existing data by primary key, rerun-safe without duplicates
+
+api_observability:
+  data_state_bootstrapped: "BOOTSTRAPPED after first successful migration"
+  data_state_migrating: "MIGRATING during migration to prevent partial reads"
+  quality_flag: "has_quality=true on migrated data"
+  mock_guard: "RuntimeError if ASTOCK_LOCAL_RELEASE and mock/PostgreSQL switch set"
+
+rollback: "--undo flag on migrate_astock_single_db.py. Renames canonical DB to astock.duckdb.{timestamp}.bak and restores pre-migration state."
+
 allowed_files:
   - tradingagents/astock/api/__init__.py
   - tradingagents/astock/api/app_factory.py
@@ -9,10 +33,24 @@ allowed_files:
   - scripts/migrate_astock_single_db.py
   - tests/test_astock_single_database.py
   - .env.example
-forbidden: [SQLite business dual-write, PostgreSQL switch, second K-line DB, trade modules]
+
+forbidden:
+  - SQLite business dual-write
+  - PostgreSQL runtime switch
+  - second K-line DB
+  - trade modules
+  - akshare, mootdx, baostock, pywencai imports
+
 required_commands:
-  - env -u PYTHONPATH -u PYTHONHOME .venv/bin/python -m pytest tests/test_astock_single_database.py -v
-  - env -u PYTHONPATH -u PYTHONHOME .venv/bin/python scripts/migrate_astock_single_db.py --dry-run
+  - "env -u PYTHONPATH -u PYTHONHOME .venv/bin/python -m pytest tests/test_astock_single_database.py -v"
+  - "env -u PYTHONPATH -u PYTHONHOME .venv/bin/python scripts/migrate_astock_single_db.py --dry-run"
+  - "env -u PYTHONPATH -u PYTHONHOME ASTOCK_LOCAL_RELEASE=true .venv/bin/python -c 'from tradingagents.astock.store.backend import get_store; store = get_store(); assert store.db_path.endswith(\"astock.duckdb\")'"
   - git diff --check
+
 max_production_files: 5
-roles: {gate: xg-gate-codex, implementation: xg-implement-agnes, review: xg-review-agnes, acceptance: xg-accept-codex}
+
+roles:
+  gate: xg-gate-codex
+  implementation: xg-implement-agnes
+  review: xg-review-agnes
+  acceptance: xg-accept-codex
