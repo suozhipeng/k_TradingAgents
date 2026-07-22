@@ -16,9 +16,12 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from flask import Blueprint, Response, jsonify
+from flask import Blueprint, Response, jsonify, request
 
 from ._analysis_engine import analyze_stock_symbol, load_watchlist
+from ._helpers import get_store
+from .envelope import error_response
+from tradingagents.astock.analysis.stock_facts import StockFactsEngine
 
 logger = logging.getLogger(__name__)
 
@@ -75,3 +78,31 @@ def analyze_watchlist() -> tuple[Response, int]:
             "research_only": research_only_count,
         },
     }), 200
+
+
+@bp.route("/analysis/stock/<symbol>", methods=["GET", "POST"])
+def analyze_stock(symbol: str) -> tuple[Response, int]:
+    """Return deterministic stock facts from Canonical DuckDB only."""
+    symbol = symbol.strip()
+    if not symbol:
+        return error_response("symbol is required", 400)
+    payload = request.get_json(silent=True) or {}
+    as_of = request.args.get("as_of") or payload.get("as_of")
+    store = get_store()
+    try:
+        sql = 'SELECT * FROM "kline_bars" WHERE symbol = ?'
+        params: list[str] = [symbol]
+        if as_of:
+            sql += " AND trade_date <= ?"
+            params.append(as_of)
+        sql += " ORDER BY trade_date"
+        frame = store.conn.execute(sql, params).fetchdf()
+        if frame.empty:
+            return jsonify({"status": "not_initialized", "symbol": symbol, "facts": [], "risk_signals": []}), 200
+        report = StockFactsEngine(store).run(frame, symbol=symbol, as_of=as_of)
+        return jsonify(report), 200
+    except ValueError as exc:
+        return error_response(str(exc), 400)
+    except Exception as exc:
+        logger.exception("stock analysis failed for %s", symbol)
+        return error_response(f"stock analysis failed: {exc}", 500)
