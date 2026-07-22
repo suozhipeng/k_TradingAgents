@@ -46,9 +46,7 @@ def setup_status() -> tuple[Response, int]:
     return jsonify({
         "status": "ok" if any(tables.values()) else "not_initialized",
         "tables": tables,
-        "has_real_data": any(
-            (t.get("rows", 0) or 0) > 0 for t in tables.values()
-        ),
+        "has_real_data": any((t.get("rows", 0) or 0) > 0 for t in tables.values()),
         "mock_data_enabled": mock_data_enabled(),
     }), 200
 
