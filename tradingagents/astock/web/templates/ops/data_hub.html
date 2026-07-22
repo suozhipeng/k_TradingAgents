@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}数据中枢 — Data Hub{% endblock %}
+{% block head_extra %}
+<script src="/web/static/js/data-hub.js" defer></script>
+<style>
+  .dh-container{padding:24px 32px;max-width:1280px;margin:0 auto}
+  .dh-header{display:flex;align-items:center;gap:16px;margin-bottom:24px}
+  .dh-header h1{font-size:24px;font-weight:600;margin:0}
+  .dh-badge{background:#2563eb;color:#fff;padding:4px 12px;border-radius:12px;font-size:12px}
+  .dh-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}
+  .dh-card{background:#1e1e2e;border-radius:12px;padding:20px;border:1px solid #313244}
+  .dh-card h3{margin:0 0 8px;font-size:14px;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px}
+  .dh-card .value{font-size:28px;font-weight:700;color:#e2e8f0}
+  .dh-card .sub{font-size:12px;color:#64748b;margin-top:4px}
+  .dh-table{width:100%;border-collapse:collapse;margin-top:16px}
+  .dh-table th,.dh-table td{text-align:left;padding:8px 12px;border-bottom:1px solid #313244;font-size:13px}
+  .dh-table th{color:#94a3b8;font-weight:500}
+  .dh-table td{color:#e2e8f0}
+  .dh-status-ok{color:#4ade80}
+  .dh-status-warn{color:#fbbf24}
+  .dh-status-err{color:#f87171}
+  .dh-actions{display:flex;gap:12px;margin:20px 0}
+  .dh-btn{padding:10px 20px;border:none;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer}
+  .dh-btn-primary{background:#2563eb;color:#fff}
+  .dh-btn-primary:hover{background:#1d4ed8}
+  .dh-btn-secondary{background:#334155;color:#e2e8f0}
+  .dh-btn-secondary:hover{background:#475569}
+  .dh-status{display:flex;align-items:center;gap:8px;padding:12px 16px;border-radius:8px;font-size:14px;margin-top:16px}
+</style>
+{% endblock %}
+{% block content %}
+<div class="dh-container">
+  <div class="dh-header">
+    <h1>📊 数据中枢</h1>
+    <span class="dh-badge" id="dh-status-badge">检查中...</span>
+  </div>
+
+  <div class="dh-grid" id="dh-summary-cards">
+    <div class="dh-card"><h3>表格数量</h3><div class="value" id="dh-tables">—</div></div>
+    <div class="dh-card"><h3>数据行数</h3><div class="value" id="dh-rows">—</div></div>
+    <div class="dh-card"><h3>已初始化</h3><div class="value" id="dh-initialized">—</div></div>
+  </div>
+
+  <div class="dh-actions">
+    <button class="dh-btn dh-btn-primary" id="dh-btn-bootstrap" onclick="dhBootstrap()">🚀 初始化数据</button>
+    <button class="dh-btn dh-btn-secondary" id="dh-btn-refresh" onclick="dhRefresh()">🔄 刷新</button>
+  </div>
+
+  <div id="dh-status-message"></div>
+
+  <table class="dh-table">
+    <thead><tr><th>表名</th><th>行数</th><th>模式</th></tr></thead>
+    <tbody id="dh-table-body"></tbody>
+  </table>
+</div>
+
+<script>
+async function dhRefresh() {
+  document.getElementById('dh-status-badge').textContent = '加载中...';
+  try {
+    const res = await fetch('/api/v1/setup/status');
+    const data = await res.json();
+    
+    const tables = data.tables || {};
+    const tableNames = Object.keys(tables).filter(k => !k.startsWith('_'));
+    const totalRows = tableNames.reduce((s, k) => s + (tables[k].rows || 0), 0);
+    const initialized = data.has_real_data ? '✅ 是' : '❌ 否';
+
+    document.getElementById('dh-tables').textContent = tableNames.length;
+    document.getElementById('dh-rows').textContent = totalRows.toLocaleString();
+    document.getElementById('dh-initialized').textContent = initialized;
+    document.getElementById('dh-status-badge').textContent = data.status === 'ok' ? '✅ 正常' : '⚠️ 未初始化';
+
+    const tbody = document.getElementById('dh-table-body');
+    tbody.innerHTML = '';
+    for (const name of tableNames) {
+      const info = tables[name];
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${name}</td><td>${(info.rows || 0).toLocaleString()}</td><td class="${info.schema_ok ? 'dh-status-ok' : 'dh-status-warn'}">${info.schema_ok ? '✅' : '⚠️'}</td>`;
+      tbody.appendChild(tr);
+    }
+  } catch (e) {
+    document.getElementById('dh-status-badge').textContent = '❌ 错误';
+    const msg = document.getElementById('dh-status-message');
+    msg.className = 'dh-status dh-status-err';
+    msg.textContent = '无法加载数据状态: ' + e.message;
+  }
+}
+
+async function dhBootstrap() {
+  const msg = document.getElementById('dh-status-message');
+  msg.className = 'dh-status';
+  msg.textContent = '正在初始化...';
+  try {
+    const res = await fetch('/api/v1/setup/bootstrap', { method: 'POST' });
+    const data = await res.json();
+    if (res.ok) {
+      msg.className = 'dh-status dh-status-ok';
+      msg.textContent = '✅ ' + (data.note || '初始化完成');
+    } else {
+      msg.className = 'dh-status dh-status-err';
+      msg.textContent = '❌ ' + (data.error || '初始化失败');
+    }
+    dhRefresh();
+  } catch (e) {
+    msg.className = 'dh-status dh-status-err';
+    msg.textContent = '❌ 请求失败: ' + e.message;
+  }
+}
+
+document.addEventListener('DOMContentLoaded', dhRefresh);
+</script>
+{% endblock %}
