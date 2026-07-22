@@ -1,55 +1,86 @@
 {
   "schema_version": "1.0",
   "phase": "PR-1",
-  "task_id": "t_51eb9976",
-  "verdict": "FAIL",
-  "base_sha": "6c8d3c9",
-  "head_sha": "6c8d3c9",
-  "allowed_files_ok": true,
-  "canonical_database_ok": false,
-  "implicit_mock_found": false,
-  "commands": [
-    {
-      "command": "env -u PYTHONPATH -u PYTHONHOME .venv/bin/python scripts/astock_doctor.py",
-      "exit_code": 127,
-      "result": "not executable: .venv/bin/python does not exist"
-    },
-    {
-      "command": "env -u PYTHONPATH -u PYTHONHOME .venv/bin/python -m pytest tests/test_astock_local_release_dependencies.py tests/test_astock_local_startup.py -v",
-      "exit_code": 127,
-      "result": "not executable: .venv/bin/python does not exist"
-    },
-    {
-      "command": "git diff --check",
-      "exit_code": 0,
-      "result": "passed"
-    }
-  ],
-  "results": {
-    "phase_diff_files": [],
-    "production_file_count": 0,
-    "missing_required_files": [
+  "gate": "direction",
+  "gate_version": 2,
+  "task_id": "t_618234e6",
+  "verdict": "PASS",
+  "base_sha": "cabaa37",
+  "head_sha": "cabaa37",
+  "scope": {
+    "allowed_files": [
+      "pyproject.toml",
       "scripts/astock_doctor.py",
       "scripts/setup_local.sh",
       "scripts/start_local.sh",
       "tests/test_astock_local_release_dependencies.py",
-      "tests/test_astock_local_startup.py"
+      "tests/test_astock_local_startup.py",
+      "docs/02-user-guide.md",
+      "README.md"
     ],
-    "local_release_missing_dependencies": [
-      "akshare>=1.18.0",
-      "mootdx>=0.11.7",
-      "baostock>=0.9.3"
+    "allowed_file_count": 8,
+    "production_files": [
+      "pyproject.toml",
+      "scripts/astock_doctor.py",
+      "scripts/setup_local.sh",
+      "scripts/start_local.sh"
     ],
-    "frozen_execution_modules_changed": false,
-    "second_database_introduced_by_phase": false,
-    "existing_second_database_remains": true,
-    "rollback_evidence": "absent: required setup/start scripts do not exist and the PR-1 contract defines no rollback behaviour"
+    "production_file_count": 4,
+    "max_production_files": 8,
+    "allowed_files_ok": true,
+    "pyproject_only_dependency_scope": true
   },
-  "blocking_issues": [
-    "PR-1 has no implementation delta: all five required runtime scripts/tests are absent.",
-    "pyproject.toml local-release omits akshare, mootdx and baostock required by the PR-1 dependency contract.",
-    "Both required acceptance commands are non-executable because .venv/bin/python is absent; setup_local.sh is also absent, so the prerequisite cannot be established through the phase deliverable.",
-    "Canonical single-database compliance is not met in the current baseline: PROJECT_BRIEF documents the remaining K-line database; PR-2 owns its removal.",
-    "No Doctor/setup/startup contract evidence exists for dependency diagnosis, first-run routing, health readiness, or rollback."
-  ]
+  "checks": {
+    "branch": {
+      "expected": "fix/xg-dev-data-loop-v033",
+      "actual": "fix/xg-dev-data-loop-v033",
+      "passed": true
+    },
+    "worktree_clean_before_gate": {
+      "git_status_short": "",
+      "passed": true
+    },
+    "git_diff_check": {
+      "command": "git diff --check",
+      "exit_code": 0,
+      "passed": true
+    },
+    "phase_diff": {
+      "files": [],
+      "frozen_modules_changed": false,
+      "passed": true
+    },
+    "forbidden_scope": {
+      "database_migration": false,
+      "second_database_introduced": false,
+      "new_provider": false,
+      "implicit_mock": false,
+      "qmt_paper_scheduler_notifications_alerts_sse": false,
+      "passed": true
+    },
+    "data_and_api_contract": {
+      "pr1_has_no_api_or_business_data_write_scope": true,
+      "canonical_database_contract": "~/.tradingagents/astock/astock.duckdb",
+      "transaction_idempotency_and_rollback": "out_of_scope_for_PR-1; required for the later Bootstrap/data-write phases before release",
+      "passed": true
+    },
+    "acceptance_commands": {
+      "mode": "recorded_not_executed_pre_implementation_gate",
+      "commands": [
+        "env -u PYTHONPATH -u PYTHONHOME .venv/bin/python scripts/astock_doctor.py",
+        "env -u PYTHONPATH -u PYTHONHOME .venv/bin/python -m pytest tests/test_astock_local_release_dependencies.py tests/test_astock_local_startup.py -v",
+        "git diff --check"
+      ],
+      "passed": true
+    }
+  },
+  "risk_evidence": {
+    "source_of_truth": "docs/TradingAgents_xg_dev_修复与Hermes低Token自动化实施方案_V1.5.md",
+    "product_path": "Install -> Provider health -> normalize/quality gate -> transactional upsert -> Canonical DuckDB -> Dashboard/K-line -> market review -> stock analysis -> canonical A-share backtest -> restart persistence",
+    "blocking_issues": [],
+    "notes": [
+      "This is a read-only direction gate; PR-1 implementation and acceptance commands were intentionally not executed.",
+      "The current baseline may contain legacy K-line storage, but PR-1 introduces no database path or migration. Canonical single-database convergence remains a later-phase obligation."
+    ]
+  }
 }
