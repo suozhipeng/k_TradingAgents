@@ -17,6 +17,8 @@ class BacktestConfig:
     commission_rate: float = 0.0003
     stamp_tax_rate: float = 0.001
     slippage_rate: float = 0.0005
+    limit_pct: float = 0.10  # A-share ±10% daily limit
+    suspension_gap_days: int = 5  # gap > this → presumed suspension
     strategy_version: str = "ma5_ma20_v1"
 
 
@@ -68,20 +70,33 @@ class CanonicalBacktest:
                 next_row = df.iloc[index + 1]
                 execution_date = next_row["trade_date"].date().isoformat()
                 execution_price = float(next_row["open"])
+                prev_close = float(row["close"])
+                limit_up = prev_close * (1 + cfg.limit_pct)
+                limit_down = prev_close * (1 - cfg.limit_pct)
+
+                # Suspension check: price unchanged and date gap > threshold
+                gap = (pd.Timestamp(next_row["trade_date"]) - pd.Timestamp(row["trade_date"])).days
+                suspended = gap > cfg.suspension_gap_days and abs(execution_price - prev_close) / prev_close < 0.001
+
                 if shares == 0 and bool(row["cross_up"]):
-                    price = execution_price * (1 + cfg.slippage_rate)
-                    quantity = int(cash // (price * cfg.lot_size)) * cfg.lot_size
-                    if quantity > 0:
-                        gross = price * quantity
-                        fee = gross * cfg.commission_rate
-                        cash -= gross + fee
-                        shares = quantity
-                        entry_date = execution_date
-                        trades.append({"date": execution_date, "side": "buy", "price": price, "shares": quantity, "fee": fee})
+                    if not suspended and execution_price < limit_up:
+                        price = execution_price * (1 + cfg.slippage_rate)
+                        if price >= limit_up:
+                            continue  # price would exceed limit; skip
+                        quantity = int(cash // (price * cfg.lot_size)) * cfg.lot_size
+                        if quantity > 0:
+                            gross = price * quantity
+                            fee = gross * cfg.commission_rate
+                            cash -= gross + fee
+                            shares = quantity
+                            entry_date = execution_date
+                            trades.append({"date": execution_date, "side": "buy", "price": price, "shares": quantity, "fee": fee})
                 elif shares > 0 and bool(row["cross_down"]):
                     # T+1: entry_date must be strictly before execution_date.
-                    if entry_date and execution_date > entry_date:
+                    if entry_date and execution_date > entry_date and not suspended and execution_price > limit_down:
                         price = execution_price * (1 - cfg.slippage_rate)
+                        if price <= limit_down:
+                            continue  # price below limit; skip
                         gross = price * shares
                         fee = gross * (cfg.commission_rate + cfg.stamp_tax_rate)
                         cash += gross - fee
@@ -115,7 +130,7 @@ class CanonicalBacktest:
             "trades": trades,
             "equity_curve": equity_curve,
             "no_lookahead": True,
-            "a_share_rules": {"lot_size": cfg.lot_size, "t_plus_one": True, "fees": True, "slippage": True},
+            "a_share_rules": {"lot_size": cfg.lot_size, "t_plus_one": True, "fees": True, "slippage": True, "limit_pct": cfg.limit_pct, "suspension_check": True},
         }
 
     def run(self, store: Any, symbol: str, start: str | None = None, end: str | None = None) -> dict[str, Any]:

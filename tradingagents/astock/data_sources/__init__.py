@@ -71,6 +71,18 @@ _LAZY_EXPORTS = {
     "astock_code": ("tradingagents.astock.data_sources.symbols", "astock_code"),
     "normalize_astock_symbol": ("tradingagents.astock.data_sources.symbols", "normalize_astock_symbol"),
     "split_astock_symbol": ("tradingagents.astock.data_sources.symbols", "split_astock_symbol"),
+    # V1.6.1 Capability-based routing (Community stack)
+    "ProviderCapability": ("tradingagents.astock.data_sources.base", "ProviderCapability"),
+    "CapabilityStatus": ("tradingagents.astock.data_sources.base", "CapabilityStatus"),
+    "PROVIDER_STATES": ("tradingagents.astock.data_sources.base", "PROVIDER_STATES"),
+    "FinancialDataProvider": ("tradingagents.astock.data_sources.base", "FinancialDataProvider"),
+    "ProviderRegistry": ("tradingagents.astock.data_sources.registry", "ProviderRegistry"),
+    "CninfoProvider": ("tradingagents.astock.data_sources.cninfo_provider", "CninfoProvider"),
+    "AkshareCapabilityProvider": ("tradingagents.astock.data_sources.providers_v1_6", "AkshareCapabilityProvider"),
+    "MootdxCapabilityProvider": ("tradingagents.astock.data_sources.providers_v1_6", "MootdxCapabilityProvider"),
+    "BaoStockCapabilityProvider": ("tradingagents.astock.data_sources.providers_v1_6", "BaoStockCapabilityProvider"),
+    "register_v1_6_1_providers": ("tradingagents.astock.data_sources.providers_v1_6", "register_v1_6_1_providers"),
+    "record_field_lineage": ("tradingagents.astock.store.provider_lineage", "record_field_lineage"),
 }
 
 __all__ = list(_LAZY_EXPORTS)

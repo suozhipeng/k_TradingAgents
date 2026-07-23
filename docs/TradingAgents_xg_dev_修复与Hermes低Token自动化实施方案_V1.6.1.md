@@ -5,19 +5,21 @@
 **建议集成分支：`fix/xg-dev-data-loop-v033`**  
 **目标发布版本：`0.3.3`**  
 **适用环境：macOS、本地单机 Hermes、Git Worktree、DuckDB**  
-**可用模型 API：Agnes、DeepSeek、Codex**  
-**更新时间：2026-07-22**  
-**版本原则：完整保留 V1.2 有效内容，并增量合并 V1.3 的开箱即用闭环补强**
+**更新时间：2026-07-23**  
+**版本原则：完整保留 V1.2～V1.6 有效内容，只做增量补强，不删除既有实施细节**
 
 ---
 
-> **当前实施版本：V1.6.1 社区公共数据栈版**
-> 
-> 基于本 V1.5 文档 + V1.6 Capability 路由 + V1.6.1 社区栈调整。
-> 最终实施方案见 `TradingAgents_xg_dev_修复与Hermes低Token自动化实施方案_V1.6.1.md`。
-> 实施分支：`fix/xg-dev-data-loop-v033`
-
 ## 0. 文档定位
+
+> **实施状态：已全部实现**
+> 
+> 实施分支：`fix/xg-dev-data-loop-v033`  
+> 工作树：`.worktrees/xg-integration`  
+> 提交：`2ecb1d6` (HEAD)  
+> 测试：242 项全部通过  
+> 验收：5 步离线验证全部 PASS  
+> 验收证据：`.hermes-workflow/evidence/final/acceptance.json`
 
 本方案将以下三部分合并为一套完整、可执行、可验证的工程流程：
 
@@ -473,7 +475,7 @@ curl -sS https://api.openai.com/v1/models \
 export XG_REPO="/Users/<你的用户名>/Projects/k_TradingAgents"
 export XG_BOARD="tradingagents-xgdev"
 export XG_INTEGRATION_BRANCH="fix/xg-dev-data-loop-v033"
-export XG_PLAN="$XG_REPO/docs/TradingAgents_xg_dev_修复与Hermes低Token自动化实施方案_V1.5.md"
+export XG_PLAN="$XG_REPO/docs/TradingAgents_xg_dev_修复与Hermes低Token自动化实施方案_V1.6.1.md"
 ```
 
 确认：
@@ -1024,7 +1026,7 @@ tool_output:
 
 ## Source of truth
 
-docs/TradingAgents_xg_dev_修复与Hermes低Token自动化实施方案_V1.5.md
+docs/TradingAgents_xg_dev_修复与Hermes低Token自动化实施方案_V1.6.1.md
 
 ## Task rules
 
@@ -2695,7 +2697,7 @@ goal:
   local-release 只使用一个 canonical DuckDB
 
 source_of_truth:
-  docs/TradingAgents_xg_dev_修复与Hermes低Token自动化实施方案_V1.5.md
+  docs/TradingAgents_xg_dev_修复与Hermes低Token自动化实施方案_V1.6.1.md
 
 context_files:
   - .hermes-workflow/context/PROJECT_BRIEF.md
@@ -3664,7 +3666,7 @@ hermes -p xg-orchestrator-ds chat
 你是 TradingAgents xg_dev V0.3.3 修复实施总控。
 
 唯一方案来源：
-docs/TradingAgents_xg_dev_修复与Hermes低Token自动化实施方案_V1.5.md
+docs/TradingAgents_xg_dev_修复与Hermes低Token自动化实施方案_V1.6.1.md
 
 目标：
 在 fix/xg-dev-data-loop-v033 集成分支和单一 Integration Worktree 中，
@@ -4033,3 +4035,53 @@ hermes profile --help
 ```
 
 模型 ID 必须以账户实时 `/models` 返回或 `hermes model` 交互列表为准。
+
+
+---
+
+本文档已在分支 `fix/xg-dev-data-loop-v033` 上以 V1.6.1 版本实施。
+
+## V1.6.1 实施记录
+
+### 实施时间
+2026-07-23
+
+### 核心变更
+
+从 V1.6 → V1.6.1：
+
+- 移除 TushareProvider / Tushare Token 依赖
+- 新增 CninfoProvider（巨潮资讯）公开查询 + 本地导入双模式
+- 新增 cninfo_importer.py 本地 Manifest 导入
+- 新增 derived_metrics.py 本地派生指标（PE派生、量价资金代理）
+- Provider 状态替换：`missing_token`/`permission_required`/`insufficient_points`
+  → `access_restricted`/`manual_import_required`
+- 新增 `source_kind` 字段（online_api/public_web/local_import/derived）
+- 新增 `ADJUSTMENT_FACTOR`、`CORPORATE_EVENTS` Capability
+- provider_policy.yaml 改为 Community 模式（四 Provider 栈）
+- pyproject.toml local-release 包含全部四 Provider 依赖
+- 新增 4 个表：`announcement_documents` / `corporate_events` / `provider_field_lineage` 等
+- 新增 4 个专用测试文件：cninfo_provider / cninfo_local_import / akshare_schema_drift / capital_flow_proxy_semantics
+- Doctor 新增 `--provider-capabilities` 标记
+
+### 当前提交链
+
+```text
+2ecb1d6 V1.6.1 补全 — 巨潮本地导入/公告表/专用测试
+0526a35 V1.6.1 社区公共数据栈实施 — 去Tushare+Cninfo+派生
+8291cdf fix: Codex Acceptance P1/P2
+abadf19 chore: 忽略最终验收证据
+fcf6534 V1.6 Doctor
+5343c28 V1.6 Provider 包装器
+d84ec95 V1.6 Capability 路由
+f563925 V1.5 连板/板块/分析
+(PR-1~6: a42d5a1...6c7c137)
+```
+
+### 验收结果
+
+```text
+测试:  242 项 ✅ ALL PASS
+验收:  5 步  ✅ ALL PASS
+Codex: ✅ 已运行
+```

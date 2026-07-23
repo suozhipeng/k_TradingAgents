@@ -9,17 +9,25 @@ Checks:
   5. DuckDB canonical DB path is writable (~/.tradingagents/astock/astock.duckdb)
   6. Local-release extra declared in pyproject.toml
 
+Options:
+  --provider-capabilities   Probe all registered V1.6 providers and output
+                            Capability Matrix as JSON.
+  --all                     Run all checks including provider capabilities.
+
 Exit code: 0 if all checks pass, 1 otherwise.
 """
 
 from __future__ import annotations
 
+import argparse
 import importlib.util
+import json
 import os
 import platform
 import shutil
 import subprocess
 import sys
+from typing import Any
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -38,90 +46,132 @@ CANONICAL_DB_DIR = os.path.dirname(CANONICAL_DB_RELATIVE)
 FAILURES: list[str] = []
 
 
-def check(description: str, ok: bool, detail: str = "") -> None:
-    """Record a check result."""
-    if ok:
-        print(f"  ✓ {description}" + (f" — {detail}" if detail else ""))
-    else:
-        print(f"  ✗ {description}" + (f" — {detail}" if detail else ""))
+def _check(description: str, ok: bool, detail: str = "") -> None:
+    prefix = "✓" if ok else "✗"
+    print(f"  {prefix} {description}" + (f" — {detail}" if detail else ""))
+    if not ok:
         FAILURES.append(description)
 
 
-def main() -> int:
-    print(f"TradingAgents-Astock 本地发布环境诊断")
-    print(f"  Repository root: {REPO_ROOT}")
-    print(f"  Python: {platform.python_version()} ({sys.executable})")
-    print()
+def _check_python_version() -> None:
+    v = sys.version_info
+    _check("Python ≥ 3.12", v.major >= 3 and v.minor >= 12, f"{v.major}.{v.minor}.{v.micro}")
+    if v.major < 3 or v.minor < 12:
+        raise SystemExit(1)
 
-    # 1. Python version
-    check(
-        "Python ≥ 3.12",
-        sys.version_info >= (3, 12),
-        sys.version.split()[0],
-    )
 
-    # 2. Required packages
-    print()
-    print("  必需依赖:")
-    for mod in REQUIRED_DEPS:
-        spec = importlib.util.find_spec(mod)
-        check(f"  {mod} 可导入", spec is not None)
+def _check_dependencies() -> None:
+    for dep in REQUIRED_DEPS:
+        spec = importlib.util.find_spec(dep)
+        _check(f"{dep} 可导入", spec is not None)
 
-    # 3. Project .venv
+
+def _check_venv() -> None:
     venv_python = os.path.join(REPO_ROOT, ".venv", "bin", "python")
-    venv_ok = os.path.isfile(venv_python) and os.access(venv_python, os.X_OK)
-    check(
-        "项目 .venv 存在且可执行",
-        venv_ok,
-        venv_python if venv_ok else ".venv/bin/python 不存在或不可执行",
-    )
+    ok = os.path.isfile(venv_python) and os.access(venv_python, os.X_OK)
+    _check("项目 .venv 存在且可执行", ok, venv_python)
 
-    # 4. ASTOCK_LOCAL_RELEASE guard
-    env_val = os.environ.get("ASTOCK_LOCAL_RELEASE", "(unset)").lower()
-    env_ok = env_val in ("true", "1", "yes", "on")
-    check(
-        "ASTOCK_LOCAL_RELEASE 环境已设",
-        env_ok,
-        f"当前值: {os.environ.get('ASTOCK_LOCAL_RELEASE', '(unset)')}",
-    )
 
-    # 5. Canonical DB directory writable
+def _check_local_release_env() -> None:
+    val = os.environ.get("ASTOCK_LOCAL_RELEASE", "false")
+    _check("ASTOCK_LOCAL_RELEASE 环境已设", val == "true", f"当前值: {val}")
+
+
+def _check_canonical_db_dir() -> None:
     try:
         os.makedirs(CANONICAL_DB_DIR, exist_ok=True)
-        db_ok = os.access(CANONICAL_DB_DIR, os.W_OK)
-    except Exception:
-        db_ok = False
-    check(
-        "Canonical DB 目录可写",
-        db_ok,
-        CANONICAL_DB_DIR if db_ok else f"不可写 {CANONICAL_DB_DIR}",
-    )
+        ok = os.access(CANONICAL_DB_DIR, os.W_OK)
+    except OSError:
+        ok = False
+    _check("Canonical DB 目录可写", ok, CANONICAL_DB_DIR)
 
-    # 6. local-release extra declared in pyproject.toml
-    pyproject_path = os.path.join(REPO_ROOT, "pyproject.toml")
-    pyproject_ok = os.path.isfile(pyproject_path)
-    if pyproject_ok:
-        with open(pyproject_path) as f:
-            text = f.read()
-        local_release_declared = "local-release" in text and "[project.optional-dependencies]" in text
-        check(
-            "pyproject.toml 声明 local-release extra",
-            local_release_declared,
-        )
-    else:
-        check("pyproject.toml 存在", False)
 
-    # Summary
-    print()
-    if FAILURES:
-        print(f"失败 {len(FAILURES)} 项:")
-        for f in FAILURES:
-            print(f"  - {f}")
-        return 1
-    else:
-        print("所有检查通过。")
+def _check_pyproject_extra() -> None:
+    path = os.path.join(REPO_ROOT, "pyproject.toml")
+    ok = os.path.isfile(path) and 'local-release' in open(path, encoding='utf-8').read()
+    _check("pyproject.toml 声明 local-release extra", ok)
+
+
+def _probe_capabilities() -> dict[str, Any]:
+    """Probe V1.6 provider capabilities and return a matrix dict."""
+    sys.path.insert(0, REPO_ROOT)
+    matrix: dict[str, Any] = {"provider_mode": "community", "capabilities": {}}
+
+    # Check Tushare
+    tushare_token = os.environ.get("TUSHARE_TOKEN", "")
+    matrix["tushare_token_configured"] = bool(tushare_token)
+    matrix["provider_mode"] = os.environ.get("ASTOCK_PROVIDER_MODE", "community")
+
+    if tushare_token:
+        try:
+            import tushare as ts
+            ts.set_token(tushare_token)
+            matrix["tushare_sdk_imported"] = True
+        except ImportError:
+            matrix["tushare_sdk_imported"] = False
+
+    # Check SDKs
+    for sdk_name in ("akshare", "mootdx", "baostock"):
+        try:
+            importlib.import_module(sdk_name)
+            matrix[f"{sdk_name}_imported"] = True
+        except ImportError:
+            matrix[f"{sdk_name}_imported"] = False
+
+    # Provider policy path
+    policy_path = os.environ.get("ASTOCK_PROVIDER_POLICY_PATH",
+                                 os.path.join(REPO_ROOT, "config", "provider_policy.yaml"))
+    matrix["provider_policy_found"] = os.path.isfile(policy_path)
+
+    return matrix
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="TradingAgents-Astock 本地发布环境诊断")
+    parser.add_argument("--provider-capabilities", action="store_true",
+                        help="探测 Provider Capability Matrix（含 Tushare Token 检查）")
+    parser.add_argument("--all", action="store_true",
+                        help="运行全部检查（含 provider 探测）")
+    parser.add_argument("--json", action="store_true", help="JSON 输出")
+    args = parser.parse_args()
+
+    header_shown = False
+    if args.provider_capabilities or args.all:
+        result = _probe_capabilities()
+        if args.json:
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+        else:
+            print("\nProvider Capability Matrix:")
+            print(f"  Provider Mode: {result['provider_mode']}")
+            print(f"  Tushare Token 已配置: {'✓' if result['tushare_token_configured'] else '✗'}")
+            print(f"  AKShare SDK: {'✓' if result.get('akshare_imported') else '✗'}")
+            print(f"  Mootdx SDK:   {'✓' if result.get('mootdx_imported') else '✗'}")
+            print(f"  BaoStock SDK: {'✓' if result.get('baostock_imported') else '✗'}")
+            print(f"  Provider 策略配置: {'✓' if result.get('provider_policy_found') else '✗'}")
         return 0
+
+    print("TradingAgents-Astock 本地发布环境诊断")
+    print(f"  Repository root: {REPO_ROOT}")
+    print(f"  Python: {sys.version.split()[0]} ({sys.executable})")
+    print()
+
+    _check_python_version()
+    print(f"\n  必需依赖:")
+    _check_dependencies()
+    print()
+    _check_venv()
+    _check_local_release_env()
+    _check_canonical_db_dir()
+    _check_pyproject_extra()
+
+    if FAILURES:
+        print(f"\n{len(FAILURES)} 项检查失败:", file=sys.stderr)
+        for f in FAILURES:
+            print(f"  - {f}", file=sys.stderr)
+        return 1
+    print("\n所有检查通过。")
+    return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())

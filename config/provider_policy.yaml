@@ -1,0 +1,86 @@
+# Community provider routing policy — V1.6.1
+# Current stack: Mootdx + AKShare + BaoStock + Cninfo (巨潮)
+# No commercial token required.
+provider_policy:
+  mode: community
+  current_stack:
+    - mootdx
+    - akshare
+    - baostock
+    - cninfo
+
+  commercial_providers:
+    enabled: false
+    implementations_in_scope: []
+
+  market_kline:
+    primary: mootdx
+    fallback: [baostock, akshare]
+
+  index_kline:
+    primary: mootdx
+    fallback: [akshare, baostock]
+
+  realtime_quote:
+    primary: mootdx
+    fallback: [akshare]
+
+  trade_calendar:
+    primary: baostock
+    fallback: [akshare]
+
+  security_master:
+    primary: baostock
+    fallback: [akshare]
+
+  adjustment_factor:
+    primary: baostock
+    fallback: [akshare]
+
+  financial_statements:
+    primary: akshare
+    fallback: [baostock, cninfo_report_import]
+
+  financial_indicators:
+    primary: akshare
+    fallback: [baostock, local_derived]
+
+  valuation_daily:
+    primary: akshare
+    fallback: [local_derived]
+
+  capital_flow_stock:
+    primary: akshare
+    fallback: [local_volume_price_proxy]
+
+  capital_flow_sector:
+    primary: akshare
+    fallback: []
+
+  industry_membership:
+    primary: akshare
+    fallback: [local_sector_cache]
+
+  concept_membership:
+    primary: akshare
+    fallback: [local_sector_cache]
+
+  news:
+    primary: akshare
+    fallback: []
+
+  announcements:
+    primary: cninfo
+    fallback: [cninfo_local_import, akshare]
+
+  corporate_events:
+    primary: cninfo
+    fallback: [cninfo_local_import, akshare]
+
+  limit_up_down:
+    primary: akshare
+    fallback: [deterministic_calculator]
+
+  backtest:
+    source: canonical_duckdb
+    external_provider_access: forbidden
