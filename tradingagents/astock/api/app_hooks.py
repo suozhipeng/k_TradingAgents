@@ -1,14 +1,13 @@
-"""App-level hooks: ensure schema is initialised at startup and global error handling."""
+"""App-level hooks: schema init, global error handling, and V1.7 envelope wrapping."""
 
 from __future__ import annotations
 
 import logging
 import threading
-from pathlib import Path
 
-from flask import Flask, jsonify
+from flask import Flask, jsonify, Response as FlaskResponse
 
-from .envelope import fail
+from .envelope import fail, ok
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +37,37 @@ def on_app_start(app):
         ensure_schema_at_startup(app, store)
 
 
+# ── V1.7 global after_request: wrap bare JSON in envelope ───────────────────
+
+
+def _wrap_envelope(response: FlaskResponse) -> FlaskResponse:
+    """Wrap bare JSON responses in the V1.7 {ok, data, meta, error} envelope.
+
+    Routes that already return ok()/fail() pass through unchanged.
+    """
+    if response.content_type != "application/json":
+        return response
+    # Don't double-wrap
+    if hasattr(response, "_v17_enveloped"):
+        return response
+    try:
+        payload = response.get_json()
+    except Exception:
+        return response
+    if not isinstance(payload, dict) or "ok" in payload:
+        return response
+
+    # Wrap as success response
+    wrapped, _ = ok(payload)
+    body = jsonify(wrapped)
+    body._v17_enveloped = True
+    return body
+
+
+def register_after_request(app: Flask) -> None:
+    app.after_request(_wrap_envelope)
+
+
 # ── V1.7 global error handlers ──────────────────────────────────────────────
 
 
@@ -64,7 +94,7 @@ def register_error_handlers(app: Flask) -> None:
     @app.errorhandler(404)
     def not_found(exc):
         return jsonify({"ok": False, "data": None,
-                        "meta": {},  # bare minimum
+                        "meta": {},
                         "error": {"code": "NOT_FOUND",
                                   "message": "resource not found",
                                   "details": {}, "retryable": False}}), 404
@@ -87,5 +117,6 @@ def register_error_handlers(app: Flask) -> None:
 
 
 def register_hooks(app):
-    """Install app lifecycle hooks and V1.7 error handlers."""
+    """Install app lifecycle hooks, error handlers, and V1.7 envelope wrapping."""
     register_error_handlers(app)
+    register_after_request(app)
