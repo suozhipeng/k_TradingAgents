@@ -79,6 +79,10 @@ _LAZY_EXPORTS = {
     "ProviderRegistry": ("tradingagents.astock.data_sources.registry", "ProviderRegistry"),
     "TushareProvider": ("tradingagents.astock.data_sources.tushare_provider", "TushareProvider"),
     "record_field_lineage": ("tradingagents.astock.store.provider_lineage", "record_field_lineage"),
+    "AkshareCapabilityProvider": ("tradingagents.astock.data_sources.providers_v1_6", "AkshareCapabilityProvider"),
+    "MootdxCapabilityProvider": ("tradingagents.astock.data_sources.providers_v1_6", "MootdxCapabilityProvider"),
+    "BaoStockCapabilityProvider": ("tradingagents.astock.data_sources.providers_v1_6", "BaoStockCapabilityProvider"),
+    "register_v1_6_providers": ("tradingagents.astock.data_sources.providers_v1_6", "register_v1_6_providers"),
 }
 
 __all__ = list(_LAZY_EXPORTS)

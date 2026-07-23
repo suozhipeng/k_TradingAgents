@@ -61,6 +61,10 @@ local-release = [
     "pytest>=8.0",
 ]
 
+research-data = [
+    "tushare>=1.4.29,<1.5",
+]
+
 [project.scripts]
 tradingagents = "cli.main:app"
 
