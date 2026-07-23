@@ -1,118 +1,133 @@
-"""Standardised API response envelope.
-
-Every JSON API endpoint returns one of:
-
-    {"ok": true,  "data": <payload>}  # success
-    {"ok": false, "error": <code>, "message": <human text>, "status": <code>}  # failure
-
-This avoids scattered patterns like ``{"error": "...", "status": 400}`` vs
-``{"error": "forbidden", "message": "..."}`` and makes client-side parsing
-predictable.
+"""V1.7 unified API response envelope.
 
 Usage::
 
-    from .envelope import error_response, success_response
+    from .envelope import ok, fail
 
     @bp.route("/example")
     def example():
         if bad_thing:
-            return error_response("missing field", 400)
-        return success_response({"key": "value"})
+            return fail("missing field", status=400)
+        return ok({"key": "value"})
 """
 
 from __future__ import annotations
 
-import re
+import hashlib
 import logging
+import os
+import time
 from typing import Any
-
-from flask import jsonify
 
 logger = logging.getLogger(__name__)
 
-_STABLE_ERROR_CODE = re.compile(r"^[a-z][a-z0-9_]*$")
-_STATUS_ERROR_CODES = {
-    400: "invalid_request", 401: "unauthorized", 403: "forbidden",
-    404: "not_found", 405: "method_not_allowed", 409: "conflict",
-    413: "payload_too_large", 422: "unprocessable_entity", 429: "rate_limited",
+# V1.7 error codes
+ERROR_CODES = {
+    400: "INVALID_REQUEST",
+    401: "UNAUTHORIZED",
+    403: "FORBIDDEN",
+    404: "NOT_FOUND",
+    409: "CONFLICT",
+    422: "UNPROCESSABLE_ENTITY",
+    429: "RATE_LIMITED",
+    500: "INTERNAL_ERROR",
+    503: "PROVIDER_UNAVAILABLE",
+    504: "PROVIDER_TIMEOUT",
 }
 
-
-def stable_error_code(message: str, status: int) -> str:
-    """Return a public machine code without deriving it from dynamic text."""
-    if status >= 500:
-        return "internal_server_error"
-    return message if _STABLE_ERROR_CODE.fullmatch(message) else _STATUS_ERROR_CODES.get(status, "request_failed")
+NON_RETRYABLE = frozenset({
+    "INVALID_REQUEST", "UNAUTHORIZED", "FORBIDDEN", "NOT_FOUND", "CONFLICT",
+})
 
 
-def success_response(data: Any, *, status: int = 200) -> tuple:
-    """Return the standardised success envelope.
-
-    Parameters
-    ----------
-    data:
-        Serialisable payload (dict, list, str, etc.).
-    status:
-        HTTP status code (default 200).
-
-    Returns
-    -------
-    tuple[Response, int]
-        ``(jsonify(...), status)`` ready for a Flask route handler.
-    """
-    return jsonify({"ok": True, "data": data}), status
+def _request_id() -> str:
+    ts = int(time.time() * 1000000)
+    rand = os.urandom(4).hex()
+    return f"req_{ts:x}{rand}"
 
 
-def error_response(
-    message: str,
-    status: int = 500,
-    *,
-    detail: str | None = None,
-    code: str | None = None,
-) -> tuple:
-    """Return a standardised error envelope.
+def _ts() -> str:
+    from datetime import datetime, timezone
+    return datetime.now(timezone.utc).isoformat()
 
-    Parameters
-    ----------
-    message:
-        Human-readable error summary.
-    status:
-        HTTP status code (default 500).
-    detail:
-        Optional machine-readable / debug detail.
-    code:
-        Stable public error code. Required to expose a distinct 5xx error;
-        otherwise 5xx responses are deliberately sanitised.
 
-    Returns
-    -------
-    tuple[Response, int]
-        ``(jsonify(...), status)`` ready for a Flask route handler.
-    """
+def ok(data: Any, *, status: int = 200, data_state: str = "available",
+       schema_version: str = "1.0") -> tuple:
+    """Return a V1.7 unified success response dict + status."""
+    return ({
+        "ok": True,
+        "data": data,
+        "meta": {
+            "request_id": _request_id(),
+            "timestamp": _ts(),
+            "data_state": data_state,
+            "schema_version": schema_version,
+        },
+        "error": None,
+    }, status)
+
+
+def fail(message: str, status: int = 500, *,
+         code: str | None = None,
+         details: dict[str, Any] | None = None,
+         retryable: bool | None = None) -> tuple:
+    """Return a V1.7 unified error response dict + status."""
     if code is None:
-        if status >= 500:
-            logger.error("API error response: status=%s code=%s detail=%s", status, code or "internal_server_error", message)
-            code = stable_error_code(message, status)
-            message = "internal_server_error"
-            detail = None
-        else:
-            code = stable_error_code(message, status)
-    body: dict[str, Any] = {
+        code = ERROR_CODES.get(status, "INTERNAL_ERROR")
+    if retryable is None:
+        retryable = code not in NON_RETRYABLE
+    if status >= 500 and code == "INTERNAL_ERROR":
+        logger.error("API error: status=%s code=%s msg=%s", status, code, message)
+    return ({
         "ok": False,
-        "error": code or message,
-        "message": message,
-        "status": status,
-    }
-    if detail is not None:
-        body["details"] = {"detail": detail}
-    return jsonify(body), status
+        "data": None,
+        "meta": {"request_id": _request_id(), "timestamp": _ts()},
+        "error": {
+            "code": code,
+            "message": message,
+            "details": details or {},
+            "retryable": retryable,
+        },
+    }, status)
 
 
-def created_response(data: Any) -> tuple:
-    """Shorthand for a 201-created success response."""
-    return success_response(data, status=201)
+def created(data: Any, **kw: Any) -> tuple:
+    return ok(data, status=201, **kw)
 
 
-def deleted_response() -> tuple:
-    """Shorthand for a 200-deleted success response."""
-    return success_response({"deleted": True}, status=200)
+# Legacy aliases — old code uses success_response/error_response
+def success_response(data: Any, *, status: int = 200) -> tuple:
+    return ok(data, status=status)
+
+
+def error_response(message: str, status: int = 500, *,
+                   detail: str | None = None,
+                   code: str | None = None) -> tuple:
+    details = {"detail": detail} if detail else None
+    return fail(message, status=status, code=code, details=details)
+
+
+# ── Contract test helpers (no Flask app context needed) ──────────────────────
+
+
+def assert_success(payload: dict, expected_status: int = 200) -> dict:
+    assert payload.get("ok") is True, f"ok should be True: {payload}"
+    assert "data" in payload, "missing data"
+    assert payload.get("error") is None, f"error should be None: {payload}"
+    meta = payload.get("meta", {})
+    rid = meta.get("request_id", "")
+    assert rid.startswith("req_"), f"bad request_id: {rid}"
+    assert "timestamp" in meta
+    assert meta.get("schema_version") == "1.0", f"bad schema_version: {meta}"
+    return payload
+
+
+def assert_error(payload: dict, expected_code: str | None = None) -> dict:
+    assert payload.get("ok") is False, f"ok should be False: {payload}"
+    assert payload.get("data") is None
+    err = payload.get("error", {})
+    if expected_code:
+        assert err.get("code") == expected_code, f"expected {expected_code} got {err.get('code')}"
+    assert "message" in err
+    assert "retryable" in err
+    return payload

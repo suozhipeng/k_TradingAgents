@@ -28,9 +28,10 @@ logger = logging.getLogger(__name__)
 @bp.route("/setup/status")
 def setup_status() -> tuple[Response, int]:
     """Return the current bootstrap / setup status of the local data layer."""
+    from .envelope import ok, fail
     store = current_app.config.get("STORE")
     if store is None:
-        return error_response("store not initialized", 500)
+        return fail("store not initialized", 500)
 
     tables: dict[str, Any] = {}
     try:
@@ -43,12 +44,13 @@ def setup_status() -> tuple[Response, int]:
     except Exception as exc:
         tables["_error"] = str(exc)
 
-    return jsonify({
+    data_state = "available" if any((t.get("rows", 0) or 0) > 0 for t in tables.values()) else "unavailable"
+    return ok({
         "status": "ok" if any(tables.values()) else "not_initialized",
         "tables": tables,
         "has_real_data": any((t.get("rows", 0) or 0) > 0 for t in tables.values()),
         "mock_data_enabled": mock_data_enabled(),
-    }), 200
+    }, data_state=data_state)
 
 
 # ---------------------------------------------------------------------------

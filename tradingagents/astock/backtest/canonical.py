@@ -133,7 +133,9 @@ class CanonicalBacktest:
             "a_share_rules": {"lot_size": cfg.lot_size, "t_plus_one": True, "fees": True, "slippage": True, "limit_pct": cfg.limit_pct, "suspension_check": True},
         }
 
-    def run(self, store: Any, symbol: str, start: str | None = None, end: str | None = None) -> dict[str, Any]:
+    def run(self, store: Any, symbol: str, start: str | None = None,
+            end: str | None = None,
+            benchmark_symbol: str = "000300.SH") -> dict[str, Any]:
         """Read bars from Canonical DuckDB only; Provider access is impossible here."""
         sql = 'SELECT * FROM "kline_bars" WHERE symbol = ?'
         params: list[str] = [symbol]
@@ -145,7 +147,25 @@ class CanonicalBacktest:
             params.append(end)
         sql += " ORDER BY trade_date"
         frame = store.conn.execute(sql, params).fetchdf()
-        return self.run_frame(frame, symbol=symbol)
+        result = self.run_frame(frame, symbol=symbol)
+
+        # Benchmark
+        try:
+            bmk_sql = 'SELECT trade_date, close FROM "kline_bars" WHERE symbol = ? ORDER BY trade_date'
+            bmk = store.conn.execute(bmk_sql, [benchmark_symbol]).fetchdf()
+            if not bmk.empty:
+                bmk_prices = bmk["close"].astype(float).values
+                bmk_return = (bmk_prices[-1] / bmk_prices[0] - 1) * 100
+                result["benchmark"] = {"symbol": benchmark_symbol,
+                                       "return_pct": round(bmk_return, 2)}
+                # Alpha
+                strategy_return = result.get("return_rate", 0) * 100
+                result["alpha_pct"] = round(strategy_return - bmk_return, 2)
+        except Exception as exc:
+            logger.warning("benchmark fetch failed: %s", exc)
+            result["benchmark"] = None
+
+        return result
 
     def persist(self, store: Any, result: dict[str, Any]) -> str:
         conn = store.conn
