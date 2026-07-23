@@ -71,9 +71,9 @@ echo "OK - no implicit mock found"
 # 5. Check DB path consistency
 echo ""
 echo "[4/5] Verifying single canonical DB path..."
-if find . -name "*.duckdb" -not -path "./.venv/*" -not -path "./.worktrees/*/.venv/*" -not -name "kanban.db" | grep -q .; then
+if find . -name "*.duckdb" -not -path "./.venv/*" -not -path "./.worktrees/*/.venv/*" -not -path "./backups/*" -not -name "kanban.db" | grep -q .; then
   echo "[WARN] Multiple DuckDB files found:"
-  find . -name "*.duckdb" -not -path "./.venv/*" -not -path "./.worktrees/*/.venv/*" -not -name "kanban.db"
+  find . -name "*.duckdb" -not -path "./.venv/*" -not -path "./.worktrees/*/.venv/*" -not -path "./backups/*" -not -name "kanban.db"
 else
   echo "OK - no extra DuckDB files"
 fi
