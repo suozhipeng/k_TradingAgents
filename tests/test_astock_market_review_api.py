@@ -1,4 +1,4 @@
-"""Tests for Canonical DuckDB-backed market review API."""
+"""Tests for Canonical DuckDB-backed market review API with V1.7 envelope."""
 
 from types import SimpleNamespace
 
@@ -6,6 +6,7 @@ import duckdb
 from flask import Flask
 
 from tradingagents.astock.api.routes_market_review import bp
+from tradingagents.astock.api.envelope import assert_success
 
 
 def _client():
@@ -33,26 +34,29 @@ def _client():
 def test_market_review_reads_canonical_rows_and_returns_lineage():
     client = _client()
     response = client.post("/api/v1/market/review?as_of=2024-01-02")
-    assert response.status_code == 200
-    payload = response.get_json()
-    assert payload["status"] == "ok"
-    assert payload["as_of"] == "2024-01-02"
-    assert payload["llm_used"] is False
-    assert payload["facts"]
-    assert all(f["source_table"] == "kline_bars" for f in payload["facts"])
+    payload = assert_success(response.get_json())
+    data = payload["data"]
+    assert data["status"] == "ok"
+    assert data["as_of"] == "2024-01-02"
+    assert data["llm_used"] is False
+    assert data["facts"]
+    assert all(f["source_table"] == "kline_bars" for f in data["facts"])
 
 
 def test_market_review_persists_and_can_be_read_after_request():
     client = _client()
-    report = client.get("/api/v1/market/review?as_of=2024-01-02").get_json()
-    loaded = client.get(f"/api/v1/market/review/{report['run_id']}")
+    first = client.get("/api/v1/market/review?as_of=2024-01-02").get_json()
+    data = first["data"]
+    loaded = client.get(f"/api/v1/market/review/{data['run_id']}")
     assert loaded.status_code == 200
-    assert loaded.get_json()["run_id"] == report["run_id"]
+    loaded_data = loaded.get_json()["data"]
+    assert loaded_data["run_id"] == data["run_id"]
 
 
 def test_market_review_empty_canonical_store_is_explicit():
     client = _client()
-    # The fixture has data; an unknown future cutoff still returns an explicit report.
     response = client.post("/api/v1/market/review?as_of=2020-01-01")
     assert response.status_code == 200
-    assert response.get_json()["status"] == "not_initialized"
+    payload = response.get_json()
+    assert payload["meta"]["data_state"] == "unavailable"
+    assert payload["data"]["status"] == "not_initialized"
