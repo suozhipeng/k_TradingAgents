@@ -83,9 +83,10 @@ def analyze_watchlist() -> tuple[Response, int]:
 @bp.route("/analysis/stock/<symbol>", methods=["GET", "POST"])
 def analyze_stock(symbol: str) -> tuple[Response, int]:
     """Return deterministic stock facts from Canonical DuckDB only."""
+    from .envelope import ok, fail
     symbol = symbol.strip()
     if not symbol:
-        return error_response("symbol is required", 400)
+        return fail("symbol is required", 400)
     payload = request.get_json(silent=True) or {}
     as_of = request.args.get("as_of") or payload.get("as_of")
     store = get_store()
@@ -98,11 +99,37 @@ def analyze_stock(symbol: str) -> tuple[Response, int]:
         sql += " ORDER BY trade_date"
         frame = store.conn.execute(sql, params).fetchdf()
         if frame.empty:
-            return jsonify({"status": "not_initialized", "symbol": symbol, "facts": [], "risk_signals": []}), 200
+            return ok({"status": "not_initialized", "symbol": symbol, "facts": [], "risk_signals": []})
         report = StockFactsEngine(store).run(frame, symbol=symbol, as_of=as_of)
-        return jsonify(report), 200
+        return ok(report)
     except ValueError as exc:
-        return error_response(str(exc), 400)
+        return fail(str(exc), 400)
     except Exception as exc:
         logger.exception("stock analysis failed for %s", symbol)
-        return error_response(f"stock analysis failed: {exc}", 500)
+        return fail(f"stock analysis failed: {exc}", 500)
+
+
+# V1.7 POST /api/v1/analysis/stocks — batch single-symbol analysis
+@bp.route("/analysis/stocks", methods=["POST"])
+def analyze_stocks() -> tuple[Response, int]:
+    """Analyze one or more stocks. Accepts {symbol} or {symbols: [...]}."""
+    from .envelope import ok, fail
+    body = request.get_json(silent=True) or {}
+    symbols = body.get("symbols") or [body.get("symbol")] if body.get("symbol") else []
+    if not symbols:
+        return fail("symbol or symbols is required", 400)
+    store = get_store()
+    results = []
+    for sym in symbols[:10]:  # max 10 per request
+        try:
+            sql = 'SELECT * FROM "kline_bars" WHERE symbol = ? ORDER BY trade_date'
+            frame = store.conn.execute(sql, [sym]).fetchdf()
+            if frame.empty:
+                results.append({"symbol": sym, "status": "not_initialized"})
+                continue
+            report = StockFactsEngine(store).run(frame, symbol=sym)
+            report["status"] = "ok"
+            results.append(report)
+        except Exception as exc:
+            results.append({"symbol": sym, "status": "error", "error": str(exc)[:100]})
+    return ok({"results": results, "count": len(results)})
