@@ -1,0 +1,68 @@
+# Provider routing policy — V1.6 Recommended mode
+# Each capability has a primary and ordered fallback list.
+provider_policy:
+  mode: recommended
+
+  market_kline:
+    primary: mootdx
+    fallback: [tushare, akshare, baostock]
+
+  index_kline:
+    primary: mootdx
+    fallback: [tushare, akshare, baostock]
+
+  realtime_quote:
+    primary: mootdx
+    fallback: [tencent, akshare]
+
+  trade_calendar:
+    primary: tushare
+    fallback: [baostock, akshare]
+
+  security_master:
+    primary: tushare
+    fallback: [akshare, baostock]
+
+  financial_statements:
+    primary: tushare
+    fallback: [akshare]
+
+  financial_indicators:
+    primary: tushare
+    fallback: [akshare, baostock]
+
+  valuation_daily:
+    primary: tushare
+    fallback: [akshare]
+
+  capital_flow_stock:
+    primary: tushare
+    fallback: [akshare]
+
+  capital_flow_sector:
+    primary: tushare
+    fallback: [akshare]
+
+  industry_membership:
+    primary: tushare
+    fallback: [akshare]
+
+  concept_membership:
+    primary: tushare
+    fallback: [akshare]
+
+  news:
+    primary: tushare
+    fallback: [akshare]
+
+  announcements:
+    primary: tushare
+    fallback: [akshare]
+
+  limit_up_down:
+    primary: tushare
+    fallback: [akshare, deterministic_calculator]
+
+  backtest:
+    source: canonical_duckdb
+    external_provider_access: forbidden

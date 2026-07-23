@@ -235,11 +235,44 @@ def ensure_review_tables(conn) -> None:
         started_at TIMESTAMP,
         finished_at TIMESTAMP
     )""")
-    cur.execute("""CREATE TABLE IF NOT EXISTS ingestion_run_items (
+    conn.execute("""CREATE TABLE IF NOT EXISTS ingestion_run_items (
         run_id VARCHAR NOT NULL,
         item_type VARCHAR NOT NULL,
         item_id VARCHAR,
         detail_json VARCHAR
     )""")
 
+    # V1.6 Provider tables
+    cur = conn.cursor()
+    cur.execute("""CREATE TABLE IF NOT EXISTS provider_health_snapshots (
+        snapshot_id VARCHAR PRIMARY KEY,
+        provider VARCHAR NOT NULL,
+        capability VARCHAR NOT NULL,
+        state VARCHAR NOT NULL,
+        checked_at TIMESTAMP,
+        latency_ms INTEGER,
+        permission_hint VARCHAR,
+        error_code VARCHAR,
+        detail_rows INTEGER
+    )""")
+    cur.execute("""CREATE TABLE IF NOT EXISTS provider_capability_status (
+        provider VARCHAR NOT NULL,
+        capability VARCHAR NOT NULL,
+        state VARCHAR NOT NULL,
+        checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (provider, capability)
+    )""")
+    cur.execute("""CREATE TABLE IF NOT EXISTS provider_request_audit (
+        audit_id VARCHAR PRIMARY KEY,
+        provider VARCHAR NOT NULL,
+        api_name VARCHAR,
+        capability VARCHAR,
+        requested_at TIMESTAMP,
+        latency_ms INTEGER,
+        row_count INTEGER,
+        state VARCHAR,
+        error_code VARCHAR,
+        request_params_hash VARCHAR
+    )""")
+    # provider_field_lineage created by provider_lineage.record_field_lineage
     conn.commit()

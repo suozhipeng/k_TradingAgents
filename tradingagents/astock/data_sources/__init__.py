@@ -71,6 +71,14 @@ _LAZY_EXPORTS = {
     "astock_code": ("tradingagents.astock.data_sources.symbols", "astock_code"),
     "normalize_astock_symbol": ("tradingagents.astock.data_sources.symbols", "normalize_astock_symbol"),
     "split_astock_symbol": ("tradingagents.astock.data_sources.symbols", "split_astock_symbol"),
+    # V1.6 Capability-based routing
+    "ProviderCapability": ("tradingagents.astock.data_sources.base", "ProviderCapability"),
+    "CapabilityStatus": ("tradingagents.astock.data_sources.base", "CapabilityStatus"),
+    "PROVIDER_STATES": ("tradingagents.astock.data_sources.base", "PROVIDER_STATES"),
+    "FinancialDataProvider": ("tradingagents.astock.data_sources.base", "FinancialDataProvider"),
+    "ProviderRegistry": ("tradingagents.astock.data_sources.registry", "ProviderRegistry"),
+    "TushareProvider": ("tradingagents.astock.data_sources.tushare_provider", "TushareProvider"),
+    "record_field_lineage": ("tradingagents.astock.store.provider_lineage", "record_field_lineage"),
 }
 
 __all__ = list(_LAZY_EXPORTS)

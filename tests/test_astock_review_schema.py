@@ -27,6 +27,9 @@ REQUIRED_TABLES = [
     "data_quarantine",
     "ingestion_runs",
     "ingestion_run_items",
+    "provider_health_snapshots",
+    "provider_capability_status",
+    "provider_request_audit",
 ]
 
 
