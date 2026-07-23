@@ -275,4 +275,30 @@ def ensure_review_tables(conn) -> None:
         request_params_hash VARCHAR
     )""")
     # provider_field_lineage created by provider_lineage.record_field_lineage
+
+    # V1.6.1 Announcement & Corporate Event tables
+    cur.execute("""CREATE TABLE IF NOT EXISTS announcement_documents (
+        announcement_id VARCHAR PRIMARY KEY,
+        symbol VARCHAR NOT NULL,
+        title VARCHAR,
+        announcement_type VARCHAR,
+        publish_date DATE,
+        report_period VARCHAR,
+        source_url VARCHAR,
+        local_path VARCHAR,
+        file_sha256 VARCHAR,
+        source VARCHAR DEFAULT 'cninfo',
+        parse_state VARCHAR DEFAULT 'pending',
+        imported_at TIMESTAMP
+    )""")
+    cur.execute("""CREATE TABLE IF NOT EXISTS corporate_events (
+        event_id VARCHAR PRIMARY KEY,
+        symbol VARCHAR NOT NULL,
+        event_type VARCHAR,
+        title VARCHAR,
+        publish_date DATE,
+        source VARCHAR DEFAULT 'cninfo',
+        detail_json VARCHAR,
+        imported_at TIMESTAMP
+    )""")
     conn.commit()

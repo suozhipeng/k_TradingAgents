@@ -30,6 +30,8 @@ REQUIRED_TABLES = [
     "provider_health_snapshots",
     "provider_capability_status",
     "provider_request_audit",
+    "announcement_documents",
+    "corporate_events",
 ]
 
 

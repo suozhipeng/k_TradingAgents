@@ -52,6 +52,9 @@ ASTOCK_LOCAL_RELEASE=true "$PYTHON_BIN" -m pytest \
   tests/test_astock_provider_field_lineage.py \
   tests/test_astock_provider_wrappers_v1_6.py \
   tests/test_astock_capital_flow_proxy_semantics.py \
+  tests/test_astock_cninfo_provider.py \
+  tests/test_astock_cninfo_local_import.py \
+  tests/test_astock_akshare_schema_drift.py \
   -v --tb=short || { echo "Tests failed"; exit 1; }
 
 # 4. Check no implicit mock in API
