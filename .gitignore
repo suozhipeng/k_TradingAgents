@@ -262,3 +262,4 @@ hermes-*-profile-*.tar.gz
 /webui/dist/
 *.hermes-workflow/RESUME.md
 scripts/generate_acceptance_evidence.py
+.hermes-workflow/evidence/final/
