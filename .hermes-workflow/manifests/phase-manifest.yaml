@@ -1,9 +1,13 @@
 schema_version: '1.0'
 release: '0.3.3'
-source_of_truth: docs/TradingAgents_xg_dev_修复与Hermes低Token自动化实施方案_V1.5.md
+source_of_truth: docs/TradingAgents_xg_dev_修复与Hermes低Token自动化实施方案_V1.6.1.md
 source_branch: xg_dev
 integration_branch: fix/xg-dev-data-loop-v033
 workspace: dir:.worktrees/xg-integration
+status: completed
+head_sha: 9707f1b
+test_count: 242
+verifier_passed: true
 max_parallel_implementation: 1
 same_failure_limit: 2
 auto_decompose: false
