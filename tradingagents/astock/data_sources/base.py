@@ -1,4 +1,4 @@
-"""Provider Capability enum, status model, and base class."""
+"""Provider Capability enum, status model, and base class (V1.6.1 Community Stack)."""
 
 from __future__ import annotations
 
@@ -14,6 +14,7 @@ class ProviderCapability(StrEnum):
     REALTIME_QUOTE = "realtime_quote"
     TRADE_CALENDAR = "trade_calendar"
     SECURITY_MASTER = "security_master"
+    ADJUSTMENT_FACTOR = "adjustment_factor"
     FINANCIAL_STATEMENTS = "financial_statements"
     FINANCIAL_INDICATORS = "financial_indicators"
     VALUATION_DAILY = "valuation_daily"
@@ -23,15 +24,17 @@ class ProviderCapability(StrEnum):
     CONCEPT_MEMBERSHIP = "concept_membership"
     NEWS = "news"
     ANNOUNCEMENTS = "announcements"
+    CORPORATE_EVENTS = "corporate_events"
     LIMIT_UP_DOWN = "limit_up_down"
 
 
-# Unified status values from V1.6 §31.3
+# V1.6.1 Community provider states (no commercial token states)
 PROVIDER_STATES = frozenset({
     "available", "degraded", "stale", "unconfigured",
-    "missing_dependency", "missing_token", "permission_required",
-    "insufficient_points", "timeout", "rate_limited",
-    "upstream_changed", "parse_error", "empty_response", "unavailable",
+    "missing_dependency", "access_restricted",
+    "timeout", "rate_limited", "upstream_changed",
+    "parse_error", "empty_response", "manual_import_required",
+    "unavailable",
 })
 
 
@@ -43,9 +46,10 @@ class CapabilityStatus:
     state: str                         # one of PROVIDER_STATES
     checked_at: str                    # ISO timestamp
     latency_ms: int | None = None
-    permission_hint: str | None = None  # e.g. "requires 2000 points" / "needs major_news permission"
+    rows: int | None = None
+    source_kind: str = "unknown"       # online_api | public_web | local_import | derived | cache
+    degradation_reason: str | None = None
     error_code: str | None = None
-    detail_rows: int | None = None
     details: dict[str, Any] = field(default_factory=dict)
 
 

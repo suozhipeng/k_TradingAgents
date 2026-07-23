@@ -36,6 +36,6 @@ def test_capability_enum_values():
 
 
 def test_provider_states_contain_new_v1_6_states():
-    for s in ("missing_token", "permission_required", "insufficient_points",
-              "upstream_changed", "rate_limited", "stale"):
+    for s in ("access_restricted", "manual_import_required", "upstream_changed",
+              "rate_limited", "stale", "parse_error", "empty_response"):
         assert s in PROVIDER_STATES, f"missing state: {s}"
