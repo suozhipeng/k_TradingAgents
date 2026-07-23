@@ -4,9 +4,18 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import threading
 import time
 from unittest.mock import patch
+
+import pytest
+
+# Auth/security tests require ASTOCK_REQUIRE_AUTH=true (off by default in local-release)
+pytestmark = pytest.mark.skipif(
+    not os.environ.get("ASTOCK_REQUIRE_AUTH", "").lower() in ("1", "true", "yes"),
+    reason="requires ASTOCK_REQUIRE_AUTH=true (local-release disables auth)",
+)
 
 
 def _app(*, require_auth: bool):
