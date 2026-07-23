@@ -51,10 +51,15 @@ def compute_leaders(frame: pd.DataFrame) -> dict[str, Any]:
     limit_down = today[today["change_pct"] <= -9.5].sort_values("change_pct")
 
     # Volume leaders (top 20 by amount or volume)
-    vol_col = "amount" if "amount" in today.columns else "volume"
-    volume_leaders = today.nlargest(20, vol_col)[["symbol", "close", vol_col, "change_pct"]]
-    if "amount" not in today.columns:
-        volume_leaders[vol_col] = 0.0
+    vol_col = None
+    for col in ("amount", "volume", "turnover_rate"):
+        if col in today.columns:
+            vol_col = col
+            break
+    if vol_col:
+        volume_leaders = today.nlargest(20, vol_col)[["symbol", "close", vol_col, "change_pct"]]
+    else:
+        volume_leaders = pd.DataFrame(columns=["symbol", "close", "change_pct"])
 
     # New high: close >= max of last 20 days
     new_high = []
@@ -68,46 +73,29 @@ def compute_leaders(frame: pd.DataFrame) -> dict[str, Any]:
             if row["close"] <= sym_bars["close"].min():
                 new_low.append(row["symbol"])
 
-    # Limit-up ladder detection: scan consecutive days for each symbol
-    df_sorted = df.sort_values(["symbol", "trade_date"])
+    # Limit-up ladder detection: count consecutive limit-up ending at latest_date
     ladders = []
-    seen = set()
+    df_sorted = df.sort_values(["symbol", "trade_date"])
     for sym in limit_up["symbol"].unique():
         sym_bars = df_sorted[df_sorted["symbol"] == sym]
-        # Reverse scan: count consecutive limit-ups ending at latest_date
-        height = 0
+        # Count streak ending at latest_date
+        current_streak = 0
         for i in range(len(sym_bars) - 1, -1, -1):
             bar = sym_bars.iloc[i]
             if bar["trade_date"] > latest_date:
                 continue
             change = (bar["close"] - bar["open"]) / bar["open"] * 100 if bar["open"] > 0 else 0
             if change >= 9.5:
-                if height == 0 or bar["trade_date"] == sym_bars.iloc[i + 1]["trade_date"] - pd.Timedelta(days=1) if i + 1 < len(sym_bars) else False:
-                    pass
-                if i + 1 < len(sym_bars) and (sym_bars.iloc[i + 1]["trade_date"] - bar["trade_date"]).days <= 1:
-                    pass  # consecutive
-                height += 1
-            else:
-                if bar["trade_date"] == latest_date:
+                if current_streak == 0 or (i + 1 < len(sym_bars) and
+                    (sym_bars.iloc[i + 1]["trade_date"] - bar["trade_date"]).days <= 2):
+                    current_streak += 1
+                else:
                     break
-        # Simplified: count how many days back the limit-up streak goes
-        heights = []
-        current = 0
-        for i in range(len(sym_bars)):
-            bar = sym_bars.iloc[i]
-            change = (bar["close"] - bar["open"]) / bar["open"] * 100 if bar["open"] > 0 else 0
-            if change >= 9.5:
-                current += 1
             else:
-                if current > 0:
-                    heights.append(current)
-                current = 0
-        if current > 0:
-            heights.append(current)
-        max_ladder = max(heights) if heights else 0
-        if max_ladder > 0:
-            ladders.append({"symbol": sym, "ladder_height": max_ladder})
-            seen.add(sym)
+                if current_streak > 0:
+                    break
+        if current_streak > 0:
+            ladders.append({"symbol": sym, "ladder_height": current_streak})
 
     ladders.sort(key=lambda x: x["ladder_height"], reverse=True)
 

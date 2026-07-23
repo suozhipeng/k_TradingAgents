@@ -60,17 +60,17 @@ def compute_breadth(frame: pd.DataFrame, trade_date: date | None = None) -> dict
     gain_ge_5 = int((day["change_pct"] >= 5).sum())
     loss_le_5 = int((day["change_pct"] <= -5).sum())
 
-    # New high/low: compare with last 20 days' max/min
+    # New high/low: compare each symbol with its own last 20 days
     new_high = 0
     new_low = 0
-    lookback = df[df["trade_date"] <= target_date].tail(20)
-    if len(lookback) >= 20 and "high" in lookback.columns and "low" in lookback.columns:
-        for _, row in day.iterrows():
-            sym_bars = lookback[lookback["symbol"] == row["symbol"]]
-            if len(sym_bars) >= 10:
-                if row["close"] >= sym_bars["high"].max():
+    for _, row in day.iterrows():
+        sym_bars = df[(df["symbol"] == row["symbol"]) & (df["trade_date"] <= target_date)]
+        if len(sym_bars) >= 10:
+            recent = sym_bars.tail(20)
+            if "high" in recent.columns and "low" in recent.columns:
+                if row["close"] >= recent["high"].max():
                     new_high += 1
-                if row["close"] <= sym_bars["low"].min():
+                if row["close"] <= recent["low"].min():
                     new_low += 1
 
     median_change = round(float(day["change_pct"].median()), 4)

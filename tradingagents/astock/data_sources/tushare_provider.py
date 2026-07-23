@@ -57,6 +57,14 @@ class TushareProvider(FinancialDataProvider):
                 provider=self.name, capability=capability, state="missing_token",
                 checked_at=_now(), permission_hint="TUSHARE_TOKEN not configured",
             )
+        # Check SDK is actually importable
+        try:
+            import tushare as ts  # noqa: F811
+        except ImportError:
+            return CapabilityStatus(
+                provider=self.name, capability=capability, state="missing_dependency",
+                checked_at=_now(), permission_hint="tushare SDK not installed",
+            )
         if capability == ProviderCapability.TRADE_CALENDAR:
             return self._probe_trade_cal()
         if capability in (ProviderCapability.VALUATION_DAILY, ProviderCapability.FINANCIAL_INDICATORS):

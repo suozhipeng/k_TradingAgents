@@ -29,7 +29,7 @@ def record_field_lineage(
         as_of VARCHAR, quality_tag VARCHAR, ingestion_run_id VARCHAR,
         raw_hash VARCHAR, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )""")
-    seed = f"{provider}:{provider_api}:{source_field}:{normalized_field}:{as_of}"
+    seed = f"{provider}:{provider_api}:{source_field}:{normalized_field}:{as_of}:{source_symbol or ''}"
     lineage_id = "l_" + hashlib.sha256(seed.encode()).hexdigest()[:16]
     conn.execute("""DELETE FROM provider_field_lineage WHERE lineage_id = ?""", [lineage_id])
     conn.execute("""INSERT INTO provider_field_lineage
